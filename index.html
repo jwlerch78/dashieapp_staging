@@ -54,13 +54,13 @@
   
  
   <script>
-  // Refresh every 5 minutes (600000 ms)
+  // Refresh every 2 minutes (120000 ms)
   setInterval(function() {
     const iframe = document.getElementById('frame');
     // Add a timestamp query param to prevent caching
     const baseUrl = iframe.src.split('&t=')[0];
     iframe.src = baseUrl + '&t=' + Date.now();
-  }, 600000);
+  }, 120000);
 </script>
   
 </body>
