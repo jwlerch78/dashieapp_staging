@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Full-screen Calendar Kiosk</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #000;
+    }
+    #frame {
+      position: fixed;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+    #fsBtn {
+      position: fixed;
+      left: 12px;
+      bottom: 12px;
+      z-index: 9999;
+      padding: 24px 36px;
+      background: rgba(0, 0, 0, 0.65);
+      color: #fff;
+      border-radius: 16px;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: 28px;
+      font-weight: 700;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      cursor: pointer;
+      user-select: none;
+      transition: background-color 0.25s ease;
+    }
+    #fsBtn:hover {
+      background: rgba(0, 0, 0, 0.85);
+    }
+    #fsBtn:active {
+      transform: translateY(3px);
+    }
+  </style>
+</head>
+<body>
+<iframe id="frame" src="https://calendar.google.com/calendar/u/0/embed?src=desilerch@gmail.com&color=%237986CB&src=9qbcmr972dmbejoueftmr5t75b14kqv8@import.calendar.google.com&color=%231565C0&src=ntshnc1c1i3vc2d6oeavp6g0kocfem6m@import.calendar.google.com&color=%230B8043&ctz=America/New_York&mode=WEEK&showNav=1&showDate=1&wkst=2" frameborder="0" allowfullscreen> </iframe>
+
+  <button id="fsBtn" onclick="goFullScreen()">Enter full screen</button>
+
+  <script>
+    function goFullScreen(){
+      const el = document.documentElement;
+      if(el.requestFullscreen){ el.requestFullscreen().catch(()=>{}); }
+      else if(el.webkitRequestFullscreen){ el.webkitRequestFullscreen(); }
+      document.getElementById('fsBtn').style.display='none';
+    }
+  </script>
+</body>
+</html>
