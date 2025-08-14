@@ -16,32 +16,22 @@
 
     /* Panel containers */
     #left-panel, #center-panel, #right-panel {
-      border: 0;
-      overflow: hidden;
       position: relative;
       height: 100%;
-      width: 33.33%; /* Equal widths, adjust if needed */
+      overflow: hidden;
     }
 
-    /* Individual frame scaling */
-    #left-panel {
-      transform: scale(1);  /* normal size */
-      transform-origin: top left;
-    }
+    /* Independent widths for layout */
+    #left-panel { width: 33.33%; }
+    #center-panel { width: 33.33%; }
+    #right-panel { width: 33.33%; }
 
-    #center-panel {
-      transform: scale(0.75);  /* example: slightly smaller */
-      transform-origin: top left;
-      width: 133.33%;  /* 100 / scale */
-    }
+    /* Independent scaling */
+    #left-panel { transform: scale(1); transform-origin: top left; }
+    #center-panel { transform: scale(0.75); transform-origin: top left; width: 133.33%; }
+    #right-panel { transform: scale(0.5); transform-origin: top left; width: 200%; }
 
-    #right-panel {
-      transform: scale(0.5);  /* zoomed out 50% */
-      transform-origin: top left;
-      width: 200%;  /* compensate for scaling */
-    }
-
-    /* Iframes fill their panel containers */
+    /* Make iframes fill their container */
     iframe {
       width: 100%;
       height: 100%;
@@ -52,15 +42,15 @@
 <body>
 
   <div id="left-panel">
-    <iframe src="left.html"></iframe>
+    <iframe src="left-panel.html" id="left-frame"></iframe>
   </div>
 
   <div id="center-panel">
-    <iframe src="center.html"></iframe>
+    <iframe src="center-panel.html" id="center-frame"></iframe>
   </div>
 
   <div id="right-panel">
-    <iframe src="agenda.html"></iframe>
+    <iframe src="agenda.html" id="agenda-frame"></iframe>
   </div>
 
 </body>
