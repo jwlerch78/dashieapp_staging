@@ -18,8 +18,6 @@
       height: 100%;
       border: 0;
     }
-
-    /* Button container at the bottom */
     .button-container {
       position: fixed;
       bottom: 12px;
@@ -27,8 +25,6 @@
       text-align: center;
       z-index: 9999;
     }
-
-    /* Buttons style */
     .calendar-button {
       font-size: 20px;
       padding: 12px 24px;
@@ -44,55 +40,52 @@
       cursor: pointer;
       transition: background-color 0.25s ease;
     }
-
-    .calendar-button:hover {
-      background: rgba(0,0,0,0.85);
-    }
-
-    .calendar-button:active {
-      transform: translateY(2px);
-    }
+    .calendar-button:hover { background: rgba(0,0,0,0.85); }
+    .calendar-button:active { transform: translateY(2px); }
   </style>
 </head>
 <body>
 
   <iframe id="frame" frameborder="0" allowfullscreen></iframe>
 
-  <!-- Bottom buttons -->
   <div class="button-container">
     <button class="calendar-button" onclick="window.location.href='index.html'">Weekly</button>
     <button class="calendar-button" onclick="window.location.href='Work.html'">Dad Work</button>
   </div>
 
   <script>
-    // Base URL for Google Calendar embed
-    const baseUrl = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showNav=1&showDate=1&wkst=2";
+    document.addEventListener("DOMContentLoaded", function() {
+      const iframe = document.getElementById("frame");
 
-    // Calendar IDs and colors for Monthly view
-    const calendars = [
-      { id: "desilerch@gmail.com", color: "%23E67C73" },
-      { id: "0d9003b61604007a26868b678b71e5ad894354cbfdab1f071193207ed7e4b7e8@group.calendar.google.com", color: "%231565C0" },
-      { id: "a2ffcf08f82cc50f9d7d0d055f80652074979d74a9a0664e11d6a029a8c8b1ed@group.calendar.google.com", color: "%230B8043" },
-      { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" },
-      { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
-    ];
+      // Base URL for Google Calendar embed
+      const baseUrl = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showNav=1&showDate=1&wkst=2";
 
-    // View mode for this page
-    const viewMode = "MONTH";
+      // Calendar IDs and colors for Monthly view
+      const calendars = [
+        { id: "desilerch@gmail.com", color: "%23E67C73" },
+        { id: "e48b36883ae237a9551de738523b7a246d5a1f6b15a3dbb6c78ee455a3aa4688@group.calendar.google.com", color: "%231565C0" },
+        { id: "180b3d0e7c1ae0241b2e60ba9c566500949ff16a487adf11625cd72306b2310f@group.calendar.google.com", color: "%230B8043" },
+        { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" },
+        { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
+      ];
 
-    // Construct the full iframe URL
-    let fullUrl = baseUrl + "&mode=" + viewMode;
-    calendars.forEach(cal => {
-      fullUrl += `&src=${cal.id}&color=${cal.color}`;
+      // View mode for this page
+      const viewMode = "MONTH";
+
+      // Construct the full iframe URL
+      let fullUrl = baseUrl + "&mode=" + viewMode;
+      calendars.forEach(cal => {
+        fullUrl += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`;
+      });
+
+      // Set the iframe src
+      iframe.src = fullUrl;
+
+      // Auto-refresh every 2 minutes
+      setInterval(function() {
+        iframe.src = fullUrl + "&t=" + Date.now();
+      }, 120000);
     });
-
-    // Set the iframe src
-    document.getElementById("frame").src = fullUrl;
-
-    // Auto-refresh every 2 minutes
-    setInterval(function() {
-      document.getElementById("frame").src = fullUrl + "&t=" + Date.now();
-    }, 120000);
   </script>
 
 </body>
