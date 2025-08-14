@@ -67,6 +67,9 @@
     /* Compensate for scaling so it fills panel */
     width: 142.8571%;  /* 1 / 0.7 = ~142.857% */
     height: 142.8571%;
+
+    border: 0;
+    border-radius: 8px;
   }
 
   /* Common iframe styling */
@@ -104,7 +107,30 @@
   <div class="divider" aria-hidden="true"></div>
 
   <!-- RIGHT: Weekly / Monthly / Work -->
-  <iframe id="right" src="Weekly.html" title="Calendar"></iframe>
+  <iframe id="right" src="Weekly.html" title="Calendar" tabindex="0"></iframe>
+
+  <script>
+    const rightIframe = document.getElementById('right');
+
+    // Focus iframe on initial load
+    window.addEventListener('DOMContentLoaded', () => {
+      if(rightIframe.contentWindow) rightIframe.contentWindow.focus();
+    });
+
+    // Refocus whenever the iframe loads a new page
+    rightIframe.addEventListener('load', () => {
+      if(rightIframe.contentWindow) rightIframe.contentWindow.focus();
+    });
+
+    // Example function to switch views
+    function switchRightPanel(page) {
+      rightIframe.src = page;
+      // focus happens automatically on load
+    }
+
+    // Example usage: call switchRightPanel('Monthly.html') or 'Work.html'
+    // You can attach this to buttons or D-Pad + OK logic later
+  </script>
 
 </body>
 </html>
