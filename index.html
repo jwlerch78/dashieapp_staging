@@ -31,7 +31,7 @@
   .left-col {
     grid-area: left;
     display: grid;
-    grid-template-rows: 12.5% 87.5%;
+    grid-template-rows: 12.5% 1fr; /* top row fixed, bottom row fills remaining space */
     row-gap: 8px;
     background: var(--bg-left);
     border-radius: 10px;
@@ -60,13 +60,13 @@
     border: 0;
     box-shadow: 0 0 12px rgba(0,0,0,0.7);
 
-    /* Zoom out calendar 50% */
-    transform: scale(0.5);
+    /* Zoom out calendar 30% */
+    transform: scale(0.7);
     transform-origin: top left;
 
-    /* Compensate so it stays inside the panel */
-    width: 200%;
-    height: 200%;
+    /* Compensate for scaling so it fills panel */
+    width: 142.8571%;  /* 1 / 0.7 = ~142.857% */
+    height: 142.8571%;
   }
 
   /* Common iframe styling */
@@ -79,12 +79,12 @@
     border-radius: 8px;
   }
 
-  /* Agenda: unscaled and centered */
+  /* Agenda: unscaled and fills space */
   .agenda {
     transform: none;
-    width: 90%;
-    height: 90%;
-    margin: 4px auto 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
     display: block;
   }
 </style>
