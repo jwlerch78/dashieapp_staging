@@ -1,1 +1,33 @@
+<iframe id="frame" frameborder="0" allowfullscreen></iframe>
+
+<script>
+  // Base URL for Google Calendar embed
+  const baseUrl = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showNav=1&showDate=1&wkst=2";
+
+  // Calendar IDs and their colors
+  const calendars = [
+    { id: "desilerch@gmail.com", color: "%23E67C73" },
+    { id: "0d9003b61604007a26868b678b71e5ad894354cbfdab1f071193207ed7e4b7e8@group.calendar.google.com", color: "%231565C0" },
+    { id: "a2ffcf08f82cc50f9d7d0d055f80652074979d74a9a0664e11d6a029a8c8b1ed@group.calendar.google.com", color: "%230B8043" },
+    { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" },
+    { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
+  ];
+
+  // Desired view mode: WEEK or MONTH
+  const viewMode = "MONTH";
+
+  // Construct the full iframe URL
+  let fullUrl = baseUrl + "&mode=" + viewMode;
+  calendars.forEach(cal => {
+    fullUrl += `&src=${cal.id}&color=${cal.color}`;
+  });
+
+  // Set the iframe src
+  document.getElementById("frame").src = fullUrl;
+
+  // Optional: refresh every 2 minutes
+  setInterval(function() {
+    document.getElementById("frame").src = fullUrl + "&t=" + Date.now();
+  }, 120000);
+</script>
 
