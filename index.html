@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>Full-screen Calendar Kiosk</title>
+  <title>Family Calendar - Weekly View</title>
   <style>
     html, body {
       height: 100%;
@@ -42,37 +42,4 @@
       box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
       border: 1px solid rgba(255, 255, 255, 0.15);
       cursor: pointer;
-      transition: background-color 0.25s ease;
-    }
-
-    .calendar-button:hover {
-      background: rgba(0,0,0,0.85);
-    }
-
-    .calendar-button:active {
-      transform: translateY(2px);
-    }
-  </style>
-</head>
-<body>
-
-  <!-- Main Calendar iFrame -->
-  <iframe id="frame" src="https://calendar.google.com/calendar/u/0/embed?src=desilerch@gmail.com&color=%23E67C73&src=e48b36883ae237a9551de738523b7a246d5a1f6b15a3dbb6c78ee455a3aa4688@group.calendar.google.com&color=%231565C0&src=180b3d0e7c1ae0241b2e60ba9c566500949ff16a487adf11625cd72306b2310f@group.calendar.google.com&color=%230B8043&src=47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com&color=%23d50000&src=en.usa%23holiday@group.v.calendar.google.com&color=%23FDD835&ctz=America/New_York&mode=WEEK&showNav=1&showDate=1&wkst=2" frameborder="0" allowfullscreen></iframe>
-
-  <!-- Bottom buttons -->
-  <div class="button-container">
-    <button class="calendar-button" onclick="window.location.href='calendar2.html'">Monthly</button>
-    <button class="calendar-button" onclick="window.location.href='calendar3.html'">Dad Work</button>
-  </div>
-
-  <!-- Auto-refresh every 2 minutes -->
-  <script>
-    setInterval(function() {
-      const iframe = document.getElementById('frame');
-      const baseUrl = iframe.src.split('&t=')[0];
-      iframe.src = baseUrl + '&t=' + Date.now();
-    }, 120000);
-  </script>
-
-</body>
-</html>
+      trans
