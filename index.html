@@ -55,10 +55,10 @@
     border-radius: 10px;
     border: 0;
     box-shadow: 0 0 12px rgba(0,0,0,0.7);
-    transform: scale(0.7);
+    transform: scale(0.6);
     transform-origin: top left;
-    width: 142.8571%;
-    height: 142.8571%;
+    width: 166.6667%;
+    height: 166.6667%;
   }
 
   .card {
@@ -92,6 +92,8 @@
   }
 </style>
 </head>
+
+  
 <body>
 
   <!-- LEFT COLUMN -->
@@ -168,5 +170,24 @@
     });
   </script>
 
+<script>
+  // Try to keep the dashboard page focused for key events
+  const rightIframe = document.getElementById('right');
+
+  function focusDashboard() {
+    window.focus();          // focus the parent
+    document.body.focus();   // ensure body has focus
+  }
+
+  // Initially focus dashboard
+  focusDashboard();
+
+  // Also refocus every time iframe is clicked
+  rightIframe.addEventListener('load', focusDashboard);
+
+  // Optional: periodically refocus in case iframe steals it
+  setInterval(focusDashboard, 1000);
+</script>
+  
 </body>
 </html>
