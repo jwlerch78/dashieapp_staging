@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Date & Time</title>
+<title>Clock</title>
 <style>
   html, body {
     margin: 0;
@@ -12,39 +12,36 @@
     color: #fff;
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
     display: flex;
-    flex-direction: column;
     justify-content: center;
     align-items: center;
     height: 100%;
     width: 100%;
   }
   #time {
-    font-size: 6vw; /* bigger font for small iframe */
+    font-size: 10vw; /* really large */
     font-weight: bold;
-  }
-  #date {
-    font-size: 3vw; /* larger date font */
-    margin-top: 0.2em;
   }
 </style>
 </head>
 <body>
-  <div id="time">--:--</div>
-  <div id="date">Loading...</div>
+  <div id="time">--:--:--</div>
 
   <script>
-    function updateDateTime() {
+    function updateTime() {
       const now = new Date();
-      const hours = now.getHours().toString().padStart(2, '0');
+      let hours = now.getHours();
       const minutes = now.getMinutes().toString().padStart(2, '0');
-      document.getElementById('time').textContent = `${hours}:${minutes}`;
+      const seconds = now.getSeconds().toString().padStart(2, '0');
 
-      const options = { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' };
-      document.getElementById('date').textContent = now.toLocaleDateString(undefined, options);
+      // Convert to 12-hour format
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12; // handle midnight
+      document.getElementById('time').textContent = `${hours}:${minutes}:${seconds} ${ampm}`;
     }
 
-    updateDateTime();
-    setInterval(updateDateTime, 1000);
+    updateTime();
+    setInterval(updateTime, 1000);
   </script>
 </body>
 </html>
