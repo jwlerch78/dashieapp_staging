@@ -1,4 +1,4 @@
- <!doctype html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -60,14 +60,13 @@
     border: 0;
     box-shadow: 0 0 12px rgba(0,0,0,0.7);
 
+    /* Zoom out calendar 30% */
+    transform: scale(0.7);
+    transform-origin: top left;
 
-  transform: scale(0.6);
-  transform-origin: top left;
-  width: 166.6667%; /* 1 / 0.72 ≈ 1.3889 */
-  height: 166.6667%;
-
-    border: 0;
-    border-radius: 8px;
+    /* Compensate for scaling so it fills panel */
+    width: 142.8571%;  /* 1 / 0.7 = ~142.857% */
+    height: 142.8571%;
   }
 
   /* Common iframe styling */
@@ -88,6 +87,19 @@
     margin: 0;
     display: block;
   }
+
+  /* Key log display */
+  #keyLog {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    color: #fff;
+    font-size: 24px;
+    background: rgba(0,0,0,0.5);
+    padding: 8px 12px;
+    border-radius: 8px;
+    z-index: 9999;
+  }
 </style>
 </head>
 <body>
@@ -95,39 +107,81 @@
   <!-- LEFT COLUMN -->
   <section class="left-col">
     <!-- Top-left: Date & Time -->
-    <iframe class="card" src="Date_Time.html" title="Date & Time"></iframe>
+    <iframe class="card" id="dateTime" src="Date_Time.html" title="Date & Time"></iframe>
 
     <!-- Bottom-left: Agenda -->
-    <iframe class="card agenda" src="Agenda.html" title="Agenda"></iframe>
+    <iframe class="card agenda" id="agenda" src="Agenda.html" title="Agenda"></iframe>
   </section>
 
   <!-- Vertical divider -->
   <div class="divider" aria-hidden="true"></div>
 
   <!-- RIGHT: Weekly / Monthly / Work -->
-  <iframe id="right" src="Weekly.html" title="Calendar" tabindex="0"></iframe>
+  <iframe id="right" src="Weekly.html" title="Calendar"></iframe>
+
+  <!-- Key log -->
+  <div id="keyLog">Press a button on the remote</div>
 
   <script>
     const rightIframe = document.getElementById('right');
+    const keyLog = document.getElementById('keyLog');
 
-    // Focus iframe on initial load
-    window.addEventListener('DOMContentLoaded', () => {
-      if(rightIframe.contentWindow) rightIframe.contentWindow.focus();
-    });
-
-    // Refocus whenever the iframe loads a new page
-    rightIframe.addEventListener('load', () => {
-      if(rightIframe.contentWindow) rightIframe.contentWindow.focus();
-    });
-
-    // Example function to switch views
-    function switchRightPanel(page) {
-      rightIframe.src = page;
-      // focus happens automatically on load
+    // Helper to parse YYYYMMDD from full-calendar URL
+    function parseDateFromUrl(url) {
+      const path = new URL(url).pathname;
+      const match = path.match(/\/week\/(\d{8})/);
+      if (!match) return null;
+      const s = match[1];
+      return new Date(s.slice(0,4), parseInt(s.slice(4,6))-1, s.slice(6,8));
     }
 
-    // Example usage: call switchRightPanel('Monthly.html') or 'Work.html'
-    // You can attach this to buttons or D-Pad + OK logic later
+    // Helper to format date as YYYYMMDD
+    function formatDateYYYYMMDD(date) {
+      return date.toISOString().slice(0,10).replace(/-/g,'');
+    }
+
+    function moveForwardWeek() {
+      const iframeUrl = new URL(rightIframe.src);
+      const currentDate = parseDateFromUrl(iframeUrl) || new Date();
+      currentDate.setDate(currentDate.getDate() + 7);
+      const yyyymmdd = formatDateYYYYMMDD(currentDate);
+      iframeUrl.pathname = `/calendar/u/0/r/week/${yyyymmdd}`;
+      rightIframe.src = iframeUrl.toString();
+    }
+
+    function moveBackwardWeek() {
+      const iframeUrl = new URL(rightIframe.src);
+      const currentDate = parseDateFromUrl(iframeUrl) || new Date();
+      currentDate.setDate(currentDate.getDate() - 7);
+      const yyyymmdd = formatDateYYYYMMDD(currentDate);
+      iframeUrl.pathname = `/calendar/u/0/r/week/${yyyymmdd}`;
+      rightIframe.src = iframeUrl.toString();
+    }
+
+    document.addEventListener('keydown', (event) => {
+      keyLog.textContent = `Key pressed: ${event.key} | keyCode: ${event.keyCode}`;
+
+      switch(event.keyCode) {
+        case 179: // Play/Pause: cycle views
+          const src = rightIframe.src;
+          if (src.includes("Weekly.html")) {
+            rightIframe.src = "Work.html";
+          } else if (src.includes("Work.html")) {
+            rightIframe.src = "Monthly.html";
+          } else {
+            rightIframe.src = "Weekly.html";
+          }
+          break;
+
+        case 227: // Rewind
+          moveBackwardWeek();
+          break;
+
+        case 228: // Fast Forward
+          moveForwardWeek();
+          break;
+      }
+    });
   </script>
 
 </body>
