@@ -103,25 +103,27 @@
       // ----------------------------
       const keyLog = document.getElementById('keyLog');
 
-      function moveForward() {
-        const url = new URL(iframe.src);
-        let start = url.searchParams.get('start');
-        if (!start) start = new Date().toISOString().split('T')[0];
-        const startDate = new Date(start);
-        startDate.setDate(startDate.getDate() + 7);
-        url.searchParams.set('start', startDate.toISOString().split('T')[0]);
-        iframe.src = url.toString();
-      }
+function moveForward() {
+  const iframeUrl = new URL(iframe.src);
+  let currentStart = iframeUrl.searchParams.get('dates');
+  let startDate = currentStart ? new Date(currentStart.split('/')[0].replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')) : new Date();
+  startDate.setDate(startDate.getDate() + 7);
+  let endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + 6); // one week
+  iframeUrl.searchParams.set('dates', `${formatDateYYYYMMDD(startDate)}/${formatDateYYYYMMDD(endDate)}`);
+  iframe.src = iframeUrl.toString();
+}
 
-      function moveBackward() {
-        const url = new URL(iframe.src);
-        let start = url.searchParams.get('start');
-        if (!start) start = new Date().toISOString().split('T')[0];
-        const startDate = new Date(start);
-        startDate.setDate(startDate.getDate() - 7);
-        url.searchParams.set('start', startDate.toISOString().split('T')[0]);
-        iframe.src = url.toString();
-      }
+function moveBackward() {
+  const iframeUrl = new URL(iframe.src);
+  let currentStart = iframeUrl.searchParams.get('dates');
+  let startDate = currentStart ? new Date(currentStart.split('/')[0].replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3')) : new Date();
+  startDate.setDate(startDate.getDate() - 7);
+  let endDate = new Date(startDate);
+  endDate.setDate(endDate.getDate() + 6);
+  iframeUrl.searchParams.set('dates', `${formatDateYYYYMMDD(startDate)}/${formatDateYYYYMMDD(endDate)}`);
+  iframe.src = iframeUrl.toString();
+}
 
       document.addEventListener('keydown', (event) => {
         keyLog.textContent = `Key pressed: ${event.key} | keyCode: ${event.keyCode}`;
