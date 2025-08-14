@@ -127,12 +127,12 @@
         keyLog.textContent = `Key pressed: ${event.key} | keyCode: ${event.keyCode}`;
 
         switch(event.keyCode) {
-          case 21: // D-Pad Left
-          case 89: // Rewind
+          case 37: // D-Pad Left
+          case 227: // Rewind
             moveBackward();
             break;
-          case 22: // D-Pad Right
-          case 90: // Fast Forward
+          case 39: // D-Pad Right
+          case 228: // Fast Forward
             moveForward();
             break;
         }
