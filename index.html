@@ -6,8 +6,8 @@
 <title>Dashboard</title>
 <style>
   :root{
-    --bg-left:  #0a0a0a;  /* darker left column */
-    --bg-right: #111111;  /* slightly lighter right column */
+    --bg-left:  #0a0a0a;
+    --bg-right: #111111;
   }
 
   html, body {
@@ -16,29 +16,26 @@
     background: #000;
   }
 
-  /* Parent grid: left | divider | right */
   body {
     display: grid;
-    grid-template-columns: 1fr 12px 2fr; /* 1/3 left, 2/3 right */
+    grid-template-columns: 1fr 12px 2fr;
     grid-template-rows: 100%;
     grid-template-areas: "left divider right";
     align-items: stretch;
-    padding: 10px; /* TV overscan safety */
+    padding: 10px;
     box-sizing: border-box;
   }
 
-  /* Left column (two stacked rows inside) */
   .left-col {
     grid-area: left;
     display: grid;
-    grid-template-rows: 12.5% 1fr; /* top row fixed, bottom row fills remaining space */
+    grid-template-rows: 12.5% 1fr;
     row-gap: 8px;
     background: var(--bg-left);
     border-radius: 10px;
     overflow: hidden;
   }
 
-  /* Soft vertical divider */
   .divider {
     grid-area: divider;
     border-radius: 10px;
@@ -52,24 +49,18 @@
     opacity: 0.7;
   }
 
-  /* Right panel */
   #right {
     grid-area: right;
     background: var(--bg-right);
     border-radius: 10px;
     border: 0;
     box-shadow: 0 0 12px rgba(0,0,0,0.7);
-
-    /* Zoom out calendar 30% */
     transform: scale(0.7);
     transform-origin: top left;
-
-    /* Compensate for scaling so it fills panel */
-    width: 142.8571%;  /* 1 / 0.7 = ~142.857% */
+    width: 142.8571%;
     height: 142.8571%;
   }
 
-  /* Common iframe styling */
   .card {
     width: 100%;
     height: 100%;
@@ -79,7 +70,6 @@
     border-radius: 8px;
   }
 
-  /* Agenda: unscaled and fills space */
   .agenda {
     transform: none;
     width: 100%;
@@ -88,10 +78,10 @@
     display: block;
   }
 
-  /* Key log display */
+  /* Key log display at bottom-left */
   #keyLog {
     position: fixed;
-    top: 10px;
+    bottom: 10px;
     left: 10px;
     color: #fff;
     font-size: 24px;
@@ -106,17 +96,13 @@
 
   <!-- LEFT COLUMN -->
   <section class="left-col">
-    <!-- Top-left: Date & Time -->
     <iframe class="card" id="dateTime" src="Date_Time.html" title="Date & Time"></iframe>
-
-    <!-- Bottom-left: Agenda -->
     <iframe class="card agenda" id="agenda" src="Agenda.html" title="Agenda"></iframe>
   </section>
 
-  <!-- Vertical divider -->
   <div class="divider" aria-hidden="true"></div>
 
-  <!-- RIGHT: Weekly / Monthly / Work -->
+  <!-- RIGHT PANEL -->
   <iframe id="right" src="Weekly.html" title="Calendar"></iframe>
 
   <!-- Key log -->
@@ -126,35 +112,33 @@
     const rightIframe = document.getElementById('right');
     const keyLog = document.getElementById('keyLog');
 
-    // Helper to parse YYYYMMDD from full-calendar URL
     function parseDateFromUrl(url) {
-      const path = new URL(url).pathname;
+      const path = new URL(url, window.location.origin).pathname;
       const match = path.match(/\/week\/(\d{8})/);
       if (!match) return null;
       const s = match[1];
       return new Date(s.slice(0,4), parseInt(s.slice(4,6))-1, s.slice(6,8));
     }
 
-    // Helper to format date as YYYYMMDD
     function formatDateYYYYMMDD(date) {
       return date.toISOString().slice(0,10).replace(/-/g,'');
     }
 
     function moveForwardWeek() {
-      const iframeUrl = new URL(rightIframe.src);
+      if (!rightIframe.src.includes("Weekly.html")) return;
+      const iframeUrl = new URL(rightIframe.src, window.location.origin);
       const currentDate = parseDateFromUrl(iframeUrl) || new Date();
       currentDate.setDate(currentDate.getDate() + 7);
-      const yyyymmdd = formatDateYYYYMMDD(currentDate);
-      iframeUrl.pathname = `/calendar/u/0/r/week/${yyyymmdd}`;
+      iframeUrl.pathname = `/calendar/u/0/r/week/${formatDateYYYYMMDD(currentDate)}`;
       rightIframe.src = iframeUrl.toString();
     }
 
     function moveBackwardWeek() {
-      const iframeUrl = new URL(rightIframe.src);
+      if (!rightIframe.src.includes("Weekly.html")) return;
+      const iframeUrl = new URL(rightIframe.src, window.location.origin);
       const currentDate = parseDateFromUrl(iframeUrl) || new Date();
       currentDate.setDate(currentDate.getDate() - 7);
-      const yyyymmdd = formatDateYYYYMMDD(currentDate);
-      iframeUrl.pathname = `/calendar/u/0/r/week/${yyyymmdd}`;
+      iframeUrl.pathname = `/calendar/u/0/r/week/${formatDateYYYYMMDD(currentDate)}`;
       rightIframe.src = iframeUrl.toString();
     }
 
@@ -162,7 +146,7 @@
       keyLog.textContent = `Key pressed: ${event.key} | keyCode: ${event.keyCode}`;
 
       switch(event.keyCode) {
-        case 179: // Play/Pause: cycle views
+        case 179: // Play/Pause
           const src = rightIframe.src;
           if (src.includes("Weekly.html")) {
             rightIframe.src = "Work.html";
