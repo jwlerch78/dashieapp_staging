@@ -1,48 +1,61 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>Family Calendar - Weekly View</title>
-  <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      background: #000;
-      overflow: hidden;
-    }
-    #frame {
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      border: 0;
-    }
-    .button-container {
-      position: fixed;
-      bottom: 12px;
-      width: 100%;
-      text-align: center;
-      z-index: 9999;
-    }
-    .calendar-button {
-      font-size: 20px;
-      padding: 12px 24px;
-      margin: 0 8px;
-      background: rgba(0, 0, 0, 0.65);
-      color: #fff;
-      border-radius: 12px;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-      font-weight: 700;
-      backdrop-filter: blur(6px);
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      cursor: pointer;
-      transition: background-color 0.25s ease;
-    }
-    .calendar-button:hover { background: rgba(0,0,0,0.85); }
-    .calendar-button:active { transform: translateY(2px); }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Family Calendar - Weekly View</title>
+<style>
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: #000;
+    overflow: hidden;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  #frame {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    border: 0;
+  }
+  .button-container {
+    position: fixed;
+    bottom: 12px;
+    width: 100%;
+    text-align: center;
+    z-index: 9999;
+  }
+  .calendar-button {
+    font-size: 20px;
+    padding: 12px 24px;
+    margin: 0 8px;
+    background: rgba(0,0,0,0.65);
+    color: #fff;
+    border-radius: 12px;
+    font-weight: 700;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.15);
+    cursor: pointer;
+    transition: background-color 0.25s ease;
+  }
+  .calendar-button:hover { background: rgba(0,0,0,0.85); }
+  .calendar-button:active { transform: translateY(2px); }
+
+  /* Visual key log */
+  #keyLog {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    color: #fff;
+    font-size: 24px;
+    background: rgba(0,0,0,0.5);
+    padding: 8px 12px;
+    border-radius: 8px;
+    z-index: 9999;
+  }
+</style>
 </head>
 <body>
 
@@ -53,6 +66,9 @@
     <button class="calendar-button" onclick="window.location.href='Work.html'">Dad Work</button>
   </div>
 
+  <!-- Key log display -->
+  <div id="keyLog">Press a button on the remote</div>
+
   <script>
     document.addEventListener("DOMContentLoaded", function() {
       const iframe = document.getElementById("frame");
@@ -60,24 +76,21 @@
       // Base URL for Google Calendar embed
       const baseUrl = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showNav=1&showDate=1&wkst=2";
 
-      // Calendar IDs and colors for Weekly view
       const calendars = [
         { id: "desilerch@gmail.com", color: "%23E67C73" },
-        { id: "e48b36883ae237a9551de738523b7a246d5a1f6b15a3dbb6c78ee455a3aa4688@group.calendar.google.com", color: "%231565C0" },
-        { id: "180b3d0e7c1ae0241b2e60ba9c566500949ff16a487adf11625cd72306b2310f@group.calendar.google.com", color: "%230B8043" },
+        { id: "e48b36883ae237a9551de738523b7a246d5a1f6b15a3aa4688@group.calendar.google.com", color: "%231565C0" },
+        { id: "180b3d0e7c1ae0241b2e60ba9c566500949ff16a487adf11625cd72306fd1c83a8ac7badd5118@group.calendar.google.com", color: "%230B8043" },
         { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" },
         { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
       ];
 
       const viewMode = "WEEK";
 
-      // Construct the full iframe URL
       let fullUrl = baseUrl + "&mode=" + viewMode;
       calendars.forEach(cal => {
         fullUrl += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`;
       });
 
-      // Set the iframe src
       iframe.src = fullUrl;
 
       // Auto-refresh every 2 minutes
@@ -86,28 +99,17 @@
       }, 120000);
 
       // ----------------------------
-      // D-Pad navigation for Fire TV
+      // D-Pad / Fast Forward / Rewind key handling
       // ----------------------------
-      document.addEventListener("keydown", function(event) {
-        switch(event.keyCode) {
-          case 90: // Fast Forward
-              moveForward();
-              break;
-          case 89: // Rewind
-              moveBackward();
-              break;
-          }
-      });
+      const keyLog = document.getElementById('keyLog');
 
       function moveForward() {
         const url = new URL(iframe.src);
         let start = url.searchParams.get('start');
         if (!start) start = new Date().toISOString().split('T')[0];
-
         const startDate = new Date(start);
-        startDate.setDate(startDate.getDate() + 7); // forward one week
+        startDate.setDate(startDate.getDate() + 7);
         url.searchParams.set('start', startDate.toISOString().split('T')[0]);
-
         iframe.src = url.toString();
       }
 
@@ -115,13 +117,26 @@
         const url = new URL(iframe.src);
         let start = url.searchParams.get('start');
         if (!start) start = new Date().toISOString().split('T')[0];
-
         const startDate = new Date(start);
-        startDate.setDate(startDate.getDate() - 7); // back one week
+        startDate.setDate(startDate.getDate() - 7);
         url.searchParams.set('start', startDate.toISOString().split('T')[0]);
-
         iframe.src = url.toString();
       }
+
+      document.addEventListener('keydown', (event) => {
+        keyLog.textContent = `Key pressed: ${event.key} | keyCode: ${event.keyCode}`;
+
+        switch(event.keyCode) {
+          case 21: // D-Pad Left
+          case 89: // Rewind
+            moveBackward();
+            break;
+          case 22: // D-Pad Right
+          case 90: // Fast Forward
+            moveForward();
+            break;
+        }
+      });
 
     });
   </script>
