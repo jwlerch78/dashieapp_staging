@@ -19,10 +19,12 @@
   /* Parent grid: left | divider | right */
   body {
     display: grid;
-    grid-template-columns: 25% 12px 75%;
+    grid-template-columns: 1fr 12px 2fr; /* 1/3 left, 2/3 right */
     grid-template-rows: 100%;
     grid-template-areas: "left divider right";
     align-items: stretch;
+    padding: 10px; /* TV overscan safety */
+    box-sizing: border-box;
   }
 
   /* Left column (two stacked rows inside) */
@@ -33,7 +35,7 @@
     row-gap: 8px;
     background: var(--bg-left);
     border-radius: 10px;
-    overflow: hidden;   /* keeps rounded corners clean */
+    overflow: hidden;
   }
 
   /* Soft vertical divider */
@@ -51,27 +53,33 @@
   }
 
   /* Right panel */
-  #right {
-    grid-area: right;
-    background: var(--bg-right);
-    border-radius: 10px;
-    width: 100%;
-    height: 100%;
-    border: 0;
-    box-shadow: 0 0 12px rgba(0,0,0,0.7);
-  }
+#right {
+  grid-area: right;
+  background: var(--bg-right);
+  border-radius: 10px;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  box-shadow: 0 0 12px rgba(0,0,0,0.7);
+
+  /* Zoom out by 30% */
+  transform: scale(0.7);
+  transform-origin: top left;
+  width: 143%; /* compensate for shrink (1 / 0.7 ≈ 1.43) */
+  height: 143%;
+}
 
   /* Common iframe styling */
   .card {
     width: 100%;
     height: 100%;
     border: 0;
-    background: transparent; /* the column bg shows through */
+    background: transparent;
     box-shadow: 0 0 12px rgba(0,0,0,0.7);
     border-radius: 8px;
   }
 
-  /* Optional: scale agenda a touch and center it */
+  /* Scale agenda slightly and center it */
   .agenda {
     transform: scale(1.1);
     transform-origin: top center;
@@ -80,9 +88,6 @@
     margin: 4px auto 0;
     display: block;
   }
-
-  /* TV overscan safety (tweak if your TV crops edges) */
-  body { padding: 10px; box-sizing: border-box; }
 </style>
 </head>
 <body>
@@ -92,7 +97,7 @@
     <!-- Top-left: Date & Time -->
     <iframe class="card" src="Date_Time.html" title="Date & Time"></iframe>
 
-    <!-- Bottom-left: Agenda (scaled slightly) -->
+    <!-- Bottom-left: Agenda -->
     <iframe class="card agenda" src="Agenda.html" title="Agenda"></iframe>
   </section>
 
