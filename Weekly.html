@@ -69,7 +69,6 @@
         { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
       ];
 
-      // View mode for this page
       const viewMode = "WEEK";
 
       // Construct the full iframe URL
@@ -85,6 +84,45 @@
       setInterval(function() {
         iframe.src = fullUrl + "&t=" + Date.now();
       }, 120000);
+
+      // ----------------------------
+      // D-Pad navigation for Fire TV
+      // ----------------------------
+      document.addEventListener("keydown", function(event) {
+        switch(event.keyCode) {
+          case 22: // D-Pad Right → move forward one week
+            moveForward();
+            break;
+          case 21: // D-Pad Left → move backward one week
+            moveBackward();
+            break;
+        }
+      });
+
+      function moveForward() {
+        const url = new URL(iframe.src);
+        let start = url.searchParams.get('start');
+        if (!start) start = new Date().toISOString().split('T')[0];
+
+        const startDate = new Date(start);
+        startDate.setDate(startDate.getDate() + 7); // forward one week
+        url.searchParams.set('start', startDate.toISOString().split('T')[0]);
+
+        iframe.src = url.toString();
+      }
+
+      function moveBackward() {
+        const url = new URL(iframe.src);
+        let start = url.searchParams.get('start');
+        if (!start) start = new Date().toISOString().split('T')[0];
+
+        const startDate = new Date(start);
+        startDate.setDate(startDate.getDate() - 7); // back one week
+        url.searchParams.set('start', startDate.toISOString().split('T')[0]);
+
+        iframe.src = url.toString();
+      }
+
     });
   </script>
 
