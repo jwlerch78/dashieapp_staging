@@ -52,20 +52,29 @@
     opacity: 0.7;
   }
 
-  /* Right panel */
-  #right {
+  /* Right panel wrapper for centering */
+  .right-wrapper {
     grid-area: right;
     background: var(--bg-right);
     border-radius: 10px;
-    width: 100%;
-    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    padding: 10px;
+  }
+
+  /* Right panel iframe */
+  #right {
     border: 0;
+    border-radius: 8px;
     box-shadow: 0 0 12px rgba(0,0,0,0.7);
 
-    /* Zoom out calendar to 50% cleanly */
+    /* Zoom out calendar to 50% and keep centered */
     transform: scale(0.5);
-    transform-origin: top left;
-    overflow: hidden;
+    transform-origin: center center;
+    width: 100%;
+    height: 100%;
   }
 
   /* Common iframe styling */
@@ -103,7 +112,9 @@
   <div class="divider" aria-hidden="true"></div>
 
   <!-- RIGHT: Weekly / Monthly / Work -->
-  <iframe id="right" src="Weekly.html" title="Calendar"></iframe>
+  <div class="right-wrapper">
+    <iframe id="right" src="Weekly.html" title="Calendar"></iframe>
+  </div>
 
 </body>
 </html>
