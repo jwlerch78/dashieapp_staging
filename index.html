@@ -15,18 +15,42 @@
     display: grid;
     grid-template-columns: 25% 75%; /* left 1/4, right 3/4 */
     grid-template-rows: 12.5% 87.5%; /* top 1/8, bottom 7/8 */
-    gap: 2px; /* optional spacing */
+    gap: 8px; /* space between panels */
+    background: #000; /* fallback */
+  }
+
+  /* Left column background & divider */
+  #top-left, #bottom-left {
+    background-color: #0a0a0a; /* slightly darker than right */
+    border-right: 3px solid rgba(255, 255, 255, 0.15);
+  }
+
+  /* Right panel background */
+  #right {
+    background-color: #111;
   }
 
   iframe {
     width: 100%;
     height: 100%;
     border: 0;
+    border-radius: 8px;
+    box-shadow: 0 0 12px rgba(0, 0, 0, 0.8);
   }
 
-  #top-left { grid-column: 1; grid-row: 1; }
-  #bottom-left { grid-column: 1; grid-row: 2; }
-  #right { grid-column: 2; grid-row: 1 / 3; } /* spans both rows */
+  /* Keep agenda scaling neat and centered */
+  #bottom-left {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 4px;
+  }
+  #bottom-left iframe {
+    transform: scale(1.1);
+    transform-origin: top center;
+    width: 90%;
+    height: 90%;
+  }
 </style>
 </head>
 <body>
@@ -34,11 +58,10 @@
   <!-- Top-left: Date and Time -->
   <iframe id="top-left" src="Date_Time.html"></iframe>
 
-<!-- Bottom-left: Agenda -->
-<iframe id="agenda-frame" src="Agenda.html"
-        style="transform: scale(1.2); transform-origin: top left; width: 83.33%; height: 83.33%; border:0;">
-</iframe>
-
+  <!-- Bottom-left: Agenda -->
+  <div id="bottom-left">
+    <iframe src="Agenda.html"></iframe>
+  </div>
 
   <!-- Right: Weekly / Monthly / Work -->
   <iframe id="right" src="Weekly.html"></iframe>
