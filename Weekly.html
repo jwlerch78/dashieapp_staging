@@ -90,13 +90,13 @@
       // ----------------------------
       document.addEventListener("keydown", function(event) {
         switch(event.keyCode) {
-          case 22: // D-Pad Right → move forward one week
-            moveForward();
-            break;
-          case 21: // D-Pad Left → move backward one week
-            moveBackward();
-            break;
-        }
+          case 90: // Fast Forward
+              moveForward();
+              break;
+          case 89: // Rewind
+              moveBackward();
+              break;
+          }
       });
 
       function moveForward() {
