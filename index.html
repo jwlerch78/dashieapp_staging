@@ -78,14 +78,22 @@
     display: block;
   }
 
-  /* Scale Date_Time iframe to fit */
+  /* Wrapper to hide iframe overflow */
+  .iframe-wrapper {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Scale the Date_Time iframe inside wrapper */
   #dateTime {
-    width: 125%;          /* adjust to compensate scale */
-    height: 125%;         /* adjust to compensate scale */
+    width: 125%;            /* adjust to compensate scale */
+    height: 125%;
     border: 0;
-    transform: scale(0.8); /* scale down */
+    transform: scale(0.8);  /* scale down */
     transform-origin: top left;
-    overflow: hidden;     /* hide scrollbars */
+    display: block;
   }
 
   /* Key log display at bottom-left */
@@ -106,7 +114,9 @@
 <body>
   <!-- LEFT COLUMN -->
   <section class="left-col">
-    <iframe class="card" id="dateTime" src="Date_Time.html" title="Date & Time"></iframe>
+    <div class="iframe-wrapper">
+      <iframe class="card" id="dateTime" src="Date_Time.html" title="Date & Time"></iframe>
+    </div>
     <iframe class="card leftpanel" id="leftpanel" src="LeftPanel.html" title="LeftPanel"></iframe>
   </section>
 
