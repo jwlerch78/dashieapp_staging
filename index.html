@@ -109,73 +109,43 @@
   <div id="keyLog">Press a button on the remote</div>
 
   <script>
-    const rightIframe = document.getElementById('right');
-    const keyLog = document.getElementById('keyLog');
+  const rightIframe = document.getElementById('right');
+  const keyLog = document.getElementById('keyLog');
 
-    function parseDateFromUrl(url) {
-      const path = new URL(url, window.location.origin).pathname;
-      const match = path.match(/\/week\/(\d{8})/);
-      if (!match) return null;
-      const s = match[1];
-      return new Date(s.slice(0,4), parseInt(s.slice(4,6))-1, s.slice(6,8));
+  document.addEventListener('keydown', (event) => {
+    keyLog.textContent = `Key pressed: ${event.key} | keyCode: ${event.keyCode}`;
+
+    switch(event.keyCode) {
+      case 179: // Play/Pause - cycle through pages
+        const src = rightIframe.src;
+        if (src.includes("Weekly.html")) {
+          rightIframe.src = "Work.html";
+        } else if (src.includes("Work.html")) {
+          rightIframe.src = "Monthly.html";
+        } else {
+          rightIframe.src = "Weekly.html";
+        }
+        break;
+
+      case 227: // Rewind
+        rightIframe.contentWindow.postMessage({ action: "prev" }, "*");
+        break;
+
+      case 228: // Fast Forward
+        rightIframe.contentWindow.postMessage({ action: "next" }, "*");
+        break;
     }
+  });
 
-    function formatDateYYYYMMDD(date) {
-      return date.toISOString().slice(0,10).replace(/-/g,'');
-    }
+  // Keep focus so key presses register
+  function focusDashboard() {
+    window.focus();
+    document.body.focus();
+  }
+  focusDashboard();
+  rightIframe.addEventListener('load', focusDashboard);
+  setInterval(focusDashboard, 1000);
+</script>
 
-    function moveForwardWeek() {
-      if (!rightIframe.src.includes("Weekly.html")) return;
-      const iframeUrl = new URL(rightIframe.src, window.location.origin);
-      const currentDate = parseDateFromUrl(iframeUrl) || new Date();
-      currentDate.setDate(currentDate.getDate() + 7);
-      iframeUrl.pathname = `/calendar/u/0/r/week/${formatDateYYYYMMDD(currentDate)}`;
-      rightIframe.src = iframeUrl.toString();
-    }
-
-    function moveBackwardWeek() {
-      if (!rightIframe.src.includes("Weekly.html")) return;
-      const iframeUrl = new URL(rightIframe.src, window.location.origin);
-      const currentDate = parseDateFromUrl(iframeUrl) || new Date();
-      currentDate.setDate(currentDate.getDate() - 7);
-      iframeUrl.pathname = `/calendar/u/0/r/week/${formatDateYYYYMMDD(currentDate)}`;
-      rightIframe.src = iframeUrl.toString();
-    }
-
-    document.addEventListener('keydown', (event) => {
-      keyLog.textContent = `Key pressed: ${event.key} | keyCode: ${event.keyCode}`;
-
-      switch(event.keyCode) {
-        case 179: // Play/Pause
-          const src = rightIframe.src;
-          if (src.includes("Weekly.html")) {
-            rightIframe.src = "Work.html";
-          } else if (src.includes("Work.html")) {
-            rightIframe.src = "Monthly.html";
-          } else {
-            rightIframe.src = "Weekly.html";
-          }
-          break;
-
-        case 227: // Rewind
-          moveBackwardWeek();
-          break;
-
-        case 228: // Fast Forward
-          moveForwardWeek();
-          break;
-      }
-    });
-
-    // Keep focus on dashboard so key presses register
-    function focusDashboard() {
-      window.focus();
-      document.body.focus();
-    }
-
-    focusDashboard();
-    rightIframe.addEventListener('load', focusDashboard);
-    setInterval(focusDashboard, 1000);
-  </script>
 </body>
 </html>
