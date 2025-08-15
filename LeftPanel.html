@@ -28,20 +28,20 @@
     }
 
 #photo-container {
-  flex: 1; /* take remaining space */
+  flex: 0 0 40%;
   display: flex;
   align-items: center;
   justify-content: center;
   background: #111;
-  padding: 10px; /* space around the image */
+  padding: 10px; /* small space around the image */
 }
 
 #photo-container img {
   max-width: 100%;
   max-height: 100%;
-  width: auto;
-  height: auto;
   object-fit: contain;
+  width: auto;   /* let it scale naturally */
+  height: auto;
 }
   </style>
 </head>
