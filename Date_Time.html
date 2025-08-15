@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Clock</title>
+<title>Clock with Weather</title>
 <style>
   html, body {
     margin: 0;
@@ -12,36 +12,109 @@
     color: #fff;
     font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     align-items: center;
     height: 100%;
     width: 100%;
+    padding: 0 20px;
   }
   #time {
-    font-size: 10vw; /* really large */
+    font-size: 10vw;
     font-weight: bold;
+    text-align: left;
+  }
+  #weather {
+    font-size: 2vw;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+  }
+  #weather-icon {
+    margin-right: 10px;
+    width: 50px;
+    height: 50px;
   }
 </style>
 </head>
 <body>
-  <div id="time">--:--:--</div>
+  <div id="time">--:--</div>
+  <div id="weather">
+    <img id="weather-icon" src="" alt="Weather Icon">
+    <span id="temperature">--°</span>
+  </div>
 
-  <script>
-    function updateTime() {
-      const now = new Date();
-      let hours = now.getHours();
-      const minutes = now.getMinutes().toString().padStart(2, '0');
-      const seconds = now.getSeconds().toString().padStart(2, '0');
+<script>
+function updateTime() {
+  const now = new Date();
+  let hours = now.getHours();
+  const minutes = now.getMinutes().toString().padStart(2,'0');
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  document.getElementById('time').textContent = `${hours}:${minutes} ${ampm}`;
+}
 
-      // Convert to 12-hour format
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      hours = hours % 12;
-      hours = hours ? hours : 12; // handle midnight
-      document.getElementById('time').textContent = `${hours}:${minutes}:${seconds} ${ampm}`;
-    }
+// Open-Meteo: Belleair, FL approximate coordinates
+const latitude = 27.9186;
+const longitude = -82.8053;
 
-    updateTime();
-    setInterval(updateTime, 1000);
-  </script>
+// Mapping Open-Meteo weather codes to emoji icons
+const weatherIcons = {
+  0: '☀️', // Clear sky
+  1: '🌤️', // Mainly clear
+  2: '⛅',  // Partly cloudy
+  3: '☁️', // Overcast
+  45: '🌫️', // Fog
+  48: '🌫️', // Depositing rime fog
+  51: '🌦️', // Drizzle light
+  53: '🌦️', // Drizzle moderate
+  55: '🌧️', // Drizzle dense
+  56: '🌧️', // Freezing drizzle light
+  57: '🌧️', // Freezing drizzle dense
+  61: '🌧️', // Rain slight
+  63: '🌧️', // Rain moderate
+  65: '🌧️', // Rain heavy
+  66: '❄️', // Freezing rain light
+  67: '❄️', // Freezing rain heavy
+  71: '❄️', // Snow fall slight
+  73: '❄️', // Snow fall moderate
+  75: '❄️', // Snow fall heavy
+  80: '🌧️', // Rain showers slight
+  81: '🌧️', // Rain showers moderate
+  82: '🌧️', // Rain showers violent
+  95: '⛈️', // Thunderstorm
+  96: '⛈️', // Thunderstorm with hail
+  99: '⛈️'  // Thunderstorm with heavy hail
+};
+
+async function updateWeather() {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    const weatherCode = data.current_weather.weathercode;
+    const temp = Math.round(data.current_weather.temperature);
+
+    document.getElementById('temperature').textContent = `${temp}°F`;
+    document.getElementById('weather-icon').alt = weatherIcons[weatherCode] || '🌡️';
+    document.getElementById('weather-icon').src = `https://twemoji.maxcdn.com/v/latest/svg/${getTwemojiCode(weatherIcons[weatherCode] || '🌡️')}.svg`;
+  } catch (err) {
+    console.error('Weather fetch error:', err);
+  }
+}
+
+// Convert emoji to Twemoji code
+function getTwemojiCode(emoji) {
+  return Array.from(emoji).map(c => c.codePointAt(0).toString(16)).join('-');
+}
+
+// Update time every second
+setInterval(updateTime, 1000);
+updateTime();
+
+// Update weather every 10 minutes
+updateWeather();
+setInterval(updateWeather, 600000);
+</script>
 </body>
 </html>
