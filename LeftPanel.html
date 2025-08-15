@@ -16,7 +16,7 @@
   }
 
   #agenda-container {
-    flex: 0 0 auto;
+    flex: 0 0 70%; /* top 70% */
     border-bottom: 2px solid #444;
     overflow: hidden;
   }
@@ -28,7 +28,7 @@
   }
 
   #photo-container {
-    flex: 1 1 auto; /* fill remaining space */
+    flex: 0 0 30%; /* bottom 30% */
     display: flex;
     align-items: center;
     justify-content: center;
@@ -92,13 +92,13 @@ document.addEventListener("DOMContentLoaded", function() {
 
   function showPhoto(index) {
     currentPhotoIndex = (index + photos.length) % photos.length;
-    photoImg.src = photos[currentPhotoIndex] + "?t=" + Date.now(); // forces reload
+    photoImg.src = photos[currentPhotoIndex] + "?t=" + Date.now();
   }
 
   showPhoto(0);
   setInterval(() => { showPhoto(currentPhotoIndex + 1); }, 15000);
 
-  // --- Listen for external 'change' messages ---
+  // Listen for external 'change' messages
   window.addEventListener('message', function(event) {
     if (event.data === 'change') {
       showPhoto(currentPhotoIndex + 1);
