@@ -97,10 +97,10 @@
       let currentPhotoIndex = 0;
       const photoImg = document.getElementById("photoImg");
 
-      function showPhoto(index) {
-        currentPhotoIndex = (index + photos.length) % photos.length;
-        photoImg.src = photos[currentPhotoIndex];
-      }
+function showPhoto(index) {
+  currentPhotoIndex = (index + photos.length) % photos.length;
+  photoImg.src = photos[currentPhotoIndex] + "?t=" + Date.now(); // forces reload
+}
 
       // Show initial photo
       showPhoto(0);
