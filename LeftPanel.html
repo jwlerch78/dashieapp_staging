@@ -1,120 +1,105 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-  <title>Family Dashboard - Dynamic Display</title>
-  <style>
-    html, body {
-      height: 100%;
-      margin: 0;
-      background: #000;
-      overflow: hidden;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-    }
+<meta charset="UTF-8">
+<title>Dashboard</title>
+<style>
+  body {
+    background-color: black;
+    margin: 0;
+    display: flex;
+    height: 100vh;
+  }
 
-    #agenda-container {
-      flex: 0 0 60%;
-      border-bottom: 2px solid #444;
-      overflow: hidden;
-    }
+  #leftPanel {
+    background-color: #0a0a0a;
+    width: 33%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
 
-    #agenda-frame {
-      width: 100%;
-      height: 100%;
-      border: none;
-    }
+  #rightPanel {
+    background-color: #1a1a1a;
+    width: 67%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
 
-    #photo-container {
-      flex: 0 0 40%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: #111;
-    }
+  iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    transform: scale(0.8);
+    transform-origin: 0 0;
+  }
 
-    #photo-container img {
-      max-width: 100%;
-      max-height: 100%;
-      object-fit: contain;
-    }
-  </style>
+  img {
+    max-width: 90%;
+    max-height: 85%; /* reduced to prevent cut-off */
+    margin-top: 20px; /* space from agenda */
+    border: 5px solid white;
+    border-radius: 10px;
+  }
+
+  .agenda {
+    width: 100%;
+    height: 50%;
+    background-color: #222;
+    color: white;
+  }
+
+  .clock {
+    color: white;
+    font-size: 2em;
+    margin-bottom: 20px;
+  }
+</style>
 </head>
 <body>
 
-  <!-- Top: Agenda -->
-  <div id="agenda-container">
-    <iframe id="agenda-frame" frameborder="0" allowfullscreen></iframe>
+<div id="leftPanel">
+  <div class="clock" id="clock"></div>
+  <div class="agenda">
+    <iframe src="agenda.html"></iframe>
   </div>
+  <img id="photoObj" src="" alt="Rotating Photo">
+</div>
 
-  <!-- Bottom: Rotating Photo -->
-  <div id="photo-container">
-    <img id="photoImg" src="" alt="Slideshow Photo">
-  </div>
+<div id="rightPanel">
+  <iframe src="calendar.html"></iframe>
+</div>
 
-  <script>
-    document.addEventListener("DOMContentLoaded", function() {
-      // --- Agenda Setup ---
-      const agendaFrame = document.getElementById("agenda-frame");
+<script>
+  function updateClock() {
+    const now = new Date();
+    document.getElementById("clock").innerText = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+  setInterval(updateClock, 1000);
+  updateClock();
 
-      const baseUrl = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showNav=1&showDate=1&wkst=2";
-      const calendars = [
-        { id: "desilerch@gmail.com", color: "%23E67C73" },
-        { id: "e48b36883ae237a9551de738523b7a246d5a1dbb6c78ee455a3aa4688@group.calendar.google.com", color: "%231565C0" },
-        { id: "180b3d0e7c1ae0241b2e60ba9c566500949ff16a487adf11625cd72306b2310f@group.calendar.google.com", color: "%230B8043" },
-        { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" },
-        { id: "fd5949d42a667f6ca3e88dcf1feb27818463bbdc19c5e56d2e0da62b87d881c5@group.calendar.google.com", color: "%23F18B3C" },
-        { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
-      ];
+  // Paste your photos.txt array here
+  const photos = [
+    'https://lh3.googleusercontent.com/pw/.../photo1.jpg',
+    'https://lh3.googleusercontent.com/pw/.../photo2.jpg',
+    'https://lh3.googleusercontent.com/pw/.../photo3.jpg'
+  ];
 
-      const viewMode = "AGENDA";
-      let fullUrl = baseUrl + "&mode=" + viewMode;
-      calendars.forEach(cal => {
-        fullUrl += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`;
-      });
+  let currentPhotoIndex = 0;
+  const photoObj = document.getElementById("photoObj");
 
-      agendaFrame.src = fullUrl;
+  function showPhoto(index) {
+    currentPhotoIndex = (index + photos.length) % photos.length;
+    photoObj.src = photos[currentPhotoIndex];
+  }
 
-      // Auto-refresh every 10 minutes
-      setInterval(() => {
-        agendaFrame.src = fullUrl + "&t=" + Date.now();
-      }, 600000);
-
-      // --- Photo Rotator Setup ---
-      const photos = [
-        'https://lh3.googleusercontent.com/pw/AP1GczPuZGRyJMEq8aYu8P__jc6gjHbf4Au8LSOj0vzh6ums26xicTu5RNh38IN3Ar-M3NE_X4c_BJhG0in9aWM1rUh_gQk-kFD4KZC-qo-AUhd1-y3JH_jD=w1920-h1080',
-        'https://lh3.googleusercontent.com/pw/AP1GczNKIhEYYOsWMOcJTfOTwz2Ane8v30IjFjPHzvhMTQMuLBIyxKgJoUDlKsEmJHxxplq8mzO4srzBn_OEGObJCvCnLP19vrudDJQUNONbC3Amc-j3KXy7=w1920-h1080',
-        'https://lh3.googleusercontent.com/pw/AP1GczPN2xYdvaD0AcnOe8rdN8Ny6tuTb1RFlNoDSeaXvP96K0F5yEQ9YuboZGTVoRrRdZ014wTH6BDPSKXkMB6Oa_0PrA3WKOZH3tA3lc_fLN5egwASs_Bi=w1920-h1080',
-        'https://lh3.googleusercontent.com/pw/AP1GczPKnt71NkltafA1wMa3XHyIj7fV8Z8tAxk07egq20TgZ_eqE6h90Z1fnUuE37npNSz0C_3pSWRWepbTWoJzLJP53AL9XWtt16neV_Qyo3aRNhuWA5NM=w1920-h1080'
-      ];
-
-      let currentPhotoIndex = 0;
-      const photoImg = document.getElementById("photoImg");
-
-      function showPhoto(index) {
-        currentPhotoIndex = (index + photos.length) % photos.length;
-        photoImg.src = photos[currentPhotoIndex];
-      }
-
-      // Show initial photo
-      showPhoto(0);
-
-      // Auto-rotate every 15 seconds
-      setInterval(() => {
-        showPhoto(currentPhotoIndex + 1);
-      }, 15000);
-
-      // Listen for 'change' messages from parent page
-      window.addEventListener('message', (event) => {
-        if (event.data === 'change') {
-          showPhoto(currentPhotoIndex + 1);
-        }
-      });
-
-    });
-  </script>
+  showPhoto(0);
+  setInterval(() => {
+    showPhoto(currentPhotoIndex + 1);
+  }, 5000);
+</script>
 
 </body>
 </html>
