@@ -1,112 +1,127 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Family Dashboard - Dynamic Display</title>
-<style>
-  html, body {
-    height: 100%;
-    margin: 0;
-    background: #000;
-    overflow: hidden;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-    display: flex;
-    flex-direction: column;
-  }
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Family Dashboard - Dynamic Display</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      background: #000;
+      overflow: hidden;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+    }
 
-  #agenda-container {
-    flex: 0 0 70%; /* top 70% */
-    border-bottom: 2px solid #444;
-    overflow: hidden;
-  }
+    #agenda-container {
+      flex: 0 0 70%;
+      border-bottom: 2px solid #444;
+      overflow: hidden;
+    }
 
-  #agenda-frame {
-    width: 100%;
-    height: 100%;
-    border: none;
-  }
+    #agenda-frame {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
 
-#photo-container {
-  flex: 0 0 30%;           /* container is 30% of screen */
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #111;
-  box-sizing: border-box;
-}
+    #photo-container {
+      flex: 0 0 30%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #111;
+      padding: 10px;
+    }
 
-#photo-container img {
-  max-width: 100%;
-  max-height: 100%;
-  width: auto;             /* scale width naturally */
-  height: auto;            /* scale height naturally */
-  object-fit: contain;     /* ensure the full image fits */
-}
-</style>
+    #photo-container img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain; /* ensures full image is visible */
+    }
+  </style>
 </head>
 <body>
 
-<!-- Top: Agenda -->
-<div id="agenda-container">
-  <iframe id="agenda-frame" frameborder="0" allowfullscreen></iframe>
-</div>
+  <!-- Top: Agenda -->
+  <div id="agenda-container">
+    <iframe id="agenda-frame" frameborder="0" allowfullscreen></iframe>
+  </div>
 
-<!-- Bottom: Rotating Photo -->
-<div id="photo-container">
-  <img id="photoImg" src="" alt="Slideshow Photo">
-</div>
+  <!-- Bottom: Rotating Photo -->
+  <div id="photo-container">
+    <img id="photoImg" src="" alt="Slideshow Photo">
+  </div>
 
-<script>
-document.addEventListener("DOMContentLoaded", function() {
-  // --- Agenda Setup ---
-  const agendaFrame = document.getElementById("agenda-frame");
-  const baseUrl = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showTitle=0&showNav=0&showPrint=0&showTabs=0&showCalendars=0&showTz=0&wkst=2";
-  const calendars = [
-    { id: "desilerch@gmail.com", color: "%23E67C73" },
-    { id: "e48b36883ae237a9551de738523b7a246d5a1dbb6c78ee455a3aa4688@group.calendar.google.com", color: "%231565C0" },
-    { id: "180b3d0e7c1ae0241b2e60ba9c566500949ff16a487adf11625cd72306b2310f@group.calendar.google.com", color: "%230B8043" },
-    { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" },
-    { id: "fd5949d42a667f6ca3e88dcf1feb27818463bbdc19c5e56d2e0da62b87d881c5@group.calendar.google.com", color: "%23F18B3C" },
-    { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
-  ];
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      // --- Agenda Setup ---
+      const agendaFrame = document.getElementById("agenda-frame");
 
-  const viewMode = "AGENDA";
-  let fullUrl = baseUrl + "&mode=" + viewMode;
-  calendars.forEach(cal => {
-    fullUrl += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`;
-  });
+      const baseUrl = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showTitle=0&showNav=0&showPrint=0&showTabs=0&showCalendars=0&showTz=0&mode=AGENDA";
+      const calendars = [
+        { id: "desilerch@gmail.com", color: "%23E67C73" },
+        { id: "e48b36883ae237a9551de738523b7a246d5a1dbb6c78ee455a3aa4688@group.calendar.google.com", color: "%231565C0" },
+        { id: "180b3d0e7c1ae0241b2e60ba9c566500949ff16a487adf11625cd72306b2310f@group.calendar.google.com", color: "%230B8043" },
+        { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" },
+        { id: "fd5949d42a667f6ca3e88dcf1feb27818463bbdc19c5e56d2e0da62b87d881c5@group.calendar.google.com", color: "%23F18B3C" },
+        { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
+      ];
 
-  agendaFrame.src = fullUrl;
-  setInterval(() => { agendaFrame.src = fullUrl + "&t=" + Date.now(); }, 600000);
+      // --- 4-day date range ---
+      const today = new Date();
+      const startDate = today.toISOString().slice(0,10).replace(/-/g,'');
+      const endDateObj = new Date(today);
+      endDateObj.setDate(today.getDate() + 4);
+      const endDate = endDateObj.toISOString().slice(0,10).replace(/-/g,'');
 
-  // --- Photo Rotator Setup ---
-  const photos = [
-    'https://lh3.googleusercontent.com/pw/AP1GczPuZGRyJMEq8aYu8P__jc6gjHbf4Au8LSOj0vzh6ums26xicTu5RNh38IN3Ar-M3NE_X4c_BJhG0in9aWM1rUh_gQk-kFD4KZC-qo-AUhd1-y3JH_jD=w1920-h1080',
-    'https://lh3.googleusercontent.com/pw/AP1GczNKIhEYYOsWMOcJTfOTwz2Ane8v30IjFjPHzvhMTQMuLBIyxKgJoUDlKsEmJHxxplq8mzO4srzBn_OEGObJCvCnLP19vrudDJQUNONbC3Amc-j3KXy7=w1920-h1080',
-    'https://lh3.googleusercontent.com/pw/AP1GczPN2xYdvaD0AcnOe8rdN8Ny6tuTb1RFlNoDSeaXvP96K0F5yEQ9YuboZGTVoRrRdZ014wTH6BDPSKXkMB6Oa_0PrA3WKOZH3tA3lc_fLN5egwASs_Bi=w1920-h1080',
-    'https://lh3.googleusercontent.com/pw/AP1GczPKnt71NkltafA1wMa3XHyIj7fV8Z8tAxk07egq20TgZ_eqE6h90Z1fnUuE37npNSz0C_3pSWRWepbTWoJzLJP53AL9XWtt16neV_Qyo3aRNhuWA5NM=w1920-h1080'
-  ];
+      let fullUrl = baseUrl + `&dates=${startDate}T000000/${endDate}T235959`;
+      calendars.forEach(cal => {
+        fullUrl += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`;
+      });
 
-  let currentPhotoIndex = 0;
-  const photoImg = document.getElementById("photoImg");
+      agendaFrame.src = fullUrl;
 
-  function showPhoto(index) {
-    currentPhotoIndex = (index + photos.length) % photos.length;
-    photoImg.src = photos[currentPhotoIndex] + "?t=" + Date.now();
-  }
+      // Auto-refresh every 10 minutes
+      setInterval(() => {
+        agendaFrame.src = fullUrl + "&t=" + Date.now();
+      }, 600000);
 
-  showPhoto(0);
-  setInterval(() => { showPhoto(currentPhotoIndex + 1); }, 15000);
+      // --- Photo Rotator Setup ---
+      const photos = [
+        'https://lh3.googleusercontent.com/pw/AP1GczPuZGRyJMEq8aYu8P__jc6gjHbf4Au8LSOj0vzh6ums26xicTu5RNh38IN3Ar-M3NE_X4c_BJhG0in9aWM1rUh_gQk-kFD4KZC-qo-AUhd1-y3JH_jD=w1920-h1080',
+        'https://lh3.googleusercontent.com/pw/AP1GczNKIhEYYOsWMOcJTfOTwz2Ane8v30IjFjPHzvhMTQMuLBIyxKgJoUDlKsEmJHxxplq8mzO4srzBn_OEGObJCvCnLP19vrudDJQUNONbC3Amc-j3KXy7=w1920-h1080',
+        'https://lh3.googleusercontent.com/pw/AP1GczPN2xYdvaD0AcnOe8rdN8Ny6tuTb1RFlNoDSeaXvP96K0F5yEQ9YuboZGTVoRrRdZ014wTH6BDPSKXkMB6Oa_0PrA3WKOZH3tA3lc_fLN5egwASs_Bi=w1920-h1080',
+        'https://lh3.googleusercontent.com/pw/AP1GczPKnt71NkltafA1wMa3XHyIj7fV8Z8tAxk07egq20TgZ_eqE6h90Z1fnUuE37npNSz0C_3pSWRWepbTWoJzLJP53AL9XWtt16neV_Qyo3aRNhuWA5NM=w1920-h1080'
+      ];
 
-  // Listen for external 'change' messages
-  window.addEventListener('message', function(event) {
-    if (event.data === 'change') {
-      showPhoto(currentPhotoIndex + 1);
-    }
-  });
-});
-</script>
+      let currentPhotoIndex = 0;
+      const photoImg = document.getElementById("photoImg");
+
+      function showPhoto(index) {
+        currentPhotoIndex = (index + photos.length) % photos.length;
+        photoImg.src = photos[currentPhotoIndex] + "?t=" + Date.now();
+      }
+
+      // Show initial photo
+      showPhoto(0);
+
+      // Auto-rotate every 15 seconds
+      setInterval(() => {
+        showPhoto(currentPhotoIndex + 1);
+      }, 15000);
+
+      // Listen for 'change' messages
+      window.addEventListener('message', (event) => {
+        if (event.data === 'change') {
+          showPhoto(currentPhotoIndex + 1);
+        }
+      });
+
+    });
+  </script>
 
 </body>
 </html>
