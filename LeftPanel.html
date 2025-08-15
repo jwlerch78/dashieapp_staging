@@ -26,19 +26,17 @@
     }
     #photo-container {
       flex: 0 0 30%; /* photo smaller */
-      display: flex;
-      align-items: center;
-      justify-content: center;
       background: #111;
-      padding: 10px;
-      box-sizing: border-box;
       position: relative;
     }
     #photo-container img {
-      max-width: calc(100% - 20px); /* Account for padding */
-      max-height: calc(100% - 20px); /* Account for padding */
-      width: auto;
-      height: auto;
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      width: calc(100% - 20px);
+      height: calc(100% - 20px);
       object-fit: contain;
       object-position: center center;
       display: block;
