@@ -35,8 +35,8 @@
       position: relative;
     }
     #photo-container img {
-      max-width: 100%;
-      max-height: 100%;
+      max-width: calc(100% - 20px); /* Account for padding */
+      max-height: calc(100% - 20px); /* Account for padding */
       width: auto;
       height: auto;
       object-fit: contain;
