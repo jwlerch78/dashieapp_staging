@@ -17,7 +17,7 @@
 const iframe = document.getElementById("frame");
 const baseUrl = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showNav=1&showDate=1&wkst=2";
 
-// Define all calendar sets
+// Calendar sets
 const calendarSets = {
   weekly: [
     { id: "desilerch@gmail.com", color: "%23E67C73" },
@@ -38,27 +38,32 @@ const calendarSets = {
   ]
 };
 
-// Modes in cycle order
+// Mode cycle
 const modes = ["weekly","monthly","work"];
-let modeIndex = 0;   // start in weekly
+let modeIndex = 0;
 let mode = modes[modeIndex];
 
 // Current start date
 let currentStartDate = new Date();
 
-// Initialize start date based on mode
+// Initialize start date for mode
 function initDate() {
+  const today = new Date();
   if (mode === "weekly") {
-    const day = currentStartDate.getDay();
+    // Monday of this week
+    const day = today.getDay();
     const diff = (day === 0 ? -6 : 1 - day);
+    currentStartDate = new Date(today);
     currentStartDate.setDate(currentStartDate.getDate() + diff);
     currentStartDate.setHours(0,0,0,0);
   } else if (mode === "monthly") {
-    currentStartDate.setDate(1);
-    currentStartDate.setHours(0,0,0,0);
+    currentStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
   } else if (mode === "work") {
-    const day = currentStartDate.getDay();
-    currentStartDate.setDate(currentStartDate.getDate() + (day === 0 ? -6 : 1 - day));
+    // Monday of current week
+    const day = today.getDay();
+    const diff = (day === 0 ? -6 : 1 - day);
+    currentStartDate = new Date(today);
+    currentStartDate.setDate(currentStartDate.getDate() + diff);
     currentStartDate.setHours(0,0,0,0);
   }
 }
@@ -69,12 +74,11 @@ function buildUrl() {
   const start = new Date(currentStartDate);
   const end = new Date(start);
 
-  if (mode === "weekly") end.setDate(end.getDate()+6);
+  if (mode === "weekly") end.setDate(end.getDate()+6);  // Monday→Sunday
   else if (mode === "monthly") { end.setMonth(end.getMonth()+1); end.setDate(0); }
-  else if (mode === "work") end.setDate(end.getDate()+4);
+  else if (mode === "work") end.setDate(end.getDate()+4); // Monday→Friday
 
-  let url = baseUrl;
-  url += "&mode=" + (mode==="monthly" ? "MONTH" : "WEEK");
+  let url = baseUrl + "&mode=" + (mode==="monthly" ? "MONTH" : "WEEK");
   url += `&dates=${formatYYYYMMDD(start)}/${formatYYYYMMDD(end)}`;
 
   calendarSets[mode].forEach(cal => { url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; });
@@ -82,6 +86,7 @@ function buildUrl() {
 }
 
 function updateIframe() { iframe.src = buildUrl(); }
+
 initDate();
 updateIframe();
 
@@ -94,18 +99,15 @@ window.addEventListener("message", (event) => {
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
       else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()+1);
       break;
-
     case "prev":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()-7);
       else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()-1);
       break;
-
     case "nextCalendar":
       modeIndex = (modeIndex + 1) % modes.length;
       mode = modes[modeIndex];
       initDate();
       break;
-
     case "prevCalendar":
       modeIndex = (modeIndex - 1 + modes.length) % modes.length;
       mode = modes[modeIndex];
