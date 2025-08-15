@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Dashboard</title>
 <style>
-  :root{
+  :root {
     --bg-left:  #0a0a0a;
     --bg-right: #111111;
   }
@@ -93,9 +93,7 @@
 </style>
 </head>
 
-  
 <body>
-
   <!-- LEFT COLUMN -->
   <section class="left-col">
     <iframe class="card" id="dateTime" src="Date_Time.html" title="Date & Time"></iframe>
@@ -168,26 +166,16 @@
           break;
       }
     });
+
+    // Keep focus on dashboard so key presses register
+    function focusDashboard() {
+      window.focus();
+      document.body.focus();
+    }
+
+    focusDashboard();
+    rightIframe.addEventListener('load', focusDashboard);
+    setInterval(focusDashboard, 1000);
   </script>
-
-<script>
-  // Try to keep the dashboard page focused for key events
-  const rightIframe = document.getElementById('right');
-
-  function focusDashboard() {
-    window.focus();          // focus the parent
-    document.body.focus();   // ensure body has focus
-  }
-
-  // Initially focus dashboard
-  focusDashboard();
-
-  // Also refocus every time iframe is clicked
-  rightIframe.addEventListener('load', focusDashboard);
-
-  // Optional: periodically refocus in case iframe steals it
-  setInterval(focusDashboard, 1000);
-</script>
-  
 </body>
 </html>
