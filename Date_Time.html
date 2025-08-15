@@ -24,23 +24,21 @@
     text-align: left;
   }
   #weather {
-    font-size: 2vw;
+    font-size: 6vw; /* bigger */
     display: flex;
     align-items: center;
     justify-content: flex-end;
   }
   #weather-icon {
-    margin-right: 10px;
-    width: 50px;
-    height: 50px;
+    margin-right: 15px;
   }
 </style>
 </head>
 <body>
   <div id="time">--:--</div>
   <div id="weather">
-    <img id="weather-icon" src="" alt="Weather Icon">
-    <span id="temperature">--°</span>
+    <span id="weather-icon">☀️</span>
+    <span id="temperature">--°F</span>
   </div>
 
 <script>
@@ -49,46 +47,24 @@ function updateTime() {
   let hours = now.getHours();
   const minutes = now.getMinutes().toString().padStart(2,'0');
   const ampm = hours >= 12 ? 'PM' : 'AM';
-  hours = hours % 12;
-  hours = hours ? hours : 12;
+  hours = hours % 12 || 12;
   document.getElementById('time').textContent = `${hours}:${minutes} ${ampm}`;
 }
 
-// Open-Meteo: Belleair, FL approximate coordinates
+// Belleair, FL coordinates
 const latitude = 27.9186;
 const longitude = -82.8053;
 
-// Mapping Open-Meteo weather codes to emoji icons
 const weatherIcons = {
-  0: '☀️', // Clear sky
-  1: '🌤️', // Mainly clear
-  2: '⛅',  // Partly cloudy
-  3: '☁️', // Overcast
-  45: '🌫️', // Fog
-  48: '🌫️', // Depositing rime fog
-  51: '🌦️', // Drizzle light
-  53: '🌦️', // Drizzle moderate
-  55: '🌧️', // Drizzle dense
-  56: '🌧️', // Freezing drizzle light
-  57: '🌧️', // Freezing drizzle dense
-  61: '🌧️', // Rain slight
-  63: '🌧️', // Rain moderate
-  65: '🌧️', // Rain heavy
-  66: '❄️', // Freezing rain light
-  67: '❄️', // Freezing rain heavy
-  71: '❄️', // Snow fall slight
-  73: '❄️', // Snow fall moderate
-  75: '❄️', // Snow fall heavy
-  80: '🌧️', // Rain showers slight
-  81: '🌧️', // Rain showers moderate
-  82: '🌧️', // Rain showers violent
-  95: '⛈️', // Thunderstorm
-  96: '⛈️', // Thunderstorm with hail
-  99: '⛈️'  // Thunderstorm with heavy hail
+  0: '☀️', 1: '🌤️', 2: '⛅', 3: '☁️',
+  45: '🌫️', 48: '🌫️', 51: '🌦️', 53: '🌦️', 55: '🌧️',
+  56: '🌧️', 57: '🌧️', 61: '🌧️', 63: '🌧️', 65: '🌧️',
+  66: '❄️', 67: '❄️', 71: '❄️', 73: '❄️', 75: '❄️',
+  80: '🌧️', 81: '🌧️', 82: '🌧️', 95: '⛈️', 96: '⛈️', 99: '⛈️'
 };
 
 async function updateWeather() {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`;
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true&temperature_unit=fahrenheit`;
   try {
     const res = await fetch(url);
     const data = await res.json();
@@ -96,16 +72,10 @@ async function updateWeather() {
     const temp = Math.round(data.current_weather.temperature);
 
     document.getElementById('temperature').textContent = `${temp}°F`;
-    document.getElementById('weather-icon').alt = weatherIcons[weatherCode] || '🌡️';
-    document.getElementById('weather-icon').src = `https://twemoji.maxcdn.com/v/latest/svg/${getTwemojiCode(weatherIcons[weatherCode] || '🌡️')}.svg`;
+    document.getElementById('weather-icon').textContent = weatherIcons[weatherCode] || '🌡️';
   } catch (err) {
     console.error('Weather fetch error:', err);
   }
-}
-
-// Convert emoji to Twemoji code
-function getTwemojiCode(emoji) {
-  return Array.from(emoji).map(c => c.codePointAt(0).toString(16)).join('-');
 }
 
 // Update time every second
