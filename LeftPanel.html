@@ -83,4 +83,29 @@ document.addEventListener("DOMContentLoaded", function() {
   const photos = [
     'https://lh3.googleusercontent.com/pw/AP1GczPuZGRyJMEq8aYu8P__jc6gjHbf4Au8LSOj0vzh6ums26xicTu5RNh38IN3Ar-M3NE_X4c_BJhG0in9aWM1rUh_gQk-kFD4KZC-qo-AUhd1-y3JH_jD=w1920-h1080',
     'https://lh3.googleusercontent.com/pw/AP1GczNKIhEYYOsWMOcJTfOTwz2Ane8v30IjFjPHzvhMTQMuLBIyxKgJoUDlKsEmJHxxplq8mzO4srzBn_OEGObJCvCnLP19vrudDJQUNONbC3Amc-j3KXy7=w1920-h1080',
-    'https://lh3.googleusercontent.com/pw/AP1GczPN2xYdvaD0AcnOe8rdN8Ny6tuTb1RFlNoDSeaXvP96K
+    'https://lh3.googleusercontent.com/pw/AP1GczPN2xYdvaD0AcnOe8rdN8Ny6tuTb1RFlNoDSeaXvP96K0F5yEQ9YuboZGTVoRrRdZ014wTH6BDPSKXkMB6Oa_0PrA3WKOZH3tA3lc_fLN5egwASs_Bi=w1920-h1080',
+    'https://lh3.googleusercontent.com/pw/AP1GczPKnt71NkltafA1wMa3XHyIj7fV8Z8tAxk07egq20TgZ_eqE6h90Z1fnUuE37npNSz0C_3pSWRWepbTWoJzLJP53AL9XWtt16neV_Qyo3aRNhuWA5NM=w1920-h1080'
+  ];
+
+  let currentPhotoIndex = 0;
+  const photoImg = document.getElementById("photoImg");
+
+  function showPhoto(index) {
+    currentPhotoIndex = (index + photos.length) % photos.length;
+    photoImg.src = photos[currentPhotoIndex] + "?t=" + Date.now(); // forces reload
+  }
+
+  showPhoto(0);
+  setInterval(() => { showPhoto(currentPhotoIndex + 1); }, 15000);
+
+  // --- Listen for external 'change' messages ---
+  window.addEventListener('message', function(event) {
+    if (event.data === 'change') {
+      showPhoto(currentPhotoIndex + 1);
+    }
+  });
+});
+</script>
+
+</body>
+</html>
