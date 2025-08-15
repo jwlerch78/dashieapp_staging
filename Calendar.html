@@ -1,100 +1,182 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Calendar</title>
-  <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      height: 100%;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-    iframe {
-      flex: 1;
-      border: none;
-      width: 100%;
-    }
-    .view-indicators {
-      display: flex;
-      height: 40px;
-      background-color: #f0f0f0;
-      font-family: Arial, sans-serif;
-    }
-    .view-label {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      background-color: #ccc;
-      color: #000;
-      border-right: 1px solid #999;
-    }
-    .view-label:last-child {
-      border-right: none;
-    }
-    .active {
-      background-color: #4285f4; /* Google blue */
-      color: white;
-    }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<title>Family Calendar</title>
+<style>
+  html, body { 
+    height:100%; 
+    margin:0; 
+    background:#000; 
+    overflow:hidden; 
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; 
+    display: flex; 
+    flex-direction: column;
+  }
+
+  #frame { 
+    flex: 1; 
+    width:100%; 
+    border:0; 
+  }
+
+  /* Bottom view indicators */
+  .view-indicators {
+    display: flex;
+    height: 40px;
+    background-color: #222;
+  }
+
+  .view-label {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #888;
+    font-weight: bold;
+    border-top: 1px solid #444;
+  }
+
+  .view-label.active {
+    color: #fff;
+    background-color: #4285f4; /* Highlighted blue */
+  }
+</style>
 </head>
 <body>
-  <iframe id="calendar-frame" src=""></iframe>
-  
-  <div class="view-indicators">
-    <div id="label-weekly" class="view-label">Weekly</div>
-    <div id="label-monthly" class="view-label">Monthly</div>
-    <div id="label-work" class="view-label">Work</div>
-  </div>
 
-  <script>
-    const calendarFrame = document.getElementById('calendar-frame');
-    const labels = {
-      weekly: document.getElementById('label-weekly'),
-      monthly: document.getElementById('label-monthly'),
-      work: document.getElementById('label-work')
-    };
+<iframe id="frame" frameborder="0" allowfullscreen></iframe>
 
-    const views = [
-      { name: "weekly", url: "YOUR_WEEKLY_EMBED_URL" },
-      { name: "monthly", url: "YOUR_MONTHLY_EMBED_URL" },
-      { name: "work", url: "YOUR_WORK_EMBED_URL" }
-    ];
+<div class="view-indicators">
+  <div id="label-weekly" class="view-label">Weekly</div>
+  <div id="label-monthly" class="view-label">Monthly</div>
+  <div id="label-work" class="view-label">Work</div>
+</div>
 
-    let currentIndex = 0;
+<script>
+const iframe = document.getElementById("frame");
+const baseUrl = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showNav=1&showDate=1&wkst=2";
 
-    function updateView(index) {
-      currentIndex = (index + views.length) % views.length;
-      calendarFrame.src = views[currentIndex].url;
-      updateLabels();
-    }
+// Calendar sets
+const calendarSets = {
+  weekly: [
+    { id: "desilerch@gmail.com", color: "%23E67C73" },
+    { id: "e48b36883ae237a9551de738523b7a246d5a1f6b15a3aa4688@group.calendar.google.com", color: "%231565C0" },
+    { id: "180b3d0e7c1ae0241b2e60ba9c566500949ff16a487adf11625cd72306b2310f@group.calendar.google.com", color: "%230B8043" },
+    { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" },
+    { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
+  ],
+  monthly: [
+    { id: "desilerch@gmail.com", color: "%23E67C73" },
+    { id: "0d9003b61604007a26868b678b71e5ad894354cbfdab1f071193207ed7e4b7e8@group.calendar.google.com", color: "%231565C0" },
+    { id: "a2ffcf08f82cc50f9d7d0d055f80652074979d74a9a0664e11d6a029a8c8b1ed@group.calendar.google.com", color: "%230B8043" },
+    { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" },
+    { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
+  ],
+  work: [
+    { id: "fd5949d42a667f6ca3e88dcf1feb27818463bbdc19c5e56d2e0da62b87d881c5@group.calendar.google.com", color: "%230B8043" }
+  ]
+};
 
-    function updateLabels() {
-      Object.keys(labels).forEach(key => {
-        labels[key].classList.remove('active');
-      });
-      labels[views[currentIndex].name].classList.add('active');
-    }
+// Mode cycle
+const modes = ["weekly","monthly","work"];
+let modeIndex = 0;
+let mode = modes[modeIndex];
 
-    window.addEventListener('message', function(event) {
-      if (event.data === 'nextCal') {
-        updateView(currentIndex + 1);
-      } else if (event.data === 'prevCal') {
-        updateView(currentIndex - 1);
-      }
-    });
+// Current start date
+let currentStartDate = new Date();
 
-    // Start with first view
-    updateView(0);
+// View indicator elements
+const labels = {
+  weekly: document.getElementById("label-weekly"),
+  monthly: document.getElementById("label-monthly"),
+  work: document.getElementById("label-work")
+};
 
-    // Auto-refresh calendar every 5 minutes
-    setInterval(() => {
-      calendarFrame.src = views[currentIndex].url;
-    }, 300000);
-  </script>
+// Update active view highlight
+function updateLabels() {
+  Object.keys(labels).forEach(key => labels[key].classList.remove("active"));
+  labels[mode].classList.add("active");
+}
+
+// Initialize start date for mode
+function initDate() {
+  const today = new Date();
+  if (mode === "weekly") {
+    const day = today.getDay();
+    const diff = (day === 0 ? -6 : 1 - day);
+    currentStartDate = new Date(today);
+    currentStartDate.setDate(currentStartDate.getDate() + diff);
+    currentStartDate.setHours(0,0,0,0);
+  } else if (mode === "monthly") {
+    currentStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
+  } else if (mode === "work") {
+    const day = today.getDay();
+    const diff = (day === 0 ? -6 : 1 - day);
+    currentStartDate = new Date(today);
+    currentStartDate.setDate(currentStartDate.getDate() + diff);
+    currentStartDate.setHours(0,0,0,0);
+  }
+}
+
+function formatYYYYMMDD(date) { return date.toISOString().slice(0,10).replace(/-/g,''); }
+
+function buildUrl() {
+  const start = new Date(currentStartDate);
+  const end = new Date(start);
+
+  if (mode === "weekly") end.setDate(end.getDate()+6);
+  else if (mode === "monthly") { end.setMonth(end.getMonth()+1); end.setDate(0); }
+  else if (mode === "work") end.setDate(end.getDate()+4);
+
+  let url = baseUrl + "&mode=" + (mode==="monthly" ? "MONTH" : "WEEK");
+  url += `&dates=${formatYYYYMMDD(start)}/${formatYYYYMMDD(end)}`;
+
+  calendarSets[mode].forEach(cal => { url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; });
+  return url;
+}
+
+function updateIframe() { 
+  iframe.src = buildUrl(); 
+  updateLabels();  // highlight active view
+}
+
+initDate();
+updateIframe();
+
+// Handle messages
+window.addEventListener("message", (event) => {
+  if (!event.data || typeof event.data.action !== "string") return;
+
+  switch(event.data.action) {
+    case "next":
+      if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
+      else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()+1);
+      break;
+    case "prev":
+      if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()-7);
+      else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()-1);
+      break;
+    case "nextCalendar":
+      modeIndex = (modeIndex + 1) % modes.length;
+      mode = modes[modeIndex];
+      initDate();
+      break;
+    case "prevCalendar":
+      modeIndex = (modeIndex - 1 + modes.length) % modes.length;
+      mode = modes[modeIndex];
+      initDate();
+      break;
+  }
+
+  updateIframe();
+});
+
+// Auto-refresh every 2 minutes
+setInterval(updateIframe, 120000);
+
+</script>
+
 </body>
 </html>
