@@ -78,6 +78,16 @@
     display: block;
   }
 
+  /* Scale Date_Time iframe to fit */
+  #dateTime {
+    width: 125%;          /* adjust to compensate scale */
+    height: 125%;         /* adjust to compensate scale */
+    border: 0;
+    transform: scale(0.8); /* scale down */
+    transform-origin: top left;
+    overflow: hidden;     /* hide scrollbars */
+  }
+
   /* Key log display at bottom-left */
   #keyLog {
     position: fixed;
@@ -110,7 +120,7 @@
 
 <script>
   const rightIframe = document.getElementById('right');
-  const leftIframe = document.getElementById('leftpanel'); // <-- add this
+  const leftIframe = document.getElementById('leftpanel');
   const keyLog = document.getElementById('keyLog');
 
   document.addEventListener('keydown', (event) => {
