@@ -5,141 +5,120 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Family Calendar</title>
 <style>
-  html, body {
-    height: 100%;
-    margin: 0;
-    background: #000;
-    overflow: hidden;
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  }
-  #frame {
-    position: fixed;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    border: 0;
-  }
-  .button-container {
-    position: fixed;
-    bottom: 12px;
-    left: 50%;
-    transform: translateX(-50%);
-    text-align: center;
-    z-index: 9999;
-  }
-  .calendar-button {
-    font-size: 16px;
-    padding: 10px 18px;
-    margin: 0 6px;
-    background: rgba(0, 0, 0, 0.65);
-    color: #fff;
-    border-radius: 10px;
-    font-weight: 600;
-    backdrop-filter: blur(6px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.15);
-    cursor: pointer;
-  }
-  .calendar-button:hover {
-    background: rgba(0, 0, 0, 0.85);
-  }
+  html, body { height:100%; margin:0; background:#000; overflow:hidden; font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; }
+  #frame { position:fixed; inset:0; width:100%; height:100%; border:0; }
 </style>
 </head>
 <body>
 
 <iframe id="frame" frameborder="0" allowfullscreen></iframe>
 
-<div class="button-container">
-  <button class="calendar-button" onclick="switchView('WEEKLY')">Weekly</button>
-  <button class="calendar-button" onclick="switchView('MONTHLY')">Monthly</button>
-  <button class="calendar-button" onclick="switchView('WORK')">Work</button>
-</div>
-
 <script>
 const iframe = document.getElementById("frame");
 const baseUrl = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showNav=1&showDate=1&wkst=2";
 
-// Calendar sets
+// Define all calendar sets
 const calendarSets = {
-  WEEKLY: [
+  weekly: [
     { id: "desilerch@gmail.com", color: "%23E67C73" },
     { id: "e48b36883ae237a9551de738523b7a246d5a1f6b15a3aa4688@group.calendar.google.com", color: "%231565C0" },
     { id: "180b3d0e7c1ae0241b2e60ba9c566500949ff16a487adf11625cd72306b2310f@group.calendar.google.com", color: "%230B8043" },
     { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" },
     { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
   ],
-  MONTHLY: [
+  monthly: [
     { id: "desilerch@gmail.com", color: "%23E67C73" },
     { id: "0d9003b61604007a26868b678b71e5ad894354cbfdab1f071193207ed7e4b7e8@group.calendar.google.com", color: "%231565C0" },
     { id: "a2ffcf08f82cc50f9d7d0d055f80652074979d74a9a0664e11d6a029a8c8b1ed@group.calendar.google.com", color: "%230B8043" },
     { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" },
     { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
   ],
-  WORK: [
+  work: [
     { id: "fd5949d42a667f6ca3e88dcf1feb27818463bbdc19c5e56d2e0da62b87d881c5@group.calendar.google.com", color: "%230B8043" }
   ]
 };
 
-// State
-let currentView = "WEEKLY";
-let currentDate = new Date();
-currentDate.setHours(0,0,0,0);
+// Modes in cycle order
+const modes = ["weekly","monthly","work"];
+let modeIndex = 0;   // start in weekly
+let mode = modes[modeIndex];
 
-// Helpers
-function formatYYYYMMDD(date) {
-  return date.toISOString().slice(0, 10).replace(/-/g, '');
+// Current start date
+let currentStartDate = new Date();
+
+// Initialize start date based on mode
+function initDate() {
+  if (mode === "weekly") {
+    const day = currentStartDate.getDay();
+    const diff = (day === 0 ? -6 : 1 - day);
+    currentStartDate.setDate(currentStartDate.getDate() + diff);
+    currentStartDate.setHours(0,0,0,0);
+  } else if (mode === "monthly") {
+    currentStartDate.setDate(1);
+    currentStartDate.setHours(0,0,0,0);
+  } else if (mode === "work") {
+    const day = currentStartDate.getDay();
+    currentStartDate.setDate(currentStartDate.getDate() + (day === 0 ? -6 : 1 - day));
+    currentStartDate.setHours(0,0,0,0);
+  }
 }
 
-function getStartOfWeek(date) {
-  const d = new Date(date);
-  const day = d.getDay();
-  const diff = (day === 0 ? -6 : 1) - day;
-  d.setDate(d.getDate() + diff);
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
+function formatYYYYMMDD(date) { return date.toISOString().slice(0,10).replace(/-/g,''); }
 
 function buildUrl() {
-  let start, end, mode;
-  const calendars = calendarSets[currentView];
+  const start = new Date(currentStartDate);
+  const end = new Date(start);
 
-  if (currentView === "WEEKLY" || currentView === "WORK") {
-    mode = "WEEK";
-    start = getStartOfWeek(currentDate);
-    end = new Date(start);
-    end.setDate(end.getDate() + 6);
-  } else if (currentView === "MONTHLY") {
-    mode = "MONTH";
-    start = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-    end = new Date(start);
-    end.setMonth(end.getMonth() + 1);
-    end.setDate(0);
+  if (mode === "weekly") end.setDate(end.getDate()+6);
+  else if (mode === "monthly") { end.setMonth(end.getMonth()+1); end.setDate(0); }
+  else if (mode === "work") end.setDate(end.getDate()+4);
+
+  let url = baseUrl;
+  url += "&mode=" + (mode==="monthly" ? "MONTH" : "WEEK");
+  url += `&dates=${formatYYYYMMDD(start)}/${formatYYYYMMDD(end)}`;
+
+  calendarSets[mode].forEach(cal => { url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; });
+  return url;
+}
+
+function updateIframe() { iframe.src = buildUrl(); }
+initDate();
+updateIframe();
+
+// Handle messages
+window.addEventListener("message", (event) => {
+  if (!event.data || typeof event.data.action !== "string") return;
+
+  switch(event.data.action) {
+    case "next":
+      if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
+      else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()+1);
+      break;
+
+    case "prev":
+      if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()-7);
+      else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()-1);
+      break;
+
+    case "nextCalendar":
+      modeIndex = (modeIndex + 1) % modes.length;
+      mode = modes[modeIndex];
+      initDate();
+      break;
+
+    case "prevCalendar":
+      modeIndex = (modeIndex - 1 + modes.length) % modes.length;
+      mode = modes[modeIndex];
+      initDate();
+      break;
   }
 
-  let fullUrl = baseUrl + "&mode=" + mode + `&dates=${formatYYYYMMDD(start)}/${formatYYYYMMDD(end)}`;
-  calendars.forEach(cal => {
-    fullUrl += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`;
-  });
-
-  return fullUrl;
-}
-
-function updateIframe() {
-  iframe.src = buildUrl();
-}
-
-function switchView(view) {
-  currentView = view;
-  currentDate = new Date();
-  currentDate.setHours(0,0,0,0);
   updateIframe();
-}
+});
 
-// Auto-refresh every 5 minutes
-setInterval(updateIframe, 300000);
+// Auto-refresh every 2 minutes
+setInterval(updateIframe, 120000);
 
-// Initial load
-updateIframe();
 </script>
 
 </body>
