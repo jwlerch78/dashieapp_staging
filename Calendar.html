@@ -4,6 +4,11 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
 <title>Family Calendar</title>
+
+<!-- Leaflet CSS/JS for Map -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <style>
   html, body { 
     height:100%; 
@@ -36,6 +41,7 @@
     color: #888;
     font-weight: bold;
     border-top: 1px solid #444;
+    cursor: pointer;
   }
 
   .view-label.active {
@@ -52,6 +58,7 @@
   <div id="label-weekly" class="view-label">Weekly</div>
   <div id="label-monthly" class="view-label">Monthly</div>
   <div id="label-work" class="view-label">Work</div>
+  <div id="label-map" class="view-label">Map</div>
 </div>
 
 <script>
@@ -79,19 +86,27 @@ const calendarSets = {
   ]
 };
 
+// Family devices for Map mode
+const devices = [
+  { id: 1, name: "Dad" },
+  { id: 2, name: "Mom" },
+  { id: 3, name: "Charlie" },
+  { id: 4, name: "Jack" },
+  { id: 5, name: "Mary" }
+];
+
 // Mode cycle
-const modes = ["weekly","monthly","work"];
+const modes = ["weekly","monthly","work","map"];
 let modeIndex = 0;
 let mode = modes[modeIndex];
-
-// Current start date
 let currentStartDate = new Date();
 
 // View indicator elements
 const labels = {
   weekly: document.getElementById("label-weekly"),
   monthly: document.getElementById("label-monthly"),
-  work: document.getElementById("label-work")
+  work: document.getElementById("label-work"),
+  map: document.getElementById("label-map")
 };
 
 // Update active view highlight
@@ -100,10 +115,12 @@ function updateLabels() {
   labels[mode].classList.add("active");
 }
 
-// Initialize start date for mode
+// Calendar URL helpers
+function formatYYYYMMDD(date) { return date.toISOString().slice(0,10).replace(/-/g,''); }
+
 function initDate() {
   const today = new Date();
-  if (mode === "weekly") {
+  if (mode === "weekly" || mode==="work") {
     const day = today.getDay();
     const diff = (day === 0 ? -6 : 1 - day);
     currentStartDate = new Date(today);
@@ -111,16 +128,8 @@ function initDate() {
     currentStartDate.setHours(0,0,0,0);
   } else if (mode === "monthly") {
     currentStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
-  } else if (mode === "work") {
-    const day = today.getDay();
-    const diff = (day === 0 ? -6 : 1 - day);
-    currentStartDate = new Date(today);
-    currentStartDate.setDate(currentStartDate.getDate() + diff);
-    currentStartDate.setHours(0,0,0,0);
   }
 }
-
-function formatYYYYMMDD(date) { return date.toISOString().slice(0,10).replace(/-/g,''); }
 
 function buildUrl() {
   const start = new Date(currentStartDate);
@@ -131,21 +140,62 @@ function buildUrl() {
   else if (mode === "work") end.setDate(end.getDate()+4);
 
   let url = baseUrl + "&mode=" + (mode==="monthly" ? "MONTH" : "WEEK");
-  url += `&dates=${formatYYYYMMDD(start)}/${formatYYYYMMDD(end)}`;
-
-  calendarSets[mode].forEach(cal => { url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; });
+  calendarSets[mode]?.forEach(cal => { 
+    url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; 
+  });
   return url;
 }
 
-function updateIframe() { 
-  iframe.src = buildUrl(); 
-  updateLabels();  // highlight active view
+// --- Map setup ---
+let map, markers = {};
+
+function initMap() {
+  if (!map) {
+    map = L.map("frame").setView([27.91,-82.78], 12); // adjust to your location
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap'
+    }).addTo(map);
+  }
 }
 
+async function updateMapPositions() {
+  for (let device of devices) {
+    try {
+      const res = await fetch(`/positions/${device.id}`);
+      const data = await res.json();
+      const latest = data[0];
+      if (!latest) continue;
+      const latlng = [latest.latitude, latest.longitude];
+
+      if (!markers[device.id]) {
+        markers[device.id] = L.marker(latlng).addTo(map).bindPopup(device.name);
+      } else {
+        markers[device.id].setLatLng(latlng);
+      }
+    } catch(err) {
+      console.error("Error fetching position for", device.name, err);
+    }
+  }
+}
+
+// --- Update iframe/map based on mode ---
+function updateIframe() {
+  if(mode === "map") {
+    iframe.style.display = "block";
+    iframe.srcdoc = `<div id="frame" style="width:100%; height:100%;"></div>`; 
+    setTimeout(() => { initMap(); updateMapPositions(); }, 100);
+  } else {
+    iframe.src = buildUrl();
+  }
+  updateLabels();
+}
+
+// Initialize
 initDate();
 updateIframe();
 
-// Handle messages
+// Handle messages from index.html
 window.addEventListener("message", (event) => {
   if (!event.data || typeof event.data.action !== "string") return;
 
@@ -173,8 +223,11 @@ window.addEventListener("message", (event) => {
   updateIframe();
 });
 
-// Auto-refresh every 5 minutes
-setInterval(updateIframe, 300000);
+// Auto-refresh calendar every 5 minutes (only for calendar modes)
+setInterval(() => { if(mode !== "map") updateIframe(); }, 300000);
+
+// Auto-refresh map every 5 seconds
+setInterval(() => { if(mode === "map") updateMapPositions(); }, 5000);
 
 </script>
 
