@@ -1,80 +1,105 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Family Location Dashboard</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-<style>
-  #map { height: 500px; width: 100%; }
-  #locations { margin-top: 10px; font-family: sans-serif; }
-</style>
+  <meta charset="UTF-8">
+  <title>Family Location Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .device-list {
+      max-width: 400px;
+      margin: 0 auto;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      padding: 10px;
+    }
+    .device {
+      padding: 8px;
+      border-bottom: 1px solid #eee;
+    }
+    .device:last-child {
+      border-bottom: none;
+    }
+    .name {
+      font-weight: bold;
+    }
+    .zone {
+      margin-left: 10px;
+      font-style: italic;
+      color: #555;
+    }
+  </style>
 </head>
 <body>
-<h2>Family Location Dashboard</h2>
-<div id="map"></div>
-<div id="locations"></div>
+  <h1>Family Location Dashboard</h1>
+  <div class="device-list" id="deviceList"></div>
 
-<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-<script>
-// ----- CONFIG -----
-const proxyUrl = "https://traccar-proxy-75nd.onrender.com"; // your Render proxy
-const devices = [
-  { id: 20927366, name: "Dad" },
-  // Add more devices here: {id: DEVICE_ID, name: "Name"}
-];
+  <script>
+    // ====== CONFIG ======
+    const proxyUrl = "https://traccar-proxy-fcj3.onrender.com"; // replace with your proxy URL
 
-const map = L.map('map').setView([27.915, -82.787], 12);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; OpenStreetMap contributors'
-}).addTo(map);
+    const devices = [
+      { name: "Dad", id: 1 },
+      { name: "Mom", id: 20927367 },
+      { name: "Charlie", id: 20927368 }
+    ];
 
-const markers = {};
+    // Define zones by coordinates (latitude/longitude)
+    const zones = [
+      { name: "Home", lat: 27.9123, lon: -82.7712, radius: 0.002 },
+      { name: "High School", lat: 27.9150, lon: -82.7800, radius: 0.002 },
+      { name: "Soccer Field", lat: 27.9200, lon: -82.7700, radius: 0.002 }
+    ];
 
-// Reverse geocode coordinates to city/area name
-async function getAreaName(lat, lon) {
-  try {
-    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
-    const data = await res.json();
-    return data.address.city || data.address.town || data.address.village || data.display_name;
-  } catch (err) {
-    console.error("Reverse geocoding error:", err);
-    return "Unknown area";
-  }
-}
-
-async function updateLocations() {
-  const locationsDiv = document.getElementById('locations');
-  locationsDiv.innerHTML = '';
-
-  for (const device of devices) {
-    try {
-      const res = await fetch(`${proxyUrl}/positions/${device.id}`);
-      const data = await res.json();
-      if (!data || data.length === 0) continue;
-
-      const pos = data[data.length - 1];
-      const lat = pos.latitude;
-      const lon = pos.longitude;
-
-      // Add or update marker
-      if (markers[device.id]) {
-        markers[device.id].setLatLng([lat, lon]);
-      } else {
-        markers[device.id] = L.marker([lat, lon]).addTo(map)
-          .bindPopup(`${device.name}`);
+    function getZone(lat, lon) {
+      for (let zone of zones) {
+        const distance = Math.sqrt((lat - zone.lat)**2 + (lon - zone.lon)**2);
+        if (distance <= zone.radius) return zone.name;
       }
-
-      const areaName = await getAreaName(lat, lon);
-      locationsDiv.innerHTML += `<strong>${device.name}</strong>: ${areaName} (${lat.toFixed(5)}, ${lon.toFixed(5)})<br>`;
-
-    } catch (err) {
-      console.error(`Error fetching ${device.name}:`, err);
+      return "Other";
     }
-  }
-}
 
-updateLocations();
-setInterval(updateLocations, 30000);
-</script>
+    async function updateLocations() {
+      const container = document.getElementById("deviceList");
+      container.innerHTML = "";
+
+      for (let device of devices) {
+        try {
+          const response = await fetch(`${proxyUrl}/positions/${device.id}`);
+          const data = await response.json();
+
+          let displayText = "No location available";
+
+          if (data && data.latitude && data.longitude) {
+            const zoneName = getZone(data.latitude, data.longitude);
+            displayText = `Lat: ${data.latitude.toFixed(5)}, Lon: ${data.longitude.toFixed(5)} | ${zoneName}`;
+          }
+
+          const div = document.createElement("div");
+          div.className = "device";
+          div.innerHTML = `<span class="name">${device.name}:</span> <span class="zone">${displayText}</span>`;
+          container.appendChild(div);
+
+        } catch (err) {
+          console.error(`Error fetching ${device.name}:`, err);
+          const div = document.createElement("div");
+          div.className = "device";
+          div.innerHTML = `<span class="name">${device.name}:</span> <span class="zone">Error fetching location</span>`;
+          container.appendChild(div);
+        }
+      }
+    }
+
+    // Initial load
+    updateLocations();
+
+    // Refresh every 30 seconds
+    setInterval(updateLocations, 30000);
+  </script>
 </body>
 </html>
