@@ -17,13 +17,12 @@
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
 // ----- CONFIG -----
-const proxyUrl = "https://traccar-proxy.onrender.com"; // your Render proxy
+const proxyUrl = "https://traccar-proxy-etet.onrender.com"; // your Render proxy
 const devices = [
-  { id: 20927366, name: "Dad", zones: {home: [27.915, -82.787], school: [27.965, -82.800], soccer: [27.940, -82.810]} },
-  // Add more devices here: {id: DEVICE_ID, name: "Name", zones: {...}}
+  { id: 20927366, name: "Dad" },
+  // Add more devices here: {id: DEVICE_ID, name: "Name"}
 ];
 
-// Initialize map
 const map = L.map('map').setView([27.915, -82.787], 12);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '&copy; OpenStreetMap contributors'
@@ -31,7 +30,18 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
 
 const markers = {};
 
-// Function to fetch latest positions
+// Reverse geocode coordinates to city/area name
+async function getAreaName(lat, lon) {
+  try {
+    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+    const data = await res.json();
+    return data.address.city || data.address.town || data.address.village || data.display_name;
+  } catch (err) {
+    console.error("Reverse geocoding error:", err);
+    return "Unknown area";
+  }
+}
+
 async function updateLocations() {
   const locationsDiv = document.getElementById('locations');
   locationsDiv.innerHTML = '';
@@ -42,12 +52,11 @@ async function updateLocations() {
       const data = await res.json();
       if (!data || data.length === 0) continue;
 
-      // Use latest position
       const pos = data[data.length - 1];
       const lat = pos.latitude;
       const lon = pos.longitude;
 
-      // Update/add marker
+      // Add or update marker
       if (markers[device.id]) {
         markers[device.id].setLatLng([lat, lon]);
       } else {
@@ -55,26 +64,16 @@ async function updateLocations() {
           .bindPopup(`${device.name}`);
       }
 
-      // Determine zone (simple distance check)
-      let zoneName = "Unknown";
-      for (const [zone, coords] of Object.entries(device.zones)) {
-        const distance = map.distance([lat, lon], coords);
-        if (distance < 200) { // within 200 meters
-          zoneName = zone.charAt(0).toUpperCase() + zone.slice(1);
-          break;
-        }
-      }
+      const areaName = await getAreaName(lat, lon);
+      locationsDiv.innerHTML += `<strong>${device.name}</strong>: ${areaName} (${lat.toFixed(5)}, ${lon.toFixed(5)})<br>`;
 
-      locationsDiv.innerHTML += `<strong>${device.name}</strong>: ${zoneName} (${lat.toFixed(5)}, ${lon.toFixed(5)})<br>`;
     } catch (err) {
       console.error(`Error fetching ${device.name}:`, err);
     }
   }
 }
 
-// Initial update
 updateLocations();
-// Update every 30 seconds
 setInterval(updateLocations, 30000);
 </script>
 </body>
