@@ -3,54 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <title>Family Location Dashboard</title>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha256-sA+e2oA5qQT6gpxz8gP+FzYxN3b7J6qk1QAmnJ4R0Ec="
+    crossorigin=""
+  />
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 20px;
-    }
-    h1 {
-      text-align: center;
-    }
-    .device-list {
-      max-width: 400px;
-      margin: 0 auto;
-      border: 1px solid #ccc;
-      border-radius: 8px;
-      padding: 10px;
-    }
-    .device {
-      padding: 8px;
-      border-bottom: 1px solid #eee;
-    }
-    .device:last-child {
-      border-bottom: none;
-    }
-    .name {
-      font-weight: bold;
-    }
-    .zone {
-      margin-left: 10px;
-      font-style: italic;
-      color: #555;
-    }
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { text-align: center; }
+    .device-list { max-width: 400px; margin: 0 auto; border: 1px solid #ccc; border-radius: 8px; padding: 10px; }
+    .device { padding: 8px; border-bottom: 1px solid #eee; }
+    .device:last-child { border-bottom: none; }
+    .name { font-weight: bold; }
+    .zone { margin-left: 10px; font-style: italic; color: #555; }
+    #map { height: 400px; width: 100%; margin-top: 20px; }
   </style>
 </head>
 <body>
   <h1>Family Location Dashboard</h1>
   <div class="device-list" id="deviceList"></div>
+  <div id="map"></div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-oB+m3dI+fFIP6fN6A3YhJ1tRvgPsv9IT9jNq3jJpGk8="
+    crossorigin="">
+  </script>
   <script>
-    // ====== CONFIG ======
-    const proxyUrl = "https://traccar-proxy-fcj3.onrender.com"; // replace with your proxy URL
-
-    const devices = [
-      { name: "Dad", id: 1 }
-      // You can add more devices here
-    ];
+    const proxyUrl = "https://traccar-proxy-fcj3.onrender.com"; // your proxy URL
+    const devices = [{ name: "Dad", id: 1 }];
 
     // Define zones by coordinates (latitude/longitude)
     const zones = [
-      { name: "Home", lat: 27.9123, lon: -82.7712, radius: 0.002 },
+      { name: "Home", lat: 27.93241, lon: -82.81062, radius: 0.002 },
       { name: "High School", lat: 27.9150, lon: -82.7800, radius: 0.002 },
       { name: "Soccer Field", lat: 27.9200, lon: -82.7700, radius: 0.002 }
     ];
@@ -61,6 +46,24 @@
         if (distance <= zone.radius) return zone.name;
       }
       return "Other";
+    }
+
+    // Initialize Leaflet map centered on Clearwater
+    const map = L.map('map').setView([27.9123, -82.7712], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors'
+    }).addTo(map);
+
+    const markers = {}; // store markers for each device
+
+    async function reverseGeocode(lat, lon) {
+      try {
+        const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+        const json = await resp.json();
+        return json.address.city || json.address.town || json.address.village || json.display_name;
+      } catch {
+        return "Unknown location";
+      }
     }
 
     async function updateLocations() {
@@ -74,12 +77,22 @@
 
           let displayText = "No location available";
 
-          // Handle array returned by Traccar
           if (Array.isArray(data) && data.length > 0) {
             const pos = data[0];
             if (pos.latitude && pos.longitude) {
               const zoneName = getZone(pos.latitude, pos.longitude);
-              displayText = `Lat: ${pos.latitude.toFixed(5)}, Lon: ${pos.longitude.toFixed(5)} | ${zoneName}`;
+              const readableLoc = await reverseGeocode(pos.latitude, pos.longitude);
+              displayText = `Lat: ${pos.latitude.toFixed(5)}, Lon: ${pos.longitude.toFixed(5)} | ${zoneName} | ${readableLoc}`;
+
+              // Update or create marker on map
+              if (markers[device.id]) {
+                markers[device.id].setLatLng([pos.latitude, pos.longitude]);
+              } else {
+                markers[device.id] = L.marker([pos.latitude, pos.longitude]).addTo(map)
+                  .bindPopup(`${device.name}: ${zoneName} | ${readableLoc}`)
+                  .openPopup();
+              }
+              map.setView([pos.latitude, pos.longitude], 13);
             }
           }
 
@@ -98,10 +111,7 @@
       }
     }
 
-    // Initial load
     updateLocations();
-
-    // Refresh every 30 seconds
     setInterval(updateLocations, 30000);
   </script>
 </body>
