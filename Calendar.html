@@ -1,29 +1,54 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>Family Calendar</title>
-
-<!-- Leaflet CSS/JS for Map -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-
 <style>
-  html, body { 
-    height:100%; 
-    margin:0; 
-    background:#000; 
-    overflow:hidden; 
-    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; 
-    display: flex; 
+  body { 
+    font-family: Arial, sans-serif; 
+    margin: 0; 
+    background: #cce7ff; /* lighter full-page blue */
+    display: flex;
     flex-direction: column;
+    height: 100vh;
   }
 
-  #frame { 
-    flex: 1; 
-    width:100%; 
-    border:0; 
+  /* Family bar at the top */
+  #family-bar {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    padding: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  }
+
+  .member {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100px;
+    padding: 5px;
+    background-color: #add8e6; /* light blue behind face */
+    border-radius: 12px;
+  }
+
+  .member img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    margin-bottom: 5px;
+  }
+
+  .location { font-weight: bold; text-align: center; }
+  .city { font-size: 0.9em; color: #555; text-align: center; margin-top: 2px; }
+
+  /* Calendar iframe */
+  #frame {
+    flex: 1;
+    width: 100%;
+    border: 0;
   }
 
   /* Bottom view indicators */
@@ -41,7 +66,6 @@
     color: #888;
     font-weight: bold;
     border-top: 1px solid #444;
-    cursor: pointer;
   }
 
   .view-label.active {
@@ -52,20 +76,130 @@
 </head>
 <body>
 
+<!-- Family bar -->
+<div id="family-bar">
+  <div class="member" id="dad">
+    <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Dad.png" alt="Dad">
+    <div class="location" id="dad-location">Loading...</div>
+    <div class="city" id="dad-city">Loading...</div>
+  </div>
+  <div class="member" id="mom">
+    <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mom.png" alt="Mom">
+    <div class="location" id="mom-location">Loading...</div>
+    <div class="city" id="mom-city">Loading...</div>
+  </div>
+  <div class="member" id="mary">
+    <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mary.png" alt="Mary">
+    <div class="location" id="mary-location">Loading...</div>
+    <div class="city" id="mary-city">Loading...</div>
+  </div>
+  <div class="member" id="charlie">
+    <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Char.png" alt="Charlie">
+    <div class="location" id="charlie-location">Loading...</div>
+    <div class="city" id="charlie-city">Loading...</div>
+  </div>
+  <div class="member" id="jack">
+    <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Jack.png" alt="Jack">
+    <div class="location" id="jack-location">Loading...</div>
+    <div class="city" id="jack-city">Loading...</div>
+  </div>
+</div>
+
+<!-- Calendar iframe -->
 <iframe id="frame" frameborder="0" allowfullscreen></iframe>
 
+<!-- Bottom view indicators -->
 <div class="view-indicators">
   <div id="label-weekly" class="view-label">Weekly</div>
   <div id="label-monthly" class="view-label">Monthly</div>
   <div id="label-work" class="view-label">Work</div>
-  <div id="label-map" class="view-label">Map</div>
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+const proxyUrl = "https://traccar-proxy-fcj3.onrender.com";
+
+// All devices now live
+const devices = [
+  { name: "Dad", id: 1 },
+  { name: "Mom", id: 2 },
+  { name: "Charlie", id: 3 },
+  { name: "Jack", id: 4 },
+  { name: "Mary", id: 5 }
+];
+
+// Zones
+const zones = [
+  { name: "Home", lat: 27.93241, lon: -82.81062, radius: 0.002 },
+  { name: "High School", lat: 27.9150, lon: -82.7800, radius: 0.002 },
+  { name: "Soccer Field", lat: 27.9200, lon: -82.7700, radius: 0.002 }
+];
+
+function getZone(lat, lon) {
+  for (let zone of zones) {
+    const distance = Math.sqrt((lat - zone.lat)**2 + (lon - zone.lon)**2);
+    if (distance <= zone.radius) return zone.name;
+  }
+  return "Other";
+}
+
+// Leaflet map (hidden if you don't want it visible)
+const map = L.map(document.createElement("div")).setView([27.9123, -82.7712], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
+
+const markers = {};
+
+async function reverseGeocode(lat, lon) {
+  try {
+    const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+    const json = await resp.json();
+    return json.address.city || json.address.town || json.address.village || json.display_name;
+  } catch {
+    return "Unknown location";
+  }
+}
+
+async function updateLocations() {
+  for (let device of devices) {
+    try {
+      const response = await fetch(`${proxyUrl}/positions/${device.id}`);
+      const data = await response.json();
+
+      if (Array.isArray(data) && data.length > 0) {
+        const pos = data[0];
+        if (pos.latitude && pos.longitude) {
+          const zoneName = getZone(pos.latitude, pos.longitude);
+          const readableLoc = await reverseGeocode(pos.latitude, pos.longitude);
+
+          // Update family bar dynamically
+          document.getElementById(`${device.name.toLowerCase()}-location`).textContent = zoneName;
+          document.getElementById(`${device.name.toLowerCase()}-city`).textContent = readableLoc;
+
+          // Update or add marker
+          if (markers[device.id]) {
+            markers[device.id].setLatLng([pos.latitude, pos.longitude]);
+          } else {
+            markers[device.id] = L.marker([pos.latitude, pos.longitude])
+              .addTo(map)
+              .bindPopup(`${device.name}: ${zoneName} | ${readableLoc}`);
+          }
+        }
+      }
+    } catch (err) {
+      console.error(`Error fetching ${device.name}:`, err);
+      document.getElementById(`${device.name.toLowerCase()}-location`).textContent = "Error";
+      document.getElementById(`${device.name.toLowerCase()}-city`).textContent = "";
+    }
+  }
+}
+
+updateLocations();
+setInterval(updateLocations, 30000);
+
+// Calendar setup
 const iframe = document.getElementById("frame");
 const baseUrl = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showTitle=0&showNav=0&showPrint=0&showTabs=0&showCalendars=0&showTz=0&wkst=2";
 
-// Calendar sets
 const calendarSets = {
   weekly: [
     { id: "desilerch@gmail.com", color: "%23E67C73" },
@@ -86,41 +220,25 @@ const calendarSets = {
   ]
 };
 
-// Family devices for Map mode
-const devices = [
-  { id: 1, name: "Dad" },
-  { id: 2, name: "Mom" },
-  { id: 3, name: "Charlie" },
-  { id: 4, name: "Jack" },
-  { id: 5, name: "Mary" }
-];
-
-// Mode cycle
-const modes = ["weekly","monthly","work","map"];
+const modes = ["weekly","monthly","work"];
 let modeIndex = 0;
 let mode = modes[modeIndex];
 let currentStartDate = new Date();
 
-// View indicator elements
 const labels = {
   weekly: document.getElementById("label-weekly"),
   monthly: document.getElementById("label-monthly"),
-  work: document.getElementById("label-work"),
-  map: document.getElementById("label-map")
+  work: document.getElementById("label-work")
 };
 
-// Update active view highlight
 function updateLabels() {
   Object.keys(labels).forEach(key => labels[key].classList.remove("active"));
   labels[mode].classList.add("active");
 }
 
-// Calendar URL helpers
-function formatYYYYMMDD(date) { return date.toISOString().slice(0,10).replace(/-/g,''); }
-
 function initDate() {
   const today = new Date();
-  if (mode === "weekly" || mode==="work") {
+  if (mode === "weekly" || mode === "work") {
     const day = today.getDay();
     const diff = (day === 0 ? -6 : 1 - day);
     currentStartDate = new Date(today);
@@ -131,74 +249,31 @@ function initDate() {
   }
 }
 
+function formatYYYYMMDD(date) { return date.toISOString().slice(0,10).replace(/-/g,''); }
+
 function buildUrl() {
   const start = new Date(currentStartDate);
   const end = new Date(start);
-
   if (mode === "weekly") end.setDate(end.getDate()+6);
   else if (mode === "monthly") { end.setMonth(end.getMonth()+1); end.setDate(0); }
   else if (mode === "work") end.setDate(end.getDate()+4);
 
   let url = baseUrl + "&mode=" + (mode==="monthly" ? "MONTH" : "WEEK");
-  calendarSets[mode]?.forEach(cal => { 
-    url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; 
-  });
+  calendarSets[mode].forEach(cal => { url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; });
   return url;
 }
 
-// --- Map setup ---
-let map, markers = {};
-
-function initMap() {
-  if (!map) {
-    map = L.map("frame").setView([27.91,-82.78], 12); // adjust to your location
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap'
-    }).addTo(map);
-  }
-}
-
-async function updateMapPositions() {
-  for (let device of devices) {
-    try {
-      const res = await fetch(`/positions/${device.id}`);
-      const data = await res.json();
-      const latest = data[0];
-      if (!latest) continue;
-      const latlng = [latest.latitude, latest.longitude];
-
-      if (!markers[device.id]) {
-        markers[device.id] = L.marker(latlng).addTo(map).bindPopup(device.name);
-      } else {
-        markers[device.id].setLatLng(latlng);
-      }
-    } catch(err) {
-      console.error("Error fetching position for", device.name, err);
-    }
-  }
-}
-
-// --- Update iframe/map based on mode ---
 function updateIframe() {
-  if(mode === "map") {
-    iframe.style.display = "block";
-    iframe.srcdoc = `<div id="frame" style="width:100%; height:100%;"></div>`; 
-    setTimeout(() => { initMap(); updateMapPositions(); }, 100);
-  } else {
-    iframe.src = buildUrl();
-  }
+  iframe.src = buildUrl();
   updateLabels();
 }
 
-// Initialize
 initDate();
 updateIframe();
 
 // Handle messages from index.html
 window.addEventListener("message", (event) => {
   if (!event.data || typeof event.data.action !== "string") return;
-
   switch(event.data.action) {
     case "next":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
@@ -219,17 +294,12 @@ window.addEventListener("message", (event) => {
       initDate();
       break;
   }
-
   updateIframe();
 });
 
-// Auto-refresh calendar every 5 minutes (only for calendar modes)
-setInterval(() => { if(mode !== "map") updateIframe(); }, 300000);
-
-// Auto-refresh map every 5 seconds
-setInterval(() => { if(mode === "map") updateMapPositions(); }, 5000);
+// Auto-refresh every 5 minutes for calendar
+setInterval(updateIframe, 300000);
 
 </script>
-
 </body>
 </html>
