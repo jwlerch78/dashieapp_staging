@@ -2,17 +2,20 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title></title> <!-- Title removed -->
+<title></title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-  body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; }
+  body { 
+    font-family: Arial, sans-serif; 
+    margin: 0; 
+    background: #cce7ff; /* lighter full-page blue */
+  }
 
   /* Family bar at the top */
   #family-bar {
     display: flex;
     justify-content: space-around;
     align-items: center;
-    background: #fffdd0dd; /* light transparent cream */
     padding: 10px;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   }
@@ -47,28 +50,28 @@
 <div id="family-bar">
   <div class="member" id="dad">
     <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Dad.png" alt="Dad">
-    <div class="location" id="dad-location">Home</div>
-    <div class="city" id="dad-city">Belleair</div>
+    <div class="location" id="dad-location">Loading...</div>
+    <div class="city" id="dad-city">Loading...</div>
   </div>
   <div class="member" id="mom">
     <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mom.png" alt="Mom">
-    <div class="location">Work</div>
-    <div class="city">Largo</div>
+    <div class="location" id="mom-location">Loading...</div>
+    <div class="city" id="mom-city">Loading...</div>
   </div>
   <div class="member" id="mary">
     <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mary.png" alt="Mary">
-    <div class="location">Osceola</div>
-    <div class="city">Kissimmee</div>
+    <div class="location" id="mary-location">Loading...</div>
+    <div class="city" id="mary-city">Loading...</div>
   </div>
   <div class="member" id="charlie">
     <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Char.png" alt="Charlie">
-    <div class="location">CFMS</div>
-    <div class="city">Clearwater</div>
+    <div class="location" id="charlie-location">Loading...</div>
+    <div class="city" id="charlie-city">Loading...</div>
   </div>
   <div class="member" id="jack">
     <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Jack.png" alt="Jack">
-    <div class="location">Soccer</div>
-    <div class="city">Belcher</div>
+    <div class="location" id="jack-location">Loading...</div>
+    <div class="city" id="jack-city">Loading...</div>
   </div>
 </div>
 
@@ -79,8 +82,14 @@
 <script>
 const proxyUrl = "https://traccar-proxy-fcj3.onrender.com";
 
-// Only Dad is live tracked for now
-const devices = [{ name: "Dad", id: 1 }];
+// All devices now live
+const devices = [
+  { name: "Dad", id: 1 },
+  { name: "Mom", id: 2 },
+  { name: "Charlie", id: 3 },
+  { name: "Jack", id: 4 },
+  { name: "Mary", id: 5 }
+];
 
 // Zones
 const zones = [
@@ -127,11 +136,11 @@ async function updateLocations() {
           const zoneName = getZone(pos.latitude, pos.longitude);
           const readableLoc = await reverseGeocode(pos.latitude, pos.longitude);
 
-          // Update family bar for Dad
-          document.getElementById("dad-location").textContent = zoneName;
-          document.getElementById("dad-city").textContent = readableLoc;
+          // Update family bar dynamically
+          document.getElementById(`${device.name.toLowerCase()}-location`).textContent = zoneName;
+          document.getElementById(`${device.name.toLowerCase()}-city`).textContent = readableLoc;
 
-          // Update marker
+          // Update or add marker
           if (markers[device.id]) {
             markers[device.id].setLatLng([pos.latitude, pos.longitude]);
           } else {
@@ -140,15 +149,17 @@ async function updateLocations() {
               .bindPopup(`${device.name}: ${zoneName} | ${readableLoc}`)
               .openPopup();
           }
-
-          map.setView([pos.latitude, pos.longitude], 13);
         }
       }
     } catch (err) {
       console.error(`Error fetching ${device.name}:`, err);
-      document.getElementById("dad-location").textContent = "Error";
-      document.getElementById("dad-city").textContent = "";
+      document.getElementById(`${device.name.toLowerCase()}-location`).textContent = "Error";
+      document.getElementById(`${device.name.toLowerCase()}-city`).textContent = "";
     }
+  }
+  // Optionally, adjust map view to last updated position
+  if (devices.length > 0 && markers[devices[0].id]) {
+    map.setView(markers[devices[0].id].getLatLng(), 13);
   }
 }
 
