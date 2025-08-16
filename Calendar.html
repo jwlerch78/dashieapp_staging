@@ -6,13 +6,13 @@
 <title>Family Calendar</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
-  body { 
-    font-family: Arial, sans-serif; 
-    margin: 0; 
-    background: #cce7ff; /* lighter full-page blue */
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: #000;
+    font-family: system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
     display: flex;
     flex-direction: column;
-    height: 100vh;
   }
 
   /* Family bar at the top */
@@ -21,6 +21,7 @@
     justify-content: space-around;
     align-items: center;
     padding: 10px;
+    background: #cce7ff;
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   }
 
@@ -30,7 +31,7 @@
     align-items: center;
     width: 100px;
     padding: 5px;
-    background-color: #add8e6; /* light blue behind face */
+    background-color: #add8e6;
     border-radius: 12px;
   }
 
@@ -44,12 +45,7 @@
   .location { font-weight: bold; text-align: center; }
   .city { font-size: 0.9em; color: #555; text-align: center; margin-top: 2px; }
 
-  /* Calendar iframe */
-  #frame {
-    flex: 1;
-    width: 100%;
-    border: 0;
-  }
+  #frame { flex: 1; width: 100%; border: 0; }
 
   /* Bottom view indicators */
   .view-indicators {
@@ -57,7 +53,6 @@
     height: 40px;
     background-color: #222;
   }
-
   .view-label {
     flex: 1;
     display: flex;
@@ -67,11 +62,7 @@
     font-weight: bold;
     border-top: 1px solid #444;
   }
-
-  .view-label.active {
-    color: #fff;
-    background-color: #4285f4; /* Highlighted blue */
-  }
+  .view-label.active { color: #fff; background-color: #4285f4; }
 </style>
 </head>
 <body>
@@ -108,18 +99,16 @@
 <!-- Calendar iframe -->
 <iframe id="frame" frameborder="0" allowfullscreen></iframe>
 
-<!-- Bottom view indicators -->
 <div class="view-indicators">
   <div id="label-weekly" class="view-label">Weekly</div>
   <div id="label-monthly" class="view-label">Monthly</div>
   <div id="label-work" class="view-label">Work</div>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const proxyUrl = "https://traccar-proxy-fcj3.onrender.com";
 
-// All devices now live
+// Devices
 const devices = [
   { name: "Dad", id: 1 },
   { name: "Mom", id: 2 },
@@ -131,7 +120,7 @@ const devices = [
 // Zones
 const zones = [
   { name: "Home", lat: 27.93241, lon: -82.81062, radius: 0.002 },
-  { name: "High School", lat: 27.9150, lon: -82.7800, radius: 0.002 },
+  { name: "Osceola HS", lat: 27.9150, lon: -82.7800, radius: 0.002 },
   { name: "Soccer Field", lat: 27.9200, lon: -82.7700, radius: 0.002 }
 ];
 
@@ -143,19 +132,13 @@ function getZone(lat, lon) {
   return "Other";
 }
 
-// Leaflet map (hidden if you don't want it visible)
-const map = L.map(document.createElement("div")).setView([27.9123, -82.7712], 13);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap contributors' }).addTo(map);
-
-const markers = {};
-
 async function reverseGeocode(lat, lon) {
   try {
-    const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+    const resp = await fetch(`${proxyUrl}/reverse?lat=${lat}&lon=${lon}`);
     const json = await resp.json();
-    return json.address.city || json.address.town || json.address.village || json.display_name;
+    return json.city || json.display_name || "Unknown";
   } catch {
-    return "Unknown location";
+    return "Unknown";
   }
 }
 
@@ -169,20 +152,10 @@ async function updateLocations() {
         const pos = data[0];
         if (pos.latitude && pos.longitude) {
           const zoneName = getZone(pos.latitude, pos.longitude);
-          const readableLoc = await reverseGeocode(pos.latitude, pos.longitude);
+          const cityName = await reverseGeocode(pos.latitude, pos.longitude);
 
-          // Update family bar dynamically
           document.getElementById(`${device.name.toLowerCase()}-location`).textContent = zoneName;
-          document.getElementById(`${device.name.toLowerCase()}-city`).textContent = readableLoc;
-
-          // Update or add marker
-          if (markers[device.id]) {
-            markers[device.id].setLatLng([pos.latitude, pos.longitude]);
-          } else {
-            markers[device.id] = L.marker([pos.latitude, pos.longitude])
-              .addTo(map)
-              .bindPopup(`${device.name}: ${zoneName} | ${readableLoc}`);
-          }
+          document.getElementById(`${device.name.toLowerCase()}-city`).textContent = cityName;
         }
       }
     } catch (err) {
@@ -193,17 +166,18 @@ async function updateLocations() {
   }
 }
 
+// Initial update and periodic refresh every 30 seconds
 updateLocations();
 setInterval(updateLocations, 30000);
 
-// Calendar setup
+// --- Calendar iframe code ---
 const iframe = document.getElementById("frame");
 const baseUrl = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showTitle=0&showNav=0&showPrint=0&showTabs=0&showCalendars=0&showTz=0&wkst=2";
 
 const calendarSets = {
   weekly: [
     { id: "desilerch@gmail.com", color: "%23E67C73" },
-    { id: "e48b36883ae237a9551de738523b7a246d5a1f6b15a3dbb6c78ee455a3aa4688@group.calendar.google.com", color: "%231565C0" },
+    { id: "e48b36883ae237a9551de738523b7a246d5a1f6b15c@group.calendar.google.com", color: "%231565C0" },
     { id: "180b3d0e7c1ae0241b2e60ba9c566500949ff16a487adf11625cd72306b2310f@group.calendar.google.com", color: "%230B8043" },
     { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" },
     { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
@@ -224,7 +198,6 @@ const modes = ["weekly","monthly","work"];
 let modeIndex = 0;
 let mode = modes[modeIndex];
 let currentStartDate = new Date();
-
 const labels = {
   weekly: document.getElementById("label-weekly"),
   monthly: document.getElementById("label-monthly"),
@@ -254,52 +227,35 @@ function formatYYYYMMDD(date) { return date.toISOString().slice(0,10).replace(/-
 function buildUrl() {
   const start = new Date(currentStartDate);
   const end = new Date(start);
-  if (mode === "weekly") end.setDate(end.getDate()+6);
+  if (mode === "weekly" || mode === "work") end.setDate(end.getDate()+6);
   else if (mode === "monthly") { end.setMonth(end.getMonth()+1); end.setDate(0); }
-  else if (mode === "work") end.setDate(end.getDate()+4);
 
   let url = baseUrl + "&mode=" + (mode==="monthly" ? "MONTH" : "WEEK");
+  url += `&dates=${formatYYYYMMDD(start)}/${formatYYYYMMDD(end)}`;
   calendarSets[mode].forEach(cal => { url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; });
   return url;
 }
 
-function updateIframe() {
-  iframe.src = buildUrl();
+function updateIframe() { 
+  iframe.src = buildUrl(); 
   updateLabels();
 }
 
 initDate();
 updateIframe();
 
-// Handle messages from index.html
 window.addEventListener("message", (event) => {
   if (!event.data || typeof event.data.action !== "string") return;
   switch(event.data.action) {
-    case "next":
-      if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
-      else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()+1);
-      break;
-    case "prev":
-      if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()-7);
-      else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()-1);
-      break;
-    case "nextCalendar":
-      modeIndex = (modeIndex + 1) % modes.length;
-      mode = modes[modeIndex];
-      initDate();
-      break;
-    case "prevCalendar":
-      modeIndex = (modeIndex - 1 + modes.length) % modes.length;
-      mode = modes[modeIndex];
-      initDate();
-      break;
+    case "next": if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7); else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()+1); break;
+    case "prev": if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()-7); else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()-1); break;
+    case "nextCalendar": modeIndex = (modeIndex + 1) % modes.length; mode = modes[modeIndex]; initDate(); break;
+    case "prevCalendar": modeIndex = (modeIndex - 1 + modes.length) % modes.length; mode = modes[modeIndex]; initDate(); break;
   }
   updateIframe();
 });
 
-// Auto-refresh every 5 minutes for calendar
 setInterval(updateIframe, 300000);
-
 </script>
 </body>
 </html>
