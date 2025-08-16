@@ -16,37 +16,43 @@
     flex-direction: column;
   }
 
-  /* Family tracker bar at top */
+  /* Family tracker bar */
   #family-bar {
     display: none; /* start hidden */
     flex-direction: row;
     justify-content: space-around;
     align-items: center;
-    padding: 10px;
+    padding: 5px 10px;
     background: #000; /* black behind tracker */
     box-shadow: 0 2px 5px rgba(0,0,0,0.2);
     z-index: 1000;
+    height: 50px; /* half height */
   }
 
   .member {
     display: flex;
-    flex-direction: column;
     align-items: center;
-    width: 100px;
-    padding: 5px;
-    background-color: #111; /* dark behind face */
+    background-color: #111;
+    padding: 2px 6px;
     border-radius: 12px;
+    min-width: 120px;
+    justify-content: flex-start;
   }
 
   .member img {
-    width: 60px;
-    height: 60px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
-    margin-bottom: 5px;
+    margin-right: 8px;
   }
 
-  .location { font-weight: bold; text-align: center; color:#fff; }
-  .city { font-size: 0.9em; color: #aaa; text-align: center; margin-top: 2px; }
+  .location { 
+    font-weight: bold; 
+    color: #fff; 
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
   /* Calendar iframe */
   #frame { 
@@ -85,27 +91,22 @@
   <div class="member" id="dad">
     <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Dad.png" alt="Dad">
     <div class="location" id="dad-location">Loading...</div>
-    <div class="city" id="dad-city">Loading...</div>
   </div>
   <div class="member" id="mom">
     <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mom.png" alt="Mom">
     <div class="location" id="mom-location">Loading...</div>
-    <div class="city" id="mom-city">Loading...</div>
   </div>
   <div class="member" id="mary">
     <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mary.png" alt="Mary">
     <div class="location" id="mary-location">Loading...</div>
-    <div class="city" id="mary-city">Loading...</div>
   </div>
   <div class="member" id="charlie">
     <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Char.png" alt="Charlie">
     <div class="location" id="charlie-location">Loading...</div>
-    <div class="city" id="charlie-city">Loading...</div>
   </div>
   <div class="member" id="jack">
     <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Jack.png" alt="Jack">
     <div class="location" id="jack-location">Loading...</div>
-    <div class="city" id="jack-city">Loading...</div>
   </div>
 </div>
 
@@ -145,7 +146,7 @@ function getZone(lat, lon) {
     const distance = Math.sqrt((lat - zone.lat)**2 + (lon - zone.lon)**2);
     if (distance <= zone.radius) return zone.name;
   }
-  return "Other";
+  return null;
 }
 
 // Mode cycle & calendar sets
@@ -221,6 +222,7 @@ async function reverseGeocode(lat, lon) {
     return "Unknown location";
   }
 }
+
 async function updateLocations() {
   for (let device of devices) {
     try {
@@ -229,16 +231,13 @@ async function updateLocations() {
       if (Array.isArray(data) && data.length > 0) {
         const pos = data[0];
         if (pos.latitude && pos.longitude) {
-          const zoneName = getZone(pos.latitude, pos.longitude);
-          const readableLoc = await reverseGeocode(pos.latitude, pos.longitude);
+          const zoneName = getZone(pos.latitude, pos.longitude) || await reverseGeocode(pos.latitude, pos.longitude);
           document.getElementById(`${device.name.toLowerCase()}-location`).textContent = zoneName;
-          document.getElementById(`${device.name.toLowerCase()}-city`).textContent = readableLoc;
         }
       }
     } catch (err) {
       console.error(`Error fetching ${device.name}:`, err);
       document.getElementById(`${device.name.toLowerCase()}-location`).textContent = "Error";
-      document.getElementById(`${device.name.toLowerCase()}-city`).textContent = "";
     }
   }
 }
