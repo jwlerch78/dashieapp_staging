@@ -1,61 +1,81 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>My Location Map</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-  <style>
-    #map { height: 100vh; width: 100%; }
-  </style>
+<meta charset="UTF-8">
+<title>Family Location Dashboard</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<style>
+  #map { height: 500px; width: 100%; }
+  #locations { margin-top: 10px; font-family: sans-serif; }
+</style>
 </head>
 <body>
-<h2>My Current Location</h2>
+<h2>Family Location Dashboard</h2>
 <div id="map"></div>
+<div id="locations"></div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-  // --- CONFIG ---
-  const serverUrl = "https://demo.traccar.org/api";
-  const username = "jwlerch@gmail.com";  // replace with your demo login
-  const password = "Rileydog80!";     // replace with your demo password
-  const deviceId = 20927366;
+// ----- CONFIG -----
+const proxyUrl = "https://traccar-proxy.onrender.com"; // your Render proxy
+const devices = [
+  { id: 20927366, name: "Dad", zones: {home: [27.915, -82.787], school: [27.965, -82.800], soccer: [27.940, -82.810]} },
+  // Add more devices here: {id: DEVICE_ID, name: "Name", zones: {...}}
+];
 
-  // --- INIT MAP ---
-  const map = L.map('map').setView([27.96, -82.8], 12); // adjust initial center as needed
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
+// Initialize map
+const map = L.map('map').setView([27.915, -82.787], 12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
 
-  let marker;
+const markers = {};
 
-  async function updateLocation() {
+// Function to fetch latest positions
+async function updateLocations() {
+  const locationsDiv = document.getElementById('locations');
+  locationsDiv.innerHTML = '';
+
+  for (const device of devices) {
     try {
-      const response = await fetch(`${serverUrl}/positions?deviceId=${deviceId}`, {
-        headers: {
-          "Authorization": "Basic " + btoa(username + ":" + password)
-        }
-      });
-      const positions = await response.json();
-      if (positions.length === 0) return;
+      const res = await fetch(`${proxyUrl}/positions/${device.id}`);
+      const data = await res.json();
+      if (!data || data.length === 0) continue;
 
-      const pos = positions[positions.length - 1]; // latest position
+      // Use latest position
+      const pos = data[data.length - 1];
       const lat = pos.latitude;
       const lon = pos.longitude;
 
-      if (!marker) {
-        marker = L.marker([lat, lon]).addTo(map)
-                 .bindPopup("Me").openPopup();
+      // Update/add marker
+      if (markers[device.id]) {
+        markers[device.id].setLatLng([lat, lon]);
       } else {
-        marker.setLatLng([lat, lon]);
+        markers[device.id] = L.marker([lat, lon]).addTo(map)
+          .bindPopup(`${device.name}`);
       }
 
-      map.setView([lat, lon], 15); // zoom to device
+      // Determine zone (simple distance check)
+      let zoneName = "Unknown";
+      for (const [zone, coords] of Object.entries(device.zones)) {
+        const distance = map.distance([lat, lon], coords);
+        if (distance < 200) { // within 200 meters
+          zoneName = zone.charAt(0).toUpperCase() + zone.slice(1);
+          break;
+        }
+      }
+
+      locationsDiv.innerHTML += `<strong>${device.name}</strong>: ${zoneName} (${lat.toFixed(5)}, ${lon.toFixed(5)})<br>`;
     } catch (err) {
-      console.error("Error fetching location:", err);
+      console.error(`Error fetching ${device.name}:`, err);
     }
   }
+}
 
-  updateLocation();
-  setInterval(updateLocation, 10000); // refresh every 10s
+// Initial update
+updateLocations();
+// Update every 30 seconds
+setInterval(updateLocations, 30000);
 </script>
 </body>
 </html>
