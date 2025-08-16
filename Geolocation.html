@@ -1,64 +1,161 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title></title> <!-- Title removed -->
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f0f8ff; /* optional page background */
-      margin: 20px;
-    }
+<meta charset="UTF-8">
+<title></title> <!-- Title removed -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  body { font-family: Arial, sans-serif; margin: 0; background: #f5f5f5; }
 
-    .location-card {
-      display: inline-block;
-      text-align: center;
-      margin: 10px;
-      padding: 10px;
-      background-color: #add8e6; /* light blue behind face */
-      border-radius: 12px;
-      width: 120px;
-    }
+  /* Family bar at the top */
+  #family-bar {
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    background: #fffdd0dd; /* light transparent cream */
+    padding: 10px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  }
 
-    .location-card img {
-      border-radius: 50%; /* circle faces */
-      width: 80px;
-      height: 80px;
-      object-fit: cover;
-      margin-bottom: 8px;
-    }
+  .member {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100px;
+    padding: 5px;
+    background-color: #add8e6; /* light blue behind face */
+    border-radius: 12px;
+  }
 
-    .location-card .location {
-      font-weight: bold;
-      font-size: 1rem;
-      margin-bottom: 4px;
-    }
+  .member img {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    margin-bottom: 5px;
+  }
 
-    .location-card .city {
-      font-weight: normal;
-      font-size: 0.9rem;
-      color: #333;
-    }
-  </style>
+  .location { font-weight: bold; text-align: center; }
+  .city { font-size: 0.9em; color: #555; text-align: center; margin-top: 2px; }
+
+  /* Map styling */
+  #map { height: 400px; width: 100%; margin-top: 10px; }
+</style>
 </head>
 <body>
-  <div class="location-card">
-    <img src="https://github.com/jwlerch78/family_calendar/blob/main/images/dad.png?raw=true" alt="Dad">
-    <div class="location">Home</div>
-    <div class="city">Belleair</div>
-  </div>
 
-  <div class="location-card">
-    <img src="https://github.com/jwlerch78/family_calendar/blob/main/images/mom.png?raw=true" alt="Mom">
+<!-- Family bar -->
+<div id="family-bar">
+  <div class="member" id="dad">
+    <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Dad.png" alt="Dad">
+    <div class="location" id="dad-location">Home</div>
+    <div class="city" id="dad-city">Belleair</div>
+  </div>
+  <div class="member" id="mom">
+    <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mom.png" alt="Mom">
     <div class="location">Work</div>
     <div class="city">Largo</div>
   </div>
-
-  <div class="location-card">
-    <img src="https://github.com/jwlerch78/family_calendar/blob/main/images/Char.png?raw=true" alt="Charlie">
+  <div class="member" id="mary">
+    <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mary.png" alt="Mary">
     <div class="location">Osceola</div>
     <div class="city">Kissimmee</div>
   </div>
+  <div class="member" id="charlie">
+    <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Char.png" alt="Charlie">
+    <div class="location">CFMS</div>
+    <div class="city">Clearwater</div>
+  </div>
+  <div class="member" id="jack">
+    <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Jack.png" alt="Jack">
+    <div class="location">Soccer</div>
+    <div class="city">Belcher</div>
+  </div>
+</div>
+
+<!-- Map -->
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const proxyUrl = "https://traccar-proxy-fcj3.onrender.com";
+
+// Only Dad is live tracked for now
+const devices = [{ name: "Dad", id: 1 }];
+
+// Zones
+const zones = [
+  { name: "Home", lat: 27.93241, lon: -82.81062, radius: 0.002 },
+  { name: "High School", lat: 27.9150, lon: -82.7800, radius: 0.002 },
+  { name: "Soccer Field", lat: 27.9200, lon: -82.7700, radius: 0.002 }
+];
+
+function getZone(lat, lon) {
+  for (let zone of zones) {
+    const distance = Math.sqrt((lat - zone.lat)**2 + (lon - zone.lon)**2);
+    if (distance <= zone.radius) return zone.name;
+  }
+  return "Other";
+}
+
+// Initialize Leaflet map
+const map = L.map('map').setView([27.9123, -82.7712], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+
+const markers = {};
+
+async function reverseGeocode(lat, lon) {
+  try {
+    const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+    const json = await resp.json();
+    return json.address.city || json.address.town || json.address.village || json.display_name;
+  } catch {
+    return "Unknown location";
+  }
+}
+
+async function updateLocations() {
+  for (let device of devices) {
+    try {
+      const response = await fetch(`${proxyUrl}/positions/${device.id}`);
+      const data = await response.json();
+
+      if (Array.isArray(data) && data.length > 0) {
+        const pos = data[0];
+        if (pos.latitude && pos.longitude) {
+          const zoneName = getZone(pos.latitude, pos.longitude);
+          const readableLoc = await reverseGeocode(pos.latitude, pos.longitude);
+
+          // Update family bar for Dad
+          document.getElementById("dad-location").textContent = zoneName;
+          document.getElementById("dad-city").textContent = readableLoc;
+
+          // Update marker
+          if (markers[device.id]) {
+            markers[device.id].setLatLng([pos.latitude, pos.longitude]);
+          } else {
+            markers[device.id] = L.marker([pos.latitude, pos.longitude])
+              .addTo(map)
+              .bindPopup(`${device.name}: ${zoneName} | ${readableLoc}`)
+              .openPopup();
+          }
+
+          map.setView([pos.latitude, pos.longitude], 13);
+        }
+      }
+    } catch (err) {
+      console.error(`Error fetching ${device.name}:`, err);
+      document.getElementById("dad-location").textContent = "Error";
+      document.getElementById("dad-city").textContent = "";
+    }
+  }
+}
+
+// Initial update and periodic refresh
+updateLocations();
+setInterval(updateLocations, 30000);
+</script>
 
 </body>
 </html>
