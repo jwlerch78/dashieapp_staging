@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>My Location Map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+    #map { height: 100vh; width: 100%; }
+  </style>
+</head>
+<body>
+<h2>My Current Location</h2>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+  // --- CONFIG ---
+  const serverUrl = "https://demo.traccar.org/api";
+  const username = "jwlerch@gmail.com";  // replace with your demo login
+  const password = "Rileydog80!";     // replace with your demo password
+  const deviceId = 99722293;
+
+  // --- INIT MAP ---
+  const map = L.map('map').setView([27.96, -82.8], 12); // adjust initial center as needed
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  let marker;
+
+  async function updateLocation() {
+    try {
+      const response = await fetch(`${serverUrl}/positions?deviceId=${deviceId}`, {
+        headers: {
+          "Authorization": "Basic " + btoa(username + ":" + password)
+        }
+      });
+      const positions = await response.json();
+      if (positions.length === 0) return;
+
+      const pos = positions[positions.length - 1]; // latest position
+      const lat = pos.latitude;
+      const lon = pos.longitude;
+
+      if (!marker) {
+        marker = L.marker([lat, lon]).addTo(map)
+                 .bindPopup("Me").openPopup();
+      } else {
+        marker.setLatLng([lat, lon]);
+      }
+
+      map.setView([lat, lon], 15); // zoom to device
+    } catch (err) {
+      console.error("Error fetching location:", err);
+    }
+  }
+
+  updateLocation();
+  setInterval(updateLocation, 10000); // refresh every 10s
+</script>
+</body>
+</html>
