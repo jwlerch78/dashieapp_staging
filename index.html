@@ -134,7 +134,8 @@
   const keyLog = document.getElementById('keyLog');
 
   document.addEventListener('keydown', (event) => {
-    keyLog.textContent = `Key pressed: ${event.key} | keyCode: ${event.keyCode}`;
+//    keyLog.textContent = `Key pressed: ${event.key} | keyCode: ${event.keyCode}`;
+      keyLog.textContent = `keyCode: ${event.keyCode}`;
 
     switch(event.keyCode) {
       case 38: // up arrow - next on left pane
