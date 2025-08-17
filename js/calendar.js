@@ -97,7 +97,7 @@ updateLocations();
 setInterval(updateLocations, 30000);
 
 // Tracker toggle & calendar navigation
-let trackerVisible = false;
+let trackerVisible = true;
 window.addEventListener("message", (event) => {
   if (!event.data || typeof event.data.action !== "string") return;
 
