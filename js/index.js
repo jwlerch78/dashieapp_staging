@@ -1,34 +1,34 @@
-// Keep focus on index.html so key presses work
-window.addEventListener("blur", () => window.focus());
-window.focus();
-
-function postToFrame(frameId, message) {
-  const frame = document.getElementById(frameId);
-  if (frame) frame.contentWindow.postMessage(message, "*");
-}
+// index.js
 
 document.addEventListener("keydown", (event) => {
+  // Prevent default browser behavior (like moving focus between iframes)
+  event.preventDefault();
+  event.stopPropagation();
+
+  const iframe = document.getElementById("calendarFrame"); // calendar iframe
+  if (!iframe) return;
+
+  let command = null;
+
   switch (event.key) {
     case "ArrowRight":
-      postToFrame("right", { action: "next" });
+      command = "nextCal";
       break;
     case "ArrowLeft":
-      postToFrame("right", { action: "prev" });
+      command = "prevCal";
       break;
     case "ArrowUp":
-      postToFrame("right", { action: "nextCalendar" });
+      command = "up";
       break;
     case "ArrowDown":
-      postToFrame("right", { action: "prevCalendar" });
+      command = "down";
       break;
     case "Enter":
-      postToFrame("right", { action: "SelectButton" });
+      command = "SelectButton";
       break;
-    case "PageUp":
-      postToFrame("leftpanel", { action: "change_next" });
-      break;
-    case "PageDown":
-      postToFrame("leftpanel", { action: "change_prev" });
-      break;
+  }
+
+  if (command) {
+    iframe.contentWindow.postMessage(command, "*");
   }
 });
