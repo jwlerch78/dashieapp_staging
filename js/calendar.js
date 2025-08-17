@@ -13,6 +13,10 @@ const labels = {
   work: document.getElementById("label-work")
 };
 
+// Scroll hour setup
+const scrollHours = ["12pm", "8am", "4am", "12am"];
+let scrollHourIndex = null; // null = no scrollHour param
+
 // Zones helper
 function getZone(lat, lon) {
   for (let zone of ZONES) {
@@ -52,6 +56,11 @@ function buildUrl() {
   let url = BASE_URL + "&mode=" + (mode==="monthly" ? "MONTH" : "WEEK");
   url += `&dates=${formatYYYYMMDD(start)}/${formatYYYYMMDD(end)}`;
   CALENDAR_SETS[mode].forEach(cal => { url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; });
+
+  if (scrollHourIndex !== null) {
+    url += `&sfh=${scrollHours[scrollHourIndex]}`;
+  }
+  
   return url;
 }
 
@@ -105,6 +114,14 @@ window.addEventListener("message", (event) => {
       trackerVisible = !trackerVisible;
       document.getElementById("family-bar").style.display = trackerVisible ? "flex" : "none";
       break;
+    case "upCalendar":
+      if (scrollHourIndex === null) scrollHourIndex = 1; // start at 8am
+      else if (scrollHourIndex < scrollHours.length - 1) scrollHourIndex++;
+      break;
+    case "downCalendar":
+      if (scrollHourIndex === null) scrollHourIndex = 0; // start at 12pm
+      else if (scrollHourIndex > 0) scrollHourIndex--;
+      break;
     case "next":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
       else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()+1);
@@ -114,13 +131,13 @@ window.addEventListener("message", (event) => {
       else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()-1);
       break;
     case "nextCalendar":
-      modeIndex = (modeIndex + 1) % MODES.length;
-      mode = MODES[modeIndex];
+      modeIndex = (modeIndex + 1) % modes.length;
+      mode = modes[modeIndex];
       initDate();
       break;
     case "prevCalendar":
-      modeIndex = (modeIndex - 1 + MODES.length) % MODES.length;
-      mode = MODES[modeIndex];
+      modeIndex = (modeIndex - 1 + modes.length) % modes.length;
+      mode = modes[modeIndex];
       initDate();
       break;
   }
