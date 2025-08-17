@@ -25,8 +25,7 @@ const zones = [
   { name: "Molly's", lat:   28.0023296, lon: -82.76779518, radius: .004 },
   { name: "Julia's", lat:   28.071224355, lon: 82.682356, radius: .004 },
   { name: "Belcher", lat: 7.89895, lon: -82.74484, radius: .004 },
-  { name: "Carlouel", lat: 28.006, lon: -82.826, radius: .004 },
-  { name: "Soccer Field", lat: 27.9200, lon: -82.7700, radius: 0.002 }
+  { name: "Carlouel", lat: 28.006, lon: -82.826, radius: .004 }
 ];
 
 function getZone(lat, lon) {
@@ -69,6 +68,10 @@ const labels = {
   work: document.getElementById("label-work")
 };
 
+// Scroll hour setup
+const scrollHours = ["12pm", "8am", "4am", "12am"];
+let scrollHourIndex = null; // null = no scrollHour param
+
 function updateLabels() {
   Object.keys(labels).forEach(key => labels[key].classList.remove("active"));
   labels[mode].classList.add("active");
@@ -95,13 +98,21 @@ function buildUrl() {
   if (mode === "weekly") end.setDate(end.getDate()+6);
   else if (mode==="monthly") { end.setMonth(end.getMonth()+1); end.setDate(0); }
   else if (mode==="work") end.setDate(end.getDate()+4);
+
   let url = baseUrl + "&mode=" + (mode==="monthly" ? "MONTH" : "WEEK");
   url += `&dates=${formatYYYYMMDD(start)}/${formatYYYYMMDD(end)}`;
   calendarSets[mode].forEach(cal => { url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; });
+
+  if (scrollHourIndex !== null) {
+    url += `&sfh=${scrollHours[scrollHourIndex]}`;
+  }
   return url;
 }
 
-function updateIframe() { iframe.src = buildUrl(); updateLabels(); }
+function updateIframe() { 
+  iframe.src = buildUrl(); 
+  updateLabels(); 
+}
 
 initDate();
 updateIframe();
@@ -138,7 +149,7 @@ async function updateLocations() {
 updateLocations();
 setInterval(updateLocations, 30000);
 
-// Tracker toggle & calendar navigation
+// Tracker toggle & calendar navigation including scrollHour
 let trackerVisible = false;
 window.addEventListener("message", (event) => {
   if (!event.data || typeof event.data.action !== "string") return;
@@ -147,6 +158,14 @@ window.addEventListener("message", (event) => {
     case "SelectButton":
       trackerVisible = !trackerVisible;
       document.getElementById("family-bar").style.display = trackerVisible ? "flex" : "none";
+      break;
+    case "upCalendar":
+      if (scrollHourIndex === null) scrollHourIndex = 1; // start at 8am
+      else if (scrollHourIndex < scrollHours.length - 1) scrollHourIndex++;
+      break;
+    case "downCalendar":
+      if (scrollHourIndex === null) scrollHourIndex = 0; // start at 12pm
+      else if (scrollHourIndex > 0) scrollHourIndex--;
       break;
     case "next":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
