@@ -1,32 +1,29 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <title>Lerch Family Dashboard</title>
-  <link rel="stylesheet" href="css/index.css" />
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard</title>
+<link rel="stylesheet" href="css/index.css">
 </head>
-<body tabindex="0">
-  <div id="container">
-    <!-- Left column -->
-    <div id="left-column">
-      <div id="time-wrapper">
-        <iframe id="time" src="Date_Time.html"></iframe>
-      </div>
-      <iframe id="leftpanel" src="LeftPanel.html"></iframe>
+
+<body>
+  <!-- LEFT COLUMN -->
+  <section class="left-col">
+    <div class="iframe-wrapper">
+      <iframe id="dateTime" src="Date_Time.html" title="Date & Time"></iframe>
     </div>
+    <iframe class="card leftpanel" id="leftpanel" src="LeftPanel.html" title="LeftPanel"></iframe>
+  </section>
 
-    <div id="divider"></div>
+  <div class="divider" aria-hidden="true"></div>
 
-    <!-- Right column -->
-    <div id="right-column">
-      <div id="calendar-wrapper">
-        <iframe id="calendarFrame" src="Calendar.html"></iframe>
-      </div>
-    </div>
-  </div>
+  <!-- RIGHT PANEL -->
+  <iframe id="right" src="Calendar.html" title="Calendar"></iframe>
 
-  <!-- JS -->
-  <script src="js/index.js"></script>
-  <script src="js/tracker.js"></script>
+  <!-- Key log -->
+  <div id="keyLog">Press a button on the remote</div>
+
+<script src="js/index.js"></script>
 </body>
 </html>
