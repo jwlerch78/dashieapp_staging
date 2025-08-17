@@ -101,10 +101,13 @@ let trackerVisible = true;
 window.addEventListener("message", (event) => {
   if (!event.data || typeof event.data.action !== "string") return;
 
+  let shouldUpdateIframe = true;
+  
   switch(event.data.action) {
     case "SelectButton":
       trackerVisible = !trackerVisible;
       document.getElementById("family-bar").style.display = trackerVisible ? "flex" : "none";
+      shouldUpdateIframe = false;
       break;
     case "upCalendar":
       if (scrollHourIndex === null) scrollHourIndex = 1; // start at 8am
@@ -134,7 +137,7 @@ window.addEventListener("message", (event) => {
       break;
   }
 
-  updateIframe();
+   if (shouldUpdateIframe) updateIframe();
 });
 
 // Auto-refresh calendar every 5 min
