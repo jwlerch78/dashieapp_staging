@@ -1,8 +1,10 @@
+// config.js
+
 // Traccar proxy URL
-const proxyUrl = "https://traccar-proxy-fcj3.onrender.com";
+const PROXY_URL = "https://traccar-proxy-fcj3.onrender.com";
 
 // Devices
-const devices = [
+const DEVICES = [
   { name: "Dad", id: 1 },
   { name: "Mom", id: 2 },
   { name: "Charlie", id: 3 },
@@ -11,28 +13,16 @@ const devices = [
 ];
 
 // Zones
-const zones = [
-  { name: "Home", lat: 27.93241, lon: -82.81062, radius: 0.003 },
-  { name: "Osceola HS", lat: 27.8616, lon: -82.7711, radius: 0.004 },
-  { name: "CFMS", lat: 27.977, lon: -82.765948, radius: 0.004 },
-  { name: "Auntie's", lat: 27.9568, lon: -82.80285, radius: 0.003 },
-  { name: "IRCS", lat: 27.8832, lon: -82.81443, radius: 0.004 },
-  { name: "TBU", lat: 28.08333, lon: -82.6080, radius: 0.004 },
-  { name: "SJ", lat: 27.8775866, lon: -82.814629, radius: 0.004 },
-  { name: "Belleair Rec", lat: 27.9351627598, lon: 82.80202, radius: 0.003 },
-  { name: "Sam's", lat: 27.95929, lon: -82.7317, radius: 0.003 },
-  { name: "Publix", lat: 27.9166, lon: -82.8135976, radius: 0.003 },
-  { name: "Molly's", lat: 28.0023296, lon: -82.76779518, radius: 0.004 },
-  { name: "Julia's", lat: 28.071224355, lon: 82.682356, radius: 0.004 },
-  { name: "Belcher", lat: 7.89895, lon: -82.74484, radius: 0.004 },
-  { name: "Carlouel", lat: 28.006, lon: -82.826, radius: 0.004 }
+const ZONES = [
+  { name: "Home", lat: 27.93241, lon: -82.81062, radius: 0.002 },
+  { name: "Osceola HS", lat: 27.9150, lon: -82.7800, radius: 0.002 },
+  { name: "Soccer Field", lat: 27.9200, lon: -82.7700, radius: 0.002 }
 ];
 
-// Google Calendar embed base URL
-const baseUrl = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showTitle=0&showNav=0&showPrint=0&showTabs=0&showCalendars=0&showTz=0&wkst=2";
+// Calendar embed
+const BASE_URL = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showTitle=0&showNav=0&showPrint=0&showTabs=0&showCalendars=0&showTz=0&wkst=2";
 
-// Calendar sets for each mode
-const calendarSets = {
+const CALENDAR_SETS = {
   weekly: [
     { id: "desilerch@gmail.com", color: "%23E67C73" },
     { id: "e48b36883ae237a9551de738523b7a246d5a1f6b15a3dbb6c78ee455a3aa4688@group.calendar.google.com", color: "%231565C0" },
@@ -52,6 +42,5 @@ const calendarSets = {
   ]
 };
 
-// Modes
-const modes = ["weekly","monthly","work"];
-const scrollHours = ["12pm", "8am", "4am", "12am"];
+// Calendar modes
+const MODES = ["weekly","monthly","work"];
