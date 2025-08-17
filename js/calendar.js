@@ -1,5 +1,4 @@
 const iframe = document.getElementById("frame");
-const proxyUrl = "https://traccar-proxy-fcj3.onrender.com";
 
 function getZone(lat, lon) {
   for (let zone of zones) {
