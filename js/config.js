@@ -56,6 +56,18 @@ const CONFIG = {
     },
 
     modes: ["weekly", "monthly", "work"]
-  }
+  },
 
+  // Scroll settings
+  scroll: {
+    scrollStep: 150,      // pixels to scroll per button press
+    maxScroll: 600,       // maximum scroll in either direction
+    minScroll: -600
+  },
+
+  // Update intervals (in milliseconds)
+  intervals: {
+    locationUpdate: 30000,    // 30 seconds
+    calendarRefresh: 300000   // 5 minutes
+  }
 };
