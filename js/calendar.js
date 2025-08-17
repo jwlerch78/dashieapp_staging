@@ -13,12 +13,6 @@ const labels = {
   work: document.getElementById("label-work")
 };
 
-// Calendar scroll transform variables
-let calendarScrollY = 0;
-const scrollStep = 150; // pixels to scroll per button press
-const maxScroll = 600; // maximum scroll in either direction
-const minScroll = -600;
-
 // Zones helper
 function getZone(lat, lon) {
   for (let zone of ZONES) {
@@ -44,10 +38,6 @@ function initDate() {
   } else if (mode === "monthly") {
     currentStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
   }
-  
-  // Reset scroll position when changing modes
-  calendarScrollY = 0;
-  updateCalendarTransform();
 }
 
 function formatYYYYMMDD(date) { return date.toISOString().slice(0,10).replace(/-/g,''); }
@@ -66,15 +56,9 @@ function buildUrl() {
   return url;
 }
 
-function updateCalendarTransform() {
-  // Apply CSS transform to create scrolling effect
-  iframe.style.transform = `translateY(${calendarScrollY}px)`;
-}
-
 function updateIframe() { 
   iframe.src = buildUrl(); 
-  updateLabels();
-  updateCalendarTransform();
+  updateLabels(); 
 }
 
 initDate();
@@ -112,7 +96,7 @@ async function updateLocations() {
 updateLocations();
 setInterval(updateLocations, 30000);
 
-// Tracker toggle & calendar navigation with CSS transform scrolling
+// Tracker toggle & calendar navigation
 let trackerVisible = false;
 window.addEventListener("message", (event) => {
   if (!event.data || typeof event.data.action !== "string") return;
@@ -123,42 +107,34 @@ window.addEventListener("message", (event) => {
       document.getElementById("family-bar").style.display = trackerVisible ? "flex" : "none";
       break;
     case "upCalendar":
-      // Scroll calendar up (show earlier times)
-      if (calendarScrollY < maxScroll) {
-        calendarScrollY += scrollStep;
-        updateCalendarTransform();
-      }
+      if (scrollHourIndex === null) scrollHourIndex = 1; // start at 8am
+      else if (scrollHourIndex < scrollHours.length - 1) scrollHourIndex++;
       break;
     case "downCalendar":
-      // Scroll calendar down (show later times)
-      if (calendarScrollY > minScroll) {
-        calendarScrollY -= scrollStep;
-        updateCalendarTransform();
-      }
+      if (scrollHourIndex === null) scrollHourIndex = 0; // start at 12pm
+      else if (scrollHourIndex > 0) scrollHourIndex--;
       break;
     case "next":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
       else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()+1);
-      updateIframe();
       break;
     case "prev":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()-7);
       else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()-1);
-      updateIframe();
       break;
     case "nextCalendar":
-      modeIndex = (modeIndex + 1) % MODES.length;
-      mode = MODES[modeIndex];
+      modeIndex = (modeIndex + 1) % modes.length;
+      mode = modes[modeIndex];
       initDate();
-      updateIframe();
       break;
     case "prevCalendar":
-      modeIndex = (modeIndex - 1 + MODES.length) % MODES.length;
-      mode = MODES[modeIndex];
+      modeIndex = (modeIndex - 1 + modes.length) % modes.length;
+      mode = modes[modeIndex];
       initDate();
-      updateIframe();
       break;
   }
+
+  updateIframe();
 });
 
 // Auto-refresh calendar every 5 min
