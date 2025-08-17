@@ -7,18 +7,20 @@ html, body {
   display: flex; 
   flex-direction: column;
 }
-/* Family tracker bar /
+
+/* Family tracker bar */
 #family-bar {
-  display: none; / start hidden /
+  display: none; /* start hidden */
   flex-direction: row;
   justify-content: space-around;
   align-items: center;
   padding: 5px 10px;
-  background: #000; / black behind tracker /
+  background: #000; /* black behind tracker */
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   z-index: 1000;
-  height: 50px; / half height /
+  height: 50px; /* half height */
 }
+
 .member {
   display: flex;
   align-items: center;
@@ -28,12 +30,14 @@ html, body {
   min-width: 120px;
   justify-content: flex-start;
 }
+
 .member img {
   width: 40px;
   height: 40px;
   border-radius: 50%;
   margin-right: 8px;
 }
+
 .location { 
   font-weight: bold; 
   color: #fff; 
@@ -41,18 +45,21 @@ html, body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/ Calendar iframe /
+
+/* Calendar iframe */
 #frame { 
   flex: 1; 
   width:100%; 
   border:0; 
 }
-/ Bottom view indicators /
+
+/* Bottom view indicators */
 .view-indicators {
   display: flex;
   height: 40px;
   background-color: #222;
 }
+
 .view-label {
   flex: 1;
   display: flex;
@@ -62,8 +69,8 @@ html, body {
   font-weight: bold;
   border-top: 1px solid #444;
 }
+
 .view-label.active {
   color: #fff;
-  background-color: 
-#4285f4; / Highlighted blue */
+  background-color: #4285f4; /* Highlighted blue */
 }
