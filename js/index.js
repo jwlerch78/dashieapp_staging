@@ -12,10 +12,13 @@ document.addEventListener('keydown', (event) => {
     keyLog.textContent = `${event.keyCode}`;
 
     switch(event.keyCode) {
-        case 38: // up arrow → leftpanel next
-            leftIframe.contentWindow.postMessage({ action: "change_next" }, "*");
+        case 38: // up arrow → Scroll up on calendar
+            rightIframe.contentWindow.postMessage({ action: "upCalendar" }, "*");
             break;
-        case 40: // down arrow → leftpanel prev
+        case 40: // down arrow → Scroll down on calendar
+            rightIframe.contentWindow.postMessage({ action: "downCalendar" }, "*");
+            break;
+        case 179: // play/pause → leftpanel prev
             leftIframe.contentWindow.postMessage({ action: "change_prev" }, "*");
             break;
         case 227: // Rewind → prev date range
