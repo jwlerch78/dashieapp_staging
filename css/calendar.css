@@ -10,7 +10,7 @@ html, body {
 
 /* Family tracker bar */
 #family-bar {
-  display: none; /* start hidden */
+  display: flex; /* start hidden */
   flex-direction: row;
   justify-content: space-around;
   align-items: center;
