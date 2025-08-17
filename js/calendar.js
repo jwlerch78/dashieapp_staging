@@ -1,163 +1,76 @@
-const iframe = document.getElementById("frame");
-const proxyUrl = "https://traccar-proxy-fcj3.onrender.com";
-
-// All devices
-const devices = [
-  { name: "Dad", id: 1 },
-  { name: "Mom", id: 2 },
-  { name: "Charlie", id: 3 },
-  { name: "Jack", id: 4 },
-  { name: "Mary", id: 5 }
-];
-
-// Zones
-const zones = [
-  { name: "Home", lat: 27.93241, lon: -82.81062, radius: 0.002 },
-  { name: "Osceola HS", lat: 27.9150, lon: -82.7800, radius: 0.002 },
-  { name: "Soccer Field", lat: 27.9200, lon: -82.7700, radius: 0.002 }
-];
-
-function getZone(lat, lon) {
-  for (let zone of zones) {
-    const distance = Math.sqrt((lat - zone.lat)**2 + (lon - zone.lon)**2);
-    if (distance <= zone.radius) return zone.name;
-  }
-  return null;
+html, body { 
+  height:100%; 
+  margin:0; 
+  background:#000; 
+  overflow:hidden; 
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif; 
+  display: flex; 
+  flex-direction: column;
 }
 
-// Mode cycle & calendar sets
-const baseUrl = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showTitle=0&showNav=0&showPrint=0&showTabs=0&showCalendars=0&showTz=0&wkst=2";
-const calendarSets = {
-  weekly: [
-    { id: "desilerch@gmail.com", color: "%23E67C73" },
-    { id: "e48b36883ae237a9551de738523b7a246d5a1f6b15a3dbb6c78ee455a3aa4688@group.calendar.google.com", color: "%231565C0" },
-    { id: "180b3d0e7c1ae0241b2e60ba9c566500949ff16a487adf11625cd72306b2310f@group.calendar.google.com", color: "%230B8043" },
-    { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" },
-    { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
-  ],
-  monthly: [
-    { id: "desilerch@gmail.com", color: "%23E67C73" },
-    { id: "0d9003b61604007a26868b678b71e5ad894354cbfdab1f071193207ed7e4b7e8@group.calendar.google.com", color: "%231565C0" },
-    { id: "a2ffcf08f82cc50f9d7d0d055f80652074979d74a9a0664e11d6a029a8c8b1ed@group.calendar.google.com", color: "%230B8043" },
-    { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" },
-    { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
-  ],
-  work: [
-    { id: "fd5949d42a667f6ca3e88dcf1feb27818463bbdc19c5e56d2e0da62b87d881c5@group.calendar.google.com", color: "%230B8043" }
-  ]
-};
-
-const modes = ["weekly","monthly","work"];
-let modeIndex = 0;
-let mode = modes[modeIndex];
-let currentStartDate = new Date();
-const labels = {
-  weekly: document.getElementById("label-weekly"),
-  monthly: document.getElementById("label-monthly"),
-  work: document.getElementById("label-work")
-};
-
-function updateLabels() {
-  Object.keys(labels).forEach(key => labels[key].classList.remove("active"));
-  labels[mode].classList.add("active");
+/* Family tracker bar */
+#family-bar {
+  display: none; /* start hidden */
+  flex-direction: row;
+  justify-content: space-around;
+  align-items: center;
+  padding: 5px 10px;
+  background: #000; /* black behind tracker */
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  z-index: 1000;
+  height: 50px; /* half height */
 }
 
-function initDate() {
-  const today = new Date();
-  if (mode === "weekly" || mode === "work") {
-    const day = today.getDay();
-    const diff = (day === 0 ? -6 : 1 - day);
-    currentStartDate = new Date(today);
-    currentStartDate.setDate(currentStartDate.getDate() + diff);
-    currentStartDate.setHours(0,0,0,0);
-  } else if (mode === "monthly") {
-    currentStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
-  }
+.member {
+  display: flex;
+  align-items: center;
+  background-color: #111;
+  padding: 2px 6px;
+  border-radius: 12px;
+  min-width: 120px;
+  justify-content: flex-start;
 }
 
-function formatYYYYMMDD(date) { return date.toISOString().slice(0,10).replace(/-/g,''); }
-
-function buildUrl() {
-  const start = new Date(currentStartDate);
-  const end = new Date(start);
-  if (mode === "weekly") end.setDate(end.getDate()+6);
-  else if (mode==="monthly") { end.setMonth(end.getMonth()+1); end.setDate(0); }
-  else if (mode==="work") end.setDate(end.getDate()+4);
-  let url = baseUrl + "&mode=" + (mode==="monthly" ? "MONTH" : "WEEK");
-  url += `&dates=${formatYYYYMMDD(start)}/${formatYYYYMMDD(end)}`;
-  calendarSets[mode].forEach(cal => { url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; });
-  return url;
+.member img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  margin-right: 8px;
 }
 
-function updateIframe() { iframe.src = buildUrl(); updateLabels(); }
-
-initDate();
-updateIframe();
-
-// Traccar location update
-async function reverseGeocode(lat, lon) {
-  try {
-    const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
-    const json = await resp.json();
-    return json.address.city || json.address.town || json.address.village || json.display_name;
-  } catch {
-    return "Unknown location";
-  }
+.location { 
+  font-weight: bold; 
+  color: #fff; 
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-async function updateLocations() {
-  for (let device of devices) {
-    try {
-      const response = await fetch(`${proxyUrl}/positions/${device.id}`);
-      const data = await response.json();
-      if (Array.isArray(data) && data.length > 0) {
-        const pos = data[0];
-        if (pos.latitude && pos.longitude) {
-          const zoneName = getZone(pos.latitude, pos.longitude) || await reverseGeocode(pos.latitude, pos.longitude);
-          document.getElementById(`${device.name.toLowerCase()}-location`).textContent = zoneName;
-        }
-      }
-    } catch (err) {
-      console.error(`Error fetching ${device.name}:`, err);
-      document.getElementById(`${device.name.toLowerCase()}-location`).textContent = "Error";
-    }
-  }
+/* Calendar iframe */
+#frame { 
+  flex: 1; 
+  width:100%; 
+  border:0; 
 }
-updateLocations();
-setInterval(updateLocations, 30000);
 
-// Tracker toggle & calendar navigation
-let trackerVisible = false;
-window.addEventListener("message", (event) => {
-  if (!event.data || typeof event.data.action !== "string") return;
+/* Bottom view indicators */
+.view-indicators {
+  display: flex;
+  height: 40px;
+  background-color: #222;
+}
 
-  switch(event.data.action) {
-    case "SelectButton":
-      trackerVisible = !trackerVisible;
-      document.getElementById("family-bar").style.display = trackerVisible ? "flex" : "none";
-      break;
-    case "next":
-      if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
-      else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()+1);
-      break;
-    case "prev":
-      if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()-7);
-      else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()-1);
-      break;
-    case "nextCalendar":
-      modeIndex = (modeIndex + 1) % modes.length;
-      mode = modes[modeIndex];
-      initDate();
-      break;
-    case "prevCalendar":
-      modeIndex = (modeIndex - 1 + modes.length) % modes.length;
-      mode = modes[modeIndex];
-      initDate();
-      break;
-  }
+.view-label {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #888;
+  font-weight: bold;
+  border-top: 1px solid #444;
+}
 
-  updateIframe();
-});
-
-// Auto-refresh calendar every 5 min
-setInterval(updateIframe, 300000);
+.view-label.active {
+  color: #fff;
+  background-color: #4285f4; /* Highlighted blue */
+}
