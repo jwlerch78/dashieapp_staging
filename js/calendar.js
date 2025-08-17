@@ -1,19 +1,10 @@
+// main.js - Original functionality using config constants
+
 const iframe = document.getElementById("frame");
 
-function getZone(lat, lon) {
-  for (let zone of zones) {
-    const distance = Math.sqrt((lat - zone.lat)**2 + (lon - zone.lon)**2);
-    if (distance <= zone.radius) return zone.name;
-  }
-  return null;
-}
-
-// Mode cycle & calendar sets
-const baseUrl = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showTitle=0&showNav=0&showPrint=0&showTabs=0&showCalendars=0&showTz=0&wkst=2";
-
-const modes = ["weekly","monthly","work"];
+// State variables
 let modeIndex = 0;
-let mode = modes[modeIndex];
+let mode = CONFIG.calendar.modes[modeIndex];
 let currentStartDate = new Date();
 const labels = {
   weekly: document.getElementById("label-weekly"),
@@ -21,6 +12,13 @@ const labels = {
   work: document.getElementById("label-work")
 };
 
+function getZone(lat, lon) {
+  for (let zone of CONFIG.zones) {
+    const distance = Math.sqrt((lat - zone.lat)**2 + (lon - zone.lon)**2);
+    if (distance <= zone.radius) return zone.name;
+  }
+  return null;
+}
 
 function updateLabels() {
   Object.keys(labels).forEach(key => labels[key].classList.remove("active"));
@@ -49,20 +47,17 @@ function buildUrl() {
   else if (mode==="monthly") { end.setMonth(end.getMonth()+1); end.setDate(0); }
   else if (mode==="work") end.setDate(end.getDate()+4);
 
-  let url = baseUrl + "&mode=" + (mode==="monthly" ? "MONTH" : "WEEK");
+  let url = CONFIG.calendar.baseUrl + "&mode=" + (mode==="monthly" ? "MONTH" : "WEEK");
   url += `&dates=${formatYYYYMMDD(start)}/${formatYYYYMMDD(end)}`;
-  calendarSets[mode].forEach(cal => { url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; });
+  CONFIG.calendar.calendarSets[mode].forEach(cal => { url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; });
 
-   return url;
+  return url;
 }
 
 function updateIframe() { 
   iframe.src = buildUrl(); 
   updateLabels(); 
 }
-
-initDate();
-updateIframe();
 
 // Traccar location update
 async function reverseGeocode(lat, lon) {
@@ -76,9 +71,9 @@ async function reverseGeocode(lat, lon) {
 }
 
 async function updateLocations() {
-  for (let device of devices) {
+  for (let device of CONFIG.devices) {
     try {
-      const response = await fetch(`${proxyUrl}/positions/${device.id}`);
+      const response = await fetch(`${CONFIG.proxyUrl}/positions/${device.id}`);
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
         const pos = data[0];
@@ -93,10 +88,8 @@ async function updateLocations() {
     }
   }
 }
-updateLocations();
-setInterval(updateLocations, 30000);
 
-// Tracker toggle & calendar navigation including scrollHour
+// Tracker toggle & calendar navigation
 let trackerVisible = false;
 window.addEventListener("message", (event) => {
   if (!event.data || typeof event.data.action !== "string") return;
@@ -107,35 +100,39 @@ window.addEventListener("message", (event) => {
       document.getElementById("family-bar").style.display = trackerVisible ? "flex" : "none";
       break;
     case "upCalendar":
-      if (scrollHourIndex === null) scrollHourIndex = 1; // start at 8am
-      else if (scrollHourIndex < scrollHours.length - 1) scrollHourIndex++;
+      // Placeholder for scrolling functionality
       break;
     case "downCalendar":
-      if (scrollHourIndex === null) scrollHourIndex = 0; // start at 12pm
-      else if (scrollHourIndex > 0) scrollHourIndex--;
+      // Placeholder for scrolling functionality  
       break;
     case "next":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
       else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()+1);
+      updateIframe();
       break;
     case "prev":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()-7);
       else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()-1);
+      updateIframe();
       break;
     case "nextCalendar":
-      modeIndex = (modeIndex + 1) % modes.length;
-      mode = modes[modeIndex];
+      modeIndex = (modeIndex + 1) % CONFIG.calendar.modes.length;
+      mode = CONFIG.calendar.modes[modeIndex];
       initDate();
+      updateIframe();
       break;
     case "prevCalendar":
-      modeIndex = (modeIndex - 1 + modes.length) % modes.length;
-      mode = modes[modeIndex];
+      modeIndex = (modeIndex - 1 + CONFIG.calendar.modes.length) % CONFIG.calendar.modes.length;
+      mode = CONFIG.calendar.modes[modeIndex];
       initDate();
+      updateIframe();
       break;
   }
-
-  updateIframe();
 });
 
-// Auto-refresh calendar every 5 min
-setInterval(updateIframe, 300000);
+// Initialize
+initDate();
+updateIframe();
+updateLocations();
+setInterval(updateLocations, CONFIG.intervals.locationUpdate);
+setInterval(updateIframe, CONFIG.intervals.calendarRefresh);
