@@ -12,7 +12,7 @@ const devices = [
 
 // Zones
 const zones = [
-  { name: "Home", lat: 27.93241, lon: -82.81062, radius: 0.002 },
+  { name: "Home", lat: 27.93241, lon: -82.81062, radius: 0.003 },
   { name: "Osceola HS", lat: 27.9150, lon: -82.7800, radius: 0.002 },
   { name: "Soccer Field", lat: 27.9200, lon: -82.7700, radius: 0.002 }
 ];
