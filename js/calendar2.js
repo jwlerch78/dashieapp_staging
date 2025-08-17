@@ -1,4 +1,4 @@
-// calendar.js
+// calendar2.js
 
 // Make sure config.js is loaded before this file
 const iframe = document.getElementById("frame");
