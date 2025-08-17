@@ -1,182 +1,26 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dashboard</title>
-<style>
-  :root {
-    --bg-left:  #0a0a0a;
-    --bg-right: #111111;
-  }
-
-  html, body {
-    height: 100%;
-    margin: 0;
-    background: #000;
-  }
-
-  body {
-    display: grid;
-    grid-template-columns: 1fr 12px 2fr;
-    grid-template-rows: 100%;
-    grid-template-areas: "left divider right";
-    align-items: stretch;
-    padding: 10px;
-    box-sizing: border-box;
-  }
-
-  .left-col {
-    grid-area: left;
-    display: grid;
-    grid-template-rows: 7% 1fr;
-    row-gap: 8px;
-    background: var(--bg-left);
-    border-radius: 10px;
-    overflow: hidden;
-  }
-
-  .divider {
-    grid-area: divider;
-    border-radius: 10px;
-    background: linear-gradient(
-      to bottom,
-      rgba(255,255,255,0.22),
-      rgba(255,255,255,0.08) 25%,
-      rgba(255,255,255,0.08) 75%,
-      rgba(255,255,255,0.22)
-    );
-    opacity: 0.7;
-  }
-
-  #right {
-    grid-area: right;
-    background: var(--bg-right);
-    border-radius: 10px;
-    border: 0;
-    box-shadow: 0 0 12px rgba(0,0,0,0.7);
-    transform: scale(0.6);
-    transform-origin: top left;
-    width: 166.6667%;
-    height: 166.6667%;
-  }
-
-  .card {
-    width: 100%;
-    height: 100%;
-    border: 0;
-    background: transparent;
-    box-shadow: 0 0 12px rgba(0,0,0,0.7);
-    border-radius: 8px;
-  }
-
-  .leftpanel {
-    transform: none;
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    display: block;
-  }
-
-  /* Wrapper to contain Date_Time iframe and hide overflow */
-  .iframe-wrapper {
-    width: 100%;
-    height: 100%;
-    overflow: hidden;
-    position: relative;
-  }
-
-  /* Scale the iframe inside wrapper */
-  .iframe-wrapper iframe {
-    width: 100%;
-    height: 100%;
-    border: 0;
-    transform: scale(0.8);   /* adjust scale to fit */
-    transform-origin: top left;
-    display: block;
-  }
-
-  /* Key log display at bottom-left */
-  #keyLog {
-    position: fixed;
-    bottom: 10px;
-    left: 10px;
-    color: #fff;
-    font-size: 24px;
-    background: rgba(0,0,0,0.5);
-    padding: 8px 12px;
-    border-radius: 8px;
-    z-index: 9999;
-  }
-</style>
+  <meta charset="UTF-8">
+  <title>Lerch Family Dashboard</title>
+  <link rel="stylesheet" href="css/index.css">
 </head>
-
 <body>
-  <!-- LEFT COLUMN -->
-  <section class="left-col">
-    <div class="iframe-wrapper">
-      <iframe id="dateTime" src="Date_Time.html" title="Date & Time"></iframe>
+  <div id="container">
+    <div id="left-column">
+      <div id="time-wrapper">
+        <iframe id="time" src="Date_Time.html"></iframe>
+      </div>
+      <iframe id="leftpanel" src="LeftPanel.html"></iframe>
     </div>
-    <iframe class="card leftpanel" id="leftpanel" src="LeftPanel.html" title="LeftPanel"></iframe>
-  </section>
+    <div id="divider"></div>
+    <div id="right-column">
+      <div id="calendar-wrapper">
+        <iframe id="right" src="Calendar.html"></iframe>
+      </div>
+    </div>
+  </div>
 
-  <div class="divider" aria-hidden="true"></div>
-
-  <!-- RIGHT PANEL -->
-  <iframe id="right" src="Calendar.html" title="Calendar"></iframe>
-
-  <!-- Key log -->
-  <div id="keyLog">Press a button on the remote</div>
-
-<script>
-  const rightIframe = document.getElementById('right');
-  const leftIframe = document.getElementById('leftpanel');
-  const keyLog = document.getElementById('keyLog');
-
-  document.addEventListener('keydown', (event) => {
-//    keyLog.textContent = `Key pressed: ${event.key} | keyCode: ${event.keyCode}`;
-      keyLog.textContent = `keyCode: ${event.keyCode}`;
-
-    switch(event.keyCode) {
-      case 38: // up arrow - next on left pane
-        leftIframe.contentWindow.postMessage({ action: "change_next" }, "*");
-        break;
-
-      case 40: // down arrow - next on left pane
-        leftIframe.contentWindow.postMessage({ action: "change_prev" }, "*");
-        break;
-
-      case 227: // Rewind → prev date range
-        rightIframe.contentWindow.postMessage({ action: "prev" }, "*");
-        break;
-
-      case 228: // Fast Forward → next date range
-        rightIframe.contentWindow.postMessage({ action: "next" }, "*");
-        break;
-
-      case 37: // Left arrow → prev calendar set
-        rightIframe.contentWindow.postMessage({ action: "prevCalendar" }, "*");
-        break;
-
-      case 39: // Right arrow → next calendar set
-        rightIframe.contentWindow.postMessage({ action: "nextCalendar" }, "*");
-        break;
-
-      case 13: // Select Button → Toggle Family locations
-        rightIframe.contentWindow.postMessage({ action: "SelectButton" }, "*");
-        break;
-    }
-  });
-
-  // Keep focus so key presses register
-  function focusDashboard() {
-    window.focus();
-    document.body.focus();
-  }
-  focusDashboard();
-  rightIframe.addEventListener('load', focusDashboard);
-  setInterval(focusDashboard, 1000);
-</script>
-
+  <script src="js/index.js"></script>
 </body>
 </html>
