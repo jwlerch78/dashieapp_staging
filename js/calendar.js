@@ -13,10 +13,6 @@ const labels = {
   work: document.getElementById("label-work")
 };
 
-// Scroll hour setup
-const scrollHours = ["12pm", "8am", "4am", "12am"];
-let scrollHourIndex = null; // null = no scrollHour param
-
 // Zones helper
 function getZone(lat, lon) {
   for (let zone of ZONES) {
@@ -57,10 +53,6 @@ function buildUrl() {
   url += `&dates=${formatYYYYMMDD(start)}/${formatYYYYMMDD(end)}`;
   CALENDAR_SETS[mode].forEach(cal => { url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; });
 
-  if (scrollHourIndex !== null) {
-    url += `&sfh=${scrollHours[scrollHourIndex]}`;
-  }
-  
   return url;
 }
 
