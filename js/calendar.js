@@ -1,17 +1,32 @@
-// Ensure config.js is loaded before this script
-
 const iframe = document.getElementById("frame");
+const proxyUrl = "https://traccar-proxy-fcj3.onrender.com";
 
-let modeIndex = 0;
-let mode = modes[modeIndex];
-let currentStartDate = new Date();
-let scrollHourIndex = null; // null = no scrollHour param
+// All devices
+const devices = [
+  { name: "Dad", id: 1 },
+  { name: "Mom", id: 2 },
+  { name: "Charlie", id: 3 },
+  { name: "Jack", id: 4 },
+  { name: "Mary", id: 5 }
+];
 
-const labels = {
-  weekly: document.getElementById("label-weekly"),
-  monthly: document.getElementById("label-monthly"),
-  work: document.getElementById("label-work")
-};
+// Zones
+const zones = [
+  { name: "Home", lat: 27.93241, lon: -82.81062, radius: 0.003 },
+  { name: "Osceola HS", lat: 27.8616, lon: -82.7711, radius: 0.004 },
+  { name: "CFMS", lat: 27.977, lon: -82.765948, radius: 0.004 },
+  { name: "Auntie's", lat: 27.9568, lon: -82.80285, radius: .003 },
+  { name: "IRCS", lat: 27.8832, lon: -82.81443, radius: .004 },
+  { name: "TBU", lat: 28.08333, lon: -82.6080, radius: .004 },
+  { name: "SJ", lat:  27.8775866, lon: -82.814629, radius: .004 },
+  { name: "Belleair Rec", lat:  27.9351627598, lon: 82.80202, radius: .003 },
+  { name: "Sam's", lat:   27.95929, lon: -82.7317, radius: .003 },
+  { name: "Publix", lat:   27.9166, lon: -82.8135976, radius: .003 },
+  { name: "Molly's", lat:   28.0023296, lon: -82.76779518, radius: .004 },
+  { name: "Julia's", lat:   28.071224355, lon: 82.682356, radius: .004 },
+  { name: "Belcher", lat: 7.89895, lon: -82.74484, radius: .004 },
+  { name: "Carlouel", lat: 28.006, lon: -82.826, radius: .004 }
+];
 
 function getZone(lat, lon) {
   for (let zone of zones) {
@@ -20,6 +35,38 @@ function getZone(lat, lon) {
   }
   return null;
 }
+
+// Mode cycle & calendar sets
+const baseUrl = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showTitle=0&showNav=0&showPrint=0&showTabs=0&showCalendars=0&showTz=0&wkst=2";
+const calendarSets = {
+  weekly: [
+    { id: "desilerch@gmail.com", color: "%23E67C73" },
+    { id: "e48b36883ae237a9551de738523b7a246d5a1f6b15a3dbb6c78ee455a3aa4688@group.calendar.google.com", color: "%231565C0" },
+    { id: "180b3d0e7c1ae0241b2e60ba9c566500949ff16a487adf11625cd72306b2310f@group.calendar.google.com", color: "%230B8043" },
+    { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" },
+    { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
+  ],
+  monthly: [
+    { id: "desilerch@gmail.com", color: "%23E67C73" },
+    { id: "0d9003b61604007a26868b678b71e5ad894354cbfdab1f071193207ed7e4b7e8@group.calendar.google.com", color: "%231565C0" },
+    { id: "a2ffcf08f82cc50f9d7d0d055f80652074979d74a9a0664e11d6a029a8c8b1ed@group.calendar.google.com", color: "%230B8043" },
+    { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" },
+    { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
+  ],
+  work: [
+    { id: "fd5949d42a667f6ca3e88dcf1feb27818463bbdc19c5e56d2e0da62b87d881c5@group.calendar.google.com", color: "%230B8043" }
+  ]
+};
+
+const modes = ["weekly","monthly","work"];
+let modeIndex = 0;
+let mode = modes[modeIndex];
+let currentStartDate = new Date();
+const labels = {
+  weekly: document.getElementById("label-weekly"),
+  monthly: document.getElementById("label-monthly"),
+  work: document.getElementById("label-work")
+};
 
 function updateLabels() {
   Object.keys(labels).forEach(key => labels[key].classList.remove("active"));
@@ -51,8 +98,6 @@ function buildUrl() {
   let url = baseUrl + "&mode=" + (mode==="monthly" ? "MONTH" : "WEEK");
   url += `&dates=${formatYYYYMMDD(start)}/${formatYYYYMMDD(end)}`;
   calendarSets[mode].forEach(cal => { url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; });
-
-  if (scrollHourIndex !== null) url += `&sfh=${scrollHours[scrollHourIndex]}`;
 
   return url;
 }
@@ -108,12 +153,8 @@ window.addEventListener("message", (event) => {
       document.getElementById("family-bar").style.display = trackerVisible ? "flex" : "none";
       break;
     case "upCalendar":
-      if (scrollHourIndex === null) scrollHourIndex = 1; // start at 8am
-      else if (scrollHourIndex < scrollHours.length - 1) scrollHourIndex++;
       break;
     case "downCalendar":
-      if (scrollHourIndex === null) scrollHourIndex = 0; // start at 12pm
-      else if (scrollHourIndex > 0) scrollHourIndex--;
       break;
     case "next":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
