@@ -9,7 +9,7 @@ document.addEventListener('keydown', (event) => {
     event.preventDefault();
     event.stopPropagation();
 
-    keyLog.textContent = `keyCode: ${event.keyCode}`;
+    keyLog.textContent = `${event.keyCode}`;
 
     switch(event.keyCode) {
         case 38: // up arrow → leftpanel next
