@@ -25,7 +25,8 @@ const zones = [
   { name: "Molly's", lat:   28.0023296, lon: -82.76779518, radius: .004 },
   { name: "Julia's", lat:   28.071224355, lon: 82.682356, radius: .004 },
   { name: "Belcher", lat: 7.89895, lon: -82.74484, radius: .004 },
-  { name: "Carlouel", lat: 28.006, lon: -82.826, radius: .004 }
+  { name: "Carlouel", lat: 28.006, lon: -82.826, radius: .004 },
+  { name: "Soccer Field", lat: 27.9200, lon: -82.7700, radius: 0.002 }
 ];
 
 function getZone(lat, lon) {
@@ -94,18 +95,13 @@ function buildUrl() {
   if (mode === "weekly") end.setDate(end.getDate()+6);
   else if (mode==="monthly") { end.setMonth(end.getMonth()+1); end.setDate(0); }
   else if (mode==="work") end.setDate(end.getDate()+4);
-
   let url = baseUrl + "&mode=" + (mode==="monthly" ? "MONTH" : "WEEK");
   url += `&dates=${formatYYYYMMDD(start)}/${formatYYYYMMDD(end)}`;
   calendarSets[mode].forEach(cal => { url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; });
-
   return url;
 }
 
-function updateIframe() { 
-  iframe.src = buildUrl(); 
-  updateLabels(); 
-}
+function updateIframe() { iframe.src = buildUrl(); updateLabels(); }
 
 initDate();
 updateIframe();
@@ -142,7 +138,7 @@ async function updateLocations() {
 updateLocations();
 setInterval(updateLocations, 30000);
 
-// Tracker toggle & calendar navigation including scrollHour
+// Tracker toggle & calendar navigation
 let trackerVisible = false;
 window.addEventListener("message", (event) => {
   if (!event.data || typeof event.data.action !== "string") return;
@@ -151,10 +147,6 @@ window.addEventListener("message", (event) => {
     case "SelectButton":
       trackerVisible = !trackerVisible;
       document.getElementById("family-bar").style.display = trackerVisible ? "flex" : "none";
-      break;
-    case "upCalendar":
-      break;
-    case "downCalendar":
       break;
     case "next":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
