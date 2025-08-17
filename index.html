@@ -1,26 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Lerch Family Dashboard</title>
-  <link rel="stylesheet" href="css/index.css">
+  <link rel="stylesheet" href="css/index.css" />
 </head>
-<body>
+<body tabindex="0">
   <div id="container">
+    <!-- Left column -->
     <div id="left-column">
       <div id="time-wrapper">
         <iframe id="time" src="Date_Time.html"></iframe>
       </div>
       <iframe id="leftpanel" src="LeftPanel.html"></iframe>
     </div>
+
     <div id="divider"></div>
+
+    <!-- Right column -->
     <div id="right-column">
       <div id="calendar-wrapper">
-        <iframe id="right" src="Calendar.html"></iframe>
+        <iframe id="calendarFrame" src="Calendar.html"></iframe>
       </div>
     </div>
   </div>
 
+  <!-- JS -->
   <script src="js/index.js"></script>
+  <script src="js/tracker.js"></script>
 </body>
 </html>
