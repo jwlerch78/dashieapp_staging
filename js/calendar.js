@@ -1,10 +1,20 @@
-// main.js - Main calendar application logic
-
 const iframe = document.getElementById("frame");
+const proxyUrl = "https://traccar-proxy-fcj3.onrender.com";
 
-// Calendar state variables
+function getZone(lat, lon) {
+  for (let zone of zones) {
+    const distance = Math.sqrt((lat - zone.lat)**2 + (lon - zone.lon)**2);
+    if (distance <= zone.radius) return zone.name;
+  }
+  return null;
+}
+
+// Mode cycle & calendar sets
+const baseUrl = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showTitle=0&showNav=0&showPrint=0&showTabs=0&showCalendars=0&showTz=0&wkst=2";
+
+const modes = ["weekly","monthly","work"];
 let modeIndex = 0;
-let mode = CONFIG.calendar.modes[modeIndex];
+let mode = modes[modeIndex];
 let currentStartDate = new Date();
 const labels = {
   weekly: document.getElementById("label-weekly"),
@@ -12,17 +22,6 @@ const labels = {
   work: document.getElementById("label-work")
 };
 
-// Calendar scroll transform variables
-let calendarScrollY = 0;
-
-// Utility functions
-function getZone(lat, lon) {
-  for (let zone of CONFIG.zones) {
-    const distance = Math.sqrt((lat - zone.lat)**2 + (lon - zone.lon)**2);
-    if (distance <= zone.radius) return zone.name;
-  }
-  return null;
-}
 
 function updateLabels() {
   Object.keys(labels).forEach(key => labels[key].classList.remove("active"));
@@ -40,15 +39,9 @@ function initDate() {
   } else if (mode === "monthly") {
     currentStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
   }
-  
-  // Reset scroll position when changing modes
-  calendarScrollY = 0;
-  updateCalendarTransform();
 }
 
-function formatYYYYMMDD(date) { 
-  return date.toISOString().slice(0,10).replace(/-/g,''); 
-}
+function formatYYYYMMDD(date) { return date.toISOString().slice(0,10).replace(/-/g,''); }
 
 function buildUrl() {
   const start = new Date(currentStartDate);
@@ -57,27 +50,22 @@ function buildUrl() {
   else if (mode==="monthly") { end.setMonth(end.getMonth()+1); end.setDate(0); }
   else if (mode==="work") end.setDate(end.getDate()+4);
 
-  let url = CONFIG.calendar.baseUrl + "&mode=" + (mode==="monthly" ? "MONTH" : "WEEK");
+  let url = baseUrl + "&mode=" + (mode==="monthly" ? "MONTH" : "WEEK");
   url += `&dates=${formatYYYYMMDD(start)}/${formatYYYYMMDD(end)}`;
-  CONFIG.calendar.calendarSets[mode].forEach(cal => { 
-    url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; 
-  });
+  calendarSets[mode].forEach(cal => { url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; });
 
-  return url;
-}
-
-function updateCalendarTransform() {
-  // Apply CSS transform to create scrolling effect
-  iframe.style.transform = `translateY(${calendarScrollY}px)`;
+   return url;
 }
 
 function updateIframe() { 
   iframe.src = buildUrl(); 
-  updateLabels();
-  updateCalendarTransform();
+  updateLabels(); 
 }
 
-// Location tracking functions
+initDate();
+updateIframe();
+
+// Traccar location update
 async function reverseGeocode(lat, lon) {
   try {
     const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
@@ -89,9 +77,9 @@ async function reverseGeocode(lat, lon) {
 }
 
 async function updateLocations() {
-  for (let device of CONFIG.devices) {
+  for (let device of devices) {
     try {
-      const response = await fetch(`${CONFIG.proxyUrl}/positions/${device.id}`);
+      const response = await fetch(`${proxyUrl}/positions/${device.id}`);
       const data = await response.json();
       if (Array.isArray(data) && data.length > 0) {
         const pos = data[0];
@@ -106,8 +94,10 @@ async function updateLocations() {
     }
   }
 }
+updateLocations();
+setInterval(updateLocations, 30000);
 
-// Event handling
+// Tracker toggle & calendar navigation including scrollHour
 let trackerVisible = false;
 window.addEventListener("message", (event) => {
   if (!event.data || typeof event.data.action !== "string") return;
@@ -118,49 +108,35 @@ window.addEventListener("message", (event) => {
       document.getElementById("family-bar").style.display = trackerVisible ? "flex" : "none";
       break;
     case "upCalendar":
-      // Scroll calendar up (show earlier times)
-      if (calendarScrollY < CONFIG.scroll.maxScroll) {
-        calendarScrollY += CONFIG.scroll.scrollStep;
-        updateCalendarTransform();
-      }
+      if (scrollHourIndex === null) scrollHourIndex = 1; // start at 8am
+      else if (scrollHourIndex < scrollHours.length - 1) scrollHourIndex++;
       break;
     case "downCalendar":
-      // Scroll calendar down (show later times)
-      if (calendarScrollY > CONFIG.scroll.minScroll) {
-        calendarScrollY -= CONFIG.scroll.scrollStep;
-        updateCalendarTransform();
-      }
+      if (scrollHourIndex === null) scrollHourIndex = 0; // start at 12pm
+      else if (scrollHourIndex > 0) scrollHourIndex--;
       break;
     case "next":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
       else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()+1);
-      updateIframe();
       break;
     case "prev":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()-7);
       else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()-1);
-      updateIframe();
       break;
     case "nextCalendar":
-      modeIndex = (modeIndex + 1) % CONFIG.calendar.modes.length;
-      mode = CONFIG.calendar.modes[modeIndex];
+      modeIndex = (modeIndex + 1) % modes.length;
+      mode = modes[modeIndex];
       initDate();
-      updateIframe();
       break;
     case "prevCalendar":
-      modeIndex = (modeIndex - 1 + CONFIG.calendar.modes.length) % CONFIG.calendar.modes.length;
-      mode = CONFIG.calendar.modes[modeIndex];
+      modeIndex = (modeIndex - 1 + modes.length) % modes.length;
+      mode = modes[modeIndex];
       initDate();
-      updateIframe();
       break;
   }
+
+  updateIframe();
 });
 
-// Initialize application
-initDate();
-updateIframe();
-updateLocations();
-
-// Set up intervals
-setInterval(updateLocations, CONFIG.intervals.locationUpdate);
-setInterval(updateIframe, CONFIG.intervals.calendarRefresh);
+// Auto-refresh calendar every 5 min
+setInterval(updateIframe, 300000);
