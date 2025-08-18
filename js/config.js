@@ -17,18 +17,18 @@ const ZONES = [
   //{ name: "Home", lat: 27.93241, lon: -82.81062, radius: 0.002 },
   //{ name: "Osceola HS", lat: 27.9150, lon: -82.7800, radius: 0.002 },
   //{ name: "Soccer Field", lat: 27.9200, lon: -82.7700, radius: 0.002 },
-  { name: "Home",        lat: 27.93241,      lon: -82.81062,     radius: 0.001 }, // ~110 m
+  { name: "Home",        lat: 27.93241,      lon: -82.81062,     radius: 0.003 }, // ~110 m
   { name: "Osceola HS",  lat: 27.8616,       lon: -82.7711,      radius: 0.004 }, // ~440 m
   { name: "CFMS",        lat: 27.977,        lon: -82.765948,    radius: 0.004 },
-  { name: "Auntie's",    lat: 27.9568,       lon: -82.80285,     radius: 0.001 },
+  { name: "Auntie's",    lat: 27.9568,       lon: -82.80285,     radius: 0.003 },
   { name: "IRCS",        lat: 27.8832,       lon: -82.81443,     radius: 0.004 },
   { name: "TBU",         lat: 28.08333,      lon: -82.6080,      radius: 0.004 },
   { name: "SJ",          lat: 27.8775866,    lon: -82.814629,    radius: 0.004 },
-  { name: "Belleair Rec",lat: 27.9351627598, lon: -82.80202,     radius: 0.001 },
-  { name: "Sam's",       lat: 27.95929,      lon: -82.7317,      radius: 0.001 },
-  { name: "Publix",      lat: 27.9166,       lon: -82.8135976,   radius: 0.001 },
-  { name: "Molly's",     lat: 28.0023296,    lon: -82.76779518,  radius: 0.001 },
-  { name: "Julia's",     lat: 28.071224355,  lon: -82.682356,    radius: 0.001 },
+  { name: "Belleair Rec",lat: 27.9351627598, lon: -82.80202,     radius: 0.003 },
+  { name: "Sam's",       lat: 27.95929,      lon: -82.7317,      radius: 0.003 },
+  { name: "Publix",      lat: 27.9166,       lon: -82.8135976,   radius: 0.003 },
+  { name: "Molly's",     lat: 28.0023296,    lon: -82.76779518,  radius: 0.003 },
+  { name: "Julia's",     lat: 28.071224355,  lon: -82.682356,    radius: 0.003 },
   { name: "Belcher",     lat: 27.89895,      lon: -82.74484,     radius: 0.004 },
   { name: "Carlouel",    lat: 28.006,        lon: -82.826,       radius: 0.004 }
   
