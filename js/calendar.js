@@ -2,8 +2,6 @@
 
 // Make sure config.js is loaded before this file
 const iframe = document.getElementById("frame");
-const PROXY_URL = "https://traccar-proxy-fcj3.onrender.com";
-
 
 // State
 let modeIndex = 0;
