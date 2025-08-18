@@ -65,10 +65,6 @@ function updateCalendarForMode() {
 // Apply CSS transform to scroll calendar iframe
 function updateCalendarTransform() {
   iframe.style.transform = `translateY(${calendarScrollY}px)`;
-  if (headerIframe) {
-    // Keep header fixed; optionally can sync scroll if needed
-    headerIframe.style.transform = `translateY(${calendarScrollY}px)`;
-  }
 }
 
 // Initialize start date
