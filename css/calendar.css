@@ -63,6 +63,12 @@ html, body {
   position: relative;
 }
 
+#header-container {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
 /* Calendar iframe (scrollable) */
 #frame {
   width: 100%;
