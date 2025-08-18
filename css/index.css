@@ -1,5 +1,5 @@
 :root {
-  --bg-left:  #000000;   /* changed to pure black */
+  --bg-left:  #000000;  /* pure black */
   --bg-right: #111111;
 }
 
@@ -19,34 +19,52 @@ body {
   box-sizing: border-box;
 }
 
+/* LEFT COLUMN */
 .left-col {
   grid-area: left;
   display: grid;
   grid-template-rows: 7% 1fr;
   row-gap: 8px;
-  background: var(--bg-left);  /* now pure black */
+  background: var(--bg-left);
   border-radius: 10px;
   overflow: hidden;
 }
 
+/* Date_Time iframe wrapper */
 .iframe-wrapper {
   width: 100%;
   height: 100%;
-  overflow: hidden;
+  overflow: hidden;   /* hides scaled edges */
   position: relative;
-  background: var(--bg-left);  /* add black background */
+  background: var(--bg-left);
 }
 
 .iframe-wrapper iframe {
-  width: 100%;
-  height: 100%;
+  width: 125%;        /* compensate for scale 0.8 */
+  height: 125%;
   border: 0;
   transform: scale(0.8);
   transform-origin: top left;
   display: block;
-  background: #000;  /* ensure iframe itself is black */
+  background: #000;   /* black behind content */
 }
 
+/* LeftPanel iframe */
+.leftpanel {
+  transform: none;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  display: block;
+  background: #000;   /* black background */
+}
+
+/* Photo container inside LeftPanel */
+#photo-container {
+  background: #000;   /* black behind images */
+}
+
+/* Divider between left and right panels */
 .divider {
   grid-area: divider;
   border-radius: 10px;
@@ -60,7 +78,38 @@ body {
   opacity: 0.7;
 }
 
+/* RIGHT PANEL */
 #right {
   grid-area: right;
   background: var(--bg-right);
-  border-r
+  border-radius: 10px;
+  border: 0;
+  box-shadow: 0 0 12px rgba(0,0,0,0.7);
+  transform: scale(0.6);
+  transform-origin: top left;
+  width: 166.6667%;
+  height: 166.6667%;
+}
+
+/* Generic card style for iframes */
+.card {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+  box-shadow: 0 0 12px rgba(0,0,0,0.7);
+  border-radius: 8px;
+}
+
+/* Key log */
+#keyLog {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  color: #fff;
+  font-size: 24px;
+  background: rgba(0,0,0,0.5);
+  padding: 8px 12px;
+  border-radius: 8px;
+  z-index: 9999;
+}
