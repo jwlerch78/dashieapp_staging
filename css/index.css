@@ -1,5 +1,5 @@
 :root {
-  --bg-left:  #0a0a0a;
+  --bg-left:  #000000;   /* changed to pure black */
   --bg-right: #111111;
 }
 
@@ -24,9 +24,27 @@ body {
   display: grid;
   grid-template-rows: 7% 1fr;
   row-gap: 8px;
-  background: var(--bg-left);
+  background: var(--bg-left);  /* now pure black */
   border-radius: 10px;
   overflow: hidden;
+}
+
+.iframe-wrapper {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  background: var(--bg-left);  /* add black background */
+}
+
+.iframe-wrapper iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  transform: scale(0.8);
+  transform-origin: top left;
+  display: block;
+  background: #000;  /* ensure iframe itself is black */
 }
 
 .divider {
@@ -45,56 +63,4 @@ body {
 #right {
   grid-area: right;
   background: var(--bg-right);
-  border-radius: 10px;
-  border: 0;
-  box-shadow: 0 0 12px rgba(0,0,0,0.7);
-  transform: scale(0.6);
-  transform-origin: top left;
-  width: 166.6667%;
-  height: 166.6667%;
-}
-
-.card {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  background: transparent;
-  box-shadow: 0 0 12px rgba(0,0,0,0.7);
-  border-radius: 8px;
-}
-
-.leftpanel {
-  transform: none;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  display: block;
-}
-
-.iframe-wrapper {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  position: relative;
-}
-
-.iframe-wrapper iframe {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  transform: scale(0.8);
-  transform-origin: top left;
-  display: block;
-}
-
-#keyLog {
-  position: fixed;
-  bottom: 10px;
-  left: 10px;
-  color: #fff;
-  font-size: 24px;
-  background: rgba(0,0,0,0.5);
-  padding: 8px 12px;
-  border-radius: 8px;
-  z-index: 9999;
-}
+  border-r
