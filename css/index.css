@@ -96,6 +96,7 @@ body {
 
 /* Key log */
 #keyLog {
+  display: none;
   position: fixed;
   bottom: 10px;
   left: 10px;
@@ -116,4 +117,3 @@ body {
   background: black;
   z-index: 99999;
 }
-
