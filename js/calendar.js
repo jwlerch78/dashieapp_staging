@@ -8,6 +8,12 @@ let modeIndex = 0;
 let mode = MODES[modeIndex];
 let currentStartDate = new Date();
 
+// Calendar scroll transform variables
+let calendarScrollY = 0;
+const scrollStep = 150; // pixels to scroll per button press
+const maxScroll = 600; // maximum scroll in either direction
+const minScroll = -600;
+
 const labels = {
   weekly: document.getElementById("label-weekly"),
   monthly: document.getElementById("label-monthly"),
@@ -38,6 +44,37 @@ function calculateInitialScrollPosition() {
   }
 }
 
+function updateCalendarForMode() {
+  if (mode === "weekly" || mode === "work") {
+    // Enable scrolling: make iframe taller and position absolute
+    iframe.style.height = "150%";
+    iframe.style.position = "absolute";
+    iframe.style.top = "0";
+    iframe.style.left = "0";
+    
+    // Make sure container has overflow hidden
+    const container = document.getElementById("calendar-container");
+    if (container) {
+      container.style.overflow = "hidden";
+    }
+  } else if (mode === "monthly") {
+    // Disable scrolling: normal iframe size and positioning
+    iframe.style.height = "100%";
+    iframe.style.position = "static";
+    iframe.style.transform = "translateY(0px)"; // Reset any scroll
+    
+    // Allow normal overflow for monthly
+    const container = document.getElementById("calendar-container");
+    if (container) {
+      container.style.overflow = "visible";
+    }
+  }
+}
+
+function updateCalendarTransform() {
+  // Apply CSS transform to create scrolling effect
+  iframe.style.transform = `translateY(${calendarScrollY}px)`;
+}
 
 function initDate() {
   const today = new Date();
@@ -50,7 +87,9 @@ function initDate() {
   } else if (mode === "monthly") {
     currentStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
   }
+  
   calendarScrollY = calculateInitialScrollPosition();
+  updateCalendarForMode(); // Apply mode-specific CSS
   updateCalendarTransform();
 }
 
@@ -77,7 +116,9 @@ function buildUrl() {
 
 function updateIframe() { 
   iframe.src = buildUrl(); 
-  updateLabels(); 
+  updateLabels();
+  updateCalendarForMode(); // Apply mode-specific styling
+  updateCalendarTransform(); // Apply current scroll position
 }
 
 initDate();
@@ -104,14 +145,16 @@ window.addEventListener("message", (event) => {
           updateCalendarTransform();
         }
       }
+      shouldUpdateIframe = false; // Don't reload iframe, just transform
       break;
     case "downCalendar":
       if (mode === "weekly" || mode === "work") {
         if (calendarScrollY > minScroll) {
-        calendarScrollY -= scrollStep;
-        updateCalendarTransform();
+          calendarScrollY -= scrollStep;
+          updateCalendarTransform();
         }
       }
+      shouldUpdateIframe = false; // Don't reload iframe, just transform
       break;
     case "next":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
