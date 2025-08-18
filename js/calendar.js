@@ -11,8 +11,8 @@ let currentStartDate = new Date();
 
 // Scroll variables
 let calendarScrollY = 0;
-const scrollStep = 100;
-const maxScroll = -123;
+const scrollStep = 150;
+const maxScroll = -120;
 const minScroll = -600;
 
 // Bottom labels
@@ -34,7 +34,7 @@ function calculateInitialScrollPosition() {
   const now = new Date();
   const hour = now.getHours();
 
-  return -400
+  return -300
   //if (hour <= 12) return (12 - hour) * (maxScroll / 12);
   //else return -((hour - 12) * (maxScroll / 11));
 }
@@ -136,7 +136,7 @@ window.addEventListener("message", (event) => {
       break;
     case "upCalendar":
       if (mode === "weekly" || mode === "work") {
-        if (calendarScrollY < maxScroll) 
+        if (calendarScrollY+scrollStep <= maxScroll) 
           calendarScrollY += scrollStep;
         else calendarScrollY = maxScroll;
         updateCalendarTransform();
@@ -145,7 +145,7 @@ window.addEventListener("message", (event) => {
       break;
     case "downCalendar":
       if (mode === "weekly" || mode === "work") {
-        if (calendarScrollY > minScroll) 
+        if (calendarScrollY-scrollStep >= minScroll) 
           calendarScrollY -= scrollStep;
         else calendarScrollY = minScroll;
           updateCalendarTransform();
