@@ -12,8 +12,8 @@ let currentStartDate = new Date();
 // Scroll variables
 let calendarScrollY = 0;
 const scrollStep = 150;
-const maxScroll = -175;
-const minScroll = -600;
+const maxScroll = -150;
+const minScroll = -700;
 
 // Bottom labels
 const labels = {
