@@ -19,6 +19,26 @@ function updateLabels() {
   labels[mode].classList.add("active");
 }
 
+function calculateInitialScrollPosition() {
+  if (mode !== "weekly" && mode !== "work") return 0; // No scroll for monthly
+  
+  const now = new Date();
+  const hour = now.getHours(); // 0-23
+  
+  // Map 24-hour day to your scroll range
+  // Assuming -600 (late night) to +600 (early morning)
+  // 0am = maxScroll (+600), 12pm = 0, 11pm = minScroll (-600)
+  
+  if (hour <= 12) {
+    // 0am-12pm: scroll from +600 to 0
+    return (12 - hour) * (600 / 12); // +600 to 0
+  } else {
+    // 1pm-11pm: scroll from 0 to -600
+    return -((hour - 12) * (600 / 11)); // 0 to -600
+  }
+}
+
+
 function initDate() {
   const today = new Date();
   if (mode === "weekly" || mode === "work") {
@@ -30,6 +50,8 @@ function initDate() {
   } else if (mode === "monthly") {
     currentStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
   }
+  calendarScrollY = calculateInitialScrollPosition();
+  updateCalendarTransform();
 }
 
 function formatYYYYMMDD(date) { 
@@ -76,12 +98,20 @@ window.addEventListener("message", (event) => {
       shouldUpdateIframe = false;
       break;
     case "upCalendar":
-      if (scrollHourIndex === null) scrollHourIndex = 1;
-      else if (scrollHourIndex < scrollHours.length - 1) scrollHourIndex++;
+      if (mode === "weekly" || mode === "work") {
+        if (calendarScrollY < maxScroll) {
+          calendarScrollY += scrollStep;
+          updateCalendarTransform();
+        }
+      }
       break;
     case "downCalendar":
-      if (scrollHourIndex === null) scrollHourIndex = 0;
-      else if (scrollHourIndex > 0) scrollHourIndex--;
+      if (mode === "weekly" || mode === "work") {
+        if (calendarScrollY > minScroll) {
+        calendarScrollY -= scrollStep;
+        updateCalendarTransform();
+        }
+      }
       break;
     case "next":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
