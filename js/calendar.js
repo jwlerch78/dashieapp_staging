@@ -11,9 +11,9 @@ let currentStartDate = new Date();
 
 // Scroll variables
 let calendarScrollY = 0;
-const scrollStep = 150;
-const maxScroll = 450;
-const minScroll = -450;
+const scrollStep = 100;
+const maxScroll = 300;
+const minScroll = -300;
 
 // Bottom labels
 const labels = {
@@ -41,7 +41,7 @@ function calculateInitialScrollPosition() {
 // Update iframe styles based on mode
 function updateCalendarForMode() {
   if (mode === "weekly" || mode === "work") {
-    iframe.style.height = "150%";
+    iframe.style.height = "200%";
     iframe.style.position = "absolute";
     iframe.style.top = "0";
     iframe.style.left = "0";
