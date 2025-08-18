@@ -131,7 +131,7 @@ window.addEventListener("message", (event) => {
       initDate();
       break;
     case "prevCalendar":
-      modeIndex = (modeIndex - 1 + MODES.length) % modes.length;
+      modeIndex = (modeIndex - 1 + MODES.length) % MODES.length;
       mode = MODES[modeIndex];
       initDate();
       break;
