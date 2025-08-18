@@ -3,18 +3,6 @@
 // Make sure config.js is loaded before this file
 const iframe = document.getElementById("frame");
 
-
-// Add these variables
-let calendarScrollY = 0;
-const scrollStep = 150; // pixels per button press
-const maxScroll = 600;
-const minScroll = -600;
-
-// Add this function
-function updateCalendarTransform() {
-  iframe.style.transform = `translateY(${calendarScrollY}px)`;
-}
-
 // State
 let modeIndex = 0;
 let mode = MODES[modeIndex];
@@ -41,8 +29,6 @@ function updateLabels() {
 
 function initDate() {
   const today = new Date();
-  calendarScrollY = 0;
-  updateCalendarTransform();
   if (mode === "weekly" || mode === "work") {
     const day = today.getDay();
     const diff = (day === 0 ? -6 : 1 - day);
@@ -70,11 +56,9 @@ function buildUrl() {
   return url;
 }
 
-// Modify updateIframe() to apply transform
 function updateIframe() { 
   iframe.src = buildUrl(); 
-  updateLabels();
-  updateCalendarTransform(); // Add this line
+  updateLabels(); 
 }
 
 initDate();
@@ -125,21 +109,14 @@ window.addEventListener("message", (event) => {
       document.getElementById("family-bar").style.display = trackerVisible ? "flex" : "none";
       shouldUpdateIframe = false;
       break;
-// Update event handlers
-case "upCalendar":
-  //if (calendarScrollY < maxScroll) {
-    //calendarScrollY += scrollStep;
-    //updateCalendarTransform();
-    shouldUpdateIframe = false;
-  }
-  break;
-case "downCalendar":
-  //if (calendarScrollY > minScroll) {
-    //calendarScrollY -= scrollStep;
-    //updateCalendarTransform();
-    shouldUpdateIframe = false;
-  }
-  break;
+    case "upCalendar":
+      if (scrollHourIndex === null) scrollHourIndex = 1; // start at 8am
+      else if (scrollHourIndex < scrollHours.length - 1) scrollHourIndex++;
+      break;
+    case "downCalendar":
+      if (scrollHourIndex === null) scrollHourIndex = 0; // start at 12pm
+      else if (scrollHourIndex > 0) scrollHourIndex--;
+      break;
     case "next":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
       else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()+1);
