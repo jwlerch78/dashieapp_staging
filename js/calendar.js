@@ -127,15 +127,17 @@ window.addEventListener("message", (event) => {
       break;
 // Update event handlers
 case "upCalendar":
-  if (calendarScrollY < maxScroll) {
-    calendarScrollY += scrollStep;
-    updateCalendarTransform();
+  //if (calendarScrollY < maxScroll) {
+    //calendarScrollY += scrollStep;
+    //updateCalendarTransform();
+    shouldUpdateIframe = false;
   }
   break;
 case "downCalendar":
-  if (calendarScrollY > minScroll) {
-    calendarScrollY -= scrollStep;
-    updateCalendarTransform();
+  //if (calendarScrollY > minScroll) {
+    //calendarScrollY -= scrollStep;
+    //updateCalendarTransform();
+    shouldUpdateIframe = false;
   }
   break;
     case "next":
