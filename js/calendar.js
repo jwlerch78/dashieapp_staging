@@ -34,8 +34,8 @@ function calculateInitialScrollPosition() {
   const now = new Date();
   const hour = now.getHours();
   
-  if (hour <= 12) return (12 - hour) * (maxScroll / 12);
-  else return -((hour - 12) * (maxScroll / 11));
+  if (hour <= 12) return (12 - hour) * (-minScroll / 12);
+  else return -((hour - 12) * (-minScroll / 11));
 }
 
 // Update iframe styles based on mode
