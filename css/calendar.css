@@ -72,7 +72,7 @@ html, body {
 /* Calendar iframe (scrollable) */
 #frame {
   width: 100%;
-  height: 150%;         /* taller than container to allow scrolling */
+  height: 200%;         /* taller than container to allow scrolling */
   border: 0;
   position: absolute;
   top: 0;
