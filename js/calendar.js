@@ -126,13 +126,13 @@ window.addEventListener("message", (event) => {
       else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()-1);
       break;
     case "nextCalendar":
-      modeIndex = (modeIndex + 1) % modes.length;
-      mode = modes[modeIndex];
+      modeIndex = (modeIndex + 1) % MODES.length;
+      mode = MODES[modeIndex];
       initDate();
       break;
     case "prevCalendar":
-      modeIndex = (modeIndex - 1 + modes.length) % modes.length;
-      mode = modes[modeIndex];
+      modeIndex = (modeIndex - 1 + MODES.length) % modes.length;
+      mode = MODES[modeIndex];
       initDate();
       break;
   }
