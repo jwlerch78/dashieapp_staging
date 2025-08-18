@@ -1,6 +1,3 @@
-// location.js
-const PROXY_URL = "https://traccar-proxy-fcj3.onrender.com";
-
 // Zones helper
 function getZone(lat, lon) {
   for (let zone of ZONES) {
