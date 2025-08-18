@@ -2,6 +2,8 @@
 
 // Make sure config.js is loaded before this file
 const iframe = document.getElementById("frame");
+const PROXY_URL = "https://traccar-proxy-fcj3.onrender.com";
+
 
 // State
 let modeIndex = 0;
@@ -67,7 +69,7 @@ updateIframe();
 // Traccar location update
 async function reverseGeocode(lat, lon) {
   try {
-    const resp = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+    const resp = await fetch(`${PROXY_URL}/reverse?lat=${lat}&lon=${lon}`);
     const json = await resp.json();
     return json.address.city || json.address.town || json.address.village || json.display_name;
   } catch {
