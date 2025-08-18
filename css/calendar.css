@@ -8,34 +8,51 @@ html, body {
   flex-direction: column;
 }
 
-
-/* Wrap iframe in viewport container */
-#calendar-container {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
+/* HEADER IFRAME */
+#header-frame {
+  position: absolute;   /* stays fixed at top */
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 80px;         /* adjust as needed */
+  border: 0;
+  z-index: 10;
+  background: #111;     /* match your theme */
 }
 
+/* Wrap calendar iframe in viewport container */
+#calendar-container {
+  flex: 1;
+  position: absolute;
+  top: 80px;            /* below header */
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;     /* hide extra scroll for weekly/work mode */
+}
+
+/* Calendar iframe */
 #frame { 
   width: 100%; 
-  height: 150%; /* Taller than container */
+  height: 150%;          /* taller than container for scroll effect */
   border: 0; 
   position: absolute;
   top: 0;
   left: 0;
+  transform: translateY(0); /* will be updated dynamically */
 }
 
 /* Family tracker bar */
 #family-bar {
-  display: flex; /* start hidden */
+  display: flex; 
   flex-direction: row;
   justify-content: space-around;
   align-items: center;
   padding: 5px 10px;
-  background: #000; /* black behind tracker */
+  background: #000; 
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   z-index: 1000;
-  height: 50px; /* half height */
+  height: 50px; 
 }
 
 .member {
