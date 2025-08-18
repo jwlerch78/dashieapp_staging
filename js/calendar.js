@@ -1,20 +1,21 @@
 // calendar.js
 // Make sure config.js is loaded before this file
 
-const calendarIframe = document.getElementById("frame");
-const headerIframe = document.getElementById("header-frame");
+const iframe = document.getElementById("frame");
+let headerIframe = document.getElementById("header-frame");
 
 // State
 let modeIndex = 0;
 let mode = MODES[modeIndex];
 let currentStartDate = new Date();
 
-// Calendar scroll transform variables
+// Scroll variables
 let calendarScrollY = 0;
-const scrollStep = 150; // pixels to scroll per button press
-const maxScroll = 600;  // maximum scroll in either direction
+const scrollStep = 150;
+const maxScroll = 600;
 const minScroll = -600;
 
+// Bottom labels
 const labels = {
   weekly: document.getElementById("label-weekly"),
   monthly: document.getElementById("label-monthly"),
@@ -26,51 +27,51 @@ function updateLabels() {
   labels[mode].classList.add("active");
 }
 
+// Calculate initial scroll position based on current hour
 function calculateInitialScrollPosition() {
-  if (mode !== "weekly" && mode !== "work") return 0; // No scroll for monthly
+  if (mode !== "weekly" && mode !== "work") return 0;
   
   const now = new Date();
-  const hour = now.getHours(); // 0-23
+  const hour = now.getHours();
   
-  // Map 24-hour day to your scroll range
-  if (hour <= 12) {
-    return (12 - hour) * (maxScroll / 12); // 0am-12pm: scroll from +600 to 0
-  } else {
-    return -((hour - 12) * (maxScroll / 11)); // 1pm-11pm: scroll from 0 to -600
-  }
+  if (hour <= 12) return (12 - hour) * (maxScroll / 12);
+  else return -((hour - 12) * (maxScroll / 11));
 }
 
+// Update iframe styles based on mode
 function updateCalendarForMode() {
   if (mode === "weekly" || mode === "work") {
-    // Enable scrolling
-    calendarIframe.style.height = "150%";
-    calendarIframe.style.position = "absolute";
-    calendarIframe.style.top = "0";
-    calendarIframe.style.left = "0";
+    iframe.style.height = "150%";
+    iframe.style.position = "absolute";
+    iframe.style.top = "0";
+    iframe.style.left = "0";
+
+    if (headerIframe) headerIframe.style.display = "block";
 
     const container = document.getElementById("calendar-container");
     if (container) container.style.overflow = "hidden";
-
-    // Show header
-    if (headerIframe) headerIframe.style.display = "block";
   } else if (mode === "monthly") {
-    // Disable scrolling
-    calendarIframe.style.height = "100%";
-    calendarIframe.style.position = "static";
-    calendarIframe.style.transform = "translateY(0px)";
+    iframe.style.height = "100%";
+    iframe.style.position = "static";
+    iframe.style.transform = "translateY(0px)";
+    
+    if (headerIframe) headerIframe.style.display = "none";
 
     const container = document.getElementById("calendar-container");
     if (container) container.style.overflow = "visible";
-
-    // Hide header
-    if (headerIframe) headerIframe.style.display = "none";
   }
 }
 
+// Apply CSS transform to scroll calendar iframe
 function updateCalendarTransform() {
-  calendarIframe.style.transform = `translateY(${calendarScrollY}px)`;
+  iframe.style.transform = `translateY(${calendarScrollY}px)`;
+  if (headerIframe) {
+    // Keep header fixed; optionally can sync scroll if needed
+    headerIframe.style.transform = `translateY(${calendarScrollY}px)`;
+  }
 }
 
+// Initialize start date
 function initDate() {
   const today = new Date();
   if (mode === "weekly" || mode === "work") {
@@ -88,6 +89,7 @@ function initDate() {
   updateCalendarTransform();
 }
 
+// Build URL for iframe
 function formatYYYYMMDD(date) { 
   return date.toISOString().slice(0,10).replace(/-/g,''); 
 }
@@ -97,8 +99,8 @@ function buildUrl() {
   const end = new Date(start);
 
   if (mode === "weekly") end.setDate(end.getDate()+6);
-  else if (mode === "monthly") { end.setMonth(end.getMonth()+1); end.setDate(0); }
-  else if (mode === "work") end.setDate(end.getDate()+4);
+  else if (mode==="monthly") { end.setMonth(end.getMonth()+1); end.setDate(0); }
+  else if (mode==="work") end.setDate(end.getDate()+4);
 
   let url = BASE_URL + "&mode=" + (mode==="monthly" ? "MONTH" : "WEEK");
   CALENDAR_SETS[mode].forEach(cal => { 
@@ -110,15 +112,14 @@ function buildUrl() {
 }
 
 function updateIframe() { 
-  calendarIframe.src = buildUrl(); 
-  if (headerIframe && (mode === "weekly" || mode === "work")) {
-    headerIframe.src = buildUrl(); // keep header in sync
-  }
+  iframe.src = buildUrl();
+  if (headerIframe) headerIframe.src = buildUrl(); // sync header
   updateLabels();
   updateCalendarForMode();
   updateCalendarTransform();
 }
 
+// Initialize
 initDate();
 updateIframe();
 
@@ -177,5 +178,5 @@ window.addEventListener("message", (event) => {
   if (shouldUpdateIframe) updateIframe();
 });
 
-// Auto-refresh calendar every 5 minutes
+// Auto-refresh every 5 minutes
 setInterval(updateIframe, 300000);
