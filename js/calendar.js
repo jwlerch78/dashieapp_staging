@@ -12,7 +12,7 @@ let currentStartDate = new Date();
 // Scroll variables
 let calendarScrollY = 0;
 const scrollStep = 150;
-const maxScroll = 600;
+const maxScroll = 123;
 const minScroll = -600;
 
 // Bottom labels
@@ -137,6 +137,7 @@ window.addEventListener("message", (event) => {
       if (mode === "weekly" || mode === "work") {
         if (calendarScrollY < maxScroll) {
           calendarScrollY += scrollStep;
+        else calendarScrollY = maxScroll;
           updateCalendarTransform();
         }
       }
@@ -146,6 +147,7 @@ window.addEventListener("message", (event) => {
       if (mode === "weekly" || mode === "work") {
         if (calendarScrollY > minScroll) {
           calendarScrollY -= scrollStep;
+          else calendarScrollY = minScroll;
           updateCalendarTransform();
         }
       }
