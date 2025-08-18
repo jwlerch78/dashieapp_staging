@@ -34,7 +34,7 @@ function calculateInitialScrollPosition() {
   const now = new Date();
   const hour = now.getHours();
 
-  return -300
+  return -400
   //if (hour <= 12) return (12 - hour) * (maxScroll / 12);
   //else return -((hour - 12) * (maxScroll / 11));
 }
