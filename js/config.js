@@ -30,7 +30,8 @@ const ZONES = [
   { name: "Molly's",     lat: 28.0023296,    lon: -82.76779518,  radius: 0.003 },
   { name: "Julia's",     lat: 28.071224355,  lon: -82.682356,    radius: 0.003 },
   { name: "Belcher",     lat: 27.89895,      lon: -82.74484,     radius: 0.004 },
-  { name: "Carlouel",    lat: 28.006,        lon: -82.826,       radius: 0.004 }
+  { name: "Carlouel",    lat: 28.006,        lon: -82.826,       radius: 0.004 },
+  { name: "The Break",   lat: 27.922372,     lon: -82.814508,     radius: .003} 
   
 ];
 
