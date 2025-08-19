@@ -42,7 +42,7 @@ function calculateInitialScrollPosition() {
 // Update iframe styles based on mode
 function updateCalendarForMode() {
   if (mode === "weekly" || mode === "work") {
-    iframe.style.height = "220%";
+    iframe.style.height = "225%";
     iframe.style.position = "absolute";
     iframe.style.top = "0";
     iframe.style.left = "0";
