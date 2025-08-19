@@ -106,5 +106,4 @@ function checkAutoMode() {
 
 // Run every 15 minutes
 setInterval(checkAutoMode, 15 * 60 * 1000);
-// Run immediately at load
-checkAutoMode();
+
