@@ -75,7 +75,7 @@ html, body {
 #frame {
   width: 100%;
   height: 225%;         /* taller than container to allow scrolling */
-  border: 0;
+  border: 0 !important;
   position: absolute;
   display: block;
   top: 0;
