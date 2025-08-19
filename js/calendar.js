@@ -41,6 +41,7 @@ function calculateInitialScrollPosition() {
 
 // Update iframe styles based on mode
 function updateCalendarForMode() { 
+  const headerContainer = document.getElementById("header-container");
   if (mode === "weekly" || mode === "work") { 
     iframe.style.height = "225%"; 
     iframe.style.position = "absolute"; 
@@ -48,14 +49,17 @@ function updateCalendarForMode() {
     iframe.style.left = "0"; 
     if (headerIframe) 
       headerIframe.style.display = "block"; 
+      if (headerContainer) headerContainer.style.display = "block";
+
     const container = document.getElementById("calendar-container"); 
     if (container) container.style.overflow = "hidden"; }  
   else if (mode === "monthly") { 
     iframe.style.height = "100%"; 
     iframe.style.position = "static"; 
     iframe.style.transform = "translateY(0px)"; 
-    if (headerIframe) 
-      headerIframe.style.display = "none"; 
+    if (headerIframe)  headerIframe.style.display = "none"; 
+    if (headerContainer) headerContainer.style.display = "none";
+
     const container = document.getElementById("calendar-container"); 
     if (container) container.style.overflow = "visible"; 
   } 
@@ -155,20 +159,20 @@ window.addEventListener("message", (event) => {
       }
       shouldUpdateIframe = false;
       break;
-    case "next":
+    case "nextCalendar":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
       else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()+1);
       break;
-    case "prev":
+    case "prevCalendar":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()-7);
       else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()-1);
       break;
-    case "nextCalendar":
+    case "next":
       modeIndex = (modeIndex + 1) % MODES.length;
       mode = MODES[modeIndex];
       initDate();
       break;
-    case "prevCalendar":
+    case "prev":
       modeIndex = (modeIndex - 1 + MODES.length) % MODES.length;
       mode = MODES[modeIndex];
       initDate();
