@@ -44,28 +44,31 @@ function updateCalendarForMode() {
   const container = document.getElementById("calendar-container");
 
   if (mode === "weekly" || mode === "work") {
-    // Stretch iframe down to allow hidden header + scrolling
+    // Weekly/Work: big iframe with header
     iframe.style.height = "225%";
     iframe.style.position = "absolute";
     iframe.style.top = "0";
     iframe.style.left = "0";
-    iframe.style.transform = "translateY(-120px)"; // shift up to hide header
+    iframe.style.width = "100%";
+    iframe.style.transform = "translateY(-120px)"; // compensate for header
 
     if (headerIframe) headerIframe.style.display = "block";
     if (container) container.style.overflow = "hidden";
 
   } else if (mode === "monthly") {
-    // Reset everything so no header offset
+    // Monthly: reset everything and cover full screen
     iframe.style.height = "100%";
-    iframe.style.position = "static";
-    iframe.style.top = "";
-    iframe.style.left = "";
-    iframe.style.transform = "translateY(0px)";
+    iframe.style.position = "absolute";  // make it cover
+    iframe.style.top = "0";
+    iframe.style.left = "0";
+    iframe.style.width = "100%";
+    iframe.style.transform = "translateY(0)";
 
     if (headerIframe) headerIframe.style.display = "none";
-    if (container) container.style.overflow = "visible";
+    if (container) container.style.overflow = "hidden"; // no scroll gap
   }
 }
+
 
 
 // Apply CSS transform to scroll calendar iframe
