@@ -11,39 +11,41 @@ document.addEventListener('keydown', (event) => {
 
     keyLog.textContent = `${event.keyCode}`;
 
-    switch(event.keyCode) {
-        case 38: // up arrow
-            if (mode === "dashboard")
-                rightIframe.contentWindow.postMessage({ action: "upCalendar" }, "*");
-            break;
-        case 40: // down arrow
-            if (mode === "dashboard")
-                rightIframe.contentWindow.postMessage({ action: "downCalendar" }, "*");
-            break;
-        case 179: // play/pause
-            if (mode === "dashboard")
-                leftIframe.contentWindow.postMessage({ action: "change_prev" }, "*");
-            break;
-        case 227: // rewind
-            if (mode === "dashboard")
-                rightIframe.contentWindow.postMessage({ action: "prev" }, "*");
-            break;
-        case 228: // fast forward
-            if (mode === "dashboard")
-                rightIframe.contentWindow.postMessage({ action: "next" }, "*");
-            break;
-        case 37: // left arrow
-            if (mode === "dashboard")
-                rightIframe.contentWindow.postMessage({ action: "prevCalendar" }, "*");
-            break;
-        case 39: // right arrow
-            if (mode === "dashboard")
-                rightIframe.contentWindow.postMessage({ action: "nextCalendar" }, "*");
-            break;
-        case 13: // Enter → toggle modes
-            toggleMode();
-            break;
-    }
+switch(event.keyCode) {
+    case 38: // up arrow
+        if (mode === "dashboard")
+            rightIframe.contentWindow.postMessage({ action: "upCalendar" }, "*");
+        break;
+    case 40: // down arrow
+        if (mode === "dashboard")
+            rightIframe.contentWindow.postMessage({ action: "downCalendar" }, "*");
+        break;
+    case 179: // play/pause
+        if (mode === "dashboard")
+            leftIframe.contentWindow.postMessage({ action: "change_prev" }, "*");
+        break;
+    case 227: // rewind (Fire TV)
+    case 188: // < (comma) for PC testing
+        if (mode === "dashboard")
+            rightIframe.contentWindow.postMessage({ action: "prev" }, "*");
+        break;
+    case 228: // fast forward (Fire TV)
+    case 190: // > (period) for PC testing
+        if (mode === "dashboard")
+            rightIframe.contentWindow.postMessage({ action: "next" }, "*");
+        break;
+    case 37: // left arrow
+        if (mode === "dashboard")
+            rightIframe.contentWindow.postMessage({ action: "prevCalendar" }, "*");
+        break;
+    case 39: // right arrow
+        if (mode === "dashboard")
+            rightIframe.contentWindow.postMessage({ action: "nextCalendar" }, "*");
+        break;
+    case 13: // Enter → toggle modes
+        toggleMode();
+        break;
+}
 });
 
 function toggleMode() {
