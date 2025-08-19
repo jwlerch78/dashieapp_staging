@@ -92,8 +92,8 @@ function checkAutoMode() {
     const hours = now.getHours();
     const minutes = now.getMinutes();
 
-    // Quiet hours = 11:00pm → 6:29am
-    const isNight = (hours >= 23) || (hours < 6 || (hours === 6 && minutes < 30));
+    // Quiet hours = 10:00pm → 6:29am
+    const isNight = (hours >= 22) || (hours < 6 || (hours === 6 && minutes < 30));
 
     if (isNight && mode !== "black") {
         mode = "black";
