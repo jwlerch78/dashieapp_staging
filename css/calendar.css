@@ -49,31 +49,29 @@ html, body {
 
 /* Header container */
 #header-container {
-  height: 140px;         /* visible height */
-  overflow: hidden;      /* crop the iframe */
+  height: 140px;        /* keep container fixed */
+  overflow: hidden;     
   position: relative;
   z-index: 10;
-  transition: height 0.3s ease; /* animate collapse/expand */
-}
-
-/* Add a "hidden" class to collapse in monthly mode */
-#header-container.hidden {
-  height: 0 !important;   /* collapse completely */
-  overflow: hidden;
-  padding: 0;
-  margin: 0;
 }
 
 /* Header iframe */
 #header-frame {
   width: 100%;
-  height: 700px;         /* match main calendar render height */
+  height: 700px;        /* full Google Calendar height */
   border: 0;
   outline: none;
-  position: relative;    /* not absolute */
+  position: relative;
   display: block;
   top: 0;
   left: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* Hide the header iframe */
+#header-frame.hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 /* Calendar container */
