@@ -47,16 +47,23 @@ html, body {
   text-overflow: ellipsis;
 }
 
+/* --- Header container --- */
+#header-container {
+  height: 120px;         /* Visible height for header */
+  overflow: hidden;      /* Crop the iframe */
+  position: relative;
+  z-index: 10;           /* On top of main calendar */
+}
+
 /* Fixed header iframe */
 #header-frame {
   width: 100%;
-  height: 120px;        /* Fixed height for header */
-  border: none;
-  top: 0;
-  left: 0;
+  height: 700px;         /* Match main calendar's full rendering height */
+  border: 0;
   outline: none;
-  display: block;       /* show/hide via JS */
-  z-index: 999;
+  position: absolute;    /* position inside container */
+  top: 0;                /* adjust top if you need to fine-tune crop */
+  left: 0;
 }
 
 /* Calendar container */
@@ -64,24 +71,19 @@ html, body {
   flex: 1;
   overflow: hidden;
   position: relative;
-}
-
-#header-container {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
+  z-index: 5;            /* behind header */
 }
 
 /* Calendar iframe (scrollable) */
 #frame {
   width: 100%;
-  height: 225%;         /* taller than container to allow scrolling */
+  height: 700px;         /* Full height of calendar */
   border: 0 !important;
   position: absolute;
   display: block;
   top: 0;
   left: 0;
-  transform: translateY(0px); /* JS will adjust for scroll */
+  transform: translateY(0px); /* JS adjusts scroll */
 }
 
 /* Bottom view indicators */
