@@ -54,7 +54,11 @@ const CALENDAR_SETS = {
     { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
   ],
   work: [
-    { id: "fd5949d42a667f6ca3e88dcf1feb27818463bbdc19c5e56d2e0da62b87d881c5@group.calendar.google.com", color: "%230B8043" }
+    { id: "desilerch@gmail.com", color: "%23E67C73" },
+    { id: "e48b36883ae237a9551de738523b7a246d5a1f6b15a3dbb6c78ee455a3aa4688@group.calendar.google.com", color: "%231565C0" },
+    { id: "180b3d0e7c1ae0241b2e60ba9c566500949ff16a487adf11625cd72306b2310f@group.calendar.google.com", color: "%230B8043" },
+    { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" },
+    { id: "fd5949d42a667f6ca3e88dcf1feb27818463bbdc19c5e56d2e0da62b87d881c5@group.calendar.google.com", color: "%23FF6F00" }
   ]
 };
 
