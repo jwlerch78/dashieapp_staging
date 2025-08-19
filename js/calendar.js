@@ -176,5 +176,5 @@ window.addEventListener("message", (event) => {
   if (shouldUpdateIframe) updateIframe();
 });
 
-// Auto-refresh every 5 minutes
-setInterval(updateIframe, 300000);
+// Auto-refresh every 15 minutes
+setInterval(updateIframe, 900000);
