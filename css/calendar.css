@@ -55,7 +55,6 @@ html, body {
   border-right: 8px solid #e8eaed;
   top: 0;
   left: 0;
-  border: none;
   outline: none;
   display: block;       /* show/hide via JS */
   z-index: 999;
