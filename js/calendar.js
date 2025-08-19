@@ -40,7 +40,26 @@ function calculateInitialScrollPosition() {
 }
 
 // Update iframe styles based on mode
-function updateCalendarForMode() { if (mode === "weekly" || mode === "work") { iframe.style.height = "225%"; iframe.style.position = "absolute"; iframe.style.top = "0"; iframe.style.left = "0"; if (headerIframe) headerIframe.style.display = "block"; const container = document.getElementById("calendar-container"); if (container) container.style.overflow = "hidden"; } else if (mode === "monthly") { iframe.style.height = "100%"; iframe.style.position = "static"; iframe.style.transform = "translateY(0px)"; if (headerIframe) headerIframe.style.display = "none"; const container = document.getElementById("calendar-container"); if (container) container.style.overflow = "visible"; } }
+function updateCalendarForMode() { 
+  if (mode === "weekly" || mode === "work") { 
+    iframe.style.height = "225%"; 
+    iframe.style.position = "absolute"; 
+    iframe.style.top = "0"; 
+    iframe.style.left = "0"; 
+    if (headerIframe) 
+      headerIframe.style.display = "block"; 
+    const container = document.getElementById("calendar-container"); 
+    if (container) container.style.overflow = "hidden"; }  
+  else if (mode === "monthly") { 
+    iframe.style.height = "100%"; 
+    iframe.style.position = "static"; 
+    iframe.style.transform = "translateY(0px)"; 
+    if (headerIframe) 
+      headerIframe.style.display = "none"; 
+    const container = document.getElementById("calendar-container"); 
+    if (container) container.style.overflow = "visible"; 
+  } 
+}
 
 
 
