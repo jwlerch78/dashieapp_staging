@@ -41,27 +41,32 @@ function calculateInitialScrollPosition() {
 
 // Update iframe styles based on mode
 function updateCalendarForMode() {
+  const container = document.getElementById("calendar-container");
+
   if (mode === "weekly" || mode === "work") {
+    // Stretch iframe down to allow hidden header + scrolling
     iframe.style.height = "225%";
     iframe.style.position = "absolute";
     iframe.style.top = "0";
     iframe.style.left = "0";
+    iframe.style.transform = "translateY(-120px)"; // shift up to hide header
 
     if (headerIframe) headerIframe.style.display = "block";
-
-    const container = document.getElementById("calendar-container");
     if (container) container.style.overflow = "hidden";
+
   } else if (mode === "monthly") {
+    // Reset everything so no header offset
     iframe.style.height = "100%";
     iframe.style.position = "static";
+    iframe.style.top = "";
+    iframe.style.left = "";
     iframe.style.transform = "translateY(0px)";
-    
-    if (headerIframe) headerIframe.style.display = "none";
 
-    const container = document.getElementById("calendar-container");
+    if (headerIframe) headerIframe.style.display = "none";
     if (container) container.style.overflow = "visible";
   }
 }
+
 
 // Apply CSS transform to scroll calendar iframe
 function updateCalendarTransform() {
