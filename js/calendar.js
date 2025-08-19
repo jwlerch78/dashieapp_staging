@@ -12,7 +12,7 @@ let currentStartDate = new Date();
 // Scroll variables
 let calendarScrollY = 0;
 const scrollStep = 150;
-const maxScroll = -125;
+const maxScroll = -130;
 const minScroll = -700;
 
 // Bottom labels
@@ -34,7 +34,7 @@ function calculateInitialScrollPosition() {
   const now = new Date();
   const hour = now.getHours();
 
-  return -400
+  return -450
   //if (hour <= 12) return (12 - hour) * (maxScroll / 12);
   //else return -((hour - 12) * (maxScroll / 11));
 }
