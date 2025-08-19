@@ -49,7 +49,7 @@ function updateCalendarForMode() {
     iframe.style.top = "0";
     iframe.style.left = "0";
 
-    if (container) container.classList.remove("hidden");
+    if (headerIframe) headerIframe.classList.remove("hidden");
 
     const calendarContainer = document.getElementById("calendar-container");
     if (calendarContainer) calendarContainer.style.overflow = "hidden";
@@ -60,12 +60,13 @@ function updateCalendarForMode() {
     iframe.style.top = "0";
     iframe.style.left = "0";
 
-    if (container) container.classList.add("hidden");
+    if (headerIframe) headerIframe.classList.add("hidden");
 
     const calendarContainer = document.getElementById("calendar-container");
     if (calendarContainer) calendarContainer.style.overflow = "visible";
   }
 }
+
 
 
 
