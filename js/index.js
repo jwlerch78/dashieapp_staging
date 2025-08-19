@@ -69,3 +69,42 @@ function focusDashboard() {
 focusDashboard();
 rightIframe.addEventListener('load', focusDashboard);
 setInterval(focusDashboard, 1000);
+
+// --- Auto black/dash schedule ---
+function updateDisplayMode() {
+    // Re-use toggleMode() style logic but force mode
+    if (mode === "black") {
+        if (!overlay) {
+            overlay = document.createElement("div");
+            overlay.className = "black-overlay";
+            document.body.appendChild(overlay);
+        }
+    } else {
+        if (overlay) {
+            overlay.remove();
+            overlay = null;
+        }
+    }
+}
+
+function checkAutoMode() {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+
+    // Quiet hours = 11:00pm → 6:29am
+    const isNight = (hours >= 23) || (hours < 6 || (hours === 6 && minutes < 30));
+
+    if (isNight && mode !== "black") {
+        mode = "black";
+        updateDisplayMode();
+    } else if (!isNight && mode !== "dashboard") {
+        mode = "dashboard";
+        updateDisplayMode();
+    }
+}
+
+// Run every 15 minutes
+setInterval(checkAutoMode, 15 * 60 * 1000);
+// Run immediately at load
+checkAutoMode();
