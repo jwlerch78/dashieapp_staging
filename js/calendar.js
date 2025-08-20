@@ -45,21 +45,38 @@ function initDate() {
 
 // Update iframe display based on calendar_mode
 function updateCalendarForMode() { 
-  const headerContainer = document.getElementById("header-container");
-  if (calendar_mode === "weekly" || calendar_mode === "work") { 
-    iframe.style.height = "225%"; 
-    iframe.style.position = "absolute"; 
-    iframe.style.top = "0"; 
-    iframe.style.left = "0"; 
-    if (headerIframe) headerIframe.style.display = "block"; 
-    if (headerContainer) headerContainer.style.display = "block";
-  } else if (calendar_mode === "monthly") { 
-    iframe.style.height = "100%"; 
-    iframe.style.position = "static"; 
-    iframe.style.transform = "translateY(0px)"; 
-    if (headerIframe) headerIframe.style.display = "none"; 
-    if (headerContainer) headerContainer.style.display = "none";
-  }
+    const headerContainer = document.getElementById("header-container");
+
+    if (calendar_mode === "weekly" || calendar_mode === "work") { 
+        // Weekly/Work: absolute positioning + scrollable
+        iframe.style.position = "absolute";
+        iframe.style.top = "0";
+        iframe.style.left = "0";
+        iframe.style.width = "100%";
+        iframe.style.height = "225%";  // Keep previous scrollable height
+        iframe.style.transform = `translateY(${calendarScrollY}px)`;
+
+        if (headerIframe) headerIframe.style.display = "block";
+        if (headerContainer) headerContainer.style.display = "block";
+
+        const container = document.getElementById("calendar-container");
+        if (container) container.style.overflow = "hidden";
+    } 
+    else if (calendar_mode === "monthly") {
+        // Monthly: fill container completely
+        iframe.style.position = "absolute";   // keep absolute to fill container
+        iframe.style.top = "0";
+        iframe.style.left = "0";
+        iframe.style.width = "100%";
+        iframe.style.height = "100%";         // full container height
+        iframe.style.transform = "translateY(0px)";
+
+        if (headerIframe) headerIframe.style.display = "none";
+        if (headerContainer) headerContainer.style.display = "none";
+
+        const container = document.getElementById("calendar-container");
+        if (container) container.style.overflow = "visible";
+    }
 }
 
 // Apply CSS transform
