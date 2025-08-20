@@ -29,23 +29,24 @@ document.addEventListener('keydown', (event) => {
         case 40: // down arrow
             sendToFocus("Down");
             break;
-        case 179: // play/pause → toggle black
-            toggleBlack();
-            break;
-        case 227: // rewind (Fire TV)
-        case 188: // < (comma) for PC testing
-            sendToFocus("Left");
-            break;
-        case 228: // fast forward (Fire TV)
-        case 190: // > (period) for PC testing
-            sendToFocus("Right");
-            break;
         case 37: // left arrow
             sendToFocus("Left");
             break;
         case 39: // right arrow
             sendToFocus("Right");
             break;
+        case 179: // play/pause → toggle black
+            toggleBlack();
+            break;
+        case 227: // rewind (Fire TV)
+        case 188: // < (comma) for PC testing
+            sendToFocus("Prev");
+            break;
+        case 228: // fast forward (Fire TV)
+        case 190: // > (period) for PC testing
+            sendToFocus("Next");
+            break;
+        
         case 13: // Enter → rotate modes (but not in black mode)
             toggleMode();
             break;
