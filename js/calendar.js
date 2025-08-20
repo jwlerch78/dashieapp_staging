@@ -1,11 +1,10 @@
-// Make sure config.js is loaded before this file
-
+// RightPanel calendar.js
 const iframe = document.getElementById("frame");
 let headerIframe = document.getElementById("header-frame");
 
 // State
 let modeIndex = 0;
-let calendar_mode = MODES[modeIndex];  // renamed from mode
+let calendar_mode = MODES[modeIndex]; // use calendar_mode instead of mode
 let currentStartDate = new Date();
 
 // Scroll variables
@@ -26,42 +25,6 @@ function updateLabels() {
   labels[calendar_mode].classList.add("active");
 }
 
-// Calculate initial scroll position based on current hour
-function calculateInitialScrollPosition() {
-  if (calendar_mode !== "weekly" && calendar_mode !== "work") return 0;
-  return -450;
-}
-
-// Update iframe styles based on calendar_mode
-function updateCalendarForMode() { 
-  const headerContainer = document.getElementById("header-container");
-  if (calendar_mode === "weekly" || calendar_mode === "work") { 
-    iframe.style.height = "225%"; 
-    iframe.style.position = "absolute"; 
-    iframe.style.top = "0"; 
-    iframe.style.left = "0"; 
-    if (headerIframe) headerIframe.style.display = "block"; 
-    if (headerContainer) headerContainer.style.display = "block";
-
-    const container = document.getElementById("calendar-container"); 
-    if (container) container.style.overflow = "hidden"; 
-  } else if (calendar_mode === "monthly") { 
-    iframe.style.height = "100%"; 
-    iframe.style.position = "static"; 
-    iframe.style.transform = "translateY(0px)"; 
-    if (headerIframe)  headerIframe.style.display = "none"; 
-    if (headerContainer) headerContainer.style.display = "none";
-
-    const container = document.getElementById("calendar-container"); 
-    if (container) container.style.overflow = "visible"; 
-  } 
-}
-
-// Apply CSS transform to scroll calendar iframe
-function updateCalendarTransform() {
-  iframe.style.transform = `translateY(${calendarScrollY}px)`;
-}
-
 // Initialize start date
 function initDate() {
   const today = new Date();
@@ -75,16 +38,36 @@ function initDate() {
     currentStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
   }
 
-  calendarScrollY = calculateInitialScrollPosition();
+  calendarScrollY = -450; // fixed initial scroll
   updateCalendarForMode();
   updateCalendarTransform();
 }
 
-// Build URL for iframe
-function formatYYYYMMDD(date) { 
-  return date.toISOString().slice(0,10).replace(/-/g,''); 
+// Update iframe display based on calendar_mode
+function updateCalendarForMode() { 
+  const headerContainer = document.getElementById("header-container");
+  if (calendar_mode === "weekly" || calendar_mode === "work") { 
+    iframe.style.height = "225%"; 
+    iframe.style.position = "absolute"; 
+    iframe.style.top = "0"; 
+    iframe.style.left = "0"; 
+    if (headerIframe) headerIframe.style.display = "block"; 
+    if (headerContainer) headerContainer.style.display = "block";
+  } else if (calendar_mode === "monthly") { 
+    iframe.style.height = "100%"; 
+    iframe.style.position = "static"; 
+    iframe.style.transform = "translateY(0px)"; 
+    if (headerIframe) headerIframe.style.display = "none"; 
+    if (headerContainer) headerContainer.style.display = "none";
+  }
 }
 
+// Apply CSS transform
+function updateCalendarTransform() {
+  iframe.style.transform = `translateY(${calendarScrollY}px)`;
+}
+
+// Build URL for iframe
 function buildUrl() {
   const start = new Date(currentStartDate);
   const end = new Date(start);
@@ -104,23 +87,19 @@ function buildUrl() {
 
 function updateIframe() { 
   iframe.src = buildUrl();
-  if (headerIframe) headerIframe.src = buildUrl(); // sync header
+  if (headerIframe) headerIframe.src = buildUrl();
   updateLabels();
   updateCalendarForMode();
   updateCalendarTransform();
 }
 
-// Initialize
-initDate();
-updateIframe();
-
-// Tracker toggle & calendar navigation
-let trackerVisible = true;
-
+// --- Message listener ---
 window.addEventListener("message", (event) => {
-  if (!event.data || typeof event.data.action !== "string") return;
+  const { action, mode } = event.data || {};
+  
+  // Only respond if calendar_mode === "calendar"
+  if (mode !== "calendar") return;
 
-  const action = event.data.action;
   let shouldUpdateIframe = true;
 
   switch(action) {
@@ -138,33 +117,40 @@ window.addEventListener("message", (event) => {
       }
       shouldUpdateIframe = false;
       break;
-    case "Right":
-      if (calendar_mode==="weekly" || calendar_mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
-      else if (calendar_mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()+1);
-      break;
     case "Left":
-      if (calendar_mode==="weekly" || calendar_mode==="work") currentStartDate.setDate(currentStartDate.getDate()-7);
-      else if (calendar_mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()-1);
+      if (calendar_mode === "weekly" || calendar_mode === "work") {
+        currentStartDate.setDate(currentStartDate.getDate() - 7);
+        // Special case: send focus to LeftPanel
+        window.parent.postMessage({ action: "focusLeftPanel" }, "*");
+      } else if (calendar_mode === "monthly") {
+        currentStartDate.setMonth(currentStartDate.getMonth() - 1);
+      }
       break;
-    case "next":
-      modeIndex = (modeIndex + 1) % MODES.length;
+    case "Right":
+      if (calendar_mode === "weekly" || calendar_mode === "work") {
+        currentStartDate.setDate(currentStartDate.getDate() + 7);
+      } else if (calendar_mode === "monthly") {
+        currentStartDate.setMonth(currentStartDate.getMonth() + 1);
+      }
+      break;
+    case "Prev":
+      modeIndex = (modeIndex - 1 + MODES.length) % MODES.length;
       calendar_mode = MODES[modeIndex];
       initDate();
       break;
-    case "prev":
-      if (calendar_mode === "weekly") {
-        // If weekly, send focus up to parent index.js to go LeftPanel
-        window.parent.postMessage({ action: "focusLeftPanel" }, "*");
-      } else {
-        modeIndex = (modeIndex - 1 + MODES.length) % MODES.length;
-        calendar_mode = MODES[modeIndex];
-        initDate();
-      }
+    case "Next":
+      modeIndex = (modeIndex + 1) % MODES.length;
+      calendar_mode = MODES[modeIndex];
+      initDate();
+      // If FocusMode was LeftPanel, send focus back
+      window.parent.postMessage({ action: "focusRightPanel" }, "*");
       break;
   }
 
   if (shouldUpdateIframe) updateIframe();
 });
 
-// Auto-refresh every 15 minutes
-setInterval(updateIframe, 900000);
+// Initialize
+initDate();
+updateIframe();
+setInterval(updateIframe, 900000); // auto-refresh
