@@ -114,56 +114,68 @@ updateIframe();
 
 
 window.addEventListener("message", (event) => {
-    const { action, mode } = event.data || {};
+    const { action, mode: viewMode } = event.data || {};
 
-    // Only respond if mode is "calendar"
-    if (mode !== "calendar") {
+    // Only respond if global view mode is "calendar"
+    if (viewMode !== "calendar") {
         return;
     }
-  
-  let shouldUpdateIframe = true;
 
-  switch(action) {
-    case "Up":
-      if (mode === "weekly" || mode === "work") {
-        if (calendarScrollY+scrollStep <= maxScroll) 
-          calendarScrollY += scrollStep;
-        else calendarScrollY = maxScroll;
-        updateCalendarTransform();
-      }
-      shouldUpdateIframe = false;
-      break;
-    case "Down":
-      if (mode === "weekly" || mode === "work") {
-        if (calendarScrollY-scrollStep >= minScroll) 
-          calendarScrollY -= scrollStep;
-        else calendarScrollY = minScroll;
-        updateCalendarTransform();
-      }
-      shouldUpdateIframe = false;
-      break;
-    case "Right":
-      if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
-      else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()+1);
-      break;
-    case "Left":
-      if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()-7);
-      else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()-1);
-      break;
-    case "next":
-      modeIndex = (modeIndex + 1) % MODES.length;
-      mode = MODES[modeIndex];
-      initDate();
-      break;
-    case "prev":
-      modeIndex = (modeIndex - 1 + MODES.length) % MODES.length;
-      mode = MODES[modeIndex];
-      initDate();
-      break;
-  }
+    let shouldUpdateIframe = true;
 
-  if (shouldUpdateIframe) updateIframe();
+    switch(action) {
+        case "Up":
+            if (mode === "weekly" || mode === "work") {
+                if (calendarScrollY + scrollStep <= maxScroll) 
+                    calendarScrollY += scrollStep;
+                else 
+                    calendarScrollY = maxScroll;
+                updateCalendarTransform();
+            }
+            shouldUpdateIframe = false;
+            break;
+
+        case "Down":
+            if (mode === "weekly" || mode === "work") {
+                if (calendarScrollY - scrollStep >= minScroll) 
+                    calendarScrollY -= scrollStep;
+                else 
+                    calendarScrollY = minScroll;
+                updateCalendarTransform();
+            }
+            shouldUpdateIframe = false;
+            break;
+
+        case "Right":
+            if (mode === "weekly" || mode === "work") 
+                currentStartDate.setDate(currentStartDate.getDate() + 7);
+            else if (mode === "monthly") 
+                currentStartDate.setMonth(currentStartDate.getMonth() + 1);
+            break;
+
+        case "Left":
+            if (mode === "weekly" || mode === "work") 
+                currentStartDate.setDate(currentStartDate.getDate() - 7);
+            else if (mode === "monthly") 
+                currentStartDate.setMonth(currentStartDate.getMonth() - 1);
+            break;
+
+        case "next":
+            modeIndex = (modeIndex + 1) % MODES.length;
+            mode = MODES[modeIndex];
+            initDate();
+            break;
+
+        case "prev":
+            modeIndex = (modeIndex - 1 + MODES.length) % MODES.length;
+            mode = MODES[modeIndex];
+            initDate();
+            break;
+    }
+
+    if (shouldUpdateIframe) updateIframe();
 });
+
 
 // Auto-refresh every 15 minutes
 setInterval(updateIframe, 900000);
