@@ -67,6 +67,11 @@ function updateCalendarTransform() {
   iframe.style.transform = `translateY(${calendarScrollY}px)`;
 }
 
+// Helper to format YYYYMMDD for Google Calendar URLs
+function formatYYYYMMDD(date) { 
+    return date.toISOString().slice(0,10).replace(/-/g,''); 
+}
+
 // Build URL for iframe
 function buildUrl() {
   const start = new Date(currentStartDate);
