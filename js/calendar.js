@@ -1,4 +1,4 @@
-// RightPanel calendar.js
+// RightPanel calendar.js - not working
 const iframe = document.getElementById("frame");
 let headerIframe = document.getElementById("header-frame");
 
@@ -64,7 +64,7 @@ function updateCalendarForMode() {
     } 
     else if (calendar_mode === "monthly") {
         // Monthly: fill container completely
-        iframe.style.position = "absolute";   // keep absolute to fill container
+        iframe.style.position = "static";   // keep absolute to fill container
         iframe.style.top = "0";
         iframe.style.left = "0";
         iframe.style.width = "100%";
