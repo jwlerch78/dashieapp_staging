@@ -160,13 +160,13 @@ window.addEventListener("message", (event) => {
                 currentStartDate.setMonth(currentStartDate.getMonth() - 1);
             break;
 
-        case "next":
+        case "Next":
             modeIndex = (modeIndex + 1) % MODES.length;
             mode = MODES[modeIndex];
             initDate();
             break;
 
-        case "prev":
+        case "Prev":
             modeIndex = (modeIndex - 1 + MODES.length) % MODES.length;
             mode = MODES[modeIndex];
             initDate();
