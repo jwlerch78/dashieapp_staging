@@ -112,15 +112,18 @@ function updateIframe() {
 initDate();
 updateIframe();
 
-// Tracker toggle & calendar navigation
-let trackerVisible = true;
 
 window.addEventListener("message", (event) => {
-  if (!event.data || typeof event.data.action !== "string") return;
+    const { action, mode } = event.data || {};
 
+    // Only respond if mode is "calendar"
+    if (mode !== "calendar") {
+        return;
+    }
+  
   let shouldUpdateIframe = true;
 
-  switch(event.data.action) {
+  switch(action) {
     case "Up":
       if (mode === "weekly" || mode === "work") {
         if (calendarScrollY+scrollStep <= maxScroll) 
