@@ -78,7 +78,9 @@ function updateCalendarForMode() {
 
 // Apply CSS transform
 function updateCalendarTransform() {
-  iframe.style.transform = `translateY(${calendarScrollY}px)`;
+  if (calendar_mode === "weekly" || calendar_mode === "work") {
+    iframe.style.transform = `translateY(${calendarScrollY}px)`;
+  }
 }
 
 // Helper to format YYYYMMDD for Google Calendar URLs
