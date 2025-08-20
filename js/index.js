@@ -50,18 +50,34 @@ switch(event.keyCode) {
 
 function toggleMode() {
     if (mode === "dashboard") {
+        // Enter black overlay mode
         mode = "black";
         overlay = document.createElement("div");
         overlay.className = "black-overlay";
         document.body.appendChild(overlay);
-    } else {
-        mode = "dashboard";
+    } else if (mode === "black") {
+        // Return to dashboard and show default calendar
+        mode = "calendar";
         if (overlay) {
             overlay.remove();
             overlay = null;
         }
+        rightIframe.contentWindow.postMessage({ action: "showCalendar" }, "*");
+    } else if (mode === "calendar") {
+        // Switch to map view
+        mode = "map";
+        rightIframe.contentWindow.postMessage({ action: "showMap" }, "*");
+    } else if (mode === "map") {
+        // Switch to camera view
+        mode = "camera";
+        rightIframe.contentWindow.postMessage({ action: "showCamera" }, "*");
+    } else if (mode === "camera") {
+        // Cycle back to dashboard/calendar
+        mode = "calendar";
+        rightIframe.contentWindow.postMessage({ action: "showCalendar" }, "*");
     }
 }
+
 
 // Keep focus on dashboard
 function focusDashboard() {
