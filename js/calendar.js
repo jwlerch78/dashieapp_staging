@@ -135,12 +135,7 @@ window.addEventListener("message", (event) => {
   let shouldUpdateIframe = true;
 
   switch(event.data.action) {
-    case "SelectButton":
-      trackerVisible = !trackerVisible;
-      document.getElementById("family-bar").style.display = trackerVisible ? "flex" : "none";
-      shouldUpdateIframe = false;
-      break;
-    case "upCalendar":
+    case "up":
       if (mode === "weekly" || mode === "work") {
         if (calendarScrollY+scrollStep <= maxScroll) 
           calendarScrollY += scrollStep;
@@ -149,7 +144,7 @@ window.addEventListener("message", (event) => {
       }
       shouldUpdateIframe = false;
       break;
-    case "downCalendar":
+    case "down":
       if (mode === "weekly" || mode === "work") {
         if (calendarScrollY-scrollStep >= minScroll) 
           calendarScrollY -= scrollStep;
@@ -159,11 +154,11 @@ window.addEventListener("message", (event) => {
       }
       shouldUpdateIframe = false;
       break;
-    case "nextCalendar":
+    case "right":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()+7);
       else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()+1);
       break;
-    case "prevCalendar":
+    case "left":
       if (mode==="weekly" || mode==="work") currentStartDate.setDate(currentStartDate.getDate()-7);
       else if (mode==="monthly") currentStartDate.setMonth(currentStartDate.getMonth()-1);
       break;
