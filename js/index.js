@@ -24,27 +24,27 @@ document.addEventListener('keydown', (event) => {
     // --- Normal handling when not black ---
     switch(event.keyCode) {
         case 38: // up arrow
-            sendToFocus({ action: "Up" });
+            sendToFocus("Up");
             break;
         case 40: // down arrow
-            sendToFocus({ action: "Down" });
+            sendToFocus("Down");
             break;
         case 179: // play/pause → toggle black
             toggleBlack();
             break;
         case 227: // rewind (Fire TV)
         case 188: // < (comma) for PC testing
-            sendToFocus({ action: "Left" });
+            sendToFocus("Left");
             break;
         case 228: // fast forward (Fire TV)
         case 190: // > (period) for PC testing
-            sendToFocus({ action: "Right" });
+            sendToFocus("Right");
             break;
         case 37: // left arrow
-            sendToFocus({ action: "Left" });
+            sendToFocus("Left");
             break;
         case 39: // right arrow
-            sendToFocus({ action: "Right" });
+            sendToFocus("Right");
             break;
         case 13: // Enter → rotate modes (but not in black mode)
             toggleMode();
@@ -53,7 +53,8 @@ document.addEventListener('keydown', (event) => {
 });
 
 // Helper: send message based on FocusMode
-function sendToFocus(msg) {
+function sendToFocus(action) {
+    const msg = { action, mode }; // <-- always include mode
     if (FocusMode === "RightPanel") {
         rightIframe.contentWindow.postMessage(msg, "*");
     } else if (FocusMode === "LeftPanel") {
