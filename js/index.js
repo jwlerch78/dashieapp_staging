@@ -1,4 +1,4 @@
-const rightIframe = document.getElementById('right');
+const rightIframe = document.getElementById('rightpanel');
 const leftIframe = document.getElementById('leftpanel');
 const keyLog = document.getElementById('keyLog');
 
