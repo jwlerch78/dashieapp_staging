@@ -46,7 +46,6 @@ document.addEventListener('keydown', (event) => {
         case 190: // > (period) for PC testing
             sendToFocus("Next");
             break;
-        
         case 13: // Enter → rotate modes (but not in black mode)
             toggleMode();
             break;
@@ -55,13 +54,28 @@ document.addEventListener('keydown', (event) => {
 
 // Helper: send message based on FocusMode
 function sendToFocus(action) {
-    const msg = { action, mode }; // <-- always include mode
+    const msg = { action, mode }; // include current mode
     if (FocusMode === "RightPanel") {
         rightIframe.contentWindow.postMessage(msg, "*");
     } else if (FocusMode === "LeftPanel") {
         leftIframe.contentWindow.postMessage(msg, "*");
     }
 }
+
+// --- Listen for messages from iframes to switch focus ---
+window.addEventListener('message', (event) => {
+    const { action } = event.data || {};
+    if (!action) return;
+
+    switch(action) {
+        case "focusLeftPanel":
+            FocusMode = "LeftPanel";
+            break;
+        case "focusRightPanel":
+            FocusMode = "RightPanel";
+            break;
+    }
+});
 
 // Toggle through rotating modes (calendar → map → camera → calendar)
 function toggleMode() {
@@ -108,8 +122,6 @@ function checkAutoMode() {
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
-
-    // Quiet hours = 10:00pm → 6:29am
     const isNight = (hours >= 22) || (hours < 6 || (hours === 6 && minutes < 30));
 
     if (isNight && mode !== "black") {
