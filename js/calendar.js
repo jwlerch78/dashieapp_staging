@@ -65,9 +65,6 @@ function updateCalendarForMode() {
     else if (calendar_mode === "monthly") {
         // Monthly: fill container completely
         iframe.style.position = "static";   // keep absolute to fill container
-        iframe.style.top = "0";
-        iframe.style.left = "0";
-        iframe.style.width = "100%";
         iframe.style.height = "100%";         // full container height
         iframe.style.transform = "translateY(0px)";
 
