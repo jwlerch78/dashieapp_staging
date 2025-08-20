@@ -2,7 +2,7 @@ const rightIframe = document.getElementById('right');
 const leftIframe = document.getElementById('leftpanel');
 const keyLog = document.getElementById('keyLog');
 
-let mode = "dashboard"; // Track current mode
+let mode = "calendar"; // Track current mode
 let overlay = null;
 
 document.addEventListener('keydown', (event) => {
@@ -13,33 +13,33 @@ document.addEventListener('keydown', (event) => {
 
 switch(event.keyCode) {
     case 38: // up arrow
-        if (mode === "dashboard")
+        if (mode === "calendar")
             rightIframe.contentWindow.postMessage({ action: "upCalendar" }, "*");
         break;
     case 40: // down arrow
-        if (mode === "dashboard")
+        if (mode === "calendar")
             rightIframe.contentWindow.postMessage({ action: "downCalendar" }, "*");
         break;
     case 179: // play/pause
-        if (mode === "dashboard")
+        if (mode === "calendar")
             leftIframe.contentWindow.postMessage({ action: "change_prev" }, "*");
         break;
     case 227: // rewind (Fire TV)
     case 188: // < (comma) for PC testing
-        if (mode === "dashboard")
+        if (mode === "calendar")
             rightIframe.contentWindow.postMessage({ action: "prev" }, "*");
         break;
     case 228: // fast forward (Fire TV)
     case 190: // > (period) for PC testing
-        if (mode === "dashboard")
+        if (mode === "calendar")
             rightIframe.contentWindow.postMessage({ action: "next" }, "*");
         break;
     case 37: // left arrow
-        if (mode === "dashboard")
+        if (mode === "calendar")
             rightIframe.contentWindow.postMessage({ action: "prevCalendar" }, "*");
         break;
     case 39: // right arrow
-        if (mode === "dashboard")
+        if (mode === "calendar")
             rightIframe.contentWindow.postMessage({ action: "nextCalendar" }, "*");
         break;
     case 13: // Enter → toggle modes
@@ -49,21 +49,7 @@ switch(event.keyCode) {
 });
 
 function toggleMode() {
-    if (mode === "dashboard") {
-        // Enter black overlay mode
-        mode = "black";
-        overlay = document.createElement("div");
-        overlay.className = "black-overlay";
-        document.body.appendChild(overlay);
-    } else if (mode === "black") {
-        // Return to dashboard and show default calendar
-        mode = "calendar";
-        if (overlay) {
-            overlay.remove();
-            overlay = null;
-        }
-        rightIframe.contentWindow.postMessage({ action: "showCalendar" }, "*");
-    } else if (mode === "calendar") {
+    if (mode === "calendar") {
         // Switch to map view
         mode = "map";
         rightIframe.contentWindow.postMessage({ action: "showMap" }, "*");
@@ -72,11 +58,22 @@ function toggleMode() {
         mode = "camera";
         rightIframe.contentWindow.postMessage({ action: "showCamera" }, "*");
     } else if (mode === "camera") {
-        // Cycle back to dashboard/calendar
+        // Switch to black overlay
+        mode = "black";
+        overlay = document.createElement("div");
+        overlay.className = "black-overlay";
+        document.body.appendChild(overlay);
+    } else if (mode === "black") {
+        // Cycle back to calendar
         mode = "calendar";
+        if (overlay) {
+            overlay.remove();
+            overlay = null;
+        }
         rightIframe.contentWindow.postMessage({ action: "showCalendar" }, "*");
     }
 }
+
 
 
 // Keep focus on dashboard
