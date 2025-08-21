@@ -38,7 +38,7 @@ body {
   position: relative;
   width: 100%;
   flex: 1;  /* fill remaining space in the column */
-  border-bottom: 10px solid transparent; /* default hidden */
+  border-bottom: 5px solid transparent; /* default hidden */
   overflow: hidden;
 }
 
