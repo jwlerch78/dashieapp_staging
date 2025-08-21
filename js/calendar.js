@@ -161,7 +161,7 @@ window.addEventListener("message", (event) => {
         shouldUpdateIframe = false;
       }
       else {
-        modeIndex = modeIndex - 1;
+        modeIndex = (modeIndex - 1 + MODES.length) % MODES.length;
         calendar_mode = MODES[modeIndex];
         initDate();
       }
