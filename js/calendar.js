@@ -155,16 +155,21 @@ window.addEventListener("message", (event) => {
       }
       break;
     case "Prev":
-      modeIndex = (modeIndex - 1 + MODES.length) % MODES.length;
-      calendar_mode = MODES[modeIndex];
-      initDate();
+      if (modeIndex = 0) {
+        // Send Focus to Left Panel
+        window.parent.postMessage({ action: "focusLeftPanel" }, "*");
+        shouldUpdateIframe = false;
+      }
+      else {
+        modeIndex = modeIndex - 1;
+        calendar_mode = MODES[modeIndex];
+        initDate();
+      }
       break;
     case "Next":
       modeIndex = (modeIndex + 1) % MODES.length;
       calendar_mode = MODES[modeIndex];
       initDate();
-      // If FocusMode was LeftPanel, send focus back
-      // window.parent.postMessage({ action: "focusRightPanel" }, "*");
       break;
   }
 
