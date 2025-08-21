@@ -46,7 +46,7 @@ document.addEventListener('keydown', (event) => {
         case 190: // > (period) for PC testing
             if (FocusMode==="LeftPanel") {
                 FocusMode = "RightPanel";
-                leftPanel.style.borderBottom = "none"; // Google blue
+                leftIframe.style.borderBottom = "none"; // Google blue
                 keyLog.textContent = `Right Panel Focus`;
             }
             else  sendToFocus("Next");
@@ -76,7 +76,7 @@ window.addEventListener('message', (event) => {
         case "focusLeftPanel":
             FocusMode = "LeftPanel";
             keyLog.textContent = `Left Panel Focus`;
-            leftPanel.style.borderBottom = "10px solid #4285f4"; // Google blue
+            leftIframe.style.borderBottom = "10px solid #4285f4"; // Google blue
             break;
     }
 });
