@@ -70,9 +70,11 @@ window.addEventListener('message', (event) => {
     switch(action) {
         case "focusLeftPanel":
             FocusMode = "LeftPanel";
+            keyLog.textContent = `Left Panel Focus`;
             break;
         case "focusRightPanel":
             FocusMode = "RightPanel";
+            keyLog.textContent = `Right Panel Focus`;
             break;
     }
 });
