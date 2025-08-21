@@ -141,8 +141,6 @@ window.addEventListener("message", (event) => {
     case "Left":
       if (calendar_mode === "weekly" || calendar_mode === "work") {
         currentStartDate.setDate(currentStartDate.getDate() - 7);
-        // Special case: send focus to LeftPanel
-        window.parent.postMessage({ action: "focusLeftPanel" }, "*");
       } else if (calendar_mode === "monthly") {
         currentStartDate.setMonth(currentStartDate.getMonth() - 1);
       }
