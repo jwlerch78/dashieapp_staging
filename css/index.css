@@ -34,6 +34,15 @@ body {
   overflow: hidden;
 }
 
+/* Bottom border only under the leftpanel iframe */
+#iframe-wrapper#leftpanel-wrapper {
+  border-bottom: 10px solid transparent; /* default hidden */
+}
+.left-focus #leftpanel-wrapper {
+  border-bottom-color: #4285f4; /* Google blue when LeftPanel has focus */
+}
+
+
 /* Date_Time iframe wrapper */
 .iframe-wrapper {
   width: 100%;
