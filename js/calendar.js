@@ -164,7 +164,7 @@ window.addEventListener("message", (event) => {
       calendar_mode = MODES[modeIndex];
       initDate();
       // If FocusMode was LeftPanel, send focus back
-      window.parent.postMessage({ action: "focusRightPanel" }, "*");
+      // window.parent.postMessage({ action: "focusRightPanel" }, "*");
       break;
   }
 
