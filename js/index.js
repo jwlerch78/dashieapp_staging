@@ -44,7 +44,11 @@ document.addEventListener('keydown', (event) => {
             break;
         case 228: // fast forward (Fire TV)
         case 190: // > (period) for PC testing
-            sendToFocus("Next");
+            if (FocusMode==="LeftPanel") {
+                FocusMode = "RightPanel";
+                keyLog.textContent = `Right Panel Focus`;
+            }
+            else  sendToFocus("Next");
             break;
         case 13: // Enter → rotate modes (but not in black mode)
             toggleMode();
