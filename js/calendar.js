@@ -155,7 +155,7 @@ window.addEventListener("message", (event) => {
       }
       break;
     case "Prev":
-      if (modeIndex = 0) {
+      if (modeIndex === 0) {
         // Send Focus to Left Panel
         window.parent.postMessage({ action: "focusLeftPanel" }, "*");
         shouldUpdateIframe = false;
