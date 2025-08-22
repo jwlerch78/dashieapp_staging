@@ -1,19 +1,19 @@
 // Calendar.js
-const iframe = document.getElementById("frame");
+
 let headerIframe = document.getElementById("header-frame");
 
-// State
+// --- State ---
 let modeIndex = 0;
-let calendar_mode = MODES[modeIndex]; // use calendar_mode instead of mode
+let calendar_mode = MODES[modeIndex];
 let currentStartDate = new Date();
 
-// Scroll variables
-let calendarScrollY = 0;
+// --- Scroll variables ---
+let calendarScrollY = -450;  // fixed initial scroll
 const scrollStep = 150;
 const maxScroll = -150;
 const minScroll = -700;
 
-// Bottom labels
+// --- Labels ---
 const labels = {
   weekly: document.getElementById("label-weekly"),
   monthly: document.getElementById("label-monthly"),
@@ -21,95 +21,118 @@ const labels = {
 };
 
 function updateLabels() {
-  Object.keys(labels).forEach(key => labels[key].classList.remove("active"));
-  Object.keys(labels).forEach(key => labels[key].classList.remove("selected"));
-  labels[calendar_mode].classList.add("active");
+  Object.keys(labels).forEach(key => {
+    labels[key].classList.remove("active");
+    labels[key].classList.remove("selected");
+  });
+  if (labels[calendar_mode]) {
+    labels[calendar_mode].classList.add("active");
+  }
 }
 
-// Initialize start date
+// --- Active iframe helper ---
+function getActiveIframe() {
+  return document.getElementById(`calendar-${calendar_mode}`);
+}
+
+// --- Date init ---
 function initDate() {
   const today = new Date();
   if (calendar_mode === "weekly" || calendar_mode === "work") {
     const day = today.getDay();
-    const diff = (day === 0 ? -6 : 1 - day);
+    const diff = (day === 0 ? -6 : 1 - day); // shift to Monday
     currentStartDate = new Date(today);
     currentStartDate.setDate(currentStartDate.getDate() + diff);
-    currentStartDate.setHours(0,0,0,0);
+    currentStartDate.setHours(0, 0, 0, 0);
   } else if (calendar_mode === "monthly") {
     currentStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
   }
 
-  calendarScrollY = -450; // fixed initial scroll
+  calendarScrollY = -450;
   updateCalendarForMode();
   updateCalendarTransform();
 }
 
-// Update iframe display based on calendar_mode
-function updateCalendarForMode() { 
-    const headerContainer = document.getElementById("header-container");
+// --- Calendar iframe display ---
+function updateCalendarForMode() {
+  const activeIframe = getActiveIframe();
+  const headerContainer = document.getElementById("header-container");
+  if (!activeIframe) return;
 
-    if (calendar_mode === "weekly" || calendar_mode === "work") { 
-        // Weekly/Work: absolute positioning + scrollable
-        iframe.style.position = "absolute";
-        iframe.style.top = "0";
-        iframe.style.left = "0";
-        iframe.style.width = "100%";
-        iframe.style.height = "225%";  // Keep previous scrollable height
-        iframe.style.transform = `translateY(${calendarScrollY}px)`;
-
-        if (headerIframe) headerIframe.style.display = "block";
-        if (headerContainer) headerContainer.style.display = "block";
-
-        const container = document.getElementById("calendar-container");
-        if (container) container.style.overflow = "hidden";
-    } 
-    else if (calendar_mode === "monthly") {
-        // Monthly: fill container completely
-        iframe.style.position = "static";   // keep absolute to fill container
-        iframe.style.height = "100%";         // full container height
-        iframe.style.transform = "translateY(0px)";
-
-        if (headerIframe) headerIframe.style.display = "none";
-        if (headerContainer) headerContainer.style.display = "none";
-
-        const container = document.getElementById("calendar-container");
-        if (container) container.style.overflow = "visible";
-    }
-}
-
-// Apply CSS transform
-function updateCalendarTransform() {
   if (calendar_mode === "weekly" || calendar_mode === "work") {
-    iframe.style.transform = `translateY(${calendarScrollY}px)`;
+    activeIframe.style.position = "absolute";
+    activeIframe.style.top = "0";
+    activeIframe.style.left = "0";
+    activeIframe.style.width = "100%";
+    activeIframe.style.height = "225%";
+    activeIframe.style.transform = `translateY(${calendarScrollY}px)`;
+
+    if (headerIframe) headerIframe.style.display = "block";
+    if (headerContainer) headerContainer.style.display = "block";
+
+    const container = document.getElementById("calendar-container");
+    if (container) container.style.overflow = "hidden";
+  } else if (calendar_mode === "monthly") {
+    activeIframe.style.position = "static";
+    activeIframe.style.height = "100%";
+    activeIframe.style.transform = "translateY(0px)";
+
+    if (headerIframe) headerIframe.style.display = "none";
+    if (headerContainer) headerContainer.style.display = "none";
+
+    const container = document.getElementById("calendar-container");
+    if (container) container.style.overflow = "visible";
   }
 }
 
-// Helper to format YYYYMMDD for Google Calendar URLs
-function formatYYYYMMDD(date) { 
-    return date.toISOString().slice(0,10).replace(/-/g,''); 
+// --- Apply scroll transform ---
+function updateCalendarTransform() {
+  if (calendar_mode === "weekly" || calendar_mode === "work") {
+    const activeIframe = getActiveIframe();
+    if (activeIframe) {
+      activeIframe.style.transform = `translateY(${calendarScrollY}px)`;
+    }
+  }
 }
 
-// Build URL for iframe
-function buildUrl() {
-  const start = new Date(currentStartDate);
-  const end = new Date(start);
+// --- Format YYYYMMDD ---
+function formatYYYYMMDD(date) {
+  return date.toISOString().slice(0, 10).replace(/-/g, '');
+}
 
-  if (calendar_mode === "weekly") end.setDate(end.getDate()+6);
-  else if (calendar_mode==="monthly") { end.setMonth(end.getMonth()+1); end.setDate(0); }
-  else if (calendar_mode==="work") end.setDate(end.getDate()+4);
+// --- Build URL for mode ---
+function buildUrlForMode(mode) {
+  const start = new Date();
+  let end = new Date(start);
 
-  let url = BASE_URL + "&mode=" + (calendar_mode==="monthly" ? "MONTH" : "WEEK");
-  CALENDAR_SETS[calendar_mode].forEach(cal => { 
-    url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`; 
+  if (mode === "weekly") end.setDate(end.getDate() + 6);
+  else if (mode === "monthly") { end.setMonth(end.getMonth() + 1); end.setDate(0); }
+  else if (mode === "work") end.setDate(end.getDate() + 4);
+
+  let url = BASE_URL + "&mode=" + (mode === "monthly" ? "MONTH" : "WEEK");
+  CALENDAR_SETS[mode].forEach(cal => {
+    url += `&src=${encodeURIComponent(cal.id)}&color=${cal.color}`;
   });
 
   url += `&dates=${formatYYYYMMDD(start)}/${formatYYYYMMDD(end)}`;
   return url;
 }
 
-function updateIframe() { 
-  iframe.src = buildUrl();
-  if (headerIframe) headerIframe.src = buildUrl();
+// --- Preload all calendars ---
+function preloadCalendars() {
+  Object.keys(CALENDAR_SETS).forEach(mode => {
+    const iframe = document.getElementById(`calendar-${mode}`);
+    if (iframe) iframe.src = buildUrlForMode(mode);
+  });
+}
+
+// --- Show/hide calendars ---
+function showMode(mode) {
+  document.querySelectorAll(".calendar-frame").forEach(el => el.classList.remove("active"));
+  const iframe = document.getElementById(`calendar-${mode}`);
+  if (iframe) iframe.classList.add("active");
+
+  calendar_mode = mode;
   updateLabels();
   updateCalendarForMode();
   updateCalendarTransform();
@@ -118,26 +141,20 @@ function updateIframe() {
 // --- Message listener ---
 window.addEventListener("message", (event) => {
   const { action, mode } = event.data || {};
-  
-  // Only respond if calendar_mode === "calendar"
   if (mode !== "calendar") return;
 
-  let shouldUpdateIframe = true;
-
-  switch(action) {
+  switch (action) {
     case "Up":
       if (calendar_mode === "weekly" || calendar_mode === "work") {
         calendarScrollY = Math.min(calendarScrollY + scrollStep, maxScroll);
         updateCalendarTransform();
       }
-      shouldUpdateIframe = false;
       break;
     case "Down":
       if (calendar_mode === "weekly" || calendar_mode === "work") {
         calendarScrollY = Math.max(calendarScrollY - scrollStep, minScroll);
         updateCalendarTransform();
       }
-      shouldUpdateIframe = false;
       break;
     case "Left":
       if (calendar_mode === "weekly" || calendar_mode === "work") {
@@ -155,40 +172,36 @@ window.addEventListener("message", (event) => {
       break;
     case "Prev":
       if (modeIndex === 0) {
-        // Send Focus to Left Panel if we are on the leftmost option and select previous
         window.parent.postMessage({ action: "focusLeftPanel" }, "*");
         labels[calendar_mode].classList.remove("active");
         labels[calendar_mode].classList.add("selected");
-        shouldUpdateIframe = false;
-      }
-      else {
+      } else {
         modeIndex = (modeIndex - 1 + MODES.length) % MODES.length;
         calendar_mode = MODES[modeIndex];
         initDate();
+        showMode(calendar_mode);
       }
       break;
     case "Next":
       if (modeIndex === MODES.length) {
-        // Send Focus to Left Panel if we are on the leftmost option and select previous
         window.parent.postMessage({ action: "focusLeftPanel" }, "*");
-        shouldUpdateIframe = false;
-      }
-      else {
+      } else {
         modeIndex = (modeIndex + 1) % MODES.length;
         calendar_mode = MODES[modeIndex];
         initDate();
+        showMode(calendar_mode);
       }
       break;
-      case "RightFocus":
-        updateLabels();
-        shouldUpdateIframe = false;
+    case "RightFocus":
+      updateLabels();
       break;
   }
-
-  if (shouldUpdateIframe) updateIframe();
 });
 
-// Initialize
+// --- Initialize ---
+preloadCalendars();
 initDate();
-updateIframe();
-setInterval(updateIframe, 900000); // auto-refresh
+showMode(calendar_mode);
+
+// Auto-refresh hidden iframes every 15 min
+setInterval(preloadCalendars, 900000);
