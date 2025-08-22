@@ -20,6 +20,16 @@ const labels = {
   work: document.getElementById("label-work")
 };
 
+document.addEventListener("DOMContentLoaded", () => {
+  // Activate the first calendar iframe by default
+  const firstFrame = document.querySelector(".calendar-frame");
+  if (firstFrame) firstFrame.classList.add("active");
+
+  // Also highlight the first indicator
+  const firstLabel = document.querySelector(".view-label");
+  if (firstLabel) firstLabel.classList.add("active");
+});
+
 function updateLabels() {
   Object.keys(labels).forEach(key => {
     labels[key].classList.remove("active");
