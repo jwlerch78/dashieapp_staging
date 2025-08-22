@@ -49,7 +49,7 @@ html, body {
 
 /* Header container */
 #header-container {
-  height: 140px;       /* header iframe height */
+  height: 200px;       /* header iframe height */
   overflow: hidden;     
   position: relative;
   z-index: 10;
