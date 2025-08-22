@@ -139,14 +139,14 @@ function updateCalendarForMode() {
     
     const container = document.getElementById("calendar-container");
     if (container) container.style.overflow = "hidden";
-
+    headerIframe.classList.remove("hidden");
     updateHeaderFromActive();
   } else if (calendar_mode === "monthly") {
     activeIframe.style.position = "static";
     activeIframe.style.height = "100%";
     activeIframe.style.transform = "translateY(0px)";
 
-    if (headerIframe) headerIframe.style.display = "none";
+    headerIframe.classList.add("hidden");
 
     const container = document.getElementById("calendar-container");
     if (container) container.style.overflow = "visible";
