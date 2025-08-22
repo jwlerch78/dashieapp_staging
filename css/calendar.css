@@ -58,7 +58,7 @@ html, body {
 /* Header iframe */
 #header-frame {
   width: 100%;
-  height: 100%;        /* fill the container */
+  height: 140px;       /* match container height exactly */
   border: 0;
   outline: none;
   display: block;
