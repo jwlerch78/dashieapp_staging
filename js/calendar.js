@@ -1,4 +1,4 @@
-// RightPanel calendar.js - not working
+// Calendar.js
 const iframe = document.getElementById("frame");
 let headerIframe = document.getElementById("header-frame");
 
