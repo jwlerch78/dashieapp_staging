@@ -154,7 +154,7 @@ window.addEventListener("message", (event) => {
       break;
     case "Prev":
       if (modeIndex === 0) {
-        // Send Focus to Left Panel
+        // Send Focus to Left Panel if we are on the leftmost option and select previous
         window.parent.postMessage({ action: "focusLeftPanel" }, "*");
         shouldUpdateIframe = false;
       }
@@ -165,9 +165,16 @@ window.addEventListener("message", (event) => {
       }
       break;
     case "Next":
-      modeIndex = (modeIndex + 1) % MODES.length;
-      calendar_mode = MODES[modeIndex];
-      initDate();
+      if (modeIndex === MODES.length) {
+        // Send Focus to Left Panel if we are on the leftmost option and select previous
+        window.parent.postMessage({ action: "focusLeftPanel" }, "*");
+        shouldUpdateIframe = false;
+      }
+      else {
+        modeIndex = (modeIndex + 1) % MODES.length;
+        calendar_mode = MODES[modeIndex];
+        initDate();
+      }
       break;
   }
 
