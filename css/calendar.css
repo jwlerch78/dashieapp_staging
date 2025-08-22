@@ -116,3 +116,8 @@ html, body {
   color: #fff;
   background-color: #4285f4; /* Highlighted blue */
 }
+
+.view-label.selected {
+  color: #fff;
+  background-color: #99CCFF; /* Highlighted blue */
+}
