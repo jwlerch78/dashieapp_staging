@@ -120,7 +120,8 @@ body {
 
 /* Key log */
 #keyLog {
-  display: block;
+  /* display: block; */
+  display: none;
   position: fixed;
   bottom: 10px;
   left: 10px;
