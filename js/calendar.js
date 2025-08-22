@@ -22,6 +22,7 @@ const labels = {
 
 function updateLabels() {
   Object.keys(labels).forEach(key => labels[key].classList.remove("active"));
+  Object.keys(labels).forEach(key => labels[key].classList.remove("selected"));
   labels[calendar_mode].classList.add("active");
 }
 
