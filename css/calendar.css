@@ -79,7 +79,6 @@ html, body {
   flex: 1;
   position: relative;
   overflow: hidden;   /* buttons scroll iframe */
-  min-height: 700px;  /* ensures scrollable area */
 }
 
 /* Scrollable main iframe */
