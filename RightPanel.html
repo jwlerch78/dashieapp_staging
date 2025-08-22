@@ -1,53 +1,45 @@
 <!--RightPanel.html -->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
-<title>Family Dashboard - Right Panel</title>
-<link rel="stylesheet" href="css/calendar.css"/>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Family Dashboard - Right Panel</title>
+  <link rel="stylesheet" href="css/calendar.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 </head>
 <body>
 
-<!-- Family tracker bar -->
-<div id="family-bar">
-  <div class="member" id="dad">
-    <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Dad.png" alt="Dad">
-    <div class="location" id="dad-location">Loading...</div>
+  <!-- Family tracker bar -->
+  <div id="family-bar">
+    <div class="member" id="dad">
+      <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Dad.png" alt="Dad">
+      <div class="location" id="dad-location">Loading...</div>
+    </div>
+    <div class="member" id="mom">
+      <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mom.png" alt="Mom">
+      <div class="location" id="mom-location">Loading...</div>
+    </div>
+    <div class="member" id="mary">
+      <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mary.png" alt="Mary">
+      <div class="location" id="mary-location">Loading...</div>
+    </div>
+    <div class="member" id="charlie">
+      <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Char.png" alt="Charlie">
+      <div class="location" id="charlie-location">Loading...</div>
+    </div>
+    <div class="member" id="jack">
+      <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Jack.png" alt="Jack">
+      <div class="location" id="jack-location">Loading...</div>
+    </div>
   </div>
-  <div class="member" id="mom">
-    <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mom.png" alt="Mom">
-    <div class="location" id="mom-location">Loading...</div>
-  </div>
-  <div class="member" id="mary">
-    <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mary.png" alt="Mary">
-    <div class="location" id="mary-location">Loading...</div>
-  </div>
-  <div class="member" id="charlie">
-    <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Char.png" alt="Charlie">
-    <div class="location" id="charlie-location">Loading...</div>
-  </div>
-  <div class="member" id="jack">
-    <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Jack.png" alt="Jack">
-    <div class="location" id="jack-location">Loading...</div>
-  </div>
-</div>
 
-<div id="calendar-container">
-  <iframe id="calendar-weekly" class="calendar-frame"></iframe>
-  <iframe id="calendar-monthly" class="calendar-frame"></iframe>
-  <iframe id="calendar-work" class="calendar-frame"></iframe>
-</div>
-  
-<!-- Wrap calendar iframe in container -->
-<div id="calendar-container">
-  <iframe id="frame"></iframe>
-</div>
+  <!-- Calendar container -->
+  <div id="calendar-container">
+    <iframe id="frame"></iframe>
+  </div>
 
-
-<!-- Map container (hidden for now) -->
+  <!-- Map container (hidden for now) -->
   <div id="map-container" style="display:none; width:100%; height:100%; text-align:center; color:white; font-size:24px; padding-top:50px;">
     Put map container here
   </div>
@@ -56,20 +48,18 @@
   <div id="camera-container" style="display:none; width:100%; height:100%; text-align:center; color:white; font-size:24px; padding-top:50px;">
     Put camera feed here
   </div>
-  
 
-  
-<!-- Bottom view indicators -->
-<div class="view-indicators">
-  <div id="label-weekly" class="view-label">Weekly</div>
-  <div id="label-monthly" class="view-label">Monthly</div>
-  <div id="label-work" class="view-label">Work</div>
-</div>
+  <!-- Bottom view indicators -->
+  <div class="view-indicators">
+    <div id="label-weekly" class="view-label">Weekly</div>
+    <div id="label-monthly" class="view-label">Monthly</div>
+    <div id="label-work" class="view-label">Work</div>
+  </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="js/config.js"></script>
-<script src="js/rightpanel.js"></script>
-<script src="js/calendar.js"></script>
-<script src="js/location.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/rightpanel.js"></script>
+  <script src="js/calendar.js"></script>
+  <script src="js/location.js"></script>
 </body>
 </html>
