@@ -181,6 +181,7 @@ window.addEventListener("message", (event) => {
       break;
       case "RightFocus":
         updateLabels();
+        shouldUpdateIframe = false;
       break;
   }
 
