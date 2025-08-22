@@ -156,6 +156,8 @@ window.addEventListener("message", (event) => {
       if (modeIndex === 0) {
         // Send Focus to Left Panel if we are on the leftmost option and select previous
         window.parent.postMessage({ action: "focusLeftPanel" }, "*");
+        labels[calendar_mode].classList.remove("active");
+        labels[calendar_mode].classList.add("selected");
         shouldUpdateIframe = false;
       }
       else {
