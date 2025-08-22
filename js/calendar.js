@@ -131,6 +131,12 @@ function updateCalendarForMode() {
     activeIframe.style.height = "225%";
     activeIframe.style.transform = `translateY(${calendarScrollY}px)`;
 
+    // Ensure header iframe stays at correct size
+    if (headerIframe) {
+      headerIframe.style.height = "700px";  // Keep this fixed
+      headerIframe.style.position = "relative";
+    }
+    
     const container = document.getElementById("calendar-container");
     if (container) container.style.overflow = "hidden";
 
