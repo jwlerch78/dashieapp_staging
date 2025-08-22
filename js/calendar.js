@@ -179,6 +179,9 @@ window.addEventListener("message", (event) => {
         initDate();
       }
       break;
+      case "RightFocus":
+        updateLabels();
+      break;
   }
 
   if (shouldUpdateIframe) updateIframe();
