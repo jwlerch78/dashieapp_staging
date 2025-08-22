@@ -68,6 +68,12 @@ html, body {
   transition: opacity 0.3s ease;
 }
 
+/* Hide the header iframe */
+#header-frame.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* Calendar container */
 #calendar-container {
   flex: 1;
