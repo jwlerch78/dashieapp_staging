@@ -1,6 +1,6 @@
 // Calendar.js
 
-let headerIframe = document.getElementById("header-frame");
+let headerIframe = document.getElementById("header-calendar");
 
 // --- State ---
 let modeIndex = 0;
