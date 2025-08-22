@@ -49,7 +49,7 @@ html, body {
 
 /* Header container */
 #header-container {
-  height: 140px;        /* keep container fixed */
+  height: 120px;       /* header iframe height */
   overflow: hidden;     
   position: relative;
   z-index: 10;
@@ -58,45 +58,35 @@ html, body {
 /* Header iframe */
 #header-frame {
   width: 100%;
-  height: 700px;        /* full Google Calendar height */
+  height: 100%;        /* fill the container */
   border: 0;
   outline: none;
-  position: relative;
   display: block;
-  top: 0;
-  left: 0;
-  transition: opacity 0.3s ease;
-}
-
-/* Hide the header iframe */
-#header-frame.hidden {
-  opacity: 0;
-  pointer-events: none;
 }
 
 /* Calendar container */
 #calendar-container {
   flex: 1;
   position: relative;
-  overflow: hidden; /* keep hidden so buttons scroll the iframe */
-  min-height: 700px; /* ensure enough space for iframe to scroll */
+  overflow: hidden;   /* buttons scroll iframe */
+  min-height: 700px;  /* ensures scrollable area */
 }
-
 
 /* Scrollable main iframe */
 .calendar-frame {
   width: 100%;
-  height: 700px;
+  height: 700px;          /* fixed height for scrolling */
   border: 0 !important;
   position: absolute;
   top: 0;
   left: 0;
   transform: translateY(0px);
+  display: none;          /* only show active iframe */
 }
+
 .calendar-frame.active {
   display: block;
 }
-
 
 /* Bottom view indicators */
 .view-indicators {
