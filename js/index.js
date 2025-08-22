@@ -48,6 +48,7 @@ document.addEventListener('keydown', (event) => {
                 FocusMode = "RightPanel";
                 document.body.classList.remove("left-focus"); // remove left focus border
                 keyLog.textContent = `Right Panel Focus`;
+                sendToFocus("RightFocus");
             }
             else  sendToFocus("Next");
             break;
