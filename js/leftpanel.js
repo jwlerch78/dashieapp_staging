@@ -106,7 +106,7 @@ document.addEventListener("DOMContentLoaded", function() {
   // --- Message Handler for Navigation ---
   window.addEventListener('message', (event) => {
     const { action, mode } = event.data || {};
-    if (mode !== "leftpanel") return; // Only respond when left panel is focused
+    // if (mode !== "leftpanel") return; // Only respond when left panel is focused - REMOVED, POTENTIALLY ADD A CHECK HERE LATER, BUT FOR NOW THIS FRAME ONLY GETS A MESSAGE WHEN MODE = LEFTPANEL
 
     switch(action) {
       case "Up":
