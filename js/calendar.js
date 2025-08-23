@@ -38,24 +38,16 @@ function getActiveIframe() {
   return document.getElementById(`calendar-${calendar_mode}`);
 }
 
-// Smart header update - only when needed
+// Smart header update - only show/hide, no reload
 function updateHeaderFromActive() {
   if (!headerIframe) return;
-  const activeIframe = getActiveIframe();
-  if (!activeIframe) return;
 
   if (calendar_mode === "weekly" || calendar_mode === "work") {
-    // Only update header if URL changed or first time loading
-    const newUrl = activeIframe.src;
-    if (headerLastLoaded !== newUrl && newUrl) {
-      headerIframe.src = newUrl;
-      headerLastLoaded = newUrl;
-    }
     headerIframe.style.display = "block";
     headerContainer.style.display = "block";
   } else {
     headerIframe.style.display = "none";
-    headerContainer.style.display = "none"; // Hide container entirely
+    headerContainer.style.display = "none";
   }
 }
 
@@ -81,9 +73,7 @@ function initDate() {
     currentStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
   }
 
-  // Reset header tracking when reinitializing dates
-  headerLastLoaded = null;
-  
+  // Reset scroll
   calendarScrollY = -450;
   updateCalendarForMode();
   updateCalendarTransform();
@@ -142,7 +132,6 @@ function updateCalendarForMode() {
   const container = document.getElementById("calendar-container");
 
   if (calendar_mode === "weekly" || calendar_mode === "work") {
-    // Weekly/Work mode setup
     activeIframe.style.position = "absolute";
     activeIframe.style.top = "0";
     activeIframe.style.left = "0";
@@ -150,23 +139,19 @@ function updateCalendarForMode() {
     activeIframe.style.height = "225%";
     activeIframe.style.transform = `translateY(${calendarScrollY}px)`;
 
-    // Ensure header iframe stays correct
     if (headerIframe) {
       headerIframe.style.height = "700px";
       headerIframe.style.position = "relative";
       headerIframe.style.display = "block";
     }
-    
+
     if (container) container.style.overflow = "hidden";
     if (headerContainer) headerContainer.style.display = "block";
-    
   } else if (calendar_mode === "monthly") {
-    // Monthly mode setup
     activeIframe.style.position = "static";
     activeIframe.style.height = "100%";
     activeIframe.style.transform = "translateY(0px)";
 
-    // Hide header completely for monthly
     if (headerIframe) headerIframe.style.display = "none";
     if (headerContainer) headerContainer.style.display = "none";
 
@@ -200,7 +185,6 @@ window.addEventListener("message", (event) => {
       }
       preloadCalendars();
       showMode(calendar_mode);
-      // Header will update automatically via updateHeaderFromActive()
       break;
     case "Right":
       if (calendar_mode === "weekly" || calendar_mode === "work") {
@@ -210,7 +194,6 @@ window.addEventListener("message", (event) => {
       }
       preloadCalendars();
       showMode(calendar_mode);
-      // Header will update automatically via updateHeaderFromActive()
       break;
     case "Prev":
       if (modeIndex === 0) {
@@ -220,14 +203,12 @@ window.addEventListener("message", (event) => {
       } else {
         modeIndex = (modeIndex - 1 + MODES.length) % MODES.length;
         calendar_mode = MODES[modeIndex];
-        //initDate();
         showMode(calendar_mode);
       }
       break;
     case "Next":
       modeIndex = (modeIndex + 1) % MODES.length;
       calendar_mode = MODES[modeIndex];
-      //initDate();
       showMode(calendar_mode);
       break;
     case "RightFocus":
@@ -246,6 +227,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
   preloadCalendars();
   initDate();
+
+  // --- Set header src once at page load to match initial calendar ---
+  const activeIframe = getActiveIframe();
+  if (headerIframe && activeIframe) {
+    headerIframe.src = activeIframe.src;
+    headerLastLoaded = activeIframe.src;
+  }
+
   showMode(calendar_mode);
 
   // Auto-refresh hidden iframes every 15 min (but not header unless needed)
