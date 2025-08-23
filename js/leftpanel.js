@@ -45,10 +45,10 @@ document.addEventListener("DOMContentLoaded", function() {
     const fullUrl = buildAgendaUrl();
     agendaFrame.src = fullUrl;
     
-    // Auto-refresh every 10 minutes
+    // Auto-refresh every 15 minutes
     setInterval(() => {
       agendaFrame.src = fullUrl + "&t=" + Date.now();
-    }, 600000);
+    }, 900000);
   }
 
   // --- Update Agenda Transform ---
