@@ -80,6 +80,9 @@ function initDate() {
     currentStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
   }
 
+  // Reset header tracking when reinitializing dates
+  headerLastLoaded = null;
+  
   calendarScrollY = -450;
   updateCalendarForMode();
   updateCalendarTransform();
