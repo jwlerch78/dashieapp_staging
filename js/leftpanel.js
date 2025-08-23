@@ -19,7 +19,7 @@ document.addEventListener("DOMContentLoaded", function() {
   let agendaScrollY = 0; // Current scroll position
   const scrollStep = 100; // How much to scroll each time
   const maxScroll = 0; // Top position
-  const minScroll = -600; // Maximum scroll down (adjust based on content)
+  const minScroll = -1700; // Maximum scroll down (adjust based on content)
 
   // --- Photo State ---
   let currentPhotoIndex = 0;
