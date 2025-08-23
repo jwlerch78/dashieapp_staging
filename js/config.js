@@ -62,5 +62,15 @@ const CALENDAR_SETS = {
   ]
 };
 
+// Agenda calendars for left panel
+const AGENDA_CALENDARS = [
+  { id: "desilerch@gmail.com", color: "%23E67C73" },
+  { id: "e48b36883ae237a9551de738523b7a246d5a1f6b15a3dbb6c78ee455a3aa4688@group.calendar.google.com", color: "%231565C0" },
+  { id: "180b3d0e7c1ae0241b2e60ba9c566500949ff16a487adf11625cd72306b2310f@group.calendar.google.com", color: "%230B8043" },
+  { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" },
+  { id: "fd5949d42a667f6ca3e88dcf1feb27818463bbdc19c5e56d2e0da62b87d881c5@group.calendar.google.com", color: "%23F18B3C" },
+  { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
+];
+
 // Calendar modes
 const MODES = ["weekly","monthly","work"];
