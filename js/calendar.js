@@ -1,4 +1,5 @@
-// Calendar.js - Optimized Version
+// Calendar.js
+
 // --- Elements ---
 const headerIframe = document.getElementById("header-frame");
 const headerContainer = document.getElementById("header-container");
@@ -219,14 +220,14 @@ window.addEventListener("message", (event) => {
       } else {
         modeIndex = (modeIndex - 1 + MODES.length) % MODES.length;
         calendar_mode = MODES[modeIndex];
-        initDate();
+        //initDate();
         showMode(calendar_mode);
       }
       break;
     case "Next":
       modeIndex = (modeIndex + 1) % MODES.length;
       calendar_mode = MODES[modeIndex];
-      initDate();
+      //initDate();
       showMode(calendar_mode);
       break;
     case "RightFocus":
