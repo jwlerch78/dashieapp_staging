@@ -1,4 +1,4 @@
-/* Calendar.css */
+/* Calendar.css - Optimized Version */
 /* Base page styles */
 html, body {
   height: 100%;
@@ -48,18 +48,25 @@ html, body {
   text-overflow: ellipsis;
 }
 
-/* Header container */
+/* Header container - dynamically shown/hidden */
 #header-container {
-  height: 140px;       /* header iframe height */
-  overflow: hidden;     
+  height: 140px;
+  overflow: hidden;
   position: relative;
   z-index: 10;
+  transition: all 0.3s ease;
+}
+
+/* Header container when hidden */
+#header-container[style*="display: none"] {
+  height: 0 !important;
+  overflow: hidden;
 }
 
 /* Header iframe */
 #header-frame {
   width: 100%;
-  height: 700px;        /* full Google Calendar height */
+  height: 700px;
   border: 0;
   outline: none;
   position: relative;
@@ -75,11 +82,12 @@ html, body {
   pointer-events: none;
 }
 
-/* Calendar container */
+/* Calendar container - adjusts based on header visibility */
 #calendar-container {
   flex: 1;
   position: relative;
-  overflow: hidden;   /* buttons scroll iframe */
+  overflow: hidden;
+  transition: all 0.3s ease;
 }
 
 /* Scrollable main iframe */
@@ -90,7 +98,7 @@ html, body {
   top: 0;
   left: 0;
   transform: translateY(0px);
-  display: none;          /* only show active iframe */
+  display: none;
 }
 
 .calendar-frame.active {
@@ -113,14 +121,15 @@ html, body {
   font-weight: bold;
   border-top: 1px solid #444;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .view-label.active {
   color: #fff;
-  background-color: #4285f4; /* Highlighted blue */
+  background-color: #4285f4;
 }
 
 .view-label.selected {
   color: #fff;
-  background-color: #99CCFF; /* Highlighted blue */
+  background-color: #99CCFF;
 }
