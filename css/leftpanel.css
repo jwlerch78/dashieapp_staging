@@ -20,7 +20,7 @@ html, body {
 /* Agenda frame - extended height for scrolling */
 #agenda-frame {
   width: 125%; /* Scale width back up: 100% / 0.8 = 125% */
-  height: 700%; /* Extended height - 2.5x the container for scrolling */
+  height: 2000%; /* Extended height - 20x the container for scrolling */
   border: none;
   transform: scale(0.8); /* zoom out by 20% */
   transform-origin: top left;
