@@ -1,5 +1,4 @@
-/* index.css */
-
+/* index.css - Cleaned up version */
 :root {
   --bg-left:  #000000;  /* pure black */
   --bg-right: #111111;
@@ -9,8 +8,6 @@ html, body {
   height: 100%;
   margin: 0;
   background: #000;
-  display: flex;
-  flex-direction: column;
 }
 
 body {
@@ -37,7 +34,6 @@ body {
 #leftpanel-wrapper {
   position: relative;
   width: 100%;
-  flex: 1;  /* fill remaining space in the column */
   border-bottom: 5px solid transparent; /* default hidden */
   overflow: hidden;
 }
@@ -73,11 +69,6 @@ body {
   margin: 0;
   display: block;
   background: #000;   /* black background */
-}
-
-/* Photo container inside LeftPanel */
-#photo-container {
-  background: #000;   /* black behind images */
 }
 
 /* Divider between left and right panels */
