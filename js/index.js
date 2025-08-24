@@ -127,14 +127,20 @@ function checkAutoMode() {
     const now = new Date();
     const hours = now.getHours();
     const minutes = now.getMinutes();
-    const isNight = (hours >= 22) || (hours < 6 || (hours === 6 && minutes < 30));
 
-    if (isNight && mode !== "black") {
-        toggleBlack(false, true); // force ON
-    } else if (!isNight && mode === "black") {
-        toggleBlack(true, false); // force OFF
+    const isNight = (hours >= 22) || (hours < 6 || (hours === 6 && minutes < 30));
+    const isMorningWindow = (hours === 6 && minutes >= 30 && minutes < 45);
+
+    if (isNight && mode !== "calendar") {
+        // Always OFF at night
+        toggleBlack(true, false);
+    } else if (isMorningWindow && mode !== "black") {
+        // Turn ON automatically only between 6:30–6:45
+        toggleBlack(false, true);
     }
+    // After 6:45 → do nothing (let manual control decide)
 }
+
 
 // Run every 10 minutes
 setInterval(checkAutoMode, 10 * 60 * 1000);
