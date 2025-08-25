@@ -14,8 +14,8 @@ let headerLastLoaded = null;
 // --- Scroll variables ---
 let calendarScrollY = -500;
 const scrollStep = 150;
-const maxScroll = -178;
-const minScroll = -700;
+const maxScroll = -185;
+const minScroll = -750;
 
 // --- Labels ---
 const labels = {
