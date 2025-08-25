@@ -92,7 +92,7 @@ window.addEventListener('message', (event) => {
 function toggleMode() {
     if (mode === "calendar") {
         mode = "map";
-        rightIframe.contentWindow.postMessage({ action: "showMap" }, "*");
+        rightIframe.contentWindow.postMessage({ action: "showLocation" }, "*");
     } else if (mode === "map") {
         mode = "camera";
         rightIframe.contentWindow.postMessage({ action: "showCamera" }, "*");
