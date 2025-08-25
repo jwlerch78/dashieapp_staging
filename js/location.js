@@ -54,7 +54,9 @@ function initMap() {
 }
 
 // --- Update all device positions ---
-// --- Update all device positions ---
+// only set interval after first successful render
+let locationInterval;
+
 async function updateLocations() {
   if (!map) return;
 
@@ -71,14 +73,11 @@ async function updateLocations() {
         if (pos.latitude && pos.longitude) {
           const zoneName = getZone(pos.latitude, pos.longitude) || await reverseGeocode(pos.latitude, pos.longitude);
 
-          // update location text
           const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
           if (locEl) locEl.textContent = zoneName;
 
-          // Ensure device.img exists; fallback if missing
           const imgUrl = device.img || "img/fallback.png";
 
-          // create / update marker
           const icon = L.divIcon({
             className: "family-marker",
             html: `<img src="${imgUrl}" alt="${device.name}" width="50" height="50" 
@@ -88,7 +87,7 @@ async function updateLocations() {
           });
 
           if (markers[device.name]) {
-            markers[device.name].setIcon(icon);         // update icon in case URL changed
+            markers[device.name].setIcon(icon);
             markers[device.name].setLatLng([pos.latitude, pos.longitude]);
           } else {
             markers[device.name] = L.marker([pos.latitude, pos.longitude], { icon }).addTo(map);
@@ -104,12 +103,15 @@ async function updateLocations() {
     }
   }
 
-  // Auto-fit bounds if at least one marker exists
   if (boundsArray.length > 0) {
     const bounds = L.latLngBounds(boundsArray);
     map.fitBounds(bounds, { padding: [50, 50] });
   }
 
-  // Force Leaflet to recalc map size after container becomes visible
   map.invalidateSize();
+
+  // start interval only once
+  if (!locationInterval) {
+    locationInterval = setInterval(updateLocations, 30000);
+  }
 }
