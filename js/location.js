@@ -1,8 +1,8 @@
-// location.js
 // --- Globals ---
 let map;
 const markers = {};  // store Leaflet marker objects by device name
 let locationInterval;
+const PROXIMITY_THRESHOLD = 0.00015; // ~15 meters, tweak as needed
 
 // --- Zones helper ---
 function getZone(lat, lon) {
@@ -49,63 +49,96 @@ function initMap() {
 
   map.setView([0, 0], 2);
 
-  // Recompute marker offsets on zoom/pan
+  // Recompute formations on zoom/pan
   map.on('zoomend moveend', () => {
-    applyVisualOffsets();
+    applyFormations();
   });
 }
 
-// --- Compute circular offsets for a group ---
-function getOffsetsForGroup(count, radius = 0.0001) {
+// --- Compute formation offsets ---
+function getFormationOffsets(count, radius = 0.0001) {
   const offsets = [];
-  for (let i = 0; i < count; i++) {
-    const angle = (i / count) * 2 * Math.PI;
-    offsets.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
+  switch (count) {
+    case 1:
+      offsets.push([0, 0]);
+      break;
+    case 2:
+      offsets.push([-radius/2, 0], [radius/2, 0]);
+      break;
+    case 3:
+      for (let i = 0; i < 3; i++) {
+        const angle = (i / 3) * 2 * Math.PI;
+        offsets.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
+      }
+      break;
+    case 4:
+      for (let i = 0; i < 4; i++) {
+        const angle = (i / 4) * 2 * Math.PI;
+        offsets.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
+      }
+      break;
+    case 5:
+      for (let i = 0; i < 5; i++) {
+        const angle = (i / 5) * 2 * Math.PI;
+        offsets.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
+      }
+      break;
+    default:
+      // For more than 5, spread in a circle
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * 2 * Math.PI;
+        offsets.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
+      }
   }
   return offsets;
 }
 
-// --- Apply offsets to prevent visual overlap ---
-function applyVisualOffsets() {
+// --- Apply formation-based offsets ---
+function applyFormations() {
   if (!map) return;
 
-  // Convert all marker positions to pixel points
-  const points = DEVICES.map(d => {
+  // Collect all marker positions
+  const positions = DEVICES.map(d => {
     const marker = markers[d.name];
     if (!marker) return null;
-    const point = map.latLngToLayerPoint(marker.getLatLng());
-    return { device: d, marker, point };
+    const latlng = marker.getLatLng();
+    return { device: d, marker, lat: latlng.lat, lon: latlng.lng };
   }).filter(p => p);
 
-  // Simple grouping: group markers that are closer than 50px
+  // Group markers by proximity
   const groups = [];
   const used = new Set();
 
-  for (let i = 0; i < points.length; i++) {
+  for (let i = 0; i < positions.length; i++) {
     if (used.has(i)) continue;
-    const group = [points[i]];
+    const group = [positions[i]];
     used.add(i);
-
-    for (let j = i + 1; j < points.length; j++) {
+    for (let j = i + 1; j < positions.length; j++) {
       if (used.has(j)) continue;
-      const dx = points[i].point.x - points[j].point.x;
-      const dy = points[i].point.y - points[j].point.y;
+      const dx = positions[i].lat - positions[j].lat;
+      const dy = positions[i].lon - positions[j].lon;
       const dist = Math.sqrt(dx*dx + dy*dy);
-      if (dist < 50) {  // threshold in pixels
-        group.push(points[j]);
+      if (dist <= PROXIMITY_THRESHOLD) {
+        group.push(positions[j]);
         used.add(j);
       }
     }
-
     groups.push(group);
   }
 
-  // Apply offsets for each group
+  // Apply offsets per group
   groups.forEach(group => {
-    const offsets = getOffsetsForGroup(group.length, 0.0001); // ~10m offsets
+    const count = group.length;
+    const offsets = getFormationOffsets(count, PROXIMITY_THRESHOLD);
+    // Compute group centroid
+    const centroidLat = group.reduce((sum, m) => sum + m.lat, 0) / count;
+    const centroidLon = group.reduce((sum, m) => sum + m.lon, 0) / count;
+
     group.forEach((item, idx) => {
-      const latlng = item.marker.getLatLng();
-      item.marker.setLatLng([latlng.lat + offsets[idx][0], latlng.lng + offsets[idx][1]]);
+      item.marker.setLatLng([
+        centroidLat + offsets[idx][0],
+        centroidLon + offsets[idx][1]
+      ]);
     });
   });
 }
@@ -126,6 +159,7 @@ async function updateLocations() {
         const pos = data[0];
         if (pos.latitude && pos.longitude) {
           const zoneName = getZone(pos.latitude, pos.longitude) || await reverseGeocode(pos.latitude, pos.longitude);
+
           const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
           if (locEl) locEl.textContent = zoneName;
 
@@ -162,7 +196,7 @@ async function updateLocations() {
   }
 
   map.invalidateSize();
-  applyVisualOffsets();
+  applyFormations();
 
   if (!locationInterval) locationInterval = setInterval(updateLocations, 30000);
 }
