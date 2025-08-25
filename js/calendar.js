@@ -12,10 +12,10 @@ let currentStartDate = new Date();
 let headerLastLoaded = null;
 
 // --- Scroll variables ---
-let calendarScrollY = -450;
+let calendarScrollY = -500;
 const scrollStep = 150;
-const maxScroll = -150;
-const minScroll = -700;
+const maxScroll = -140;
+const minScroll = -750;
 
 // --- Labels ---
 const labels = {
@@ -74,7 +74,7 @@ function initDate() {
   }
 
   // Reset scroll
-  calendarScrollY = -450;
+  calendarScrollY = -500;
   updateCalendarForMode();
   updateCalendarTransform();
 }
