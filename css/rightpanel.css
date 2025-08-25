@@ -19,22 +19,26 @@ html, body {
   display: flex;
   flex-direction: row;
   justify-content: space-around;
-  align-items: center;
+  align-items: flex-start;
   padding: 5px 10px;
   background: #000;
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  z-index: 1000;
-  height: 60px;
+  transition: height 0.3s ease;
+  overflow: hidden;
+  height: 60px; /* default */
+}
+
+#family-bar.location-mode {
+  height: 120px; /* taller in location mode */
 }
 
 .member {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   background-color: #111;
   padding: 2px 6px;
   border-radius: 12px;
   min-width: 120px;
-  justify-content: flex-start;
 }
 
 .member img {
@@ -44,12 +48,23 @@ html, body {
   margin-right: 8px;
 }
 
-.location {
-  font-weight: bold;
-  color: #fff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.member-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.location-details {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  font-size: 12px;
+  color: #ccc;
+  align-items: center;
+}
+
+.status-icon img {
+  width: 16px;
+  height: 16px;
 }
 
 /*************************************************************************
