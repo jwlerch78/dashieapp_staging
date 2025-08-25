@@ -215,9 +215,15 @@ window.addEventListener("message", (event) => {
       }
       break;
     case "Next":
+      if (modeIndex === MODES.length) {
+        window.parent.postMessage({ action: "focusLeftPanel" }, "*");
+        labels[calendar_mode].classList.remove("active");
+        labels[calendar_mode].classList.add("selected");
+      } else {
       modeIndex = (modeIndex + 1) % MODES.length;
       calendar_mode = MODES[modeIndex];
       showMode(calendar_mode);
+    }
       break;
     case "RightFocus":
       updateLabels();
