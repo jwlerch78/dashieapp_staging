@@ -7,9 +7,9 @@ const PROXY_URL = "https://traccar-proxy-fcj3.onrender.com";
 const DEVICES = [
   { id: 1, name: "Dad", img: "https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Dad.png" },
   { id: 2, name: "Mom", img: "https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mom.png" },
-  { id: 3, name: "Mary", img: "https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mary.png" },
-  { id: 4, name: "Charlie", img: "https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Char.png" },
-  { id: 5, name: "Jack", img: "https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Jack.png" }
+  { id: 3, name: "Charlie", img: "https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Char.png" },
+  { id: 4, name: "Jack", img: "https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Jack.png" },
+  { id: 5, name: "Mary", img: "https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mary.png" }
 ];
 
 // Zones
