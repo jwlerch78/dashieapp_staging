@@ -47,10 +47,6 @@ function initMap() {
 
   // start with world view
   map.setView([0, 0], 2);
-
-  // immediately fetch and show locations
-  updateLocations();
-  setInterval(updateLocations, 30000);
 }
 
 // --- Update all device positions ---
