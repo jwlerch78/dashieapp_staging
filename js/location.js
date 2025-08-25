@@ -55,45 +55,44 @@ function initMap() {
   });
 }
 
-// --- Compute formation offsets ---
-function getFormationOffsets(count, radius = 0.0001) {
+// --- Compute formation offsets in pixels ---
+function getFormationOffsetsPixels(count, radiusPx = 30) {
   const offsets = [];
   switch (count) {
     case 1:
       offsets.push([0, 0]);
       break;
     case 2:
-      offsets.push([-radius/2, 0], [radius/2, 0]);
+      offsets.push([-radiusPx/2, 0], [radiusPx/2, 0]);
       break;
     case 3:
       for (let i = 0; i < 3; i++) {
         const angle = (i / 3) * 2 * Math.PI;
-        offsets.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
+        offsets.push([radiusPx * Math.cos(angle), radiusPx * Math.sin(angle)]);
       }
       break;
     case 4:
       for (let i = 0; i < 4; i++) {
         const angle = (i / 4) * 2 * Math.PI;
-        offsets.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
+        offsets.push([radiusPx * Math.cos(angle), radiusPx * Math.sin(angle)]);
       }
       break;
     case 5:
       for (let i = 0; i < 5; i++) {
         const angle = (i / 5) * 2 * Math.PI;
-        offsets.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
+        offsets.push([radiusPx * Math.cos(angle), radiusPx * Math.sin(angle)]);
       }
       break;
     default:
-      // For more than 5, spread in a circle
       for (let i = 0; i < count; i++) {
         const angle = (i / count) * 2 * Math.PI;
-        offsets.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
+        offsets.push([radiusPx * Math.cos(angle), radiusPx * Math.sin(angle)]);
       }
   }
   return offsets;
 }
 
-// --- Apply formation-based offsets ---
+// --- Apply formation-based offsets using pixel positions ---
 function applyFormations() {
   if (!map) return;
 
@@ -105,7 +104,7 @@ function applyFormations() {
     return { device: d, marker, lat: latlng.lat, lon: latlng.lng };
   }).filter(p => p);
 
-  // Group markers by proximity
+  // Group markers by proximity (lat/lng distance)
   const groups = [];
   const used = new Set();
 
@@ -126,22 +125,28 @@ function applyFormations() {
     groups.push(group);
   }
 
-  // Apply offsets per group
+  // Apply pixel-based offsets per group
   groups.forEach(group => {
     const count = group.length;
-    const offsets = getFormationOffsets(count, PROXIMITY_THRESHOLD);
-    // Compute group centroid
+    if (count === 0) return;
+
+    // Compute group centroid in lat/lng
     const centroidLat = group.reduce((sum, m) => sum + m.lat, 0) / count;
     const centroidLon = group.reduce((sum, m) => sum + m.lon, 0) / count;
 
+    // Convert centroid to container (pixel) point
+    const centroidPoint = map.latLngToContainerPoint([centroidLat, centroidLon]);
+    const offsetsPx = getFormationOffsetsPixels(count, 30); // 30px radius, adjust as needed
+
     group.forEach((item, idx) => {
-      item.marker.setLatLng([
-        centroidLat + offsets[idx][0],
-        centroidLon + offsets[idx][1]
-      ]);
+      const offset = offsetsPx[idx];
+      const newPoint = L.point(centroidPoint.x + offset[0], centroidPoint.y + offset[1]);
+      const newLatLng = map.containerPointToLatLng(newPoint);
+      item.marker.setLatLng(newLatLng);
     });
   });
 }
+
 
 // --- Update all device positions ---
 async function updateLocations() {
