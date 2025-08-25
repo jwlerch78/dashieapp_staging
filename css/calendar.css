@@ -51,7 +51,7 @@ html, body {
 
 /* Header container - dynamically shown/hidden */
 #header-container {
-  height: 178px;
+  height: 175px;
   overflow: hidden;
   position: relative;
   z-index: 10;
