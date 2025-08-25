@@ -1,8 +1,11 @@
+// location.js
+
 // --- Globals ---
 let map;
 const markers = {};  // store Leaflet marker objects by device name
 let locationInterval;
 const PROXIMITY_THRESHOLD = 0.00015; // ~15 meters, tweak as needed
+const FORMATION_RADIUS_PX = 30;      // pixel distance for formation offsets
 
 // --- Zones helper ---
 function getZone(lat, lon) {
@@ -50,13 +53,11 @@ function initMap() {
   map.setView([0, 0], 2);
 
   // Recompute formations on zoom/pan
-  map.on('zoomend moveend', () => {
-    applyFormations();
-  });
+  map.on('zoomend moveend', applyFormations);
 }
 
 // --- Compute formation offsets in pixels ---
-function getFormationOffsetsPixels(count, radiusPx = 30) {
+function getFormationOffsetsPixels(count, radiusPx = FORMATION_RADIUS_PX) {
   const offsets = [];
   switch (count) {
     case 1:
@@ -92,11 +93,10 @@ function getFormationOffsetsPixels(count, radiusPx = 30) {
   return offsets;
 }
 
-// --- Apply formation-based offsets using pixel positions ---
+// --- Apply formation offsets relative to GPS positions ---
 function applyFormations() {
   if (!map) return;
 
-  // Collect all marker positions
   const positions = DEVICES.map(d => {
     const marker = markers[d.name];
     if (!marker) return null;
@@ -104,7 +104,7 @@ function applyFormations() {
     return { device: d, marker, lat: latlng.lat, lon: latlng.lng };
   }).filter(p => p);
 
-  // Group markers by proximity (lat/lng distance)
+  // Group markers by proximity
   const groups = [];
   const used = new Set();
 
@@ -125,28 +125,28 @@ function applyFormations() {
     groups.push(group);
   }
 
-  // Apply pixel-based offsets per group
+  // Apply pixel-based offsets per group relative to GPS
   groups.forEach(group => {
     const count = group.length;
     if (count === 0) return;
 
-    // Compute group centroid in lat/lng
-    const centroidLat = group.reduce((sum, m) => sum + m.lat, 0) / count;
-    const centroidLon = group.reduce((sum, m) => sum + m.lon, 0) / count;
+    // Compute centroid of group in lat/lng (from actual GPS)
+    const centroidLat = group.reduce((sum, m) => sum + m.device.lat, 0) / count;
+    const centroidLon = group.reduce((sum, m) => sum + m.device.lon, 0) / count;
 
-    // Convert centroid to container (pixel) point
     const centroidPoint = map.latLngToContainerPoint([centroidLat, centroidLon]);
-    const offsetsPx = getFormationOffsetsPixels(count, 30); // 30px radius, adjust as needed
+    const offsetsPx = getFormationOffsetsPixels(count);
 
     group.forEach((item, idx) => {
-      const offset = offsetsPx[idx];
-      const newPoint = L.point(centroidPoint.x + offset[0], centroidPoint.y + offset[1]);
+      const newPoint = L.point(
+        centroidPoint.x + offsetsPx[idx][0],
+        centroidPoint.y + offsetsPx[idx][1]
+      );
       const newLatLng = map.containerPointToLatLng(newPoint);
       item.marker.setLatLng(newLatLng);
     });
   });
 }
-
 
 // --- Update all device positions ---
 async function updateLocations() {
@@ -163,8 +163,12 @@ async function updateLocations() {
       if (Array.isArray(data) && data.length > 0) {
         const pos = data[0];
         if (pos.latitude && pos.longitude) {
-          const zoneName = getZone(pos.latitude, pos.longitude) || await reverseGeocode(pos.latitude, pos.longitude);
 
+          // Save GPS to device object for formation calculations
+          device.lat = pos.latitude;
+          device.lon = pos.longitude;
+
+          const zoneName = getZone(pos.latitude, pos.longitude) || await reverseGeocode(pos.latitude, pos.longitude);
           const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
           if (locEl) locEl.textContent = zoneName;
 
@@ -197,7 +201,11 @@ async function updateLocations() {
 
   if (boundsArray.length > 0) {
     const bounds = L.latLngBounds(boundsArray);
-    map.fitBounds(bounds, { padding: [50, 50] });
+    map.fitBounds(bounds, { padding: [150, 150] }); // extra padding for large markers
+
+    // Optionally zoom out slightly for extra space
+    const currentZoom = map.getZoom();
+    map.setZoom(currentZoom - 1);
   }
 
   map.invalidateSize();
