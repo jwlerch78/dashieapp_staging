@@ -1,6 +1,14 @@
-// --- Globals ---
+// location.js
 let map;
 const markers = {};  // store Leaflet marker objects by device name
+
+const OFFSETS = [
+  [0, 0],
+  [0.00003, 0.00003],
+  [-0.00003, 0.00003],
+  [0.00003, -0.00003],
+  [-0.00003, -0.00003]
+];
 
 // --- Zones helper ---
 function getZone(lat, lon) {
@@ -58,7 +66,8 @@ async function updateLocations() {
 
   const boundsArray = [];
 
-  for (let device of DEVICES) {
+  for (let i = 0; i < DEVICES.length; i++) {
+    const device = DEVICES[i];
     try {
       const response = await fetch(`${PROXY_URL}/positions/${device.id}`);
       if (!response.ok) throw new Error(`Status ${response.status}`);
@@ -72,6 +81,11 @@ async function updateLocations() {
           const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
           if (locEl) locEl.textContent = zoneName;
 
+          // Apply a small offset based on device index
+          const offset = OFFSETS[i % OFFSETS.length];
+          const lat = pos.latitude + offset[0];
+          const lon = pos.longitude + offset[1];
+
           const imgUrl = device.img || "img/fallback.png";
 
           const icon = L.divIcon({
@@ -84,12 +98,12 @@ async function updateLocations() {
 
           if (markers[device.name]) {
             markers[device.name].setIcon(icon);
-            markers[device.name].setLatLng([pos.latitude, pos.longitude]);
+            markers[device.name].setLatLng([lat, lon]);
           } else {
-            markers[device.name] = L.marker([pos.latitude, pos.longitude], { icon }).addTo(map);
+            markers[device.name] = L.marker([lat, lon], { icon }).addTo(map);
           }
 
-          boundsArray.push([pos.latitude, pos.longitude]);
+          boundsArray.push([lat, lon]);
         }
       }
     } catch (err) {
@@ -111,4 +125,3 @@ async function updateLocations() {
     locationInterval = setInterval(updateLocations, 30000);
   }
 }
-
