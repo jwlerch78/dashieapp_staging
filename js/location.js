@@ -72,15 +72,18 @@ async function updateLocations() {
           const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
           if (locEl) locEl.textContent = zoneName;
 
-          const imgUrl = device.img || "img/fallback.png";
+// access each device as before
+for (let device of DEVICES) {
+  const imgUrl = device.img || "img/fallback.png";
 
-          const icon = L.divIcon({
-            className: "family-marker",
-            html: `<img src="${imgUrl}" alt="${device.name}" width="50" height="50" 
-                    onerror="this.src='img/fallback.png'">`,
-            iconSize: [50, 50],
-            iconAnchor: [25, 25]
-          });
+  const icon = L.divIcon({
+    className: "family-marker",
+    html: `<img src="${imgUrl}" alt="${device.name}" width="50" height="50"
+            onerror="this.src='img/fallback.png'">`,
+    iconSize: [50, 50],
+    iconAnchor: [25, 25]
+  });
+
 
           if (markers[device.name]) {
             markers[device.name].setIcon(icon);
