@@ -97,12 +97,11 @@ function getFormationOffsetsPixels(count, radiusPx = FORMATION_RADIUS_PX) {
 function applyFormations() {
   if (!map) return;
 
-  const positions = DEVICES.map(d => {
+const positions = DEVICES.map(d => {
     const marker = markers[d.name];
-    if (!marker) return null;
-    const latlng = marker.getLatLng();
-    return { device: d, marker, lat: latlng.lat, lon: latlng.lng };
-  }).filter(p => p);
+    if (!marker || d.lat === undefined || d.lon === undefined) return null;
+    return { device: d, marker, lat: d.lat, lon: d.lon }; // <-- use GPS, not marker lat/lng
+}).filter(p => p);
 
   // Group markers by proximity
   const groups = [];
