@@ -38,16 +38,16 @@ const ZONES = [
 
 // Scroll Configuration
 const SCROLL_CONFIG = {
-  initial: -525,      // Initial scroll position for weekly/work modes
+  initial: -510,      // Initial scroll position for weekly/work modes
   step: 150,          // Pixels to scroll per up/down action
-  max: -182,          // Maximum scroll up (closest to top)
+  max: -184,          // Maximum scroll up (closest to top)
   min: -750           // Maximum scroll down (furthest from top)
 };
 
 // General Calendar Settings
 const CALENDAR_SETTINGS = {
   autoRefreshInterval: 900000,    // Auto-refresh every 15 minutes (in milliseconds)
-  headerHeight: 182,              // Header container height in pixels
+  headerHeight: 184,              // Header container height in pixels
   transitionDuration: 300,        // CSS transition duration in milliseconds
   iframeHeightPercent: 250        // Iframe height as percentage for weekly/work modes
 };
