@@ -1,4 +1,4 @@
-// Calendar.js
+// Calendar.js - Clean version using CSS classes
 
 // --- Elements ---
 const headerIframe = document.getElementById("header-frame");
@@ -12,10 +12,10 @@ let currentStartDate = new Date();
 let headerLastLoaded = null;
 
 // --- Scroll variables ---
-let calendarScrollY = -500;
+let calendarScrollY = -450;
 const scrollStep = 150;
-const maxScroll = -135;
-const minScroll = -750;
+const maxScroll = -150;
+const minScroll = -700;
 
 // --- Labels ---
 const labels = {
@@ -74,7 +74,7 @@ function initDate() {
   }
 
   // Reset scroll
-  calendarScrollY = -500;
+  calendarScrollY = -450;
   updateCalendarForMode();
   updateCalendarTransform();
 }
@@ -224,6 +224,38 @@ window.addEventListener("message", (event) => {
   }
 });
 
+// --- Add click handlers for bottom labels ---
+function addClickHandlers() {
+  Object.keys(labels).forEach(mode => {
+    const label = labels[mode];
+    if (label) {
+      label.addEventListener('click', () => {
+        // Find the mode index
+        const newModeIndex = MODES.indexOf(mode);
+        if (newModeIndex !== -1 && newModeIndex !== modeIndex) {
+          modeIndex = newModeIndex;
+          calendar_mode = MODES[modeIndex];
+          initDate(); // Reset date for new mode
+          showMode(calendar_mode);
+        }
+      });
+      
+      // Add hover effects for better UX
+      label.addEventListener('mouseenter', () => {
+        if (!label.classList.contains('active')) {
+          label.style.backgroundColor = '#333';
+        }
+      });
+      
+      label.addEventListener('mouseleave', () => {
+        if (!label.classList.contains('active')) {
+          label.style.backgroundColor = '';
+        }
+      });
+    }
+  });
+}
+
 // --- Initialize ---
 document.addEventListener("DOMContentLoaded", () => {
   // Activate first iframe and label
@@ -231,6 +263,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if (firstFrame) firstFrame.classList.add("active");
   const firstLabel = document.querySelector(".view-label");
   if (firstLabel) firstLabel.classList.add("active");
+
+  // Add click handlers to bottom labels
+  addClickHandlers();
 
   preloadCalendars();
   initDate();
