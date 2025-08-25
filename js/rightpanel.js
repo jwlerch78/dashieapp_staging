@@ -6,8 +6,8 @@ window.addEventListener("message", (event) => {
     case "showCalendar":
       showContainer("calendar-container");
       break;
-    case "showMap":
-      showContainer("map-container");
+    case "showLocation":
+      showContainer("location-container");
       break;
     case "showCamera":
       showContainer("camera-container");
@@ -16,7 +16,7 @@ window.addEventListener("message", (event) => {
 });
 
 function showContainer(id) {
-  ["calendar-container","map-container","camera-container"].forEach(c => {
+  ["calendar-container","location-container","camera-container"].forEach(c => {
     const el = document.getElementById(c);
     if (el) el.style.display = (c===id) ? "block" : "none";
   });
