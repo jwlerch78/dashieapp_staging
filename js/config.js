@@ -38,7 +38,7 @@ const ZONES = [
 
 // Scroll Configuration
 const SCROLL_CONFIG = {
-  initial: -500,      // Initial scroll position for weekly/work modes
+  initial: -525,      // Initial scroll position for weekly/work modes
   step: 150,          // Pixels to scroll per up/down action
   max: -180,          // Maximum scroll up (closest to top)
   min: -750           // Maximum scroll down (furthest from top)
