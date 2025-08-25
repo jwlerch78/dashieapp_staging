@@ -1,4 +1,4 @@
-// Calendar.js - Clean version using CSS classes
+// Calendar.js - Clean version using CSS classes and config.js
 
 // --- Elements ---
 const headerIframe = document.getElementById("header-frame");
@@ -11,11 +11,11 @@ let calendar_mode = MODES[modeIndex];
 let currentStartDate = new Date();
 let headerLastLoaded = null;
 
-// --- Scroll variables ---
-let calendarScrollY = -500;
-const scrollStep = 150;
-const maxScroll = -180;
-const minScroll = -750;
+// --- Scroll variables (from config) ---
+let calendarScrollY = SCROLL_CONFIG.initial;
+const scrollStep = SCROLL_CONFIG.step;
+const maxScroll = SCROLL_CONFIG.max;
+const minScroll = SCROLL_CONFIG.min;
 
 // --- Labels ---
 const labels = {
@@ -73,8 +73,8 @@ function initDate() {
     currentStartDate = new Date(today.getFullYear(), today.getMonth(), 1);
   }
 
-  // Reset scroll
-  calendarScrollY = -500;
+  // Reset scroll (from config)
+  calendarScrollY = SCROLL_CONFIG.initial;
   updateCalendarForMode();
   updateCalendarTransform();
 }
@@ -230,12 +230,12 @@ function addClickHandlers() {
     const label = labels[mode];
     if (label) {
       label.addEventListener('click', () => {
-        // Find the mode index
-        const newModeIndex = MODES.indexOf(mode);
-        if (newModeIndex !== -1 && newModeIndex !== modeIndex) {
-          modeIndex = newModeIndex;
+        // Find the target mode index
+        const targetModeIndex = MODES.indexOf(mode);
+        if (targetModeIndex !== -1 && targetModeIndex !== modeIndex) {
+          // Use the same logic as Next/Prev to maintain consistent formatting
+          modeIndex = targetModeIndex;
           calendar_mode = MODES[modeIndex];
-          initDate(); // Reset date for new mode
           showMode(calendar_mode);
         }
       });
@@ -279,6 +279,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   showMode(calendar_mode);
 
-  // Auto-refresh hidden iframes every 15 min
-  setInterval(preloadCalendars, 900000);
+  // Auto-refresh hidden iframes using config interval
+  setInterval(preloadCalendars, CALENDAR_SETTINGS.autoRefreshInterval);
 });
