@@ -47,9 +47,9 @@ const SCROLL_CONFIG = {
 // General Calendar Settings
 const CALENDAR_SETTINGS = {
   autoRefreshInterval: 900000,    // Auto-refresh every 15 minutes (in milliseconds)
-  headerHeight: 140,              // Header container height in pixels
+  headerHeight: 175,              // Header container height in pixels
   transitionDuration: 300,        // CSS transition duration in milliseconds
-  iframeHeightPercent: 225        // Iframe height as percentage for weekly/work modes
+  iframeHeightPercent: 250        // Iframe height as percentage for weekly/work modes
 };
 
 // Calendar embed
