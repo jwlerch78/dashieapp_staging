@@ -51,7 +51,7 @@ html, body {
 
 /* Header container - dynamically shown/hidden */
 #header-container {
-  height: 170px;
+  height: 140px;
   overflow: hidden;
   position: relative;
   z-index: 10;
@@ -67,7 +67,7 @@ html, body {
 /* Header iframe */
 #header-frame {
   width: 100%;
-  height: 1500px;
+  height: 700px;
   border: 0;
   outline: none;
   position: relative;
@@ -118,7 +118,7 @@ html, body {
   top: 0;
   left: 0;
   height: 225%;
-  transform: translateY(-500px);
+  transform: translateY(-450px);
 }
 
 /* Monthly mode iframe styles */
@@ -145,6 +145,8 @@ html, body {
   border-top: 1px solid #444;
   cursor: pointer;
   transition: all 0.2s ease;
+  user-select: none; /* Prevent text selection on click */
+  -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
 }
 
 .view-label.active {
