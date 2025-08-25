@@ -12,6 +12,8 @@ const DEVICES = [
   { id: 5, name: "Mary", img: "https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mary.png" }
 ];
 
+const HOME_LOCATION = { lat: 27.93241, lon: -82.81062 }; // your home coordinates
+
 // Zones
 const ZONES = [
   //{ name: "Home", lat: 27.93241, lon: -82.81062, radius: 0.002 },
