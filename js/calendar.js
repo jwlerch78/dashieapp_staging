@@ -215,7 +215,7 @@ window.addEventListener("message", (event) => {
       }
       break;
     case "Next":
-      if (modeIndex === MODES.length) {
+      if (modeIndex === MODES.length-1) {
         window.parent.postMessage({ action: "focusLeftPanel" }, "*");
         labels[calendar_mode].classList.remove("active");
         labels[calendar_mode].classList.add("selected");
