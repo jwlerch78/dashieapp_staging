@@ -25,15 +25,16 @@ html, body {
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   transition: height 0.3s ease;
   overflow: hidden;
-  height: 60px; /* default */
+  height: 60px; /* default height */
 }
 
 #family-bar.location-mode {
-  height: 120px; /* taller in location mode */
+  height: 120px; /* taller when in location mode */
 }
 
 .member {
   display: flex;
+  flex-direction: column; /* stack main info + extra info */
   align-items: flex-start;
   background-color: #111;
   padding: 2px 6px;
@@ -45,27 +46,37 @@ html, body {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  margin-right: 8px;
+  margin-bottom: 4px;
 }
 
-.member-info {
-  display: flex;
-  flex-direction: column;
+.location {
+  font-weight: bold;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.location-details {
-  display: flex;
-  flex-direction: row;
-  gap: 10px;
+.extra-info {
+  display: none; /* hidden by default */
   font-size: 12px;
   color: #ccc;
-  align-items: center;
+  margin-top: 4px;
+  line-height: 1.2em;
 }
 
+#family-bar.location-mode .extra-info {
+  display: block; /* show when in location mode */
+}
+
+/* Optional: small icons for walking/driving status */
 .status-icon img {
   width: 16px;
   height: 16px;
+  vertical-align: middle;
+  margin-right: 4px;
 }
+
 
 /*************************************************************************
 *  Calendar CSS
