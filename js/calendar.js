@@ -225,7 +225,14 @@ window.addEventListener("message", (event) => {
       showMode(calendar_mode);
     }
       break;
-    case "RightFocus":
+    case "RightFocus-Next":
+      modeIndex=0;
+      calendar_mode=MODES[modeIndex];
+      updateLabels();
+      break;
+    case "RightFocus-Prev":
+      modeIndex=MODES.length-1;
+      calendar_mode=MODES[modeIndex];
       updateLabels();
       break;
   }
