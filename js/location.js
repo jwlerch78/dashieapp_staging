@@ -145,10 +145,9 @@ function applyFormations() {
 
 // --- Update all device positions ---
 async function updateLocations() {
-  if (typeof map === "undefined" || !map) return;
+  if (!map) return;
 
   const boundsArray = [];
-
   const now = Date.now();
 
   for (let device of DEVICES) {
@@ -163,34 +162,59 @@ async function updateLocations() {
           // Determine zone or reverse geocode
           const zoneName = getZone(pos.latitude, pos.longitude) || await reverseGeocode(pos.latitude, pos.longitude);
 
-          // Update family bar text
+          // Update main location text
           const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
-          if (locEl) {
-            locEl.textContent = zoneName;
+          if (locEl) locEl.textContent = zoneName;
+
+          // Update extra info
+          const extraEl = document.getElementById(`${device.name.toLowerCase()}-extra`);
+          if (extraEl) {
+            // Calculate time at location (in minutes)
+            let timeAtLocation = '';
+            if (pos.fixTime) {
+              const durationMs = now - new Date(pos.fixTime).getTime();
+              const minutes = Math.floor(durationMs / 60000);
+              timeAtLocation = `${minutes} min`;
+            }
+
+            // Determine status icon
+            let statusIcon = '';
+            if (pos.speed !== undefined) {
+              // Traccar speed is in knots? Convert to km/h if needed
+              const speedKmh = pos.speed * 1.852; // knots to km/h
+              if (speedKmh >= 5) statusIcon = '🚗'; // driving
+              else if (speedKmh > 0) statusIcon = '🚶'; // walking
+            }
+
+            // Distance to home
+            const homeLat = HOME_LOCATION.lat;
+            const homeLon = HOME_LOCATION.lon;
+            const R = 6371e3; // Earth radius in meters
+            const φ1 = pos.latitude * Math.PI / 180;
+            const φ2 = homeLat * Math.PI / 180;
+            const Δφ = (homeLat - pos.latitude) * Math.PI / 180;
+            const Δλ = (homeLon - pos.longitude) * Math.PI / 180;
+
+            const a = Math.sin(Δφ/2)*Math.sin(Δφ/2) +
+                      Math.cos(φ1)*Math.cos(φ2) *
+                      Math.sin(Δλ/2)*Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const distanceMeters = R * c;
+            const distanceText = `${Math.round(distanceMeters)} m`;
+
+            extraEl.innerHTML = `${statusIcon} ${timeAtLocation} | ${distanceText} | ${zoneName}`;
           }
 
-          // Determine device status icon based on speed (optional)
-          let statusIcon = "";
-          if (pos.speed != null) {
-            if (pos.speed > 1.5) statusIcon = "🚗"; // driving
-            else if (pos.speed > 0.3) statusIcon = "🚶"; // walking
-          }
-
-          // Update optional status element
-          const statusEl = document.getElementById(`${device.name.toLowerCase()}-status`);
-          if (statusEl) statusEl.textContent = statusIcon;
-
-          // Create marker icon with image
+          // Marker icon
           const imgUrl = device.img || "img/fallback.png";
           const icon = L.divIcon({
             className: "family-marker",
             html: `<img src="${imgUrl}" alt="${device.name}" width="50" height="50"
-                   onerror="this.src='img/fallback.png'">`,
+                    onerror="this.src='img/fallback.png'">`,
             iconSize: [50, 50],
             iconAnchor: [25, 25]
           });
 
-          // Update or create marker
           if (markers[device.name]) {
             markers[device.name].setIcon(icon);
             markers[device.name].setLatLng([pos.latitude, pos.longitude]);
@@ -205,22 +229,20 @@ async function updateLocations() {
       console.error(`Error fetching ${device.name}:`, err);
       const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
       if (locEl) locEl.textContent = "Unknown location";
+      const extraEl = document.getElementById(`${device.name.toLowerCase()}-extra`);
+      if (extraEl) extraEl.textContent = '';
     }
   }
 
-  // Fit map to bounds with padding
+  // Fit map to bounds
   if (boundsArray.length > 0) {
     const bounds = L.latLngBounds(boundsArray);
     map.fitBounds(bounds, { padding: [50, 50] });
   }
 
-  // Ensure map renders correctly
   map.invalidateSize();
+  applyFormations();
 
-  // Apply formation offsets for overlapping markers
-  if (typeof applyFormations === "function") applyFormations();
-
-  // Start polling if not already started
   if (!locationInterval) locationInterval = setInterval(updateLocations, 30000);
 }
 
