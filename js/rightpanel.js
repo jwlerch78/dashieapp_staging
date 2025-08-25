@@ -36,12 +36,14 @@ window.addEventListener("message", (event) => {
 function showContainer(id) {
   ["calendar-container","location-container","camera-container"].forEach(c => {
     const el = document.getElementById(c);
-    if (el) el.style.display = (c === id) ? "block" : "none";
+    if (el) el.style.display = (c===id) ? "block" : "none";
   });
 
   const header = document.getElementById("header-container");
   if (header) header.style.display = (id === "calendar-container") ? "block" : "none";
 
-  const indicators = document.querySelector(".view-indicators");
-  if (indicators) indicators.style.display = (id === "calendar-container") ? "flex" : "none";
+  // --- Fix Leaflet rendering ---
+  if (id === "location-container" && map) {
+    setTimeout(() => map.invalidateSize(), 100); // give browser a moment to render container
+  }
 }
