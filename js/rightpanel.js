@@ -1,3 +1,5 @@
+// rightpanel.js
+
 let mapInitialized = false;
 
 window.addEventListener("message", (event) => {
