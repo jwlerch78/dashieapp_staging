@@ -3,12 +3,13 @@
 // --- Elements ---
 const headerIframe = document.getElementById("header-frame");
 const headerContainer = document.getElementById("header-container");
+const calendarContainer = document.getElementById("calendar-container");
 
 // --- State ---
 let modeIndex = 0;
 let calendar_mode = MODES[modeIndex];
 let currentStartDate = new Date();
-let headerLastLoaded = null; // Track when header was last updated
+let headerLastLoaded = null;
 
 // --- Scroll variables ---
 let calendarScrollY = -450;
@@ -26,8 +27,7 @@ const labels = {
 // --- Helpers ---
 function updateLabels() {
   Object.keys(labels).forEach(key => {
-    labels[key].classList.remove("active");
-    labels[key].classList.remove("selected");
+    labels[key].classList.remove("active", "selected");
   });
   if (labels[calendar_mode]) {
     labels[calendar_mode].classList.add("active");
@@ -38,16 +38,16 @@ function getActiveIframe() {
   return document.getElementById(`calendar-${calendar_mode}`);
 }
 
-// Smart header update - only show/hide, no reload
+// Apply CSS classes instead of inline styles
 function updateHeaderFromActive() {
-  if (!headerIframe) return;
+  if (!headerIframe || !headerContainer) return;
 
   if (calendar_mode === "weekly" || calendar_mode === "work") {
-    headerIframe.style.display = "block";
-    headerContainer.style.display = "block";
+    headerIframe.classList.remove("hidden");
+    headerContainer.classList.remove("hidden");
   } else {
-    headerIframe.style.display = "none";
-    headerContainer.style.display = "none";
+    headerIframe.classList.add("hidden");
+    headerContainer.classList.add("hidden");
   }
 }
 
@@ -109,22 +109,35 @@ function preloadCalendars() {
   });
 }
 
-// --- Show a specific mode ---
+// --- Show a specific mode using CSS classes ---
 function showMode(mode) {
-  // Hide all frames
-  document.querySelectorAll(".calendar-frame").forEach(el => el.classList.remove("active"));
+  // Hide all frames and remove mode classes
+  document.querySelectorAll(".calendar-frame").forEach(el => {
+    el.classList.remove("active", "weekly-mode", "work-mode", "monthly-mode");
+  });
   
-  // Show selected frame
+  // Remove container mode classes
+  if (calendarContainer) {
+    calendarContainer.classList.remove("weekly-mode", "work-mode", "monthly-mode");
+  }
+  
+  // Show selected frame with appropriate mode class
   const iframe = document.getElementById(`calendar-${mode}`);
-  if (iframe) iframe.classList.add("active");
+  if (iframe) {
+    iframe.classList.add("active", `${mode}-mode`);
+  }
+  
+  // Add mode class to container
+  if (calendarContainer) {
+    calendarContainer.classList.add(`${mode}-mode`);
+  }
 
   calendar_mode = mode;
   updateLabels();
-  updateCalendarForMode();
   updateCalendarTransform();
   updateHeaderFromActive();
 
-  // 🔹 Keep header iframe in sync with active iframe
+  // Keep header iframe in sync with active iframe
   if (headerIframe && iframe && (mode === "weekly" || mode === "work")) {
     if (headerIframe.src !== iframe.src) {
       headerIframe.src = iframe.src;
@@ -133,38 +146,11 @@ function showMode(mode) {
   }
 }
 
-// --- Update calendar styling per mode ---
+// --- Update calendar styling per mode (minimal now) ---
 function updateCalendarForMode() {
-  const activeIframe = getActiveIframe();
-  if (!activeIframe) return;
-  const container = document.getElementById("calendar-container");
-
-  if (calendar_mode === "weekly" || calendar_mode === "work") {
-    activeIframe.style.position = "absolute";
-    activeIframe.style.top = "0";
-    activeIframe.style.left = "0";
-    activeIframe.style.width = "100%";
-    activeIframe.style.height = "225%";
-    activeIframe.style.transform = `translateY(${calendarScrollY}px)`;
-
-    if (headerIframe) {
-      headerIframe.style.height = "700px";
-      headerIframe.style.position = "relative";
-      headerIframe.style.display = "block";
-    }
-
-    if (container) container.style.overflow = "hidden";
-    if (headerContainer) headerContainer.style.display = "block";
-  } else if (calendar_mode === "monthly") {
-    activeIframe.style.position = "static";
-    activeIframe.style.height = "100%";
-    activeIframe.style.transform = "translateY(0px)";
-
-    if (headerIframe) headerIframe.style.display = "none";
-    if (headerContainer) headerContainer.style.display = "none";
-
-    if (container) container.style.overflow = "visible";
-  }
+  // Most styling is now handled by CSS classes in showMode()
+  // Only handle dynamic scroll transform here
+  updateCalendarTransform();
 }
 
 // --- Message listener for navigation ---
@@ -220,19 +206,19 @@ window.addEventListener("message", (event) => {
         labels[calendar_mode].classList.remove("active");
         labels[calendar_mode].classList.add("selected");
       } else {
-      modeIndex = (modeIndex + 1) % MODES.length;
-      calendar_mode = MODES[modeIndex];
-      showMode(calendar_mode);
-    }
+        modeIndex = (modeIndex + 1) % MODES.length;
+        calendar_mode = MODES[modeIndex];
+        showMode(calendar_mode);
+      }
       break;
     case "RightFocus-Next":
-      modeIndex=0;
-      calendar_mode=MODES[modeIndex];
+      modeIndex = 0;
+      calendar_mode = MODES[modeIndex];
       updateLabels();
       break;
     case "RightFocus-Prev":
-      modeIndex=MODES.length-1;
-      calendar_mode=MODES[modeIndex];
+      modeIndex = MODES.length - 1;
+      calendar_mode = MODES[modeIndex];
       updateLabels();
       break;
   }
@@ -249,7 +235,7 @@ document.addEventListener("DOMContentLoaded", () => {
   preloadCalendars();
   initDate();
 
-  // --- Set header src once at page load to match initial calendar ---
+  // Set header src once at page load to match initial calendar
   const activeIframe = getActiveIframe();
   if (headerIframe && activeIframe) {
     headerIframe.src = activeIframe.src;
@@ -258,6 +244,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   showMode(calendar_mode);
 
-  // Auto-refresh hidden iframes every 15 min (but not header unless needed)
+  // Auto-refresh hidden iframes every 15 min
   setInterval(preloadCalendars, 900000);
 });
