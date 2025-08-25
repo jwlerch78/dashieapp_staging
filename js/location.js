@@ -145,9 +145,11 @@ function applyFormations() {
 
 // --- Update all device positions ---
 async function updateLocations() {
-  if (!map) return;
+  if (typeof map === "undefined" || !map) return;
 
   const boundsArray = [];
+
+  const now = Date.now();
 
   for (let device of DEVICES) {
     try {
@@ -158,21 +160,37 @@ async function updateLocations() {
       if (Array.isArray(data) && data.length > 0) {
         const pos = data[0];
         if (pos.latitude && pos.longitude) {
+          // Determine zone or reverse geocode
           const zoneName = getZone(pos.latitude, pos.longitude) || await reverseGeocode(pos.latitude, pos.longitude);
 
+          // Update family bar text
           const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
-          if (locEl) locEl.textContent = zoneName;
+          if (locEl) {
+            locEl.textContent = zoneName;
+          }
 
+          // Determine device status icon based on speed (optional)
+          let statusIcon = "";
+          if (pos.speed != null) {
+            if (pos.speed > 1.5) statusIcon = "🚗"; // driving
+            else if (pos.speed > 0.3) statusIcon = "🚶"; // walking
+          }
+
+          // Update optional status element
+          const statusEl = document.getElementById(`${device.name.toLowerCase()}-status`);
+          if (statusEl) statusEl.textContent = statusIcon;
+
+          // Create marker icon with image
           const imgUrl = device.img || "img/fallback.png";
-
           const icon = L.divIcon({
             className: "family-marker",
             html: `<img src="${imgUrl}" alt="${device.name}" width="50" height="50"
-                    onerror="this.src='img/fallback.png'">`,
+                   onerror="this.src='img/fallback.png'">`,
             iconSize: [50, 50],
             iconAnchor: [25, 25]
           });
 
+          // Update or create marker
           if (markers[device.name]) {
             markers[device.name].setIcon(icon);
             markers[device.name].setLatLng([pos.latitude, pos.longitude]);
@@ -190,16 +208,22 @@ async function updateLocations() {
     }
   }
 
+  // Fit map to bounds with padding
   if (boundsArray.length > 0) {
     const bounds = L.latLngBounds(boundsArray);
     map.fitBounds(bounds, { padding: [50, 50] });
   }
 
+  // Ensure map renders correctly
   map.invalidateSize();
-  applyFormations();
 
+  // Apply formation offsets for overlapping markers
+  if (typeof applyFormations === "function") applyFormations();
+
+  // Start polling if not already started
   if (!locationInterval) locationInterval = setInterval(updateLocations, 30000);
 }
+
 
 // --- Initialize ---
 initMap();
