@@ -1,4 +1,4 @@
-/* Calendar.css - All formatting in CSS */
+/* RightPanel.css - All formatting in CSS */
 
 /* Base page styles */
 html, body {
@@ -127,6 +127,15 @@ html, body {
   height: 100%;
   transform: translateY(0px);
 }
+
+
+.family-marker img {
+  border-radius: 50%;
+  border: 2px solid white;   /* makes it pop against the map */
+  box-shadow: 0 0 5px rgba(0,0,0,0.5);
+}
+
+
 
 /* Bottom view indicators */
 .view-indicators {
