@@ -67,7 +67,7 @@ html, body {
 /* Header iframe */
 #header-frame {
   width: 100%;
-  height: 700px;
+  height: 750px;
   border: 0;
   outline: none;
   position: relative;
@@ -118,7 +118,7 @@ html, body {
   top: 0;
   left: 0;
   height: 225%;
-  transform: translateY(-450px);
+  transform: translateY(-500px);
 }
 
 /* Monthly mode iframe styles */
