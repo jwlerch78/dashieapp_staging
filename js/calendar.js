@@ -55,6 +55,7 @@ function updateCalendarTransform() {
   if (calendar_mode === "weekly" || calendar_mode === "work") {
     const activeIframe = getActiveIframe();
     if (activeIframe) {
+      const scale = CALENDAR_SETTINGS.verticalScale;
       activeIframe.style.transform = `translateY(${calendarScrollY}px)`;
     }
   }
