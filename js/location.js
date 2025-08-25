@@ -1,14 +1,8 @@
 // location.js
+// --- Globals ---
 let map;
 const markers = {};  // store Leaflet marker objects by device name
-
-const OFFSETS = [
-  [0, 0],
-  [0.00003, 0.00003],
-  [-0.00003, 0.00003],
-  [0.00003, -0.00003],
-  [-0.00003, -0.00003]
-];
+let locationInterval;
 
 // --- Zones helper ---
 function getZone(lat, lon) {
@@ -53,21 +47,76 @@ function initMap() {
     attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
 
-  // start with world view
   map.setView([0, 0], 2);
+
+  // Recompute marker offsets on zoom/pan
+  map.on('zoomend moveend', () => {
+    applyVisualOffsets();
+  });
+}
+
+// --- Compute circular offsets for a group ---
+function getOffsetsForGroup(count, radius = 0.0001) {
+  const offsets = [];
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * 2 * Math.PI;
+    offsets.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
+  }
+  return offsets;
+}
+
+// --- Apply offsets to prevent visual overlap ---
+function applyVisualOffsets() {
+  if (!map) return;
+
+  // Convert all marker positions to pixel points
+  const points = DEVICES.map(d => {
+    const marker = markers[d.name];
+    if (!marker) return null;
+    const point = map.latLngToLayerPoint(marker.getLatLng());
+    return { device: d, marker, point };
+  }).filter(p => p);
+
+  // Simple grouping: group markers that are closer than 50px
+  const groups = [];
+  const used = new Set();
+
+  for (let i = 0; i < points.length; i++) {
+    if (used.has(i)) continue;
+    const group = [points[i]];
+    used.add(i);
+
+    for (let j = i + 1; j < points.length; j++) {
+      if (used.has(j)) continue;
+      const dx = points[i].point.x - points[j].point.x;
+      const dy = points[i].point.y - points[j].point.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 50) {  // threshold in pixels
+        group.push(points[j]);
+        used.add(j);
+      }
+    }
+
+    groups.push(group);
+  }
+
+  // Apply offsets for each group
+  groups.forEach(group => {
+    const offsets = getOffsetsForGroup(group.length, 0.0001); // ~10m offsets
+    group.forEach((item, idx) => {
+      const latlng = item.marker.getLatLng();
+      item.marker.setLatLng([latlng.lat + offsets[idx][0], latlng.lng + offsets[idx][1]]);
+    });
+  });
 }
 
 // --- Update all device positions ---
-// only set interval after first successful render
-let locationInterval;
-
 async function updateLocations() {
   if (!map) return;
 
   const boundsArray = [];
 
-  for (let i = 0; i < DEVICES.length; i++) {
-    const device = DEVICES[i];
+  for (let device of DEVICES) {
     try {
       const response = await fetch(`${PROXY_URL}/positions/${device.id}`);
       if (!response.ok) throw new Error(`Status ${response.status}`);
@@ -77,14 +126,8 @@ async function updateLocations() {
         const pos = data[0];
         if (pos.latitude && pos.longitude) {
           const zoneName = getZone(pos.latitude, pos.longitude) || await reverseGeocode(pos.latitude, pos.longitude);
-
           const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
           if (locEl) locEl.textContent = zoneName;
-
-          // Apply a small offset based on device index
-          const offset = OFFSETS[i % OFFSETS.length];
-          const lat = pos.latitude + offset[0];
-          const lon = pos.longitude + offset[1];
 
           const imgUrl = device.img || "img/fallback.png";
 
@@ -98,12 +141,12 @@ async function updateLocations() {
 
           if (markers[device.name]) {
             markers[device.name].setIcon(icon);
-            markers[device.name].setLatLng([lat, lon]);
+            markers[device.name].setLatLng([pos.latitude, pos.longitude]);
           } else {
-            markers[device.name] = L.marker([lat, lon], { icon }).addTo(map);
+            markers[device.name] = L.marker([pos.latitude, pos.longitude], { icon }).addTo(map);
           }
 
-          boundsArray.push([lat, lon]);
+          boundsArray.push([pos.latitude, pos.longitude]);
         }
       }
     } catch (err) {
@@ -119,9 +162,11 @@ async function updateLocations() {
   }
 
   map.invalidateSize();
+  applyVisualOffsets();
 
-  // start interval only once
-  if (!locationInterval) {
-    locationInterval = setInterval(updateLocations, 30000);
-  }
+  if (!locationInterval) locationInterval = setInterval(updateLocations, 30000);
 }
+
+// --- Initialize ---
+initMap();
+updateLocations();
