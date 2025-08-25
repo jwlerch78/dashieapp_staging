@@ -1,4 +1,5 @@
-/* Calendar.css - Optimized Version */
+/* Calendar.css - All formatting in CSS */
+
 /* Base page styles */
 html, body {
   height: 100%;
@@ -58,9 +59,9 @@ html, body {
 }
 
 /* Header container when hidden */
-#header-container[style*="display: none"] {
+#header-container.hidden {
   height: 0 !important;
-  overflow: hidden;
+  display: none !important;
 }
 
 /* Header iframe */
@@ -78,31 +79,53 @@ html, body {
 
 /* Hide the header iframe */
 #header-frame.hidden {
-  opacity: 0;
-  pointer-events: none;
+  display: none !important;
 }
 
 /* Calendar container - adjusts based on header visibility */
 #calendar-container {
   flex: 1;
   position: relative;
-  overflow: hidden;
   transition: all 0.3s ease;
 }
 
-/* Scrollable main iframe */
+/* Calendar container states based on mode */
+#calendar-container.weekly-mode,
+#calendar-container.work-mode {
+  overflow: hidden;
+}
+
+#calendar-container.monthly-mode {
+  overflow: visible;
+}
+
+/* Calendar iframes - base styles */
 .calendar-frame {
   width: 100%;
   border: 0 !important;
-  position: absolute;
-  top: 0;
-  left: 0;
-  transform: translateY(0px);
   display: none;
+  transition: transform 0.3s ease;
 }
 
 .calendar-frame.active {
   display: block;
+}
+
+/* Weekly/Work mode iframe styles */
+.calendar-frame.weekly-mode,
+.calendar-frame.work-mode {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 225%;
+  transform: translateY(-450px);
+}
+
+/* Monthly mode iframe styles */
+.calendar-frame.monthly-mode {
+  position: static;
+  height: 100%;
+  transform: translateY(0px);
 }
 
 /* Bottom view indicators */
