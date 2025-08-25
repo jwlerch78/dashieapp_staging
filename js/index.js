@@ -131,14 +131,16 @@ function checkAutoMode() {
     const isNight = (hours >= 22) || (hours < 6 || (hours === 6 && minutes < 30));
     const isMorningWindow = (hours === 6 && minutes >= 30 && minutes < 45);
 
-    if (isNight && mode !== "calendar") {
-        // Always OFF at night
-        toggleBlack(true, false);
-    } else if (isMorningWindow && mode !== "black") {
-        // Turn ON automatically only between 6:30–6:45
+    if (isNight && mode !== "black") {
+        // Nighttime → force ON overlay
         toggleBlack(false, true);
+    } else if (isMorningWindow && mode !== "black") {
+        // 6:30–6:45 → force ON overlay
+        toggleBlack(false, true);
+    } else if (!isNight && !isMorningWindow && mode === "black") {
+        // Outside the window → make sure it's OFF
+        toggleBlack(true, false);
     }
-    // After 6:45 → do nothing (let manual control decide)
 }
 
 
