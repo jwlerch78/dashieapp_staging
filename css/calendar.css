@@ -131,7 +131,7 @@ html, body {
 /* Bottom view indicators */
 .view-indicators {
   display: flex;
-  height: 40px;
+  height: 30px;
   background-color: #222;
 }
 
