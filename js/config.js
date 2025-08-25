@@ -49,7 +49,8 @@ const CALENDAR_SETTINGS = {
   autoRefreshInterval: 900000,    // Auto-refresh every 15 minutes (in milliseconds)
   headerHeight: 184,              // Header container height in pixels
   transitionDuration: 300,        // CSS transition duration in milliseconds
-  iframeHeightPercent: 250        // Iframe height as percentage for weekly/work modes
+  iframeHeightPercent: 250,        // Iframe height as percentage for weekly/work modes
+  verticalScale: 0.9  // 10% zoom out
 };
 
 // Calendar embed
