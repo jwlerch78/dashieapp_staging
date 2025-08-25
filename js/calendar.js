@@ -241,7 +241,7 @@ function addClickHandlers() {
       });
       
       // Add hover effects for better UX
-      label.addEventListener('mouseenter', () => {
+     /* label.addEventListener('mouseenter', () => {
         if (!label.classList.contains('active')) {
           label.style.backgroundColor = '#333';
         }
@@ -252,6 +252,7 @@ function addClickHandlers() {
           label.style.backgroundColor = '';
         }
       });
+      */
     }
   });
 }
