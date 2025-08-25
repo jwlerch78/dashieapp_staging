@@ -51,7 +51,7 @@ html, body {
 
 /* Header container - dynamically shown/hidden */
 #header-container {
-  height: 140px; /* Could be moved to config if needed */
+  height: 175px; /* Could be moved to config if needed */
   overflow: hidden;
   position: relative;
   z-index: 10;
@@ -67,7 +67,7 @@ html, body {
 /* Header iframe */
 #header-frame {
   width: 100%;
-  height: 700px;
+  height: 1500px;
   border: 0;
   outline: none;
   position: relative;
@@ -117,8 +117,8 @@ html, body {
   position: absolute;
   top: 0;
   left: 0;
-  height: 225%;
-  transform: translateY(-450px);
+  height: 250%;
+  transform: translateY(-500px);
 }
 
 /* Monthly mode iframe styles */
