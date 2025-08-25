@@ -40,7 +40,13 @@ document.addEventListener('keydown', (event) => {
             break;
         case 227: // rewind (Fire TV)
         case 188: // < (comma) for PC testing
-            sendToFocus("Prev");
+            if (FocusMode==="LeftPanel") {
+                FocusMode = "RightPanel";
+                document.body.classList.remove("left-focus"); // remove left focus border
+                keyLog.textContent = `Right Panel Focus`;
+                sendToFocus("RightFocus-Prev");
+            }
+            else  sendToFocus("Prev");
             break;
         case 228: // fast forward (Fire TV)
         case 190: // > (period) for PC testing
@@ -48,7 +54,7 @@ document.addEventListener('keydown', (event) => {
                 FocusMode = "RightPanel";
                 document.body.classList.remove("left-focus"); // remove left focus border
                 keyLog.textContent = `Right Panel Focus`;
-                sendToFocus("RightFocus");
+                sendToFocus("RightFocus-Next");
             }
             else  sendToFocus("Next");
             break;
