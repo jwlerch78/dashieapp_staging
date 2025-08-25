@@ -123,6 +123,14 @@ function showMode(mode) {
   updateCalendarForMode();
   updateCalendarTransform();
   updateHeaderFromActive();
+
+  // 🔹 Keep header iframe in sync with active iframe
+  if (headerIframe && iframe && (mode === "weekly" || mode === "work")) {
+    if (headerIframe.src !== iframe.src) {
+      headerIframe.src = iframe.src;
+      headerLastLoaded = iframe.src;
+    }
+  }
 }
 
 // --- Update calendar styling per mode ---
