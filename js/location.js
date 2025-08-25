@@ -1,17 +1,17 @@
 // --- Globals ---
 let map;
-let markers = {}; // store markers by device.name
+const markers = {};  // store Leaflet marker objects by device name
 
-// Zones helper
+// --- Zones helper ---
 function getZone(lat, lon) {
   for (let zone of ZONES) {
-    const distance = Math.sqrt((lat - zone.lat) ** 2 + (lon - zone.lon) ** 2);
+    const distance = Math.sqrt((lat - zone.lat)**2 + (lon - zone.lon)**2);
     if (distance <= zone.radius) return zone.name;
   }
   return null;
 }
 
-// Reverse geocode helper
+// --- Reverse geocode helper ---
 async function reverseGeocode(lat, lon) {
   try {
     const resp = await fetch(`${PROXY_URL}/reverse?lat=${lat}&lon=${lon}`);
@@ -35,88 +35,75 @@ async function reverseGeocode(lat, lon) {
   }
 }
 
-// Initialize the Leaflet map
+// --- Initialize Leaflet map ---
 function initMap() {
-  if (map) return; // don’t reinit
+  const container = document.getElementById("location-container");
+  if (!container) return;
 
-  map = L.map("location-container").setView([27.96, -82.8], 11); // default center
-
+  map = L.map("location-container", { zoomControl: true });
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "© OpenStreetMap",
+    attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
 
-  // preload markers with custom circular icons
-  DEVICES.forEach((device) => {
-    const icon = L.icon({
-      iconUrl: `https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/${device.name}.png`,
-      iconSize: [50, 50],
-      className: "family-marker", // CSS makes it circular
-    });
+  // start with world view
+  map.setView([0, 0], 2);
 
-    markers[device.name] = L.marker([27.96, -82.8], {
-      title: device.name,
-      icon: icon,
-    })
-      .addTo(map)
-      .bindPopup(`${device.name}<br>Loading...`);
-  });
+  // immediately fetch and show locations
+  updateLocations();
+  setInterval(updateLocations, 30000);
 }
 
-// Update all devices
+// --- Update all device positions ---
 async function updateLocations() {
-  let bounds = L.latLngBounds(); // track all positions
+  if (!map) return;
 
-  await Promise.all(
-    DEVICES.map(async (device) => {
-      try {
-        const response = await fetch(`${PROXY_URL}/positions/${device.id}`);
-        if (!response.ok) throw new Error(`Status ${response.status}`);
-        const data = await response.json();
+  const boundsArray = [];
 
-        if (Array.isArray(data) && data.length > 0) {
-          const pos = data[0];
-          if (pos.latitude && pos.longitude) {
-            const zoneName =
-              getZone(pos.latitude, pos.longitude) ||
-              (await reverseGeocode(pos.latitude, pos.longitude));
+  for (let device of DEVICES) {
+    try {
+      const response = await fetch(`${PROXY_URL}/positions/${device.id}`);
+      if (!response.ok) throw new Error(`Status ${response.status}`);
+      const data = await response.json();
 
-            // Update family bar
-            document.getElementById(
-              `${device.name.toLowerCase()}-location`
-            ).textContent = zoneName;
+      if (Array.isArray(data) && data.length > 0) {
+        const pos = data[0];
+        if (pos.latitude && pos.longitude) {
+          const zoneName = getZone(pos.latitude, pos.longitude) || await reverseGeocode(pos.latitude, pos.longitude);
 
-            // Update marker
-            if (markers[device.name]) {
-              const latlng = [pos.latitude, pos.longitude];
-              markers[device.name]
-                .setLatLng(latlng)
-                .setPopupContent(
-                  `<div style="text-align:center;">
-                     <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/${device.name}.png" 
-                          style="width:40px;height:40px;border-radius:50%;border:2px solid white;box-shadow:0 0 5px rgba(0,0,0,0.5);"><br>
-                     <b>${device.name}</b><br>${zoneName}
-                   </div>`
-                );
-              bounds.extend(latlng);
-            }
+          // update location text
+          const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
+          if (locEl) locEl.textContent = zoneName;
+
+          // update/add marker
+          const icon = L.divIcon({
+            className: "family-marker",
+            html: `<img src="${device.img}" alt="${device.name}" width="50" height="50">`,
+            iconSize: [50, 50],
+            iconAnchor: [25, 25]
+          });
+
+          if (markers[device.name]) {
+            markers[device.name].setLatLng([pos.latitude, pos.longitude]);
+          } else {
+            markers[device.name] = L.marker([pos.latitude, pos.longitude], { icon }).addTo(map);
           }
-        }
-      } catch (err) {
-        console.error(`Error fetching ${device.name}:`, err);
-        document.getElementById(
-          `${device.name.toLowerCase()}-location`
-        ).textContent = "Unknown location";
-      }
-    })
-  );
 
-  // Auto-fit map to markers if we have valid bounds
-  if (bounds.isValid()) {
+          boundsArray.push([pos.latitude, pos.longitude]);
+        }
+      }
+    } catch (err) {
+      console.error(`Error fetching ${device.name}:`, err);
+      const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
+      if (locEl) locEl.textContent = "Unknown location";
+    }
+  }
+
+  // auto-fit map bounds if at least one marker exists
+  if (boundsArray.length > 0) {
+    const bounds = L.latLngBounds(boundsArray);
     map.fitBounds(bounds, { padding: [50, 50] });
   }
-}
 
-// --- Init ---
-initMap();
-updateLocations();
-setInterval(updateLocations, 30000);
+  // force Leaflet to recalc map size in case container changed
+  map.invalidateSize();
+}
