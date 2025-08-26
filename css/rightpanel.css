@@ -32,58 +32,56 @@ html, body {
 }
 
 /* Each member */
+/* Member container */
 .member {
   display: flex;
-  flex-direction: column; /* stack top row + extra info vertically */
-  align-items: center;
+  flex-direction: column; /* stack top + extra */
+  align-items: center;    /* center contents horizontally */
   background-color: #111;
-  padding: 8px 12px;
+  padding: 8px;
   border-radius: 12px;
   margin-right: 12px;
-  min-width: 160px;
+  min-width: 140px;
 }
 
 /* Top row: photo + location */
-.member-info {
+.member-top {
   display: flex;
-  flex-direction: column; /* location above extra info */
-  align-items: center;
-  width: 100%;
+  flex-direction: column; /* photo above location text */
+  align-items: center;    /* center the location under the photo */
 }
 
 /* Profile photo */
-.member img {
+.member-top img {
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  margin-bottom: 8px;
-  border: 2px solid white;
-  box-shadow: 0 0 5px rgba(0,0,0,0.5);
-}
-
-/* Location name (visible next to photo in default mode) */
-.location {
-  font-size: 18px; /* larger */
-  font-weight: bold;
-  color: #fff; /* visible */
-  text-align: center;
   margin-bottom: 6px;
 }
 
-/* Extra info under photo + location, only in location mode */
-.member-extra {
-  display: none;
-  flex-direction: column;
-  text-align: center;
+/* Location text next to photo */
+.location {
   font-size: 16px;
-  color: #ddd;
-  line-height: 1.5;
-  margin-top: 8px;
+  font-weight: bold;
+  color: #fff;
+  text-align: center;
 }
 
-#family-bar.location-mode .member-extra {
-  display: flex;
+/* Extra info (hidden by default) */
+.member-extra {
+  display: none;
+  margin-top: 6px;
+  font-size: 16px;
+  color: #ddd;
+  text-align: center;
+  line-height: 1.5;
 }
+
+/* Show extra info in location mode */
+#family-bar.location-mode .member-extra {
+  display: block;
+}
+
 
 /* Optional: small icons for walking/driving status */
 .status-icon img {
