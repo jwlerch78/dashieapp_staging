@@ -15,6 +15,7 @@ html, body {
 *  Family Tracker bar at top
 **************************************************************************/
 
+/* Base family bar */
 #family-bar {
   display: flex;
   flex-direction: row;
@@ -28,22 +29,25 @@ html, body {
   height: 60px; /* default height */
 }
 
+/* Expand the bar in location mode */
 #family-bar.location-mode {
-  height: 120px; /* taller when in location mode */
+  height: 180px; /* ~3x original height */
 }
 
+/* Each member container */
 .member {
   display: flex;
-  flex-direction: column; /* stack image+main line on top of extra info */
+  flex-direction: column;
   align-items: flex-start;
   background-color: #111;
-  padding: 2px 6px;
+  padding: 4px 6px;
   border-radius: 12px;
   min-width: 120px;
 }
 
+/* Top row: image + location name */
 .member-top {
-  display: flex;           /* image + main location side by side */
+  display: flex;
   flex-direction: row;
   align-items: center;
   gap: 8px;
@@ -57,7 +61,7 @@ html, body {
 
 .member-info {
   display: flex;
-  flex-direction: column;  /* stack main location and extra info */
+  flex-direction: column;
 }
 
 .location {
@@ -68,15 +72,20 @@ html, body {
   text-overflow: ellipsis;
 }
 
+/* Extra info displayed only in location mode */
 .extra-info {
-  font-size: 12px;
+  display: none; /* hidden by default */
+  margin-top: 4px;
   color: #ccc;
-  margin-top: 2px;
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-  align-items: center;
+  font-size: 14px; /* larger text */
+  line-height: 1.4;
+  flex-direction: column;
 }
+
+#family-bar.location-mode .extra-info {
+  display: flex; /* show only in location mode */
+}
+
 
 /* Optional: small icons for walking/driving status */
 .status-icon img {
