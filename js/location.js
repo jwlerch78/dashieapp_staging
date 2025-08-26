@@ -192,20 +192,21 @@ async function updateLocations() {
             }
 
             // Distance to home (rough calculation)
-            let distanceText = '';
-            if (device.homeLat && device.homeLon) {
-              const R = 6371e3; // Earth radius in meters
-              const φ1 = pos.latitude * Math.PI / 180;
-              const φ2 = device.homeLat * Math.PI / 180;
-              const Δφ = (device.homeLat - pos.latitude) * Math.PI / 180;
-              const Δλ = (device.homeLon - pos.longitude) * Math.PI / 180;
-              const a = Math.sin(Δφ/2)*Math.sin(Δφ/2) +
-                        Math.cos(φ1)*Math.cos(φ2) *
-                        Math.sin(Δλ/2)*Math.sin(Δλ/2);
-              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-              const distanceMeters = R * c;
-              distanceText = `${Math.round(distanceMeters)} m to home`;
-            }
+// Distance to home using global HOME_LOCATION
+let distanceText = '';
+if (HOME_LOCATION && HOME_LOCATION.lat && HOME_LOCATION.lon) {
+  const R = 6371e3; // Earth radius in meters
+  const φ1 = pos.latitude * Math.PI / 180;
+  const φ2 = HOME_LOCATION.lat * Math.PI / 180;
+  const Δφ = (HOME_LOCATION.lat - pos.latitude) * Math.PI / 180;
+  const Δλ = (HOME_LOCATION.lon - pos.longitude) * Math.PI / 180;
+  const a = Math.sin(Δφ/2)*Math.sin(Δφ/2) +
+            Math.cos(φ1)*Math.cos(φ2) *
+            Math.sin(Δλ/2)*Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  const distanceMeters = R * c;
+  distanceText = `${Math.round(distanceMeters)} m to home`;
+}
 
             // Populate extra-info div (multiple lines)
             extraEl.innerHTML = `
