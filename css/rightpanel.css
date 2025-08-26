@@ -32,23 +32,23 @@ html, body {
 }
 
 /* Each member */
-/* Member container */
+/* Each member card */
 .member {
   display: flex;
   flex-direction: column; /* stack top + extra */
-  align-items: center;    /* center contents horizontally */
+  align-items: center;
   background-color: #111;
-  padding: 8px;
+  padding: 8px 12px;
   border-radius: 12px;
   margin-right: 12px;
-  min-width: 140px;
+  min-width: 160px;
 }
 
-/* Top row: photo + location */
+/* Top row: photo + location side by side */
 .member-top {
   display: flex;
-  flex-direction: column; /* photo above location text */
-  align-items: center;    /* center the location under the photo */
+  flex-direction: row;  /* side by side in normal mode */
+  align-items: center;  /* vertically aligned */
 }
 
 /* Profile photo */
@@ -56,25 +56,26 @@ html, body {
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  margin-bottom: 6px;
+  margin-right: 10px;
 }
 
 /* Location text next to photo */
 .location {
-  font-size: 16px;
+  font-size: 18px;
   font-weight: bold;
   color: #fff;
-  text-align: center;
+  white-space: nowrap;
 }
 
-/* Extra info (hidden by default) */
+/* Extra info (hidden by default, appears below photo+location) */
 .member-extra {
   display: none;
-  margin-top: 6px;
+  margin-top: 10px;
   font-size: 16px;
   color: #ddd;
   text-align: center;
-  line-height: 1.5;
+  line-height: 1.4;
+  width: 100%; /* spans full width below top row */
 }
 
 /* Show extra info in location mode */
