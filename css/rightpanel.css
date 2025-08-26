@@ -15,29 +15,27 @@ html, body {
 *  Family Tracker bar at top
 **************************************************************************/
 
-/* Family Tracker bar at top */
-/* Top bar */
 #family-bar {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
-  padding: 8px 12px;
+  padding: 10px 16px;
   background: #000;
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   transition: height 0.3s ease;
   overflow: hidden;
-  height: 70px; /* normal height */
+  height: 70px; /* default */
 }
 
 #family-bar.location-mode {
-  height: 280px; /* expand in location mode */
+  height: 250px; /* taller for location expansion */
 }
 
-/* Each member card */
+/* Each member */
 .member {
   display: flex;
-  flex-direction: row;
-  align-items: flex-start;
+  flex-direction: column; /* stack top row + extra info vertically */
+  align-items: center;
   background-color: #111;
   padding: 8px 12px;
   border-radius: 12px;
@@ -45,56 +43,47 @@ html, body {
   min-width: 160px;
 }
 
+/* Top row: photo + location */
+.member-info {
+  display: flex;
+  flex-direction: column; /* location above extra info */
+  align-items: center;
+  width: 100%;
+}
+
 /* Profile photo */
 .member img {
   width: 60px;
   height: 60px;
   border-radius: 50%;
-  margin-right: 12px;
+  margin-bottom: 8px;
+  border: 2px solid white;
+  box-shadow: 0 0 5px rgba(0,0,0,0.5);
 }
 
-/* Info container */
-.member-info {
-  display: flex;
-  flex-direction: column;
-  justify-content: flex-start;
-}
-
-/* Top row: name + location */
-.name-location {
-  display: flex;
-  flex-direction: column;
-  font-size: 18px;
-  color: #fff;
+/* Location name (visible next to photo in default mode) */
+.location {
+  font-size: 18px; /* larger */
+  font-weight: bold;
+  color: #fff; /* visible */
+  text-align: center;
   margin-bottom: 6px;
 }
 
-.name-location .name {
-  font-weight: bold;
-  font-size: 20px;
-  color: #fff;
-}
-
-.name-location .location {
-  font-size: 16px;
-  color: #ccc;
-}
-
-/* Extra info (only visible in location mode) */
+/* Extra info under photo + location, only in location mode */
 .member-extra {
   display: none;
   flex-direction: column;
-  font-size: 18px;   /* larger text */
+  text-align: center;
+  font-size: 16px;
   color: #ddd;
   line-height: 1.5;
-  text-align: center; /* center under image + location */
-  margin-top: 12px;
+  margin-top: 8px;
 }
 
 #family-bar.location-mode .member-extra {
   display: flex;
 }
-
 
 /* Optional: small icons for walking/driving status */
 .status-icon img {
