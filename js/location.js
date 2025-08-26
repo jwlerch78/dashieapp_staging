@@ -155,25 +155,47 @@ async function updateLocations() {
 
   for (let device of DEVICES) {
     try {
-      const response = await fetch(`${PROXY_URL}/positions/${device.id}`);
+      // Fetch the last 2 positions for more accurate speed/distance
+      const response = await fetch(`${PROXY_URL}/positions?deviceId=${device.id}&limit=2`);
       if (!response.ok) throw new Error(`Status ${response.status}`);
       const data = await response.json();
 
       if (Array.isArray(data) && data.length > 0) {
-        const pos = data[0];
+        const pos = data[0]; // most recent
+        const prevPos = data[1]; // previous
+
         if (pos.latitude && pos.longitude) {
 
           // Determine zone or reverse geocode
           const zoneName = getZone(pos.latitude, pos.longitude) || await reverseGeocode(pos.latitude, pos.longitude);
-          const poiName = pos.poi || ''; // use POI if available from reverse geocode
+          const poiName = pos.poi || '';
+
+          // Distance and speed calculation using last two positions
+          let speedMph = 0;
+          let movementStatus = "No";
+          if (prevPos && prevPos.latitude && prevPos.longitude && prevPos.serverTime) {
+            const lat1 = prevPos.latitude * Math.PI / 180;
+            const lat2 = pos.latitude * Math.PI / 180;
+            const dLat = (pos.latitude - prevPos.latitude) * Math.PI / 180;
+            const dLon = (pos.longitude - prevPos.longitude) * Math.PI / 180;
+            const a = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            const distanceMeters = 6371e3 * c;
+
+            const timeDiffMs = new Date(pos.serverTime).getTime() - new Date(prevPos.serverTime).getTime();
+            const timeDiffHrs = timeDiffMs / 3600000;
+
+            if (timeDiffHrs > 0) {
+              speedMph = (distanceMeters * 0.000621371 / timeDiffHrs).toFixed(1); // mph
+              if (speedMph >= 5) movementStatus = "Yes";   // Driving
+              else if (speedMph >= 1) movementStatus = "Yes"; // Walking
+              else movementStatus = "No";                  // Stationary
+            }
+          }
 
           // Update main location text (top row)
           const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
-          if (locEl) {
-            const speedMph = pos.speed ? (pos.speed * 1.15078).toFixed(1) : 0; // knots to mph
-            const isMoving = pos.isMoving ? "Yes" : "No";
-            locEl.textContent = `${zoneName} • ${speedMph} mph • ${isMoving}`;
-          }
+          if (locEl) locEl.textContent = `${zoneName} • ${speedMph} mph • ${movementStatus}`;
 
           // Extra info (expanded) below
           const extraEl = document.getElementById(`${device.name.toLowerCase()}-extra`);
@@ -198,10 +220,6 @@ async function updateLocations() {
               else timeSinceUpdateText = `${mins} min`;
             }
 
-            // Speed & moving
-            const speedMph = pos.speed ? (pos.speed * 1.15078).toFixed(1) : 0;
-            const isMoving = pos.isMoving ? "Yes" : "No";
-
             // Distance from home
             const homeLat = HOME_LOCATION.lat;
             const homeLon = HOME_LOCATION.lon;
@@ -218,7 +236,7 @@ async function updateLocations() {
               At Location: ${timeAtLocationText}<br>
               Since Update: ${timeSinceUpdateText}<br>
               Speed: ${speedMph} mph<br>
-              Is Moving: ${isMoving}<br>
+              Is Moving: ${movementStatus}<br>
               ${distanceMiles} mi away<br>
               ${poiName}
             `;
