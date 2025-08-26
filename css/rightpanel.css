@@ -16,65 +16,82 @@ html, body {
 **************************************************************************/
 
 /* Family Tracker bar at top */
+/* Top bar */
 #family-bar {
   display: flex;
   flex-direction: row;
-  justify-content: flex-start;
   align-items: flex-start;
-  padding: 5px 10px;
+  padding: 8px 12px;
   background: #000;
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   transition: height 0.3s ease;
   overflow: hidden;
-  height: 60px; /* default height */
+  height: 70px; /* normal height */
 }
 
 #family-bar.location-mode {
-  height: 120px; /* double height when showing extra info */
+  height: 200px; /* expand in location mode */
 }
 
+/* Each member card */
 .member {
   display: flex;
+  flex-direction: row;
   align-items: flex-start;
   background-color: #111;
-  padding: 5px 8px;
+  padding: 8px 12px;
   border-radius: 12px;
-  min-width: 120px;
-  margin-right: 10px;
+  margin-right: 12px;
+  min-width: 160px;
 }
 
+/* Profile photo */
 .member img {
-  width: 50px;
-  height: 50px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
-  margin-right: 10px;
+  margin-right: 12px;
 }
 
+/* Info container */
 .member-info {
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
 }
 
-.member-info .name-location {
+/* Top row: name + location */
+.name-location {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  font-size: 16px;
+  flex-direction: column;
+  font-size: 18px;
+  color: #fff;
+  margin-bottom: 6px;
+}
+
+.name-location .name {
+  font-weight: bold;
+  font-size: 20px;
   color: #fff;
 }
 
+.name-location .location {
+  font-size: 16px;
+  color: #ccc;
+}
+
+/* Extra info (only visible in location mode) */
 .member-extra {
   display: none;
   flex-direction: column;
-  font-size: 14px; /* substantially larger */
-  color: #ccc;
-  margin-top: 4px;
+  font-size: 16px; /* large and readable */
+  color: #ddd;
+  line-height: 1.4;
 }
 
 #family-bar.location-mode .member-extra {
   display: flex;
 }
-
 
 
 /* Optional: small icons for walking/driving status */
