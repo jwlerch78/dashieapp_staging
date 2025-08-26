@@ -18,8 +18,8 @@ html, body {
 #family-bar {
   display: flex;
   flex-direction: row;
+  justify-content: space-around; /* spread members evenly */
   align-items: flex-start;
-  justify-content: space-between; /* spread them out evenly across the bar */
   padding: 10px 16px;
   background: #000;
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
@@ -29,7 +29,7 @@ html, body {
 }
 
 #family-bar.location-mode {
-  height: 250px; /* taller for location mode */
+  height: 250px; /* taller for location expansion */
 }
 
 /* Each member card */
@@ -67,24 +67,26 @@ html, body {
   white-space: nowrap;
 }
 
+
 .location-sub {
   font-size: 16px;
-  color: #ccc;
+  color: #ddd;
   margin-top: 2px;
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-/* Extra info (hidden by default, below top row) */
+
+/* Extra info (hidden by default, expanded only in location mode) */
 .member-extra {
   display: none;
-  margin-top: 12px;
+  margin-top: 10px;
   font-size: 16px;
   color: #ddd;
   text-align: center;
   line-height: 1.4;
-  width: 100%;
+  width: 100%; /* spans full width below top row */
 }
 
 /* Show extra info in location mode */
