@@ -15,40 +15,43 @@ html, body {
 *  Family Tracker bar at top
 **************************************************************************/
 
+/* Family Tracker bar */
 #family-bar {
   display: flex;
   flex-direction: row;
-  justify-content: space-around; /* spread members evenly */
+  justify-content: space-between; /* spread members across full width */
   align-items: flex-start;
   padding: 10px 16px;
   background: #000;
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   transition: height 0.3s ease;
   overflow: hidden;
-  height: 70px; /* default */
+  height: 70px; /* default collapsed height */
 }
 
 #family-bar.location-mode {
-  height: 250px; /* taller for location expansion */
+  height: 280px; /* taller in location mode */
 }
 
 /* Each member card */
 .member {
   display: flex;
-  flex-direction: column; /* top + extra stacked */
+  flex-direction: column; /* stack top row + extra info */
   align-items: center;
   background-color: #111;
   padding: 8px 12px;
   border-radius: 12px;
-  margin-right: 12px;
   min-width: 160px;
+  flex: 1; /* allow even distribution across bar */
+  margin: 0 6px; /* spacing between members */
 }
 
-/* Top row: photo + location side by side */
+/* Top row: image + location */
 .member-top {
   display: flex;
   flex-direction: row;
   align-items: center;
+  justify-content: center; /* center horizontally inside member */
 }
 
 /* Profile photo */
@@ -59,44 +62,48 @@ html, body {
   margin-right: 10px;
 }
 
-/* Location text next to photo */
+/* Info next to photo (main location + subtext) */
+.member-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: left;
+}
+
+/* Main location text */
 .location {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: bold;
   color: #fff;
-  white-space: nowrap;
 }
 
-
+/* Subtext below main location (icon + distance) */
 .location-sub {
-  font-size: 16px;
-  color: #ddd;
-  margin-top: 2px;
+  font-size: 18px;
+  color: #ccc;
+  margin-top: 4px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
 }
 
-
-/* Extra info (hidden by default, expanded only in location mode) */
+/* Expanded info (centered under entire top row) */
 .member-extra {
   display: none;
-  margin-top: 10px;
-  font-size: 16px;
+  flex-direction: column;
+  font-size: 16px; /* readable size */
   color: #ddd;
   text-align: center;
   line-height: 1.4;
-  width: 100%; /* spans full width below top row */
+  margin-top: 16px; /* spacing below top row */
+  width: 100%; /* span entire member card */
 }
 
-/* Show extra info in location mode */
 #family-bar.location-mode .member-extra {
   display: flex;
-  flex-direction: column;
-  align-items: center;
 }
 
-/* Optional small icons for walking/driving status */
+/* Optional small icons in subtext */
 .status-icon img {
   width: 16px;
   height: 16px;
