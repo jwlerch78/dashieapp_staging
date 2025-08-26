@@ -144,6 +144,9 @@ function applyFormations() {
 }
 
 // --- Update all device positions ---
+// Store last positions for each device
+const lastPositions = {};
+
 async function updateLocations() {
   if (!map) return;
 
@@ -159,78 +162,74 @@ async function updateLocations() {
       if (Array.isArray(data) && data.length > 0) {
         const pos = data[0];
         if (pos.latitude && pos.longitude) {
-          // Determine zone or reverse geocode
-          const zoneName = getZone(pos.latitude, pos.longitude) || await reverseGeocode(pos.latitude, pos.longitude);
-          const address = zoneName.address || zoneName; // formatted address if object returned
-          const poiName = zoneName.poi || ''; // optional point of interest
+          // --- Determine zone / POI name ---
+          const zoneName = getZone(pos.latitude, pos.longitude) || await reverseGeocode(pos.latitude, pos.longitude, true); // true = return POI if available
 
-          // --- Main location display ---
+          // --- Update main location text ---
           const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
-          if (locEl) locEl.textContent = zoneName.name || zoneName;
+          if (locEl) locEl.textContent = zoneName;
 
-          const subEl = document.getElementById(`${device.name.toLowerCase()}-sub`);
-          if (subEl) {
-            // Distance to home in miles
-            const homeLat = HOME_LOCATION.lat;
-            const homeLon = HOME_LOCATION.lon;
-            const R = 6371e3; // meters
-            const φ1 = pos.latitude * Math.PI / 180;
-            const φ2 = homeLat * Math.PI / 180;
-            const Δφ = (homeLat - pos.latitude) * Math.PI / 180;
-            const Δλ = (homeLon - pos.longitude) * Math.PI / 180;
+          // --- Calculate distance traveled and speed for movement logic ---
+          let movementType = "stationary";
+          let speedMph = 0;
 
-            const a = Math.sin(Δφ/2)*Math.sin(Δφ/2) +
-                      Math.cos(φ1)*Math.cos(φ2) *
-                      Math.sin(Δλ/2)*Math.sin(Δλ/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            const distanceMeters = R * c;
-            const distanceMiles = (distanceMeters * 0.000621371).toFixed(1);
+          const lastPos = lastPositions[device.name];
+          if (lastPos) {
+            const distanceMeters = L.latLng(lastPos.latitude, lastPos.longitude)
+                                    .distanceTo(L.latLng(pos.latitude, pos.longitude));
+            const deltaTimeSec = (new Date(pos.fixTime) - new Date(lastPos.fixTime)) / 1000;
+            if (deltaTimeSec > 0) {
+              const speedMps = distanceMeters / deltaTimeSec;
+              speedMph = speedMps * 2.23694; // convert to mph
 
-            // Status icon
-            let statusIcon = '';
-            if (pos.speed !== undefined) {
-              const speedMph = pos.speed * 1.15078; // knots to mph
-              if (speedMph >= 5) statusIcon = '🚗';
-              else if (speedMph > 0) statusIcon = '🚶';
+              if (distanceMeters < 10) movementType = "stationary";
+              else if (speedMph < 4) movementType = "walking";
+              else movementType = "driving";
             }
-
-            subEl.textContent = `${statusIcon} ${distanceMiles} mi away`;
           }
 
-          // --- Expanded info display ---
+          // Update last position
+          lastPositions[device.name] = { latitude: pos.latitude, longitude: pos.longitude, fixTime: pos.fixTime };
+
+          // --- Update sub info below location ---
+          const subEl = document.getElementById(`${device.name.toLowerCase()}-sub`);
+          if (subEl) {
+            const icon = movementType === "driving" ? "🚗" : movementType === "walking" ? "🚶" : "";
+            
+            // Distance from home in miles
+            const homeLat = HOME_LOCATION.lat;
+            const homeLon = HOME_LOCATION.lon;
+            const distanceHomeMeters = L.latLng(pos.latitude, pos.longitude).distanceTo(L.latLng(homeLat, homeLon));
+            const distanceHomeMi = (distanceHomeMeters / 1609.344).toFixed(1);
+
+            subEl.textContent = `${icon} ${distanceHomeMi} mi away`;
+          }
+
+          // --- Update extra info (expanded) ---
           const extraEl = document.getElementById(`${device.name.toLowerCase()}-extra`);
           if (extraEl) {
             // Time at location
-            let timeText = '';
+            let timeText = "";
             if (pos.fixTime) {
               const durationMs = now - new Date(pos.fixTime).getTime();
-              const totalMinutes = Math.floor(durationMs / 60000);
-              if (totalMinutes > 1440) timeText = '>24 hrs';
-              else if (totalMinutes >= 60) {
-                const hours = Math.floor(totalMinutes / 60);
-                const minutes = totalMinutes % 60;
-                timeText = `${hours} hr ${minutes} min`;
-              } else {
-                timeText = `${totalMinutes} min`;
-              }
+              const minutes = Math.floor(durationMs / 60000);
+              if (minutes > 1440) timeText = ">24 hrs";
+              else if (minutes >= 60) timeText = `${Math.floor(minutes / 60)} hr ${minutes % 60} min`;
+              else timeText = `${minutes} min`;
             }
 
-            // Speed and moving status
-            let speedMph = 0;
-            let movingStatus = 'No';
-            if (pos.speed !== undefined) {
-              speedMph = (pos.speed * 1.15078).toFixed(1);
-              movingStatus = pos.isMoving ? 'Yes' : 'No';
-            }
+            // Movement & speed
+            const movingText = movementType === "stationary" ? "No" : "Yes";
+            const speedText = speedMph.toFixed(1);
 
             extraEl.innerHTML = `
               Time at location: ${timeText}<br>
-              Speed: ${speedMph} mph, Moving? ${movingStatus}<br>
-              Address: ${address}${poiName ? ' (' + poiName + ')' : ''}
+              Speed: ${speedText} mph, Moving? ${movingText}<br>
+              POI: ${zoneName}
             `;
           }
 
-          // --- Marker on map ---
+          // --- Update marker icon ---
           const imgUrl = device.img || "img/fallback.png";
           const icon = L.divIcon({
             className: "family-marker",
@@ -255,12 +254,13 @@ async function updateLocations() {
       const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
       if (locEl) locEl.textContent = "Unknown location";
       const subEl = document.getElementById(`${device.name.toLowerCase()}-sub`);
-      if (subEl) subEl.textContent = '';
+      if (subEl) subEl.textContent = "";
       const extraEl = document.getElementById(`${device.name.toLowerCase()}-extra`);
       if (extraEl) extraEl.textContent = '';
     }
   }
 
+  // Fit map to bounds
   if (boundsArray.length > 0) {
     const bounds = L.latLngBounds(boundsArray);
     map.fitBounds(bounds, { padding: [50, 50] });
@@ -271,6 +271,7 @@ async function updateLocations() {
 
   if (!locationInterval) locationInterval = setInterval(updateLocations, 30000);
 }
+
 
 
 // --- Initialize ---
