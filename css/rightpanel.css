@@ -19,12 +19,13 @@ html, body {
   display: flex;
   flex-direction: row;
   align-items: flex-start;
+  justify-content: space-between; /* spread them out evenly across the bar */
   padding: 10px 16px;
   background: #000;
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   transition: height 0.3s ease;
   overflow: hidden;
-  height: 70px; /* default height */
+  height: 70px; /* default */
 }
 
 #family-bar.location-mode {
