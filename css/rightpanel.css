@@ -15,11 +15,11 @@ html, body {
 *  Family Tracker bar at top
 **************************************************************************/
 
-/* Base family bar */
+/* Family Tracker bar at top */
 #family-bar {
   display: flex;
   flex-direction: row;
-  justify-content: space-around;
+  justify-content: flex-start;
   align-items: flex-start;
   padding: 5px 10px;
   background: #000;
@@ -29,34 +29,25 @@ html, body {
   height: 60px; /* default height */
 }
 
-/* Expand the bar in location mode */
 #family-bar.location-mode {
-  height: 180px; /* ~3x original height */
+  height: 120px; /* double height when showing extra info */
 }
 
-/* Each member container */
 .member {
   display: flex;
-  flex-direction: column;
   align-items: flex-start;
   background-color: #111;
-  padding: 4px 6px;
+  padding: 5px 8px;
   border-radius: 12px;
   min-width: 120px;
-}
-
-/* Top row: image + location name */
-.member-top {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
+  margin-right: 10px;
 }
 
 .member img {
-  width: 40px;
-  height: 40px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
+  margin-right: 10px;
 }
 
 .member-info {
@@ -64,27 +55,26 @@ html, body {
   flex-direction: column;
 }
 
-.location {
-  font-weight: bold;
+.member-info .name-location {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  font-size: 16px;
   color: #fff;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-/* Extra info displayed only in location mode */
-.extra-info {
-  display: none; /* hidden by default */
-  margin-top: 4px;
-  color: #ccc;
-  font-size: 14px; /* larger text */
-  line-height: 1.4;
+.member-extra {
+  display: none;
   flex-direction: column;
+  font-size: 14px; /* substantially larger */
+  color: #ccc;
+  margin-top: 4px;
 }
 
-#family-bar.location-mode .extra-info {
-  display: flex; /* show only in location mode */
+#family-bar.location-mode .member-extra {
+  display: flex;
 }
+
 
 
 /* Optional: small icons for walking/driving status */
