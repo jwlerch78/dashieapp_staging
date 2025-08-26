@@ -30,7 +30,7 @@ html, body {
 }
 
 #family-bar.location-mode {
-  height: 200px; /* expand in location mode */
+  height: 280px; /* expand in location mode */
 }
 
 /* Each member card */
@@ -84,9 +84,11 @@ html, body {
 .member-extra {
   display: none;
   flex-direction: column;
-  font-size: 16px; /* large and readable */
+  font-size: 18px;   /* larger text */
   color: #ddd;
-  line-height: 1.4;
+  line-height: 1.5;
+  text-align: center; /* center under image + location */
+  margin-top: 12px;
 }
 
 #family-bar.location-mode .member-extra {
