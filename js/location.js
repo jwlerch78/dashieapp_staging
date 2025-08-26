@@ -159,66 +159,67 @@ async function updateLocations() {
       if (Array.isArray(data) && data.length > 0) {
         const pos = data[0];
         if (pos.latitude && pos.longitude) {
-
           // Determine zone or reverse geocode
           const zoneName = getZone(pos.latitude, pos.longitude) || await reverseGeocode(pos.latitude, pos.longitude);
 
-          // Update main location text (next to image)
+          // Update main location text (next to photo)
           const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
           if (locEl) locEl.textContent = zoneName;
 
-          // Update extra info
-          const extraEl = document.getElementById(`${device.name.toLowerCase()}-extra`);
-          if (extraEl) {
-            // Time at location
-            let timeText = '';
-            if (pos.fixTime) {
-              const durationMs = now - new Date(pos.fixTime).getTime();
-              const minutes = Math.floor(durationMs / 60000);
-              if (minutes >= 1440) timeText = '>24 hrs';
-              else if (minutes >= 60) {
-                const hrs = Math.floor(minutes / 60);
-                const mins = minutes % 60;
-                timeText = `${hrs} hr${hrs>1?'s':''} ${mins} min`;
-              } else timeText = `${minutes} min`;
-            }
-
+          // Update sub-line under main location (status icon + distance)
+          const subEl = document.getElementById(`${device.name.toLowerCase()}-sub`);
+          if (subEl) {
             // Status icon
             let statusIcon = '';
             if (pos.speed !== undefined) {
               const speedKmh = pos.speed * 1.852; // knots → km/h
-              if (speedKmh >= 5) statusIcon = '🚗'; // driving
-              else if (speedKmh > 0) statusIcon = '🚶'; // walking
+              if (speedKmh >= 5) statusIcon = '🚗';
+              else if (speedKmh > 0) statusIcon = '🚶';
             }
 
-            // Distance to home in miles
+            // Distance to home
             const homeLat = HOME_LOCATION.lat;
             const homeLon = HOME_LOCATION.lon;
-            const R = 6371e3;
+            const R = 6371e3; // Earth radius in meters
             const φ1 = pos.latitude * Math.PI / 180;
             const φ2 = homeLat * Math.PI / 180;
             const Δφ = (homeLat - pos.latitude) * Math.PI / 180;
             const Δλ = (homeLon - pos.longitude) * Math.PI / 180;
 
-            const a = Math.sin(Δφ/2)**2 +
-                      Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+            const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             const distanceMeters = R * c;
-            const distanceMiles = (distanceMeters / 1609.344).toFixed(1);
+            const distanceMiles = (distanceMeters / 1609.34).toFixed(1);
 
-            extraEl.innerHTML = `
-              ${statusIcon}<br>
-              Time at location: ${timeText}<br>
-              Distance to home: ${distanceMiles} mi<br>
-              Location: ${zoneName}
-            `;
+            subEl.innerHTML = `${statusIcon} ${distanceMiles} mi from home`;
           }
 
-          // Marker
+          // Update expanded info (without distance/status)
+          const extraEl = document.getElementById(`${device.name.toLowerCase()}-extra`);
+          if (extraEl) {
+            let timeText = '';
+            if (pos.fixTime) {
+              const durationMs = now - new Date(pos.fixTime).getTime();
+              const minutes = Math.floor(durationMs / 60000);
+              if (minutes >= 24*60) timeText = '>24 hrs';
+              else if (minutes >= 60) {
+                const hrs = Math.floor(minutes / 60);
+                const mins = minutes % 60;
+                timeText = `${hrs} hr ${mins} min`;
+              } else {
+                timeText = `${minutes} min`;
+              }
+            }
+
+            extraEl.innerHTML = `Time at location: ${timeText}<br>Other info here...`;
+          }
+
+          // Marker icon
           const imgUrl = device.img || "img/fallback.png";
           const icon = L.divIcon({
             className: "family-marker",
-            html: `<img src="${imgUrl}" alt="${device.name}" width="50" height="50" onerror="this.src='img/fallback.png'">`,
+            html: `<img src="${imgUrl}" alt="${device.name}" width="50" height="50"
+                    onerror="this.src='img/fallback.png'">`,
             iconSize: [50, 50],
             iconAnchor: [25, 25]
           });
@@ -235,11 +236,16 @@ async function updateLocations() {
       }
     } catch (err) {
       console.error(`Error fetching ${device.name}:`, err);
-      document.getElementById(`${device.name.toLowerCase()}-location`).textContent = "Unknown location";
-      document.getElementById(`${device.name.toLowerCase()}-extra`).textContent = '';
+      const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
+      if (locEl) locEl.textContent = "Unknown location";
+      const subEl = document.getElementById(`${device.name.toLowerCase()}-sub`);
+      if (subEl) subEl.textContent = '';
+      const extraEl = document.getElementById(`${device.name.toLowerCase()}-extra`);
+      if (extraEl) extraEl.textContent = '';
     }
   }
 
+  // Fit map to bounds
   if (boundsArray.length > 0) {
     const bounds = L.latLngBounds(boundsArray);
     map.fitBounds(bounds, { padding: [50, 50] });
@@ -250,7 +256,6 @@ async function updateLocations() {
 
   if (!locationInterval) locationInterval = setInterval(updateLocations, 30000);
 }
-
 
 
 // --- Initialize ---
