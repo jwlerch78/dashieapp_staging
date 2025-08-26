@@ -1,4 +1,4 @@
-/* rightpanel.css
+/* rightpanel.css */
 
 /* Base page styles */
 html, body {
@@ -24,18 +24,17 @@ html, body {
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   transition: height 0.3s ease;
   overflow: hidden;
-  height: 70px; /* default */
+  height: 70px; /* default height */
 }
 
 #family-bar.location-mode {
-  height: 250px; /* taller for location expansion */
+  height: 250px; /* taller for location mode */
 }
 
-/* Each member */
 /* Each member card */
 .member {
   display: flex;
-  flex-direction: column; /* stack top + extra */
+  flex-direction: column; /* top + extra stacked */
   align-items: center;
   background-color: #111;
   padding: 8px 12px;
@@ -47,8 +46,8 @@ html, body {
 /* Top row: photo + location side by side */
 .member-top {
   display: flex;
-  flex-direction: row;  /* side by side in normal mode */
-  align-items: center;  /* vertically aligned */
+  flex-direction: row;
+  align-items: center;
 }
 
 /* Profile photo */
@@ -67,24 +66,25 @@ html, body {
   white-space: nowrap;
 }
 
-/* Extra info (hidden by default, appears below photo+location) */
+/* Extra info (hidden by default, below top row) */
 .member-extra {
   display: none;
-  margin-top: 10px;
+  margin-top: 12px;
   font-size: 16px;
   color: #ddd;
   text-align: center;
   line-height: 1.4;
-  width: 100%; /* spans full width below top row */
+  width: 100%;
 }
 
 /* Show extra info in location mode */
 #family-bar.location-mode .member-extra {
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
-
-/* Optional: small icons for walking/driving status */
+/* Optional small icons for walking/driving status */
 .status-icon img {
   width: 16px;
   height: 16px;
@@ -92,27 +92,23 @@ html, body {
   margin-right: 4px;
 }
 
-
 /*************************************************************************
 *  Calendar CSS
 **************************************************************************/
 
-/* Header container - dynamically shown/hidden */
 #header-container {
-  height: 184px; /* Could be moved to config if needed */
+  height: 184px;
   overflow: hidden;
   position: relative;
   z-index: 10;
-  transition: all 0.3s ease; /* Uses default transition timing */
+  transition: all 0.3s ease;
 }
 
-/* Header container when hidden */
 #header-container.hidden {
   height: 0 !important;
   display: none !important;
 }
 
-/* Header iframe */
 #header-frame {
   width: 100%;
   height: 1500px;
@@ -125,19 +121,16 @@ html, body {
   transition: opacity 0.3s ease;
 }
 
-/* Hide the header iframe */
 #header-frame.hidden {
   display: none !important;
 }
 
-/* Calendar container - adjusts based on header visibility */
 #calendar-container {
   flex: 1;
   position: relative;
   transition: all 0.3s ease;
 }
 
-/* Calendar container states based on mode */
 #calendar-container.weekly-mode,
 #calendar-container.work-mode {
   overflow: hidden;
@@ -147,7 +140,6 @@ html, body {
   overflow: visible;
 }
 
-/* Calendar iframes - base styles */
 .calendar-frame {
   width: 100%;
   border: 0 !important;
@@ -159,7 +151,6 @@ html, body {
   display: block;
 }
 
-/* Weekly/Work mode iframe styles */
 .calendar-frame.weekly-mode,
 .calendar-frame.work-mode {
   position: absolute;
@@ -169,13 +160,11 @@ html, body {
   transform: translateY(-500px);
 }
 
-/* Monthly mode iframe styles */
 .calendar-frame.monthly-mode {
   position: static;
   height: 100%;
   transform: translateY(0px);
 }
-
 
 /*************************************************************************
 *  Location & Camera CSS
@@ -192,22 +181,19 @@ html, body {
   color:white; 
   font-size:24px; 
   padding-top:50px;
-  display: none;   /* start hidden */
+  display: none;
 }
 
-/* Circular face markers on map */
 .family-marker img {
   border-radius: 50%;
-  border: 2px solid white;   /* makes it pop against the map */
+  border: 2px solid white;
   box-shadow: 0 0 5px rgba(0,0,0,0.5);
 }
-
 
 /*************************************************************************
 *  Bottom View Indicators/buttons CSS
 **************************************************************************/
 
-/* Bottom view indicators */
 .view-indicators {
   display: flex;
   height: 30px;
@@ -224,8 +210,8 @@ html, body {
   border-top: 1px solid #444;
   cursor: pointer;
   transition: all 0.2s ease;
-  user-select: none; /* Prevent text selection on click */
-  -webkit-tap-highlight-color: transparent; /* Remove tap highlight on mobile */
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .view-label.active {
