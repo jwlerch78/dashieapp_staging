@@ -165,51 +165,66 @@ async function updateLocations() {
 
           // Determine zone or reverse geocode
           const zoneName = getZone(pos.latitude, pos.longitude) || await reverseGeocode(pos.latitude, pos.longitude);
+          const poiName = pos.poi || ''; // use POI if available from reverse geocode
 
-          // Update main location text
+          // Update main location text (top row)
           const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
-          if (locEl) locEl.textContent = zoneName;
+          if (locEl) {
+            const speedMph = pos.speed ? (pos.speed * 1.15078).toFixed(1) : 0; // knots to mph
+            const isMoving = pos.isMoving ? "Yes" : "No";
+            locEl.textContent = `${zoneName} • ${speedMph} mph • ${isMoving}`;
+          }
 
-          // Update sub-location text: icon + distance + time since update
-          const subEl = document.getElementById(`${device.name.toLowerCase()}-sub`);
-          if (subEl) {
-            // Distance from home in miles
+          // Extra info (expanded) below
+          const extraEl = document.getElementById(`${device.name.toLowerCase()}-extra`);
+          if (extraEl) {
+            // Time at location
+            let timeAtLocationText = "Unknown";
+            if (pos.fixTime) {
+              const durationMs = now - new Date(pos.fixTime).getTime();
+              const mins = Math.floor(durationMs / 60000);
+              if (mins > 1440) timeAtLocationText = ">24 hrs";
+              else if (mins >= 60) timeAtLocationText = `${Math.floor(mins/60)} hr ${mins%60} min`;
+              else timeAtLocationText = `${mins} min`;
+            }
+
+            // Time since last update
+            let timeSinceUpdateText = "Unknown";
+            if (pos.serverTime) {
+              const durationMs = now - new Date(pos.serverTime).getTime();
+              const mins = Math.floor(durationMs / 60000);
+              if (mins > 1440) timeSinceUpdateText = ">24 hrs";
+              else if (mins >= 60) timeSinceUpdateText = `${Math.floor(mins/60)} hr ${mins%60} min`;
+              else timeSinceUpdateText = `${mins} min`;
+            }
+
+            // Speed & moving
+            const speedMph = pos.speed ? (pos.speed * 1.15078).toFixed(1) : 0;
+            const isMoving = pos.isMoving ? "Yes" : "No";
+
+            // Distance from home
             const homeLat = HOME_LOCATION.lat;
             const homeLon = HOME_LOCATION.lon;
-            const R = 6371e3; // meters
+            const R = 6371e3;
             const φ1 = pos.latitude * Math.PI / 180;
             const φ2 = homeLat * Math.PI / 180;
             const Δφ = (homeLat - pos.latitude) * Math.PI / 180;
             const Δλ = (homeLon - pos.longitude) * Math.PI / 180;
             const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            const distanceMeters = R * c;
-            const distanceMiles = (distanceMeters / 1609.34).toFixed(1);
+            const distanceMiles = (R * c * 0.000621371).toFixed(1); // meters to miles
 
-            // Time since last update
-            let timeSinceUpdate = '';
-            if (pos.fixTime) {
-              const diffMs = now - new Date(pos.fixTime).getTime();
-              const diffMin = Math.floor(diffMs / 60000);
-              if (diffMin >= 1440) timeSinceUpdate = '>24 hrs';
-              else if (diffMin >= 60) timeSinceUpdate = `${Math.floor(diffMin/60)} hrs ${diffMin%60} min`;
-              else timeSinceUpdate = `${diffMin} min`;
-            }
-
-            // Determine status icon using speed and/or distance traveled (if prev point exists)
-            let statusIcon = '';
-            let speedMph = 0;
-            if (pos.speed !== undefined) {
-              speedMph = (pos.speed * 1.15078).toFixed(1); // knots to mph
-              if (speedMph >= 5) statusIcon = '🚗';
-              else if (speedMph > 0) statusIcon = '🚶';
-              else statusIcon = '⬤'; // stationary
-            }
-
-            subEl.innerHTML = `${statusIcon} ${distanceMiles} mi away<br>Time since update: ${timeSinceUpdate}<br>Speed: ${speedMph} mph, Moving: ${pos.isMoving ? 'Yes' : 'No'}`;
+            extraEl.innerHTML = `
+              At Location: ${timeAtLocationText}<br>
+              Since Update: ${timeSinceUpdateText}<br>
+              Speed: ${speedMph} mph<br>
+              Is Moving: ${isMoving}<br>
+              ${distanceMiles} mi away<br>
+              ${poiName}
+            `;
           }
 
-          // Marker icon
+          // Marker
           const imgUrl = device.img || "img/fallback.png";
           const icon = L.divIcon({
             className: "family-marker",
@@ -233,12 +248,11 @@ async function updateLocations() {
       console.error(`Error fetching ${device.name}:`, err);
       const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
       if (locEl) locEl.textContent = "Unknown location";
-      const subEl = document.getElementById(`${device.name.toLowerCase()}-sub`);
-      if (subEl) subEl.textContent = '';
+      const extraEl = document.getElementById(`${device.name.toLowerCase()}-extra`);
+      if (extraEl) extraEl.textContent = '';
     }
   }
 
-  // Fit map to bounds
   if (boundsArray.length > 0) {
     const bounds = L.latLngBounds(boundsArray);
     map.fitBounds(bounds, { padding: [50, 50] });
@@ -249,7 +263,6 @@ async function updateLocations() {
 
   if (!locationInterval) locationInterval = setInterval(updateLocations, 30000);
 }
-
 
 
 // --- Initialize ---
