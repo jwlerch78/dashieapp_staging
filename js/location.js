@@ -197,7 +197,7 @@ async function updateLocations() {
 
           // Update main location text (top row)
           const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
-          if (locEl) locEl.textContent = `${zoneName} • ${speedMph} mph • ${movementStatus}`;
+          if (locEl) locEl.textContent = `${zoneName}`;
 
           // Extra info (expanded) below
           const extraEl = document.getElementById(`${device.name.toLowerCase()}-extra`);
@@ -222,6 +222,14 @@ async function updateLocations() {
               else timeSinceUpdateText = `${mins} min`;
             }
 
+            const subEl = document.getElementById(`${device.name.toLowerCase()}-sub`);
+            let statusIcon = '';
+            if (pos.speed !== undefined) {
+              const speedKmh = pos.speed * 1.852; // knots → km/h
+              if (speedKmh >= 5) statusIcon = '🚗';
+              else if (speedKmh > 0) statusIcon = '🚶';
+            }
+
             // Distance from home
             const homeLat = HOME_LOCATION.lat;
             const homeLon = HOME_LOCATION.lon;
@@ -233,6 +241,9 @@ async function updateLocations() {
             const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             const distanceMiles = (R * c * 0.000621371).toFixed(1); // meters to miles
+
+            subEl.innerHTML = `${statusIcon} ${distanceMiles} mi from home`;
+
 
             extraEl.innerHTML = `
               At Location: ${timeAtLocationText}<br>
