@@ -242,7 +242,8 @@ async function updateLocations() {
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
             const distanceMiles = (R * c * 0.000621371).toFixed(1); // meters to miles
 
-            subEl.innerHTML = `${statusIcon} ${distanceMiles} mi away`;
+            //subEl.innerHTML = `${statusIcon} ${distanceMiles} mi away`;
+            subEl.innerHTML = `${distanceMiles} mi away`;
 
 
             extraEl.innerHTML = `
