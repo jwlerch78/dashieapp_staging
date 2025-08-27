@@ -19,6 +19,8 @@ async function reverseGeocode(lat, lon) {
     const resp = await fetch(`${PROXY_URL}/reverse?lat=${lat}&lon=${lon}`);
     if (!resp.ok) throw new Error(`Status ${resp.status}`);
     const json = await resp.json();
+    console.log("Reverse geocode response:", json); // 👈 add this
+    
     const addr = json.address || {};
     return (
       addr.city ||
