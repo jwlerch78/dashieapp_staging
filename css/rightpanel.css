@@ -31,7 +31,7 @@ html, body {
 }
 
 #family-bar.location-mode {
-  height: 280px; /* taller in location mode */
+  height: 320px; /* taller in location mode */
 }
 
 /* Each member card */
@@ -80,7 +80,7 @@ html, body {
 
 /* Subtext below main location (icon + distance) */
 .location-sub {
-  font-size: 18px;
+  font-size: 14px;
   color: #ccc;
   margin-top: 4px;
   display: flex;
