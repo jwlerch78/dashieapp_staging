@@ -13,16 +13,28 @@ function getZone(lat, lon) {
   return null;
 }
 
-// --- Reverse geocode helper ---
+/ --- Simple reverse geocode cache ---
+const reverseGeoCache = {}; // key: "lat,lon" -> value: {timestamp, result}
+const CACHE_TTL_MS = 30 * 60 * 1000; // cache for 30 minutes
+
 async function reverseGeocode(lat, lon) {
+  const key = `${lat.toFixed(20)},${lon.toFixed(20)}`; // round to reduce duplicates
+  const now = Date.now();
+
+  // Return cached result if still valid
+  if (reverseGeoCache[key] && (now - reverseGeoCache[key].timestamp < CACHE_TTL_MS)) {
+    return reverseGeoCache[key].result;
+  }
+
   try {
     const resp = await fetch(`${PROXY_URL}/reverse?lat=${lat}&lon=${lon}`);
     if (!resp.ok) throw new Error(`Status ${resp.status}`);
     const json = await resp.json();
-    console.log("Reverse geocode response:", json); // 👈 add this
     
+    console.log("Reverse geocode response:", json); // 👈 always log
+
     const addr = json.address || {};
-    return (
+    const result =
       addr.city ||
       addr.town ||
       addr.village ||
@@ -31,8 +43,12 @@ async function reverseGeocode(lat, lon) {
       addr.county ||
       addr.state ||
       json.display_name ||
-      "Unknown location"
-    );
+      "Unknown location";
+
+    // store in cache
+    reverseGeoCache[key] = { timestamp: now, result };
+
+    return result;
   } catch (err) {
     console.error("Reverse geocode error:", err);
     return "Unknown location";
@@ -171,8 +187,12 @@ async function updateLocations() {
 
         if (pos.latitude && pos.longitude) {
 
-          // Determine zone or reverse geocode
-          const zoneName = getZone(pos.latitude, pos.longitude) || await reverseGeocode(pos.latitude, pos.longitude);
+        // Determine zone and always fetch reverse geocode for logging
+        const zoneResult = getZone(pos.latitude, pos.longitude);
+        const reverseGeoName = await reverseGeocode(pos.latitude, pos.longitude);
+
+          // Use zone name for display as before
+          const zoneName = zoneResult || reverseGeoName;
           const poiName = pos.poi || '';
 
           // Distance and speed calculation using last two positions
