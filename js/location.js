@@ -162,6 +162,9 @@ async function updateLocations() {
       if (!response.ok) throw new Error(`Status ${response.status}`);
       const data = await response.json();
 
+      // 🔹 Add logging here:
+      console.log(`Device ${device.id} response:`, data);
+
       if (Array.isArray(data) && data.length > 0) {
         const pos = data[0]; // most recent
         const prevPos = data[1]; // previous
