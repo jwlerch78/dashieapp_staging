@@ -13,7 +13,7 @@ function getZone(lat, lon) {
   return null;
 }
 
-/ --- Simple reverse geocode cache ---
+// --- Simple reverse geocode cache ---
 const reverseGeoCache = {}; // key: "lat,lon" -> value: {timestamp, result}
 const CACHE_TTL_MS = 30 * 60 * 1000; // cache for 30 minutes
 
