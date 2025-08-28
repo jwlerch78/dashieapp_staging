@@ -158,12 +158,12 @@ async function updateLocations() {
   for (let device of DEVICES) {
     try {
       // Fetch the last 2 positions for more accurate speed/distance
-      const response = await fetch(`${PROXY_URL}/positions/${device.id}&limit=2`);
+      const response = await fetch(`${PROXY_URL}/positions/${device.id}?limit=2`);
       if (!response.ok) throw new Error(`Status ${response.status}`);
       const data = await response.json();
 
       // 🔹 Add logging here:
-      console.log(`Device ${device.id} response:`, data);
+      console.log(`Device ${device.id} Traccar response:`, data);
 
       if (Array.isArray(data) && data.length > 0) {
         const pos = data[0]; // most recent
