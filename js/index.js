@@ -46,22 +46,21 @@ function renderMenu() {
     menuOverlay.innerHTML = menuOptions.map((opt, i) => {
         if (opt === "---") return `<hr style="border:0; border-top:1px solid rgba(255,255,255,0.3); margin:4px 0;">`;
         const highlightClass = (i === menuIndex) ? "highlight" : "";
-        return `<div class="${highlightClass}">${opt}</div>`;
+        return `<div class="menu-item ${highlightClass}" data-index="${i}">${opt}</div>`;
     }).join("");
 
     // Bind click & hover for mouse/touch
-    Array.from(menuOverlay.children).forEach((el, idx) => {
-        if (el.tagName.toLowerCase() !== "div") return;
-        el.addEventListener("click", () => {
-            menuIndex = idx;
-            selectMenuOption(menuOptions[idx]);
-        });
+    const items = menuOverlay.querySelectorAll(".menu-item");
+    items.forEach(el => {
+        const idx = parseInt(el.getAttribute("data-index"));
+        el.addEventListener("click", () => selectMenuOption(menuOptions[idx]));
         el.addEventListener("mouseover", () => {
             menuIndex = idx;
             renderMenu();
         });
     });
 }
+
 
 function openMenu() {
     if (!menuOverlay) return;
