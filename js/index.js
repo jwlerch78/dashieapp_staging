@@ -9,7 +9,7 @@ let FocusMode = "RightPanel";
 
 // --- MENU ---
 let menuOpen = false;
-let menuOptions = ["Calendar", "Map", "Camera", "Exit Dashie"];
+let menuOptions = ["Calendar", "Map", "Camera", "---", "Reload Page", "---", "Exit Dashie"];
 let menuIndex = 0;
 
 const menuOverlay = document.getElementById("menuOverlay");
@@ -22,12 +22,22 @@ const exitYesBtn = document.getElementById("exitYes");
 const exitNoBtn = document.getElementById("exitNo");
 
 exitYesBtn.addEventListener("click", () => {
-    if (AndroidApp && AndroidApp.exitApp) AndroidApp.exitApp();
+    if (AndroidApp && AndroidApp.exitApp) {
+        AndroidApp.exitApp();  // Fire TV
+    } else {
+        console.log("Exit Dashie triggered (desktop fallback)");
+        window.close(); // Only works if opened via JS, mostly for desktop testing
+        // Or redirect to blank page as a fallback:
+        window.location.href = "about:blank";
+    }
 });
 exitNoBtn.addEventListener("click", hideExitPopup);
 
 function renderMenu() {
     menuOverlay.innerHTML = menuOptions.map((opt, i) => {
+        if (opt === "---") {
+            return `<hr style="border:0; border-top:1px solid rgba(255,255,255,0.3); margin:4px 0;">`;
+        }
         const highlightClass = (i === menuIndex) ? "highlight" : "";
         return `<div class="${highlightClass}" onclick="selectMenuOption('${opt}')">${opt}</div>`;
     }).join("");
@@ -51,10 +61,21 @@ function hideExitPopup() { exitPopup.style.display = "none"; }
 function selectMenuOption(option) {
     closeMenu();
     switch(option) {
-        case "Calendar": rightIframe.contentWindow.postMessage({ action: "showCalendar" }, "*"); break;
-        case "Map": rightIframe.contentWindow.postMessage({ action: "showLocation" }, "*"); break;
-        case "Camera": rightIframe.contentWindow.postMessage({ action: "showCamera" }, "*"); break;
-        case "Exit Dashie": showExitPopup(); break;
+        case "Calendar":
+            rightIframe.contentWindow.postMessage({ action: "showCalendar" }, "*");
+            break;
+        case "Map":
+            rightIframe.contentWindow.postMessage({ action: "showLocation" }, "*");
+            break;
+        case "Camera":
+            rightIframe.contentWindow.postMessage({ action: "showCamera" }, "*");
+            break;
+        case "Reload Dashie":
+            window.location.reload();
+            break;
+        case "Exit Dashie":
+            showExitPopup();
+            break;
     }
 }
 
@@ -65,20 +86,30 @@ function handleRemoteInput(keyCode) {
     if (mode === "black") { if (keyCode===179) toggleBlack(); return; }
 
     // BACK / Escape
-    if (keyCode === 4) {
+   if (keyCode === 4 || keyCode === 27)
         if (menuOpen) { closeMenu(); return; }
         else if (exitPopup.style.display !== "flex") { showExitPopup(); return; }
     }
 
-    // MENU navigation
-    if (menuOpen) {
-        switch(keyCode) {
-            case 38: menuIndex = (menuIndex - 1 + menuOptions.length) % menuOptions.length; renderMenu(); break;
-            case 40: menuIndex = (menuIndex + 1) % menuOptions.length; renderMenu(); break;
-            case 13: selectMenuOption(menuOptions[menuIndex]); break;
-        }
-        return;
+// Navigate menu up/down
+if (menuOpen) {
+    switch(keyCode) {
+        case 38: // Up
+            do { menuIndex = (menuIndex - 1 + menuOptions.length) % menuOptions.length; }
+            while(menuOptions[menuIndex] === "---");
+            renderMenu();
+            break;
+        case 40: // Down
+            do { menuIndex = (menuIndex + 1) % menuOptions.length; }
+            while(menuOptions[menuIndex] === "---");
+            renderMenu();
+            break;
+        case 13: // Select
+            selectMenuOption(menuOptions[menuIndex]);
+            break;
     }
+    return;
+}
 
     switch(keyCode) {
         case 38: sendToFocus("Up"); break;
