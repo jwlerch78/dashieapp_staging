@@ -86,7 +86,7 @@ function handleRemoteInput(keyCode) {
     if (mode === "black") { if (keyCode===179) toggleBlack(); return; }
 
     // BACK / Escape
-   if (keyCode === 4 || keyCode === 27)
+   if (keyCode === 4)
         if (menuOpen) { closeMenu(); return; }
         else if (exitPopup.style.display !== "flex") { showExitPopup(); return; }
     }
@@ -120,7 +120,7 @@ if (menuOpen) {
         case 227: case 188: if(FocusMode==="LeftPanel"){ FocusMode="RightPanel"; document.body.classList.remove("left-focus"); sendToFocus("RightFocus-Prev");} else sendToFocus("Prev"); break;
         case 228: case 190: if(FocusMode==="LeftPanel"){ FocusMode="RightPanel"; document.body.classList.remove("left-focus"); sendToFocus("RightFocus-Next");} else sendToFocus("Next"); break;
         case 13: toggleMode(); break;
-        case 82: case 77: openMenu(); break;
+        case 82: openMenu(); break;
     }
 }
 
