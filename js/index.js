@@ -22,10 +22,11 @@ hamburgerBtn?.addEventListener("click", openMenu);
 const exitPopup = document.getElementById("exitPopup");
 const exitYesBtn = document.getElementById("exitYes");
 const exitNoBtn = document.getElementById("exitNo");
+let exitChoiceIndex = 0; // 0=Yes, 1=No
 
 exitYesBtn?.addEventListener("click", () => {
     if (AndroidApp && AndroidApp.exitApp) {
-        AndroidApp.exitApp();  // Fire TV
+        AndroidApp.exitApp();
     } else {
         console.log("Exit Dashie triggered (desktop fallback)");
         window.location.href = "about:blank";
@@ -34,20 +35,27 @@ exitYesBtn?.addEventListener("click", () => {
 
 exitNoBtn?.addEventListener("click", hideExitPopup);
 
+function highlightExitChoice() {
+    exitYesBtn.classList.toggle("highlight", exitChoiceIndex === 0);
+    exitNoBtn.classList.toggle("highlight", exitChoiceIndex === 1);
+}
+
 // --- Render menu ---
 function renderMenu() {
     if (!menuOverlay) return;
     menuOverlay.innerHTML = menuOptions.map((opt, i) => {
-        if (opt === "---") {
-            return `<hr style="border:0; border-top:1px solid rgba(255,255,255,0.3); margin:4px 0;">`;
-        }
+        if (opt === "---") return `<hr style="border:0; border-top:1px solid rgba(255,255,255,0.3); margin:4px 0;">`;
         const highlightClass = (i === menuIndex) ? "highlight" : "";
-        return `<div class="${highlightClass}" onclick="selectMenuOption('${opt}')">${opt}</div>`;
+        return `<div class="${highlightClass}">${opt}</div>`;
     }).join("");
 
-    // Add hover effect for mouse
+    // Bind click & hover for mouse/touch
     Array.from(menuOverlay.children).forEach((el, idx) => {
         if (el.tagName.toLowerCase() !== "div") return;
+        el.addEventListener("click", () => {
+            menuIndex = idx;
+            selectMenuOption(menuOptions[idx]);
+        });
         el.addEventListener("mouseover", () => {
             menuIndex = idx;
             renderMenu();
@@ -69,9 +77,19 @@ function closeMenu() {
     menuOverlay.style.display = "none";
 }
 
-function showExitPopup() { if(exitPopup) exitPopup.style.display = "flex"; }
-function hideExitPopup() { if(exitPopup) exitPopup.style.display = "none"; }
+function showExitPopup() {
+    if (exitPopup) {
+        exitPopup.style.display = "flex";
+        exitChoiceIndex = 0;
+        highlightExitChoice();
+    }
+}
 
+function hideExitPopup() {
+    if (exitPopup) exitPopup.style.display = "none";
+}
+
+// --- Menu selection ---
 function selectMenuOption(option) {
     closeMenu();
     switch(option) {
@@ -97,19 +115,36 @@ function selectMenuOption(option) {
 function handleRemoteInput(keyCode) {
     keyLog.textContent = `${keyCode}`;
 
-    // BLOCK everything in black mode
+    // BLACK MODE
     if (mode === "black") {
         if (keyCode === 179) toggleBlack();
         return;
     }
 
-    // BACK / Escape
+    // BACK / ESC
     if (keyCode === 4 || keyCode === 27) {
         if (menuOpen) { closeMenu(); return; }
-        else if (exitPopup && exitPopup.style.display !== "flex") { showExitPopup(); return; }
+        else if (exitPopup && exitPopup.style.display === "flex") { hideExitPopup(); return; }
+        else { showExitPopup(); return; }
     }
 
-    // Navigate menu up/down
+    // EXIT POPUP NAVIGATION
+    if (exitPopup && exitPopup.style.display === "flex") {
+        switch(keyCode) {
+            case 37: // left
+            case 39: // right
+                exitChoiceIndex = 1 - exitChoiceIndex; // toggle
+                highlightExitChoice();
+                break;
+            case 13: // enter
+                if(exitChoiceIndex === 0) exitYesBtn.click();
+                else exitNoBtn.click();
+                break;
+        }
+        return;
+    }
+
+    // MENU NAVIGATION
     if (menuOpen) {
         switch(keyCode) {
             case 38: // Up
@@ -122,7 +157,7 @@ function handleRemoteInput(keyCode) {
                 while(menuOptions[menuIndex] === "---");
                 renderMenu();
                 break;
-            case 13: // Select
+            case 13: // Enter
                 selectMenuOption(menuOptions[menuIndex]);
                 break;
         }
@@ -145,23 +180,30 @@ function handleRemoteInput(keyCode) {
             else sendToFocus("Next"); 
             break;
         case 13: toggleMode(); break;
-        case 82: openMenu(); break; // R for menu (optional)
+        case 82: // R key
+        case 77: // M key for PC menu testing
+            openMenu();
+            break;
     }
 }
 
 // --- Listeners ---
-document.addEventListener('keydown', e => {
-    e.preventDefault();
-    e.stopPropagation();
-    handleRemoteInput(e.keyCode);
+window.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('keydown', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        handleRemoteInput(e.keyCode);
+    });
 });
 
+// --- Send message to focus iframe ---
 function sendToFocus(action) { 
     const msg={action, mode};
     if(FocusMode==="RightPanel") rightIframe.contentWindow.postMessage(msg,"*");
     else if(FocusMode==="LeftPanel") leftIframe.contentWindow.postMessage(msg,"*");
 }
 
+// --- Listen for iframe messages ---
 window.addEventListener('message', (event)=>{
     const { action } = event.data || {};
     if (!action) return;
