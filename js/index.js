@@ -1,3 +1,4 @@
+// index.js
 const rightIframe = document.getElementById('rightpanel');
 const leftIframe = document.getElementById('leftpanel');
 const keyLog = document.getElementById('keyLog');
@@ -6,17 +7,53 @@ let mode = "calendar"; // Track current rotating mode
 let overlay = null;
 let FocusMode = "RightPanel"; // Default
 
+// --- MENU SETUP ---
+let menuOpen = false;
+let menuOptions = ["Calendar", "Map", "Camera", "Exit Dashie"];
+let menuIndex = 0;
+
+// Create the dropdown overlay
+const menuOverlay = document.createElement("div");
+menuOverlay.id = "menuOverlay";
+document.body.appendChild(menuOverlay);
+
+function renderMenu() {
+    menuOverlay.innerHTML = menuOptions.map((opt, i) => {
+        return i === menuIndex ? `<div class="highlight">${opt}</div>` : `<div>${opt}</div>`;
+    }).join("");
+}
+
 // --- Unified handler for key input from either JS keydown OR Android bridge ---
 function handleRemoteInput(keyCode) {
     keyLog.textContent = `${keyCode}`;
 
     // --- BLOCK everything in black mode ---
     if (mode === "black") {
-        // Only allow play/pause (179) to toggle black on/off
         if (keyCode === 179) {
             toggleBlack();
         }
-        return; // ignore everything else
+        return;
+    }
+
+    // --- MENU MODE ---
+    if (menuOpen) {
+        switch(keyCode) {
+            case 38: // up arrow
+                menuIndex = (menuIndex - 1 + menuOptions.length) % menuOptions.length;
+                renderMenu();
+                break;
+            case 40: // down arrow
+                menuIndex = (menuIndex + 1) % menuOptions.length;
+                renderMenu();
+                break;
+            case 13: // select / enter
+                selectMenuOption(menuOptions[menuIndex]);
+                break;
+            case 4: // back
+                closeMenu();
+                break;
+        }
+        return;
     }
 
     // --- Normal handling when not black ---
@@ -60,9 +97,10 @@ function handleRemoteInput(keyCode) {
             toggleMode();
             break;
         case 4: // Android BACK button
-            //if (AndroidApp && AndroidApp.exitApp) {
-            //    AndroidApp.exitApp();
-            //}
+            // handled later if needed
+            break;
+        case 82: // MENU button for testing (replace with Fire TV menu key)
+            openMenu();
             break;
     }
 }
@@ -148,17 +186,42 @@ function checkAutoMode() {
     const isMorningWindow = (hours === 6 && minutes >= 30 && minutes < 45);
 
     if (isNight && mode !== "black") {
-        // Nighttime → force ON overlay
         toggleBlack(false, true);
     } else if (isMorningWindow && mode !== "black") {
-        // 6:30–6:45 → force ON overlay
         toggleBlack(false, true);
     } else if (!isNight && !isMorningWindow && mode === "black") {
-        // Outside the window → make sure it's OFF
         toggleBlack(true, false);
     }
 }
-
-
-// Run every 10 minutes
 setInterval(checkAutoMode, 10 * 60 * 1000);
+
+// --- MENU FUNCTIONS ---
+function openMenu() {
+    menuOpen = true;
+    menuIndex = 0;
+    menuOverlay.style.display = "block";
+    renderMenu();
+}
+
+function closeMenu() {
+    menuOpen = false;
+    menuOverlay.style.display = "none";
+}
+
+function selectMenuOption(option) {
+    closeMenu();
+    switch(option) {
+        case "Calendar":
+            rightIframe.contentWindow.postMessage({ action: "showCalendar" }, "*");
+            break;
+        case "Map":
+            rightIframe.contentWindow.postMessage({ action: "showLocation" }, "*");
+            break;
+        case "Camera":
+            rightIframe.contentWindow.postMessage({ action: "showCamera" }, "*");
+            break;
+        case "Exit Dashie":
+            if (AndroidApp && AndroidApp.exitApp) AndroidApp.exitApp();
+            break;
+    }
+}
