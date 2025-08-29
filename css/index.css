@@ -1,6 +1,7 @@
-/* index.css - Cleaned up version */
+// index.css
+
 :root {
-  --bg-left:  #000000;  /* pure black */
+  --bg-left:  #000000;
   --bg-right: #111111;
 }
 
@@ -20,54 +21,6 @@ body {
   box-sizing: border-box;
 }
 
-
-/* --- Menu overlay for top-right dropdown --- */
-#menuOverlay {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  background: rgba(0, 0, 0, 0.85);
-  color: #fff;
-  padding: 12px 16px;
-  border-radius: 8px;
-  font-family: sans-serif;
-  font-size: 20px;
-  min-width: 180px;
-  z-index: 99999;
-  display: none; /* Hidden by default */
-  box-shadow: 0 4px 12px rgba(0,0,0,0.7);
-}
-
-/* Highlighted menu item */
-#menuOverlay .highlight {
-  background-color: rgba(255, 255, 255, 0.2);
-  padding: 2px 4px;
-  border-radius: 4px;
-}
-
-/* Hamburger menu button */
-#hamburgerBtn {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  font-size: 28px;
-  background: rgba(0,0,0,0.6);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  padding: 6px 10px;
-  z-index: 100000; /* above everything else */
-  cursor: pointer;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
-}
-
-#hamburgerBtn:hover {
-  background: rgba(0,0,0,0.85);
-}
-
-
-
-
 /* LEFT COLUMN */
 .left-col {
   grid-area: left;
@@ -82,49 +35,39 @@ body {
 #leftpanel-wrapper {
   position: relative;
   width: 100%;
-  border-bottom: 5px solid transparent; /* default hidden */
+  border-bottom: 5px solid transparent;
   overflow: hidden;
 }
 
 .left-focus #leftpanel-wrapper {
-  border-bottom-color: #4285f4; /* Google blue */
+  border-bottom-color: #4285f4;
 }
 
-/* Date_Time iframe wrapper */
 .iframe-wrapper {
   width: 100%;
   height: 100%;
-  overflow: hidden;   /* hides scaled edges */
+  overflow: hidden;
   position: relative;
   background: var(--bg-left);
 }
 
-.iframe-wrapper iframe {
-  width: 125%;        /* compensate for scale 0.8 */
+.iframe-wrapper iframe,
+.leftpanel {
+  width: 125%;
   height: 125%;
   border: 0;
   transform: scale(0.8);
   transform-origin: top left;
-  overflow: hidden; /* prevents scrolling inside iframe */
+  overflow: hidden;
   display: block;
-  background: #000;   /* black behind content */
+  background: #000;
 }
 
-/* LeftPanel iframe */
-.leftpanel {
-  transform: none;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  display: block;
-  background: #000;   /* black background */
-}
-
-/* Divider between left and right panels */
+/* Divider */
 .divider {
   grid-area: divider;
   border-radius: 10px;
-  background: transparent;  /* no fill */
+  background: transparent;
 }
 
 /* RIGHT PANEL */
@@ -140,20 +83,9 @@ body {
   height: 166.6667%;
 }
 
-/* Generic card style for iframes */
-.card {
-  width: 100%;
-  height: 100%;
-  border: 0;
-  background: transparent;
-  box-shadow: 0 0 12px rgba(0,0,0,0.7);
-  border-radius: 8px;
-}
-
 /* Key log */
 #keyLog {
   display: block;
-  /* display: none; */
   position: fixed;
   bottom: 10px;
   left: 10px;
@@ -165,6 +97,7 @@ body {
   z-index: 9999;
 }
 
+/* Black overlay */
 .black-overlay {
   position: fixed;
   top: 0;
@@ -173,4 +106,83 @@ body {
   height: 100%;
   background: black;
   z-index: 99999;
+}
+
+/* Hamburger menu button */
+#hamburgerBtn {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  font-size: 28px;
+  background: rgba(0,0,0,0.6);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 10px;
+  z-index: 100000;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+}
+
+#hamburgerBtn:hover {
+  background: rgba(0,0,0,0.85);
+}
+
+/* Menu overlay */
+#menuOverlay {
+  position: fixed;
+  top: 10px;
+  right: 10px;
+  background: rgba(50, 50, 50, 0.85);
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 8px;
+  font-family: sans-serif;
+  font-size: 20px;
+  min-width: 180px;
+  z-index: 99999;
+  display: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.7);
+}
+
+#menuOverlay .highlight {
+  background-color: rgba(255, 255, 255, 0.2);
+  padding: 2px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+/* Exit popup */
+#exitPopup {
+  position: fixed;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
+  background: rgba(0,0,0,0.7);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 100001;
+}
+
+#exitPopupContent {
+  background: #222;
+  color: #fff;
+  padding: 20px 30px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+#exitPopupContent button {
+  margin: 10px;
+  padding: 8px 16px;
+  font-size: 18px;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+#exitPopupContent button:hover {
+  background: rgba(255,255,255,0.2);
 }
