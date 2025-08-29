@@ -65,17 +65,19 @@ function renderMenu() {
 
 
 function openMenu() {
-    if (!menuOverlay) return;
     menuOpen = true;
     menuIndex = 0;
     menuOverlay.style.display = "block";
+    rightIframe.style.pointerEvents = "none";  // <-- prevent iframe from blocking clicks
+    leftIframe.style.pointerEvents = "none";   // optional if left panel overlaps menu
     renderMenu();
 }
 
 function closeMenu() {
-    if (!menuOverlay) return;
     menuOpen = false;
     menuOverlay.style.display = "none";
+    rightIframe.style.pointerEvents = "auto";  // restore
+    leftIframe.style.pointerEvents = "auto";
 }
 
 function showExitPopup() {
