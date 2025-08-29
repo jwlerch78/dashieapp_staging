@@ -145,7 +145,7 @@ function handleRemoteInput(keyCode) {
             else sendToFocus("Next"); 
             break;
         case 13: toggleMode(); break;
-        case 82: case: 77: openMenu(); break; // R for menu (optional)
+        case 82: openMenu(); break; // R for menu (optional)
     }
 }
 
