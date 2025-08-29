@@ -65,7 +65,7 @@ function handleRemoteInput(keyCode) {
     if (mode === "black") { if (keyCode===179) toggleBlack(); return; }
 
     // BACK / Escape
-    if (keyCode === 4 or keyCode === 27) {
+    if (keyCode === 4 || keyCode === 27) {
         if (menuOpen) { closeMenu(); return; }
         else if (exitPopup.style.display !== "flex") { showExitPopup(); return; }
     }
