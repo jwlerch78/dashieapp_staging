@@ -128,67 +128,75 @@ body {
   background: rgba(0,0,0,0.85);
 }
 
-/* Menu overlay */
+/* --- Menu overlay --- */
 #menuOverlay {
   position: fixed;
-  top: 10px;
-  right: 10px;
-  background: rgba(50, 50, 50, 0.85);
-  color: #fff;
-  padding: 12px 16px;
+  top: 50px;          /* leave some space from top */
+  right: 20px;
+  background: rgba(50,50,50,0.9);  /* slightly transparent gray */
   border-radius: 8px;
-  font-family: sans-serif;
-  font-size: 20px;
+  padding: 10px 0;
   min-width: 180px;
-  z-index: 99999;
+  z-index: 100000;
   display: none;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.7);
+  box-shadow: 0 0 12px rgba(0,0,0,0.7);
 }
 
-#menuOverlay .highlight {
-  background-color: rgba(255, 255, 255, 0.2);
-  padding: 2px 4px;
-  border-radius: 4px;
+#menuOverlay div {
+  padding: 8px 16px;
   cursor: pointer;
+  color: #fff;
+  font-size: 18px;
+  user-select: none;
 }
 
+#menuOverlay div.highlight,
 #menuOverlay div:hover {
-    background-color: rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
-    cursor: pointer;
+  background-color: rgba(255,255,255,0.2);
 }
 
-/* Exit popup */
+/* --- Exit confirmation popup --- */
 #exitPopup {
   position: fixed;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-  background: rgba(0,0,0,0.7);
+  top: 0; left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.85);
   display: none;
-  align-items: center;
   justify-content: center;
+  align-items: center;
   z-index: 100001;
+  font-family: sans-serif;
 }
 
-#exitPopupContent {
+#exitPopup .popup-content {
   background: #222;
-  color: #fff;
-  padding: 20px 30px;
   border-radius: 10px;
+  padding: 20px 30px;
   text-align: center;
+  color: #fff;
+  min-width: 280px;
 }
 
-#exitPopupContent button {
-  margin: 10px;
-  padding: 8px 16px;
+#exitPopup .popup-buttons {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+  gap: 20px;
+}
+
+#exitPopup button {
+  padding: 8px 20px;
   font-size: 18px;
   border: none;
   border-radius: 6px;
   cursor: pointer;
+  background: #444;
+  color: #fff;
+  transition: background 0.2s;
 }
 
-#exitPopupContent button:hover {
-  background: rgba(255,255,255,0.2);
+#exitPopup button.highlight,
+#exitPopup button:hover {
+  background: #4285f4;
 }
