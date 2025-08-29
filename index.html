@@ -23,23 +23,25 @@
   <!-- RIGHT PANEL -->
   <iframe id="rightpanel" src="RightPanel.html" title="RightPanel"></iframe>
 
-  <!-- Hamburger menu button -->
+  <!-- Hamburger menu button (top-right) -->
   <button id="hamburgerBtn" aria-label="Menu">&#9776;</button>
 
-  <!-- Menu overlay -->
+  <!-- MENU OVERLAY -->
   <div id="menuOverlay"></div>
 
-  <!-- Key log -->
-  <div id="keyLog">-</div>
-
-  <!-- Exit popup -->
+  <!-- EXIT POPUP -->
   <div id="exitPopup">
-    <div id="exitPopupContent">
+    <div class="popup-content">
       <p>Are you sure you want to quit?</p>
-      <button id="exitYes">Yes</button>
-      <button id="exitNo">No</button>
+      <div class="popup-buttons">
+        <button id="exitYes">Yes</button>
+        <button id="exitNo">No</button>
+      </div>
     </div>
   </div>
+
+  <!-- Key log for debugging -->
+  <div id="keyLog">-</div>
 
 <script src="js/config.js"></script>
 <script src="js/index.js"></script>
