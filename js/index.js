@@ -6,23 +6,21 @@ let mode = "calendar"; // Track current rotating mode
 let overlay = null;
 let FocusMode = "RightPanel"; // Default
 
-document.addEventListener('keydown', (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-
-    keyLog.textContent = `${event.keyCode}`;
+// --- Unified handler for key input from either JS keydown OR Android bridge ---
+function handleRemoteInput(keyCode) {
+    keyLog.textContent = `${keyCode}`;
 
     // --- BLOCK everything in black mode ---
     if (mode === "black") {
         // Only allow play/pause (179) to toggle black on/off
-        if (event.keyCode === 179) {
+        if (keyCode === 179) {
             toggleBlack();
         }
         return; // ignore everything else
     }
 
     // --- Normal handling when not black ---
-    switch(event.keyCode) {
+    switch(keyCode) {
         case 38: // up arrow
             sendToFocus("Up");
             break;
@@ -58,10 +56,24 @@ document.addEventListener('keydown', (event) => {
             }
             else  sendToFocus("Next");
             break;
-        case 13: // Enter → rotate modes (but not in black mode)
+        case 13: // Enter → rotate modes
             toggleMode();
             break;
+        case 4: // Android BACK button
+            if (window.history.length > 1) {
+                window.history.back();
+            } else if (AndroidApp && AndroidApp.exitApp) {
+                AndroidApp.exitApp();
+            }
+            break;
     }
+}
+
+// --- Keep your old listener for desktop testing ---
+document.addEventListener('keydown', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    handleRemoteInput(event.keyCode);
 });
 
 // Helper: send message based on FocusMode
