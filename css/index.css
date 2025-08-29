@@ -156,6 +156,7 @@ body {
 }
 
 /* --- Exit confirmation popup --- */
+/* --- Exit confirmation popup --- */
 #exitPopup {
   position: fixed;
   top: 0; left: 0;
@@ -172,21 +173,25 @@ body {
 #exitPopup .popup-content {
   background: #222;
   border-radius: 10px;
-  padding: 20px 30px;
+  padding: 30px 40px;
   text-align: center;
-  color: #fff;
-  min-width: 280px;
+  color: #fff; /* white text */
+  min-width: 300px;
+}
+
+#exitPopup .popup-content p {
+  font-size: 20px;
+  margin-bottom: 25px; /* space above buttons */
 }
 
 #exitPopup .popup-buttons {
   display: flex;
-  justify-content: center;
-  margin-top: 20px;
+  justify-content: center; /* center buttons horizontally */
   gap: 20px;
 }
 
 #exitPopup button {
-  padding: 8px 20px;
+  padding: 10px 25px;
   font-size: 18px;
   border: none;
   border-radius: 6px;
