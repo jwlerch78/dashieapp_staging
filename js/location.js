@@ -271,7 +271,6 @@ async function updateLocations() {
 
             extraEl.innerHTML = `
               At Location: ${timeAtLocationText}<br>
-              Since Update: ${timeSinceUpdateText}<br>
               Speed: ${speedMph} mph<br>
               Is Moving: ${movementStatus}<br>
               ${distanceMiles} mi away<br>
