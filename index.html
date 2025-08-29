@@ -3,34 +3,43 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dashboard</title>
+<title>Dashie</title>
 <link rel="stylesheet" href="css/index.css">
 </head>
 
 <body>
   <!-- LEFT COLUMN -->
-<section class="left-col">
-  <div class="iframe-wrapper">
-    <iframe id="dateTime" src="Date_Time.html" title="Date & Time"></iframe>
-  </div>
-  <div id="leftpanel-wrapper">
-    <iframe class="card leftpanel" id="leftpanel" src="LeftPanel.html" title="LeftPanel"></iframe>
-  </div>
-</section>
+  <section class="left-col">
+    <div class="iframe-wrapper">
+      <iframe id="dateTime" src="Date_Time.html" title="Date & Time"></iframe>
+    </div>
+    <div id="leftpanel-wrapper">
+      <iframe class="card leftpanel" id="leftpanel" src="LeftPanel.html" title="LeftPanel"></iframe>
+    </div>
+  </section>
 
   <div class="divider" aria-hidden="true"></div>
 
   <!-- RIGHT PANEL -->
   <iframe id="rightpanel" src="RightPanel.html" title="RightPanel"></iframe>
 
+  <!-- Hamburger menu button -->
+  <button id="hamburgerBtn" aria-label="Menu">&#9776;</button>
 
-<button id="hamburgerBtn" aria-label="Menu">&#9776;</button>
+  <!-- Menu overlay -->
+  <div id="menuOverlay"></div>
 
-  
   <!-- Key log -->
   <div id="keyLog">-</div>
 
-  
+  <!-- Exit popup -->
+  <div id="exitPopup">
+    <div id="exitPopupContent">
+      <p>Are you sure you want to quit?</p>
+      <button id="exitYes">Yes</button>
+      <button id="exitNo">No</button>
+    </div>
+  </div>
 
 <script src="js/config.js"></script>
 <script src="js/index.js"></script>
