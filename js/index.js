@@ -60,11 +60,9 @@ function handleRemoteInput(keyCode) {
             toggleMode();
             break;
         case 4: // Android BACK button
-            if (window.history.length > 1) {
-                window.history.back();
-            } else if (AndroidApp && AndroidApp.exitApp) {
-                AndroidApp.exitApp();
-            }
+            //if (AndroidApp && AndroidApp.exitApp) {
+            //    AndroidApp.exitApp();
+            //}
             break;
     }
 }
