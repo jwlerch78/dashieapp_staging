@@ -17,6 +17,10 @@ const menuOverlay = document.createElement("div");
 menuOverlay.id = "menuOverlay";
 document.body.appendChild(menuOverlay);
 
+// Add after menuOverlay is created
+const hamburgerBtn = document.getElementById("hamburgerBtn");
+hamburgerBtn.addEventListener("click", openMenu);
+
 function renderMenu() {
     menuOverlay.innerHTML = menuOptions.map((opt, i) => {
         return i === menuIndex ? `<div class="highlight">${opt}</div>` : `<div>${opt}</div>`;
@@ -99,7 +103,8 @@ function handleRemoteInput(keyCode) {
         case 4: // Android BACK button
             // handled later if needed
             break;
-        case 82: // MENU button for testing (replace with Fire TV menu key)
+        case 82: // MENU button
+        case 77: // (m) for PC testing
             openMenu();
             break;
     }
