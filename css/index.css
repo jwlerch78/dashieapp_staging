@@ -140,6 +140,7 @@ body {
   z-index: 100000;
   display: none;
   box-shadow: 0 0 12px rgba(0,0,0,0.7);
+  pointer-events: auto;    
 }
 
 #menuOverlay div {
