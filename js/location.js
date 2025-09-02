@@ -174,19 +174,22 @@ async function updateLocations() {
 if (window.frames) {
   console.log("Sending Device Data via postMessage");
   window.postMessage(
-    {
-      type: "locationUpdate",
-      payload: {
-        device: device.name,
-        zoneName,
-        poiName,
+  {
+    type: "locationUpdate",
+    payload: [
+      {
+        name: device.name,            // <-- lowercase matches your IDs
+        zone: zoneName,
+        poi: poiName,
         speedMph,
         movementStatus,
-        distanceMiles
+        distance: distanceMiles
       }
-    },
-    "*"
-  );
+    ]
+  },
+  "*"
+);
+
 }
       
 
