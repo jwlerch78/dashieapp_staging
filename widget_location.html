@@ -74,28 +74,25 @@
 
   
 <script>
-  function updateLocationBar(data) {
+function updateLocationBar(device) {
   const bar = document.getElementById("family-bar");
   if (!bar) return;
 
-  if (Array.isArray(data)) {
-    data.forEach(device => {
-      const name = device.name.toLowerCase();
-      const locEl = document.getElementById(`${name}-location`);
-      const subEl = document.getElementById(`${name}-sub`);
-      const extraEl = document.getElementById(`${name}-extra`);
+  const name = device.device.toLowerCase(); // uses "device" field from payload
+  const locEl = document.getElementById(`${name}-location`);
+  const subEl = document.getElementById(`${name}-sub`);
+  const extraEl = document.getElementById(`${name}-extra`);
 
-      if (locEl) locEl.textContent = device.zone || "Unknown location";
-      if (subEl) subEl.textContent = device.distance ? `${device.distance} mi away` : "";
-      if (extraEl) extraEl.innerHTML = `
-        At Location: ${device.timeAtLocation || "Unknown"}<br>
-        Speed: ${device.speedMph || 0} mph<br>
-        Is Moving: ${device.movementStatus || "No"}<br>
-        ${device.poi || ""}
-      `;
-    });
-  }
+  if (locEl) locEl.textContent = device.zoneName || "Unknown location";
+  if (subEl) subEl.textContent = device.distanceMiles ? `${device.distanceMiles} mi away` : "";
+  if (extraEl) extraEl.innerHTML = `
+    At Location: ${device.timeAtLocation || "Unknown"}<br>
+    Speed: ${device.speedMph || 0} mph<br>
+    Is Moving: ${device.movementStatus || "No"}<br>
+    ${device.poiName || ""}
+  `;
 }
+
   
   window.addEventListener("message", (event) => {
   const { type, payload, action } = event.data || {};
