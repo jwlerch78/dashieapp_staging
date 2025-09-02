@@ -98,25 +98,22 @@
 }
   
   window.addEventListener("message", (event) => {
-    const { action, data } = event.data || {};
-    const bar = document.getElementById("family-bar");
-    console.log("Listener event triggered in widget_location");
-    if (!bar) return;
-    
+  const { type, payload, action } = event.data || {};
+  const bar = document.getElementById("family-bar");
+  console.log("Listener event triggered in widget_location", event.data);
+  if (!bar) return;
 
-    // --- Location mode class ---
-    if (action === "enterLocationMode") bar.classList.add("location-mode");
-    if (action === "exitLocationMode") bar.classList.remove("location-mode");
+  // --- Location mode class ---
+  if (action === "enterLocationMode") bar.classList.add("location-mode");
+  if (action === "exitLocationMode") bar.classList.remove("location-mode");
 
-    // --- Location update data ---
-     if (event.data?.type === "locationUpdate") {
-    const data = event.data.payload;
-    // Now call your existing update function
-       console.log("Updating location bar");
-    updateLocationBar(data);
+  // --- Location update data ---
+  if (type === "locationUpdate") {
+    console.log("Updating location bar with payload:", payload);
+    updateLocationBar(payload);
   }
-     
-  });
+});
+
 
   console.log("Location bar widget initialized");
 </script>
