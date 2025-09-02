@@ -7,8 +7,6 @@
 <style>
   html, body { margin:0; padding:0; width:0; height:0; overflow:hidden; } /* hidden iframe */
 </style>
-</head>
-<body>
 
 <script src="js/config.js"></script>
   <script>
@@ -20,6 +18,9 @@
     };
   })();
   </script>
+
+</head>
+<body>
   
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
@@ -96,6 +97,7 @@ function initMap() {
 }
 
 async function updateLocations() {
+   console.log("updateLocations called");
   if(!map) return;
   const now = Date.now();
 
