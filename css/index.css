@@ -14,22 +14,23 @@ html, body {
 body {
   display: grid;
   grid-template-columns: 1fr 12px 2fr;
-  grid-template-rows: 100%;
+  grid-template-rows: 100vh;
   grid-template-areas: "left divider right";
-  align-items: stretch;
-  padding: 10px;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
   box-sizing: border-box;
+  /* Removed overflow: hidden to fix right panel scaling */
 }
 
-/* LEFT COLUMN */
 .left-col {
   grid-area: left;
-  display: grid;
-  grid-template-rows: 7% 1fr;
-  row-gap: 8px;
-  background: var(--bg-left);
-  border-radius: 10px;
-  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  width: 100%;
+  min-width: 0;      /* CRITICAL: Prevents grid item from expanding beyond grid */
+  overflow: hidden;  /* Keep this only on left column */
 }
 
 #leftpanel-wrapper {
