@@ -135,6 +135,7 @@ async function updateLocations() {
         markers[device.name] = { lat: pos.latitude, lon: pos.longitude };
 
         // Send to parent
+        console.log("Sending locationupdate to parent");
         window.parent.postMessage({ action:"locationUpdate", data:{
           device: device.name, lat: pos.latitude, lon: pos.longitude,
           zoneName, poiName, speedMph, movementStatus, distanceMiles
