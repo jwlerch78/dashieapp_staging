@@ -132,7 +132,7 @@ async function updateLocations() {
   }
 
   applyFormations();
-  if(!locationInterval) locationInterval=setInterval(updateLocations, locationIntervalMs);
+  if(!locationInterval) locationInterval=setInterval(updateLocations, 30000);
 }
 
 /* --- Init --- */
