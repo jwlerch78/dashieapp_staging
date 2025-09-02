@@ -34,15 +34,20 @@
   <div class="divider" aria-hidden="true"></div>
 
  <!-- RIGHT COLUMN -->
-<div id="right-col" style="display: flex; flex-direction: column; height: 100vh;">
-  <!-- Location Widget -->
-  <div id="location-widget" style="height: 80px; flex: none;">
-    <iframe id="location-frame" src="widget_location.html" frameborder="0" style="width: 100%; height: 100%;"></iframe>
+<!-- RIGHT PANEL WRAPPER -->
+<div id="right-col" style="position: relative; height: 100%; width: 100%;">
+  
+  <!-- Family tracker bar (Location Widget) -->
+  <div id="location-widget" style="position: absolute; top: 0; right: 0; width: 100%; z-index: 10;">
+    <div id="family-bar">
+      <!-- keep all your member divs here as before -->
+    </div>
   </div>
 
-  <!-- Right panel -->
-  <iframe id="rightpanel" src="RightPanel.html" style="flex: 1 1 auto;"></iframe>
+  <!-- Right panel iframe -->
+  <iframe id="rightpanel" src="RightPanel.html" title="RightPanel"></iframe>
 </div>
+
 
   <!-- Hamburger menu button (top-right) -->
   <button id="hamburgerBtn" aria-label="Menu">&#9776;</button>
