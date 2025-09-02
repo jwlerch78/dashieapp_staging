@@ -18,12 +18,12 @@ html, body {
   flex-direction: row;
   justify-content: space-between; /* spread members across full width */
   align-items: flex-start;
-  padding: 10px 8px; /* Reduced horizontal padding */
+  padding: 8px 8px; /* Reduced vertical padding */
   background: #000;
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   transition: height 0.3s ease;
   overflow: hidden;
-  height: 70px; /* default collapsed height */
+  height: 80px; /* Increased height to match your index.html container */
   width: 100%;
   box-sizing: border-box;
 }
@@ -38,13 +38,14 @@ html, body {
   flex-direction: column; /* stack top row + extra info */
   align-items: center;
   background-color: #111;
-  padding: 6px 8px; /* Reduced padding */
+  padding: 4px 8px; /* Reduced vertical padding */
   border-radius: 8px; /* Slightly smaller border radius */
   min-width: 0; /* CRITICAL: Allow shrinking below content size */
   width: calc(20% - 8px); /* Each member takes 1/5 of width minus margins */
   flex: 1; /* allow even distribution across bar */
   margin: 0 2px; /* Reduced margin between members */
   box-sizing: border-box;
+  height: fit-content; /* Let height adjust to content */
 }
 
 /* Top row: image + location */
@@ -59,10 +60,10 @@ html, body {
 
 /* Profile photo - MADE RESPONSIVE */
 .member-top img {
-  width: clamp(40px, 8vw, 60px); /* Responsive size: min 40px, max 60px */
-  height: clamp(40px, 8vw, 60px);
+  width: clamp(35px, 6vw, 50px); /* Smaller responsive size: min 35px, max 50px */
+  height: clamp(35px, 6vw, 50px);
   border-radius: 50%;
-  margin-right: 8px;
+  margin-right: 6px;
   flex-shrink: 0; /* Don't shrink the image */
 }
 
