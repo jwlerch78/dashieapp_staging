@@ -100,7 +100,9 @@
   window.addEventListener("message", (event) => {
     const { action, data } = event.data || {};
     const bar = document.getElementById("family-bar");
+    console.log("Listener event triggered in widget_location");
     if (!bar) return;
+    
 
     // --- Location mode class ---
     if (action === "enterLocationMode") bar.classList.add("location-mode");
@@ -110,6 +112,7 @@
      if (event.data?.type === "locationUpdate") {
     const data = event.data.payload;
     // Now call your existing update function
+       console.log("Updating location bar");
     updateLocationBar(data);
   }
      
