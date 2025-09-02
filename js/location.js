@@ -171,7 +171,7 @@ async function updateLocations() {
       // -----------------------------
       // Notify location bar widget
       if (typeof window.updateLocationBar === "function") {
-        console.log(`Sending Device ${device.id} Data');
+        console.log("Sending Device Data via window.update function");
         window.updateLocationBar({
           device: device.name,
           zoneName,
