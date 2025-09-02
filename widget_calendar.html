@@ -1,0 +1,38 @@
+<!--widget_Calendar.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Calendar Widget</title>
+  <link rel="stylesheet" href="css/widget_calendar.css"/>
+</head>
+<body>
+  <!-- Calendar header -->
+  <div id="header-container">
+    <iframe 
+      id="header-frame"
+      src="https://calendar.google.com/calendar/embed?src=jwlerch@gmail.com&ctz=America/New_York&showTitle=0&showNav=0&showPrint=0&showTabs=0&showCalendars=0&showTz=0&wkst=2"
+      scrolling="no">
+    </iframe>
+  </div>
+
+  <!-- Calendar container -->
+  <div id="calendar-container">
+    <iframe id="calendar-weekly" class="calendar-frame"></iframe>
+    <iframe id="calendar-monthly" class="calendar-frame"></iframe>
+    <iframe id="calendar-work" class="calendar-frame"></iframe>
+  </div>
+
+  <!-- Bottom view indicators -->
+  <div class="view-indicators">
+    <div id="label-weekly" class="view-label">Weekly</div>
+    <div id="label-monthly" class="view-label">Monthly</div>
+    <div id="label-work" class="view-label">Work</div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/widget_calendar.js"></script>
+</body>
+</html>
