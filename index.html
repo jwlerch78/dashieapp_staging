@@ -10,16 +10,19 @@
 <body>
   <!-- LEFT COLUMN -->
   <section class="left-col">
-    <div class="iframe-wrapper">
-      <iframe id="dateTime" src="Date_Time.html" title="Date & Time"></iframe>
-    </div>
-    <div id="leftpanel-wrapper">
-      <iframe class="card leftpanel" id="leftpanel" src="LeftPanel.html" title="LeftPanel"></iframe>
-    </div>
-
+ <!-- Clock Widget -->
+  <div class="iframe-wrapper" id="dateTime-wrapper">
+    <iframe id="dateTime" src="Date_Time.html" title="Date & Time"></iframe>
+  </div>
+  <!-- Agenda Widget -->
+  <div class="iframe-wrapper" id="agenda-wrapper">
+    <iframe id="agenda-frame" src="LeftPanel.html" title="Agenda"></iframe>
+  </div>
+  <div class="iframe-wrapper" id="photo-wrapper">
     <div id="photo-container">
       <img id="photoImg" src="" alt="Slideshow Photo">
     </div>
+  </div>
     
   </section>
 
