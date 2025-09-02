@@ -31,6 +31,9 @@ async function reverseGeocode(lat, lon) {
   try {
     const resp = await fetch(`${PROXY_URL}/reverse?lat=${lat}&lon=${lon}`);
     const json = await resp.json();
+
+    console.log("Reverse geocode response:", json); // 👈 always log
+    
     const addr = json.address || {};
     const result =
       addr.city || addr.town || addr.village || addr.hamlet ||
@@ -122,6 +125,9 @@ async function updateLocations() {
     try {
       const resp = await fetch(`${PROXY_URL}/positions/${device.id}?limit=2`);
       const data = await resp.json();
+
+      console.log(`Device ${device.id} Traccar response:`, data);
+      
       if (!Array.isArray(data) || !data.length) continue;
       const pos = data[0];
       const prev = data[1];
@@ -165,6 +171,7 @@ async function updateLocations() {
       // -----------------------------
       // Notify location bar widget
       if (typeof window.updateLocationBar === "function") {
+        console.log(`Sending Device ${device.id} Data');
         window.updateLocationBar({
           device: device.name,
           zoneName,
