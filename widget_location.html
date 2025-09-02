@@ -69,5 +69,17 @@
       <div class="member-extra" id="jack-extra"></div>
     </div>
   </div>
+  
+<script>
+window.addEventListener("message", (event) => {
+  const { action } = event.data || {};
+  const bar = document.getElementById("family-bar");
+  if (!bar) return;
+
+  if (action === "enterLocationMode") bar.classList.add("location-mode");
+  if (action === "exitLocationMode") bar.classList.remove("location-mode");
+});
+</script>
+  
 </body>
 </html>
