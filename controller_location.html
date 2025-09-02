@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Location Controller</title>
+<style>
+  html, body { margin:0; padding:0; width:0; height:0; overflow:hidden; } /* hidden iframe */
+</style>
+</head>
+<body>
+
+<script src="js/config.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+let map;
+const markers = {};
+const reverseGeoCache = {};
+let locationInterval;
+const PROXIMITY_THRESHOLD = 0.00015;
+const CACHE_TTL_MS = 30*60*1000; // 30 minutes
+
+function getZone(lat, lon) {
+  for (let zone of ZONES) {
+    const dist = Math.sqrt((lat - zone.lat)**2 + (lon - zone.lon)**2);
+    if (dist <= zone.radius) return zone.name;
+  }
+  return null;
+}
+
+async function reverseGeocode(lat, lon) {
+  const key = `${lat.toFixed(8)},${lon.toFixed(8)}`;
+  const now = Date.now();
+  if (reverseGeoCache[key] && (now - reverseGeoCache[key].timestamp < CACHE_TTL_MS))
+    return reverseGeoCache[key].result;
+
+  try {
+    const resp = await fetch(`${PROXY_URL}/reverse?lat=${lat}&lon=${lon}`);
+    const json = await resp.json();
+    const addr = json.address || {};
+    const result = addr.city || addr.town || addr.village || addr.hamlet || addr.suburb || addr.county || addr.state || json.display_name || "Unknown location";
+    reverseGeoCache[key] = { timestamp: now, result };
+    return result;
+  } catch {
+    return "Unknown location";
+  }
+}
+
+function getFormationOffsets(count, radius = PROXIMITY_THRESHOLD) {
+  const offsets = [];
+  for (let i=0;i<count;i++) {
+    const angle = (i/count)*2*Math.PI;
+    offsets.push([radius*Math.cos(angle), radius*Math.sin(angle)]);
+  }
+  return offsets;
+}
+
+function applyFormations() {
+  if(!map) return;
+  const positions = DEVICES.map(d => markers[d.name]).filter(m => m);
+  const groups=[]; const used=new Set();
+
+  positions.forEach((m,i)=>{
+    if(used.has(i)) return;
+    const group=[m]; used.add(i);
+    for(let j=i+1;j<positions.length;j++){
+      if(used.has(j)) continue;
+      const dx = m.lat - positions[j].lat; const dy = m.lon - positions[j].lon;
+      if(Math.sqrt(dx*dx+dy*dy)<=PROXIMITY_THRESHOLD){group.push(positions[j]); used.add(j);}
+    }
+    groups.push(group);
+  });
+
+  groups.forEach(group=>{
+    const offsets = getFormationOffsets(group.length);
+    const centroidLat = group.reduce((s,m)=>s+m.lat,0)/group.length;
+    const centroidLon = group.reduce((s,m)=>s+m.lon,0)/group.length;
+    group.forEach((item,idx)=>{ item.lat += offsets[idx][0]; item.lon += offsets[idx][1]; });
+  });
+}
+
+function initMap() {
+  map = L.map(document.createElement("div")); // hidden container
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:'&copy; OpenStreetMap contributors'}).addTo(map);
+  map.setView([0,0],2);
+}
+
+async function updateLocations() {
+  if(!map) return;
+  const now = Date.now();
+
+  for(const device of DEVICES){
+    try {
+      const resp = await fetch(`${PROXY_URL}/positions/${device.id}?limit=2`);
+      const data = await resp.json();
+      if(!Array.isArray(data)||data.length===0) continue;
+      const pos = data[0]; const prev = data[1];
+
+      if(pos.latitude && pos.longitude){
+        const zoneName = getZone(pos.latitude,pos.longitude) || await reverseGeocode(pos.latitude,pos.longitude);
+        const poiName = pos.poi || '';
+
+        // Compute speed & movement
+        let speedMph=0, movementStatus="No";
+        if(prev && prev.latitude && prev.longitude && prev.serverTime){
+          const lat1=prev.latitude*Math.PI/180, lat2=pos.latitude*Math.PI/180;
+          const dLat=(pos.latitude-prev.latitude)*Math.PI/180;
+          const dLon=(pos.longitude-prev.longitude)*Math.PI/180;
+          const a=Math.sin(dLat/2)**2+Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
+          const c=2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+          const distanceMeters=6371e3*c;
+          const timeHrs=(new Date(pos.serverTime)-new Date(prev.serverTime))/3600000;
+          if(timeHrs>0){ speedMph=(distanceMeters*0.000621371/timeHrs).toFixed(1); movementStatus=(speedMph>=1?"Yes":"No"); }
+        }
+
+        const R=6371e3; const φ1=pos.latitude*Math.PI/180; const φ2=HOME_LOCATION.lat*Math.PI/180;
+        const Δφ=(HOME_LOCATION.lat-pos.latitude)*Math.PI/180; const Δλ=(HOME_LOCATION.lon-pos.longitude)*Math.PI/180;
+        const a=Math.sin(Δφ/2)**2+Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+        const c=2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+        const distanceMiles=(R*c*0.000621371).toFixed(1);
+
+        // Store marker internally (lat/lon for formations)
+        markers[device.name] = { lat: pos.latitude, lon: pos.longitude };
+
+        // Send to parent
+        window.parent.postMessage({ action:"locationUpdate", data:{
+          device: device.name, lat: pos.latitude, lon: pos.longitude,
+          zoneName, poiName, speedMph, movementStatus, distanceMiles
+        }}, "*");
+      }
+    } catch(e){ console.error(e); }
+  }
+
+  applyFormations();
+  if(!locationInterval) locationInterval=setInterval(updateLocations, locationIntervalMs);
+}
+
+/* --- Init --- */
+initMap();
+updateLocations();
+</script>
+</body>
+</html>
