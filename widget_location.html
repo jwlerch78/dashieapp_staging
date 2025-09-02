@@ -72,44 +72,37 @@
 </div>
 
 <script>
-window.addEventListener("message", (event) => {
-  console.log("Received message from controller:", event.data);
+  window.addEventListener("message", (event) => {
+    const { action, data } = event.data || {};
+    const bar = document.getElementById("family-bar");
+    if (!bar) return;
 
-  const { action, data } = event.data || {};
-  const bar = document.getElementById("family-bar");
-  if (!bar) return;
+    // --- Location mode class ---
+    if (action === "enterLocationMode") bar.classList.add("location-mode");
+    if (action === "exitLocationMode") bar.classList.remove("location-mode");
 
-  // --- Debug logging for action ---
-  console.log("Action:", action);
-  if (action === "locationUpdate") console.log("Location data:", data);
+    // --- Location update data ---
+    if (action === "locationUpdate" && Array.isArray(data)) {
+      data.forEach(device => {
+        const name = device.device.toLowerCase();
+        const locEl = document.getElementById(`${name}-location`);
+        const subEl = document.getElementById(`${name}-sub`);
+        const extraEl = document.getElementById(`${name}-extra`);
 
-  // --- Update location bar data ---
-  if (action === "locationUpdate" && Array.isArray(data)) {
-    data.forEach(device => {
-      const name = device.name.toLowerCase();
-      const locEl = document.getElementById(`${name}-location`);
-      const subEl = document.getElementById(`${name}-sub`);
-      const extraEl = document.getElementById(`${name}-extra`);
+        if(locEl) locEl.textContent = device.zoneName || "Unknown location";
+        if(subEl) subEl.textContent = device.distanceMiles ? `${device.distanceMiles} mi away` : "";
+        if(extraEl) extraEl.innerHTML = `
+          At Location: ${device.timeAtLocation || "Unknown"}<br>
+          Speed: ${device.speedMph || 0} mph<br>
+          Is Moving: ${device.movementStatus || "No"}<br>
+          ${device.poiName || ""}
+        `;
+      });
+    }
+  });
 
-      console.log(`Updating device: ${name}`, device);
-
-      if(locEl) locEl.textContent = device.zone || "Unknown location";
-      if(subEl) subEl.textContent = device.distance ? `${device.distance} mi away` : "";
-      if(extraEl) extraEl.innerHTML = `
-        At Location: ${device.timeAtLocation || "Unknown"}<br>
-        Speed: ${device.speedMph || 0} mph<br>
-        Is Moving: ${device.movementStatus || "No"}<br>
-        ${device.poi || ""}
-      `;
-    });
-  }
-
-  // --- Toggle location mode class ---
-  if (action === "enterLocationMode") bar.classList.add("location-mode");
-  if (action === "exitLocationMode") bar.classList.remove("location-mode");
-});
+  console.log("Location bar widget initialized");
 </script>
-
 
   
 </body>
