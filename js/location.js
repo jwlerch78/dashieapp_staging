@@ -168,11 +168,14 @@ async function updateLocations() {
       // Save marker for formations
       markers[device.name] = { lat: pos.latitude, lon: pos.longitude };
 
+
       // -----------------------------
       // Notify location bar widget
 
-const widgetFrame = document.getElementById("locationWidget"); // <iframe id="locationWidget" ...>
+const widgetFrame = document.getElementById("location-Widget"); 
+
 if (widgetFrame && widgetFrame.contentWindow) {
+  console.log("Sending Post Message");
   widgetFrame.contentWindow.postMessage(
     {
       type: "locationUpdate",
