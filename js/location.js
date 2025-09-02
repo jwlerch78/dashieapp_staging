@@ -172,7 +172,7 @@ async function updateLocations() {
       // -----------------------------
       // Notify location bar widget
 
-const widgetFrame = document.getElementById("location-widget"); 
+const widgetFrame = document.getElementById("location-frame"); 
 
 if (widgetFrame && widgetFrame.contentWindow) {
   console.log("Sending Post Message");
