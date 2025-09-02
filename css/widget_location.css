@@ -12,18 +12,18 @@ html, body {
   box-sizing: border-box;
 }
 
-/* Family Tracker bar */
+/* Family Tracker bar - FIXED FOR 10VH */
 #family-bar {
   display: flex;
   flex-direction: row;
   justify-content: space-between; /* spread members across full width */
-  align-items: flex-start;
-  padding: 8px 8px; /* Reduced vertical padding */
+  align-items: center; /* Center vertically within the 10vh */
+  padding: 4px 8px; /* Minimal padding to fit in 10vh */
   background: #000;
   box-shadow: 0 2px 5px rgba(0,0,0,0.2);
   transition: height 0.3s ease;
   overflow: hidden;
-  height: 80px; /* Increased height to match your index.html container */
+  height: 100%; /* Fill the 10vh container */
   width: 100%;
   box-sizing: border-box;
 }
@@ -32,20 +32,21 @@ html, body {
   height: 320px; /* taller in location mode */
 }
 
-/* Each member card - FIXED */
+/* Each member card - SIZED FOR 10VH */
 .member {
   display: flex;
-  flex-direction: column; /* stack top row + extra info */
+  flex-direction: column;
   align-items: center;
+  justify-content: center; /* Center content vertically */
   background-color: #111;
-  padding: 4px 8px; /* Reduced vertical padding */
-  border-radius: 8px; /* Slightly smaller border radius */
-  min-width: 0; /* CRITICAL: Allow shrinking below content size */
-  width: calc(20% - 8px); /* Each member takes 1/5 of width minus margins */
-  flex: 1; /* allow even distribution across bar */
-  margin: 0 2px; /* Reduced margin between members */
+  padding: 2px 6px; /* Minimal padding */
+  border-radius: 6px;
+  min-width: 0;
+  width: calc(20% - 8px);
+  flex: 1;
+  margin: 0 2px;
   box-sizing: border-box;
-  height: fit-content; /* Let height adjust to content */
+  height: 100%; /* Fill available height */
 }
 
 /* Top row: image + location */
@@ -58,13 +59,13 @@ html, body {
   min-width: 0; /* Allow shrinking */
 }
 
-/* Profile photo - MADE RESPONSIVE */
+/* Profile photo - SMALLER FOR 10VH */
 .member-top img {
-  width: clamp(35px, 6vw, 50px); /* Smaller responsive size: min 35px, max 50px */
-  height: clamp(35px, 6vw, 50px);
+  width: clamp(25px, 4vh, 35px); /* Much smaller: min 25px, max 35px */
+  height: clamp(25px, 4vh, 35px);
   border-radius: 50%;
-  margin-right: 6px;
-  flex-shrink: 0; /* Don't shrink the image */
+  margin-right: 4px;
+  flex-shrink: 0;
 }
 
 /* Info next to photo (main location + subtext) */
@@ -77,27 +78,29 @@ html, body {
   min-width: 0; /* Allow text to shrink and wrap */
 }
 
-/* Main location text - MADE RESPONSIVE */
+/* Main location text - SMALLER FOR 10VH */
 .location {
-  font-size: clamp(14px, 2.5vw, 20px); /* Responsive font size */
+  font-size: clamp(10px, 1.5vh, 14px); /* Much smaller font */
   font-weight: bold;
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis; /* Add "..." if text is too long */
+  text-overflow: ellipsis;
+  line-height: 1.1; /* Tighter line height */
 }
 
-/* Subtext below main location (icon + distance) */
+/* Subtext below main location */
 .location-sub {
-  font-size: clamp(11px, 2vw, 14px); /* Responsive font size */
+  font-size: clamp(8px, 1.2vh, 11px); /* Much smaller font */
   color: #ccc;
-  margin-top: 2px;
+  margin-top: 1px;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.1;
 }
 
 /* Expanded info (centered under entire top row) */
