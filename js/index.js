@@ -204,7 +204,7 @@ function handleRemoteInput(keyCode) {
 
     // BLACK MODE
     if (mode === "black") {
-        if (keyCode === 179) toggleBlack();
+        toggleBlack();
         return;
     }
 
