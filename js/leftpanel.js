@@ -1,4 +1,4 @@
-// leftpanel.js
+// agenda_widget.js
 document.addEventListener("DOMContentLoaded", function() {
   // --- Elements ---
   const agendaFrame = document.getElementById("agenda-frame");
