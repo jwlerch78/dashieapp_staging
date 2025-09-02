@@ -71,7 +71,6 @@ function switchWidget(location, widgetType) {
 
     // Update the iframe source
     if (location === "rightBottom") {
-        const rightIframe = document.getElementById('rightpanel');
         if (rightIframe) {
             rightIframe.src = widgetUrl;
         }
@@ -291,7 +290,6 @@ window.addEventListener('DOMContentLoaded', () => {
 function sendToFocus(action) { 
     const msg = { action, mode };
     if(FocusMode === "RightPanel") {
-        const rightIframe = document.getElementById('rightpanel');
         if (rightIframe && rightIframe.contentWindow) {
             rightIframe.contentWindow.postMessage(msg, "*");
         }
@@ -351,7 +349,6 @@ function focusDashboard() {
 focusDashboard();
 
 // Focus dashboard when right iframe loads
-const rightIframe = document.getElementById('rightpanel');
 if (rightIframe) {
     rightIframe.addEventListener('load', focusDashboard);
 }
