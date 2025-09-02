@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Family Dashboard - Dynamic Display</title>
+</head>
+<style>
+html, body {
+  height: 100%;
+  margin: 0;
+  background: #000;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+}
+
+  
+</style>
+  
+<body>
+  <div id="photo-container">
+    <img id="photoImg" src="" alt="Slideshow Photo">
+  </div>
+  
+  <!-- Load photos.js first, then leftpanel.js -->
+  <script src="js/config.js"></script>
+  <script src="js/photos.js"></script>
+  <script src="js/photo_widget.js"></script>
+</body>
+</html>
