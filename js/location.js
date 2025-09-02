@@ -171,25 +171,22 @@ async function updateLocations() {
       // -----------------------------
       // Notify location bar widget
 
-if (window.frames) {
-  console.log("Sending Device Data via postMessage");
-  window.postMessage(
-  {
-    type: "locationUpdate",
-    payload: [
-      {
-        name: device.name,            // <-- lowercase matches your IDs
+const widgetFrame = document.getElementById("locationWidget"); // <iframe id="locationWidget" ...>
+if (widgetFrame && widgetFrame.contentWindow) {
+  widgetFrame.contentWindow.postMessage(
+    {
+      type: "locationUpdate",
+      payload: {
+        device: device.name,
         zone: zoneName,
         poi: poiName,
         speedMph,
         movementStatus,
         distance: distanceMiles
       }
-    ]
-  },
-  "*"
-);
-
+    },
+    "*"
+  );
 }
       
 
