@@ -54,3 +54,4 @@ if (typeof initMap === "function") {
   initMap();
   setTimeout(refreshMapIfReady, 100); // ensure map displays correctly on load
 }
+}
