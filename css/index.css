@@ -69,26 +69,24 @@ body {
   background: transparent;
 }
 
-/* RIGHT COLUMN - FIXED */
+/* RIGHT COLUMN - FIXED LAYOUT */
 #right-col {
   grid-area: right;
-  position: relative;
-  height: 100%;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
   width: 100%;
   min-width: 0;  /* Prevent overflow */
   overflow: hidden;  /* Clip any content that goes beyond bounds */
 }
 
-/* Location widget - FIXED */
+/* Location widget - FIXED HEIGHT */
 #location-widget {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 100%;  /* This should now respect the container bounds */
-  height: 80px;
-  flex: none;
+  height: 10vh;  /* 10% of viewport height - same as dateTime */
+  flex: none;   /* Don't let flex grow/shrink */
+  width: 100%;
   z-index: 10;
-  box-sizing: border-box;  /* Include borders in width calculation */
+  box-sizing: border-box;
 }
 
 /* Make sure the location iframe doesn't overflow */
@@ -99,10 +97,10 @@ body {
   display: block;
   box-sizing: border-box;
   position: relative;
-  z-index: 1; /* Much lower z-index */
+  z-index: 1;
 }
 
-/* RIGHT PANEL */
+/* RIGHT PANEL - TAKES REMAINING SPACE */
 #rightpanel {
   background: var(--bg-right);
   border-radius: 10px;
@@ -112,11 +110,12 @@ body {
   transform-origin: top left;
   width: 166.6667%;
   height: 166.6667%;
-  position: absolute;  /* relative to right-col */
-  top: 80px;           /* start just below collapsed location bar */
+  position: absolute;
+  top: 0;
   left: 0;
   box-sizing: border-box;
-  z-index: 10; /* Much lower than menu elements */
+  z-index: 5;
+  flex: 1;  /* Take remaining space after location widget */
 }
 
 /* Key log */
