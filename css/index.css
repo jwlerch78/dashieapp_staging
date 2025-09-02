@@ -33,36 +33,33 @@ body {
   overflow: hidden;  /* Keep this only on left column */
 }
 
-#leftpanel-wrapper {
-  position: relative;
-  width: 100%;
-  border-bottom: 5px solid transparent;
-  overflow: hidden;
+/* Use specific pixel or vh units for more precise control */
+#dateTime-wrapper {
+  height: 7vh;  /* 7% of viewport height */
+  flex: none;   /* Don't let flex grow/shrink */
 }
 
-.left-focus #leftpanel-wrapper {
-  border-bottom-color: #4285f4;
+#agenda-wrapper {
+  height: 55.8vh;  /* 55.8% of viewport height */
+  flex: none;
+}
+
+#photo-wrapper {
+  height: 37.2vh;  /* 37.2% of viewport height */
+  flex: none;
 }
 
 .iframe-wrapper {
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  position: relative;
-  background: var(--bg-left);
+  overflow: hidden;  /* Prevent content from spilling out */
 }
 
-.iframe-wrapper iframe,
-.leftpanel {
-  width: 125%;
-  height: 125%;
+.iframe-wrapper iframe {
+  width: 100%;
+  height: 100%;
   border: 0;
-  transform: scale(0.8);
-  transform-origin: top left;
-  overflow: hidden;
   display: block;
-  background: #000;
 }
+
 /* Photo container */
 #photo-container {
   flex: 1;
