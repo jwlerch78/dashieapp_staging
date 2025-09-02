@@ -80,26 +80,26 @@ function updateLocationBar(device) {
   const bar = document.getElementById("family-bar");
   if (!bar) return;
 
-  const name = device.device.toLowerCase(); // uses "device" field from payload
+  const name = device.device.toLowerCase(); // "device" is the name field in your payload
   const locEl = document.getElementById(`${name}-location`);
   const subEl = document.getElementById(`${name}-sub`);
   const extraEl = document.getElementById(`${name}-extra`);
 
-  if (locEl) locEl.textContent = device.zoneName || "Unknown location";
-  if (subEl) subEl.textContent = device.distanceMiles ? `${device.distanceMiles} mi away` : "";
+  if (locEl) locEl.textContent = device.zone || "Unknown location";
+  if (subEl) subEl.textContent = device.distance ? `${device.distance} mi away` : "";
   if (extraEl) extraEl.innerHTML = `
     At Location: ${device.timeAtLocation || "Unknown"}<br>
     Speed: ${device.speedMph || 0} mph<br>
     Is Moving: ${device.movementStatus || "No"}<br>
-    ${device.poiName || ""}
+    ${device.poi || ""}
   `;
 }
+
 
   
   window.addEventListener("message", (event) => {
   const { type, payload, action } = event.data || {};
   const bar = document.getElementById("family-bar");
-  console.log("Listener event triggered in widget_location", event.data);
   if (!bar) return;
 
   // --- Location mode class ---
@@ -112,7 +112,6 @@ function updateLocationBar(device) {
     updateLocationBar(payload);
   }
 });
-
 
   console.log("Location bar widget initialized");
 </script>
