@@ -60,14 +60,19 @@ function renderMenu() {
         const idx = parseInt(el.getAttribute("data-index"));
 
         // Mouse click selects the menu option
-        el.addEventListener("click", () => {
+        el.addEventListener("click", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             selectMenuOption(menuOptions[idx]);
         });
 
-        // Hover updates highlight
+        // Hover updates highlight (but don't re-render immediately)
         el.addEventListener("mouseover", () => {
             menuIndex = idx;
-            renderMenu();
+            // Update highlight without full re-render to prevent click issues
+            items.forEach((item, i) => {
+                item.classList.toggle("highlight", i === idx);
+            });
         });
     });
 }
