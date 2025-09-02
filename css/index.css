@@ -78,6 +78,9 @@ body {
   transform-origin: top left;
   width: 166.6667%;
   height: 166.6667%;
+  position: absolute;  /* keep inside right-col */
+  top: 70px;           /* match collapsed #family-bar height */
+  left: 0;
 }
 
 /*************************************************************************
