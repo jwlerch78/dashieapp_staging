@@ -80,6 +80,108 @@ body {
   height: 166.6667%;
 }
 
+/*************************************************************************
+*  Family Tracker bar at top
+**************************************************************************/
+
+/* Family Tracker bar */
+/* Family Tracker bar */
+#family-bar {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between; /* spread members across full width */
+  align-items: flex-start;
+  padding: 10px 16px;
+  background: #000;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  transition: height 0.3s ease;
+  overflow: hidden;
+  height: 70px; /* default collapsed height */
+}
+
+#family-bar.location-mode {
+  height: 320px; /* taller in location mode */
+}
+
+/* Each member card */
+.member {
+  display: flex;
+  flex-direction: column; /* stack top row + extra info */
+  align-items: center;
+  background-color: #111;
+  padding: 8px 12px;
+  border-radius: 12px;
+  min-width: 160px;
+  flex: 1; /* allow even distribution across bar */
+  margin: 0 6px; /* spacing between members */
+}
+
+/* Top row: image + location */
+.member-top {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center; /* center horizontally inside member */
+}
+
+/* Profile photo */
+.member-top img {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  margin-right: 10px;
+}
+
+/* Info next to photo (main location + subtext) */
+.member-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: left;
+}
+
+/* Main location text */
+.location {
+  font-size: 20px;
+  font-weight: bold;
+  color: #fff;
+}
+
+/* Subtext below main location (icon + distance) */
+.location-sub {
+  font-size: 14px;
+  color: #ccc;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Expanded info (centered under entire top row) */
+.member-extra {
+  display: none;
+  flex-direction: column;
+  font-size: 14px; /* readable size */
+  color: #ddd;
+  text-align: center;
+  line-height: 1.4;
+  margin-top: 16px; /* spacing below top row */
+  width: 100%; /* span entire member card */
+}
+
+#family-bar.location-mode .member-extra {
+  display: flex;
+}
+
+/* Optional small icons in subtext */
+.status-icon img {
+  width: 16px;
+  height: 16px;
+  vertical-align: middle;
+  margin-right: 4px;
+}
+
+
 /* Key log */
 #keyLog {
   display: block;
