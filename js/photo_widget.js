@@ -1,12 +1,14 @@
 // photo_widget.js
+// photos_widget.js
 document.addEventListener("DOMContentLoaded", function() {
   // --- Elements ---
   const photoImg = document.getElementById("photoImg");
-
+  const photoContainer = document.getElementById("photo-container");
+  
   // --- Photo State ---
   let currentPhotoIndex = 0;
   let shuffledPhotos = [];
-
+ 
   // --- Photo Functions ---
   function shuffleArray(array) {
     const shuffled = [...array];
@@ -15,6 +17,37 @@ document.addEventListener("DOMContentLoaded", function() {
       [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
     }
     return shuffled;
+  }
+
+  function resizeImage() {
+    const containerWidth = photoContainer.clientWidth - 20; // 10px padding each side
+    const containerHeight = photoContainer.clientHeight - 20; // 10px padding each side
+    
+    // Reset image size to get natural dimensions
+    photoImg.style.width = 'auto';
+    photoImg.style.height = 'auto';
+    photoImg.style.maxWidth = 'none';
+    photoImg.style.maxHeight = 'none';
+    
+    // Force a reflow to get actual image dimensions
+    const naturalWidth = photoImg.naturalWidth;
+    const naturalHeight = photoImg.naturalHeight;
+    
+    if (naturalWidth && naturalHeight) {
+      // Calculate scale to fit within container
+      const scaleX = containerWidth / naturalWidth;
+      const scaleY = containerHeight / naturalHeight;
+      const scale = Math.min(scaleX, scaleY); // Use smaller scale to ensure it fits
+      
+      // Apply calculated dimensions
+      const newWidth = naturalWidth * scale;
+      const newHeight = naturalHeight * scale;
+      
+      photoImg.style.width = newWidth + 'px';
+      photoImg.style.height = newHeight + 'px';
+      photoImg.style.maxWidth = newWidth + 'px';
+      photoImg.style.maxHeight = newHeight + 'px';
+    }
   }
 
   function showPhoto(index) {
@@ -42,9 +75,7 @@ document.addEventListener("DOMContentLoaded", function() {
     
     // Handle image load events for proper sizing
     photoImg.onload = function() {
-      this.style.visibility = 'hidden';
-      this.offsetHeight; // trigger reflow
-      this.style.visibility = 'visible';
+      resizeImage();
     };
     
     showPhoto(0);
@@ -56,8 +87,7 @@ document.addEventListener("DOMContentLoaded", function() {
   // --- Message Handler for Navigation ---
   window.addEventListener('message', (event) => {
     const { action, mode } = event.data || {};
-    // if (mode !== "leftpanel") return; // Only respond when left panel is focused - REMOVED, POTENTIALLY ADD A CHECK HERE LATER, BUT FOR NOW THIS FRAME ONLY GETS A MESSAGE WHEN MODE = LEFTPANEL
-
+    
     switch(action) {
       case "Up":
         // Previous photo
@@ -71,6 +101,8 @@ document.addEventListener("DOMContentLoaded", function() {
     }
   });
 
-  // --- Initialize Everything ---
+  // Resize on window resize
+  window.addEventListener('resize', resizeImage);
+
   initializePhotos();
 });
