@@ -170,17 +170,25 @@ async function updateLocations() {
 
       // -----------------------------
       // Notify location bar widget
-      if (typeof window.updateLocationBar === "function") {
-        console.log("Sending Device Data via window.update function");
-        window.updateLocationBar({
-          device: device.name,
-          zoneName,
-          poiName,
-          speedMph,
-          movementStatus,
-          distanceMiles
-        });
+
+if (window.frames) {
+  console.log("Sending Device Data via postMessage");
+  window.postMessage(
+    {
+      type: "locationUpdate",
+      payload: {
+        device: device.name,
+        zoneName,
+        poiName,
+        speedMph,
+        movementStatus,
+        distanceMiles
       }
+    },
+    "*"
+  );
+}
+      
 
       // Notify map widget
       if (typeof window.updateMapMarkers === "function") {
