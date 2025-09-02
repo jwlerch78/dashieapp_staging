@@ -1,53 +1,42 @@
-// --- Globals ---
+// location.js
+// -----------------------------
+// Globals
 let map;
-const markers = {};  // store Leaflet marker objects by device name
+const markers = {}; // store lat/lon for formations
+const reverseGeoCache = {};
 let locationInterval;
-const PROXIMITY_THRESHOLD = 0.00015; // ~15 meters, tweak as needed
+const PROXIMITY_THRESHOLD = 0.00015; // ~15 meters
+const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
-// --- Zones helper ---
+// -----------------------------
+// Helper: zones
 function getZone(lat, lon) {
   for (let zone of ZONES) {
-    const distance = Math.sqrt((lat - zone.lat)**2 + (lon - zone.lon)**2);
-    if (distance <= zone.radius) return zone.name;
+    const dist = Math.sqrt((lat - zone.lat) ** 2 + (lon - zone.lon) ** 2);
+    if (dist <= zone.radius) return zone.name;
   }
   return null;
 }
 
-// --- Simple reverse geocode cache ---
-const reverseGeoCache = {}; // key: "lat,lon" -> value: {timestamp, result}
-const CACHE_TTL_MS = 30 * 60 * 1000; // cache for 30 minutes
-
+// -----------------------------
+// Reverse geocode cache
 async function reverseGeocode(lat, lon) {
-  const key = `${lat.toFixed(20)},${lon.toFixed(20)}`; // round to reduce duplicates
+  const key = `${lat.toFixed(8)},${lon.toFixed(8)}`;
   const now = Date.now();
 
-  // Return cached result if still valid
-  if (reverseGeoCache[key] && (now - reverseGeoCache[key].timestamp < CACHE_TTL_MS)) {
+  if (reverseGeoCache[key] && now - reverseGeoCache[key].timestamp < CACHE_TTL_MS) {
     return reverseGeoCache[key].result;
   }
 
   try {
     const resp = await fetch(`${PROXY_URL}/reverse?lat=${lat}&lon=${lon}`);
-    if (!resp.ok) throw new Error(`Status ${resp.status}`);
     const json = await resp.json();
-    
-    console.log("Reverse geocode response:", json); // 👈 always log
-
     const addr = json.address || {};
     const result =
-      addr.city ||
-      addr.town ||
-      addr.village ||
-      addr.hamlet ||
-      addr.suburb ||
-      addr.county ||
-      addr.state ||
-      json.display_name ||
-      "Unknown location";
+      addr.city || addr.town || addr.village || addr.hamlet ||
+      addr.suburb || addr.county || addr.state || json.display_name || "Unknown location";
 
-    // store in cache
     reverseGeoCache[key] = { timestamp: now, result };
-
     return result;
   } catch (err) {
     console.error("Reverse geocode error:", err);
@@ -55,270 +44,162 @@ async function reverseGeocode(lat, lon) {
   }
 }
 
-// --- Initialize Leaflet map ---
-function initMap() {
-  const container = document.getElementById("location-container");
-  if (!container) return;
-
-  map = L.map("location-container", { zoomControl: true });
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: '&copy; OpenStreetMap contributors'
-  }).addTo(map);
-
-  map.setView([0, 0], 2);
-
-  // Recompute formations on zoom/pan
-  map.on('zoomend moveend', () => {
-    applyFormations();
-  });
-}
-
-// --- Compute formation offsets ---
-function getFormationOffsets(count, radius = 0.0001) {
+// -----------------------------
+// Formation offsets to avoid overlapping markers
+function getFormationOffsets(count, radius = PROXIMITY_THRESHOLD) {
   const offsets = [];
-  switch (count) {
-    case 1:
-      offsets.push([0, 0]);
-      break;
-    case 2:
-      offsets.push([-radius/2, 0], [radius/2, 0]);
-      break;
-    case 3:
-      for (let i = 0; i < 3; i++) {
-        const angle = (i / 3) * 2 * Math.PI;
-        offsets.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
-      }
-      break;
-    case 4:
-      for (let i = 0; i < 4; i++) {
-        const angle = (i / 4) * 2 * Math.PI;
-        offsets.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
-      }
-      break;
-    case 5:
-      for (let i = 0; i < 5; i++) {
-        const angle = (i / 5) * 2 * Math.PI;
-        offsets.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
-      }
-      break;
-    default:
-      // For more than 5, spread in a circle
-      for (let i = 0; i < count; i++) {
-        const angle = (i / count) * 2 * Math.PI;
-        offsets.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
-      }
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * 2 * Math.PI;
+    offsets.push([radius * Math.cos(angle), radius * Math.sin(angle)]);
   }
   return offsets;
 }
 
-// --- Apply formation-based offsets ---
 function applyFormations() {
   if (!map) return;
+  const positions = Object.values(markers);
+  if (!positions.length) return;
 
-  // Collect all marker positions
-  const positions = DEVICES.map(d => {
-    const marker = markers[d.name];
-    if (!marker) return null;
-    const latlng = marker.getLatLng();
-    return { device: d, marker, lat: latlng.lat, lon: latlng.lng };
-  }).filter(p => p);
-
-  // Group markers by proximity
+  // Simple grouping for proximity
   const groups = [];
   const used = new Set();
 
-  for (let i = 0; i < positions.length; i++) {
-    if (used.has(i)) continue;
-    const group = [positions[i]];
-    used.add(i);
+  positions.forEach((m, i) => {
+    if (used.has(i)) return;
+    const group = [m]; used.add(i);
     for (let j = i + 1; j < positions.length; j++) {
       if (used.has(j)) continue;
-      const dx = positions[i].lat - positions[j].lat;
-      const dy = positions[i].lon - positions[j].lon;
-      const dist = Math.sqrt(dx*dx + dy*dy);
-      if (dist <= PROXIMITY_THRESHOLD) {
+      const dx = m.lat - positions[j].lat;
+      const dy = m.lon - positions[j].lon;
+      if (Math.sqrt(dx * dx + dy * dy) <= PROXIMITY_THRESHOLD) {
         group.push(positions[j]);
         used.add(j);
       }
     }
     groups.push(group);
-  }
+  });
 
-  // Apply offsets per group
+  // Apply offsets
   groups.forEach(group => {
-    const count = group.length;
-    const offsets = getFormationOffsets(count, PROXIMITY_THRESHOLD);
-    // Compute group centroid
-    const centroidLat = group.reduce((sum, m) => sum + m.lat, 0) / count;
-    const centroidLon = group.reduce((sum, m) => sum + m.lon, 0) / count;
+    const offsets = getFormationOffsets(group.length);
+    const centroidLat = group.reduce((s, m) => s + m.lat, 0) / group.length;
+    const centroidLon = group.reduce((s, m) => s + m.lon, 0) / group.length;
 
     group.forEach((item, idx) => {
-      item.marker.setLatLng([
-        centroidLat + offsets[idx][0],
-        centroidLon + offsets[idx][1]
-      ]);
+      item.latOffset = centroidLat + offsets[idx][0];
+      item.lonOffset = centroidLon + offsets[idx][1];
     });
   });
 }
 
-// --- Update all device positions ---
-// Store last positions for each device
-const lastPositions = {};
+// -----------------------------
+// Initialize hidden Leaflet map for calculations
+function initMap() {
+  const container = document.createElement("div");
+  container.style.width = "1px";
+  container.style.height = "1px";
+  container.style.position = "absolute";
+  container.style.top = "-9999px";
+  document.body.appendChild(container);
 
+  map = L.map(container, { zoomControl: true });
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+
+  map.setView([0, 0], 2);
+}
+
+// -----------------------------
+// Update locations and notify widgets
 async function updateLocations() {
   if (!map) return;
 
-  const boundsArray = [];
   const now = Date.now();
+  const boundsArray = [];
 
-  for (let device of DEVICES) {
+  for (const device of DEVICES) {
     try {
-      // Fetch the last 2 positions for more accurate speed/distance
-      const response = await fetch(`${PROXY_URL}/positions/${device.id}?limit=2`);
-      if (!response.ok) throw new Error(`Status ${response.status}`);
-      const data = await response.json();
+      const resp = await fetch(`${PROXY_URL}/positions/${device.id}?limit=2`);
+      const data = await resp.json();
+      if (!Array.isArray(data) || !data.length) continue;
+      const pos = data[0];
+      const prev = data[1];
 
-      // 🔹 Add logging here:
-      console.log(`Device ${device.id} Traccar response:`, data);
+      if (!pos.latitude || !pos.longitude) continue;
 
-      if (Array.isArray(data) && data.length > 0) {
-        const pos = data[0]; // most recent
-        const prevPos = data[1]; // previous
+      // Zone + reverse geocode
+      const zoneName = getZone(pos.latitude, pos.longitude) || await reverseGeocode(pos.latitude, pos.longitude);
+      const poiName = pos.poi || '';
 
-        if (pos.latitude && pos.longitude) {
-
-        // Determine zone and always fetch reverse geocode for logging
-        const zoneResult = getZone(pos.latitude, pos.longitude);
-        const reverseGeoName = await reverseGeocode(pos.latitude, pos.longitude);
-
-          // Use zone name for display as before
-          const zoneName = zoneResult || reverseGeoName;
-          const poiName = pos.poi || '';
-
-          // Distance and speed calculation using last two positions
-          let speedMph = 0;
-          let movementStatus = "No";
-          if (prevPos && prevPos.latitude && prevPos.longitude && prevPos.serverTime) {
-            const lat1 = prevPos.latitude * Math.PI / 180;
-            const lat2 = pos.latitude * Math.PI / 180;
-            const dLat = (pos.latitude - prevPos.latitude) * Math.PI / 180;
-            const dLon = (pos.longitude - prevPos.longitude) * Math.PI / 180;
-            const a = Math.sin(dLat/2)**2 + Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLon/2)**2;
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            const distanceMeters = 6371e3 * c;
-
-            const timeDiffMs = new Date(pos.serverTime).getTime() - new Date(prevPos.serverTime).getTime();
-            const timeDiffHrs = timeDiffMs / 3600000;
-
-            if (timeDiffHrs > 0) {
-              speedMph = (distanceMeters * 0.000621371 / timeDiffHrs).toFixed(1); // mph
-              if (speedMph >= 5) movementStatus = "Yes";   // Driving
-              else if (speedMph >= 1) movementStatus = "Yes"; // Walking
-              else movementStatus = "No";                  // Stationary
-            }
-          }
-
-          // Update main location text (top row)
-          const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
-          if (locEl) locEl.textContent = `${zoneName}`;
-
-          // Extra info (expanded) below
-          const extraEl = document.getElementById(`${device.name.toLowerCase()}-extra`);
-          if (extraEl) {
-            // Time at location
-            let timeAtLocationText = "Unknown";
-            if (pos.fixTime) {
-              const durationMs = now - new Date(pos.fixTime).getTime();
-              const mins = Math.floor(durationMs / 60000);
-              if (mins > 1440) timeAtLocationText = ">24 hrs";
-              else if (mins >= 60) timeAtLocationText = `${Math.floor(mins/60)} hr ${mins%60} min`;
-              else timeAtLocationText = `${mins} min`;
-            }
-
-            // Time since last update
-            let timeSinceUpdateText = "Unknown";
-            if (pos.serverTime) {
-              const durationMs = now - new Date(pos.serverTime).getTime();
-              const mins = Math.floor(durationMs / 60000);
-              if (mins > 1440) timeSinceUpdateText = ">24 hrs";
-              else if (mins >= 60) timeSinceUpdateText = `${Math.floor(mins/60)} hr ${mins%60} min`;
-              else timeSinceUpdateText = `${mins} min`;
-            }
-
-            const subEl = document.getElementById(`${device.name.toLowerCase()}-sub`);
-            let statusIcon = '';
-            if (pos.speed !== undefined) {
-              const speedKmh = pos.speed * 1.852; // knots → km/h
-              if (speedKmh >= 5) statusIcon = '🚗';
-              else if (speedKmh > 0) statusIcon = '🚶';
-            }
-
-            // Distance from home
-            const homeLat = HOME_LOCATION.lat;
-            const homeLon = HOME_LOCATION.lon;
-            const R = 6371e3;
-            const φ1 = pos.latitude * Math.PI / 180;
-            const φ2 = homeLat * Math.PI / 180;
-            const Δφ = (homeLat - pos.latitude) * Math.PI / 180;
-            const Δλ = (homeLon - pos.longitude) * Math.PI / 180;
-            const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-            const distanceMiles = (R * c * 0.000621371).toFixed(1); // meters to miles
-
-            //subEl.innerHTML = `${statusIcon} ${distanceMiles} mi away`;
-            subEl.innerHTML = `${distanceMiles} mi away`;
-
-
-            extraEl.innerHTML = `
-              At Location: ${timeAtLocationText}<br>
-              Speed: ${speedMph} mph<br>
-              Is Moving: ${movementStatus}<br>
-              ${distanceMiles} mi away<br>
-              ${poiName}
-            `;
-          }
-
-          // Marker
-          const imgUrl = device.img || "img/fallback.png";
-          const icon = L.divIcon({
-            className: "family-marker",
-            html: `<img src="${imgUrl}" alt="${device.name}" width="50" height="50"
-                    onerror="this.src='img/fallback.png'">`,
-            iconSize: [50, 50],
-            iconAnchor: [25, 25]
-          });
-
-          if (markers[device.name]) {
-            markers[device.name].setIcon(icon);
-            markers[device.name].setLatLng([pos.latitude, pos.longitude]);
-          } else {
-            markers[device.name] = L.marker([pos.latitude, pos.longitude], { icon }).addTo(map);
-          }
-
-          boundsArray.push([pos.latitude, pos.longitude]);
+      // Speed / movement
+      let speedMph = 0, movementStatus = "No";
+      if (prev && prev.latitude && prev.longitude && prev.serverTime) {
+        const lat1 = prev.latitude * Math.PI / 180;
+        const lat2 = pos.latitude * Math.PI / 180;
+        const dLat = (pos.latitude - prev.latitude) * Math.PI / 180;
+        const dLon = (pos.longitude - prev.longitude) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const distanceMeters = 6371e3 * c;
+        const timeHrs = (new Date(pos.serverTime) - new Date(prev.serverTime)) / 3600000;
+        if (timeHrs > 0) {
+          speedMph = (distanceMeters * 0.000621371 / timeHrs).toFixed(1);
+          movementStatus = speedMph >= 1 ? "Yes" : "No";
         }
       }
+
+      // Distance from home
+      const R = 6371e3;
+      const φ1 = pos.latitude * Math.PI / 180;
+      const φ2 = HOME_LOCATION.lat * Math.PI / 180;
+      const Δφ = (HOME_LOCATION.lat - pos.latitude) * Math.PI / 180;
+      const Δλ = (HOME_LOCATION.lon - pos.longitude) * Math.PI / 180;
+      const a = Math.sin(Δφ / 2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      const distanceMiles = (R * c * 0.000621371).toFixed(1);
+
+      // Save marker for formations
+      markers[device.name] = { lat: pos.latitude, lon: pos.longitude };
+
+      // -----------------------------
+      // Notify location bar widget
+      if (typeof window.updateLocationBar === "function") {
+        window.updateLocationBar({
+          device: device.name,
+          zoneName,
+          poiName,
+          speedMph,
+          movementStatus,
+          distanceMiles
+        });
+      }
+
+      // Notify map widget
+      if (typeof window.updateMapMarkers === "function") {
+        window.updateMapMarkers({
+          device: device.name,
+          lat: pos.latitude,
+          lon: pos.longitude,
+          zoneName,
+          poiName
+        });
+      }
+
+      boundsArray.push([pos.latitude, pos.longitude]);
+
     } catch (err) {
       console.error(`Error fetching ${device.name}:`, err);
-      const locEl = document.getElementById(`${device.name.toLowerCase()}-location`);
-      if (locEl) locEl.textContent = "Unknown location";
-      const extraEl = document.getElementById(`${device.name.toLowerCase()}-extra`);
-      if (extraEl) extraEl.textContent = '';
     }
   }
 
-  if (boundsArray.length > 0) {
-    const bounds = L.latLngBounds(boundsArray);
-    map.fitBounds(bounds, { padding: [50, 50] });
-  }
-
-  map.invalidateSize();
   applyFormations();
 
+  // Repeat every 30s
   if (!locationInterval) locationInterval = setInterval(updateLocations, 30000);
 }
 
-
-// --- Initialize ---
+// -----------------------------
+// Initialize
 initMap();
 updateLocations();
