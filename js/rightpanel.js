@@ -35,12 +35,13 @@ function showContainer(id) {
   const header = document.getElementById("header-container");
   if (header) header.style.display = (id === "calendar-container") ? "block" : "none";
 
-  // Toggle family bar height for location mode
-  const bar = document.getElementById("family-bar");
-  if (bar) {
-    if (id === "location-container") bar.classList.add("location-mode");
-    else bar.classList.remove("location-mode");
-  }
+// Tell the location widget to update its mode (if loaded)
+const locFrame = document.getElementById("location-frame");
+if (locFrame && locFrame.contentWindow) {
+  locFrame.contentWindow.postMessage(
+    { action: id === "location-container" ? "enterLocationMode" : "exitLocationMode" },
+    "*"
+  );
 
   // Refresh map if location container is active
   if (id === "location-container") {
