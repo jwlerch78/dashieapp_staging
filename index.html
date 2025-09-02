@@ -34,16 +34,17 @@
   <div class="divider" aria-hidden="true"></div>
 
 <!-- RIGHT PANEL -->
-<div id="right-col" style="position: relative; height: 100%; width: 100%;">
-
+<div id="right-col">
   <!-- Family tracker bar (Location Widget) -->
-  <div id="location-widget" style="position: absolute; top: 0; right: 0; width: 100%; height: 80px; flex: none; z-index: 10;">
+  <div id="location-widget">
     <iframe id="location-frame" src="widget_location.html" frameborder="0" style="width: 100%; height: 100%;"></iframe>
   </div>
-
-  <!-- Right panel iframe -->
-  <iframe id="rightpanel" src="RightPanel.html" title="RightPanel"></iframe>
-
+  
+  <!-- RIGHT PANEL WRAPPER - NEW -->
+  <div id="rightpanel-wrapper">
+    <!-- Right panel iframe -->
+    <iframe id="rightpanel" src="RightPanel.html" title="RightPanel"></iframe>
+  </div>
 </div>
 
 
