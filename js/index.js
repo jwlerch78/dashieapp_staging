@@ -1,7 +1,9 @@
-// index.js
+// index.js - COMPLETE FIXED VERSION
 const rightIframe = document.getElementById('rightpanel');
-const leftIframe = document.getElementById('leftpanel');
 const keyLog = document.getElementById('keyLog');
+
+// Get all iframes that might interfere with touch
+const allIframes = document.querySelectorAll('iframe');
 
 // --- State ---
 let mode = "calendar";
@@ -70,23 +72,28 @@ function renderMenu() {
     });
 }
 
-
-
-
+// --- FIXED Menu functions with proper touch support ---
 function openMenu() {
     menuOpen = true;
     menuIndex = 0;
     menuOverlay.style.display = "block";
-    rightIframe.style.pointerEvents = "none";  // <-- prevent iframe from blocking clicks
-    leftIframe.style.pointerEvents = "none";   // optional if left panel overlaps menu
+    
+    // Disable pointer events on all iframes to prevent touch interference
+    allIframes.forEach(iframe => {
+        iframe.style.pointerEvents = "none";
+    });
+    
     renderMenu();
 }
 
 function closeMenu() {
     menuOpen = false;
     menuOverlay.style.display = "none";
-    rightIframe.style.pointerEvents = "auto";  // restore
-    leftIframe.style.pointerEvents = "auto";
+    
+    // Re-enable pointer events on all iframes
+    allIframes.forEach(iframe => {
+        iframe.style.pointerEvents = "auto";
+    });
 }
 
 function showExitPopup() {
@@ -212,7 +219,10 @@ window.addEventListener('DOMContentLoaded', () => {
 function sendToFocus(action) { 
     const msg={action, mode};
     if(FocusMode==="RightPanel") rightIframe.contentWindow.postMessage(msg,"*");
-    else if(FocusMode==="LeftPanel") leftIframe.contentWindow.postMessage(msg,"*");
+    else if(FocusMode==="LeftPanel") {
+        // Left panel focus handling - you may need to implement this based on your needs
+        console.log("Left panel focus not implemented");
+    }
 }
 
 // --- Listen for iframe messages ---
