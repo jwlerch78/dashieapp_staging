@@ -71,7 +71,32 @@
   </div>
 </div>
 
+
+  
 <script>
+  function updateLocationBar(data) {
+  const bar = document.getElementById("family-bar");
+  if (!bar) return;
+
+  if (Array.isArray(data)) {
+    data.forEach(device => {
+      const name = device.name.toLowerCase();
+      const locEl = document.getElementById(`${name}-location`);
+      const subEl = document.getElementById(`${name}-sub`);
+      const extraEl = document.getElementById(`${name}-extra`);
+
+      if (locEl) locEl.textContent = device.zone || "Unknown location";
+      if (subEl) subEl.textContent = device.distance ? `${device.distance} mi away` : "";
+      if (extraEl) extraEl.innerHTML = `
+        At Location: ${device.timeAtLocation || "Unknown"}<br>
+        Speed: ${device.speedMph || 0} mph<br>
+        Is Moving: ${device.movementStatus || "No"}<br>
+        ${device.poi || ""}
+      `;
+    });
+  }
+}
+  
   window.addEventListener("message", (event) => {
     const { action, data } = event.data || {};
     const bar = document.getElementById("family-bar");
@@ -82,23 +107,12 @@
     if (action === "exitLocationMode") bar.classList.remove("location-mode");
 
     // --- Location update data ---
-    if (action === "locationUpdate" && Array.isArray(data)) {
-      data.forEach(device => {
-        const name = device.device.toLowerCase();
-        const locEl = document.getElementById(`${name}-location`);
-        const subEl = document.getElementById(`${name}-sub`);
-        const extraEl = document.getElementById(`${name}-extra`);
-
-        if(locEl) locEl.textContent = device.zoneName || "Unknown location";
-        if(subEl) subEl.textContent = device.distanceMiles ? `${device.distanceMiles} mi away` : "";
-        if(extraEl) extraEl.innerHTML = `
-          At Location: ${device.timeAtLocation || "Unknown"}<br>
-          Speed: ${device.speedMph || 0} mph<br>
-          Is Moving: ${device.movementStatus || "No"}<br>
-          ${device.poiName || ""}
-        `;
-      });
-    }
+     if (event.data?.type === "locationUpdate") {
+    const data = event.data.payload;
+    // Now call your existing update function
+    updateLocationBar(data);
+  }
+     
   });
 
   console.log("Location bar widget initialized");
