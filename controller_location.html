@@ -11,6 +11,16 @@
 <body>
 
 <script src="js/config.js"></script>
+  <script>
+  (function(){
+    const origLog = console.log;
+    console.log = (...args) => {
+      origLog(...args);
+      if (parent && parent.console) parent.console.log("From controller_location:", ...args);
+    };
+  })();
+
+  
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 let map;
