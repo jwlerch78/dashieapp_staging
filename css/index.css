@@ -35,17 +35,17 @@ body {
 
 /* Use specific pixel or vh units for more precise control */
 #dateTime-wrapper {
-  height: 7vh;  /* 7% of viewport height */
+  height: 10vh;  /* 7% of viewport height */
   flex: none;   /* Don't let flex grow/shrink */
 }
 
 #agenda-wrapper {
-  height: 55.8vh;  /* 55.8% of viewport height */
+  height: 50vh;  /* 55.8% of viewport height */
   flex: none;
 }
 
 #photo-wrapper {
-  height: 37.2vh;  /* 37.2% of viewport height */
+  height: 40vh;  /* 37.2% of viewport height */
   flex: none;
 }
 
