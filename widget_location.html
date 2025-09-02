@@ -8,78 +8,100 @@
   <link rel="stylesheet" href="css/rightpanel.css" />
 </head>
 <body>
-  <div id="family-bar">
-    <!-- Dad -->
-    <div class="member" id="dad">
-      <div class="member-top">
-        <img src="images/Dad.png" alt="Dad">
-        <div class="member-info">
-          <div class="location" id="dad-location">Loading...</div>
-          <div class="location-sub" id="dad-sub"></div>
-        </div>
+  <!-- widget_location.html -->
+<div id="family-bar">
+  <!-- Dad -->
+  <div class="member" id="dad">
+    <div class="member-top">
+      <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Dad.png" alt="Dad">
+      <div class="member-info">
+        <div class="location" id="dad-location">Loading...</div>
+        <div class="location-sub" id="dad-sub"></div>
       </div>
-      <div class="member-extra" id="dad-extra"></div>
     </div>
-
-    <!-- Mom -->
-    <div class="member" id="mom">
-      <div class="member-top">
-        <img src="images/Mom.png" alt="Mom">
-        <div class="member-info">
-          <div class="location" id="mom-location">Loading...</div>
-          <div class="location-sub" id="mom-sub"></div>
-        </div>
-      </div>
-      <div class="member-extra" id="mom-extra"></div>
-    </div>
-
-    <!-- Mary -->
-    <div class="member" id="mary">
-      <div class="member-top">
-        <img src="images/Mary.png" alt="Mary">
-        <div class="member-info">
-          <div class="location" id="mary-location">Loading...</div>
-          <div class="location-sub" id="mary-sub"></div>
-        </div>
-      </div>
-      <div class="member-extra" id="mary-extra"></div>
-    </div>
-
-    <!-- Charlie -->
-    <div class="member" id="charlie">
-      <div class="member-top">
-        <img src="images/Char.png" alt="Charlie">
-        <div class="member-info">
-          <div class="location" id="charlie-location">Loading...</div>
-          <div class="location-sub" id="charlie-sub"></div>
-        </div>
-      </div>
-      <div class="member-extra" id="charlie-extra"></div>
-    </div>
-
-    <!-- Jack -->
-    <div class="member" id="jack">
-      <div class="member-top">
-        <img src="images/Jack.png" alt="Jack">
-        <div class="member-info">
-          <div class="location" id="jack-location">Loading...</div>
-          <div class="location-sub" id="jack-sub"></div>
-        </div>
-      </div>
-      <div class="member-extra" id="jack-extra"></div>
-    </div>
+    <div class="member-extra" id="dad-extra"></div>
   </div>
-  
+
+  <!-- Mom -->
+  <div class="member" id="mom">
+    <div class="member-top">
+      <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mom.png" alt="Mom">
+      <div class="member-info">
+        <div class="location" id="mom-location">Loading...</div>
+        <div class="location-sub" id="mom-sub"></div>
+      </div>
+    </div>
+    <div class="member-extra" id="mom-extra"></div>
+  </div>
+
+  <!-- Mary -->
+  <div class="member" id="mary">
+    <div class="member-top">
+      <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mary.png" alt="Mary">
+      <div class="member-info">
+        <div class="location" id="mary-location">Loading...</div>
+        <div class="location-sub" id="mary-sub"></div>
+      </div>
+    </div>
+    <div class="member-extra" id="mary-extra"></div>
+  </div>
+
+  <!-- Charlie -->
+  <div class="member" id="charlie">
+    <div class="member-top">
+      <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Char.png" alt="Charlie">
+      <div class="member-info">
+        <div class="location" id="charlie-location">Loading...</div>
+        <div class="location-sub" id="charlie-sub"></div>
+      </div>
+    </div>
+    <div class="member-extra" id="charlie-extra"></div>
+  </div>
+
+  <!-- Jack -->
+  <div class="member" id="jack">
+    <div class="member-top">
+      <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Jack.png" alt="Jack">
+      <div class="member-info">
+        <div class="location" id="jack-location">Loading...</div>
+        <div class="location-sub" id="jack-sub"></div>
+      </div>
+    </div>
+    <div class="member-extra" id="jack-extra"></div>
+  </div>
+</div>
+
 <script>
 window.addEventListener("message", (event) => {
-  const { action } = event.data || {};
+  const { action, data } = event.data || {};
   const bar = document.getElementById("family-bar");
   if (!bar) return;
 
+  // --- Update location bar data ---
+  if (action === "locationUpdate" && Array.isArray(data)) {
+    data.forEach(device => {
+      const name = device.name.toLowerCase();
+      const locEl = document.getElementById(`${name}-location`);
+      const subEl = document.getElementById(`${name}-sub`);
+      const extraEl = document.getElementById(`${name}-extra`);
+
+      if(locEl) locEl.textContent = device.zone || "Unknown location";
+      if(subEl) subEl.textContent = device.distance ? `${device.distance} mi away` : "";
+      if(extraEl) extraEl.innerHTML = `
+        At Location: ${device.timeAtLocation || "Unknown"}<br>
+        Speed: ${device.speedMph || 0} mph<br>
+        Is Moving: ${device.movementStatus || "No"}<br>
+        ${device.poi || ""}
+      `;
+    });
+  }
+
+  // --- Toggle location mode class ---
   if (action === "enterLocationMode") bar.classList.add("location-mode");
   if (action === "exitLocationMode") bar.classList.remove("location-mode");
 });
 </script>
+
   
 </body>
 </html>
