@@ -1,9 +1,22 @@
-// index.js - COMPLETE FIXED VERSION
+// index.js - COMPLETE VERSION WITH WIDGET SYSTEM
 const rightIframe = document.getElementById('rightpanel');
 const keyLog = document.getElementById('keyLog');
 
 // Get all iframes that might interfere with touch
 const allIframes = document.querySelectorAll('iframe');
+
+// --- Widget Configuration ---
+const widgets = {
+    rightBottom: {
+        current: "calendar",
+        options: {
+            calendar: "widget_calendar.html",
+            map: "widget_map.html", 
+            camera: "widget_camera.html"
+        }
+    }
+    // Future: you could add other locations like leftTop, leftMiddle, etc.
+};
 
 // --- State ---
 let mode = "calendar";
@@ -42,6 +55,57 @@ function highlightExitChoice() {
     exitNoBtn.classList.toggle("highlight", exitChoiceIndex === 1);
 }
 
+// --- Widget Management Functions ---
+function switchWidget(location, widgetType) {
+    const widgetConfig = widgets[location];
+    if (!widgetConfig || !widgetConfig.options[widgetType]) {
+        console.error(`Invalid widget: ${location} -> ${widgetType}`);
+        return;
+    }
+
+    const widgetUrl = widgetConfig.options[widgetType];
+    widgetConfig.current = widgetType;
+    mode = widgetType; // Update global mode
+
+    console.log(`Switching ${location} to ${widgetType} (${widgetUrl})`);
+
+    // Update the iframe source
+    if (location === "rightBottom") {
+        const rightIframe = document.getElementById('rightpanel');
+        if (rightIframe) {
+            rightIframe.src = widgetUrl;
+        }
+    }
+
+    // Handle special widget interactions
+    handleWidgetInteractions(widgetType);
+}
+
+function handleWidgetInteractions(widgetType) {
+    const locationFrame = document.getElementById("location-frame");
+    
+    switch(widgetType) {
+        case "map":
+            // Tell location widget to expand/show more details
+            if (locationFrame && locationFrame.contentWindow) {
+                locationFrame.contentWindow.postMessage(
+                    { action: "enterLocationMode" }, "*"
+                );
+            }
+            break;
+        
+        case "calendar":
+        case "camera":
+            // Tell location widget to collapse
+            if (locationFrame && locationFrame.contentWindow) {
+                locationFrame.contentWindow.postMessage(
+                    { action: "exitLocationMode" }, "*"
+                );
+            }
+            break;
+    }
+}
+
 // --- Render menu ---
 function renderMenu() {
     if (!menuOverlay) return;
@@ -54,7 +118,7 @@ function renderMenu() {
         return `<div class="menu-item ${highlightClass}" data-index="${i}">${opt}</div>`;
     }).join("");
 
-    // --- NEW: bind mouse click and hover listeners ---
+    // --- Bind mouse click and hover listeners ---
     const items = menuOverlay.querySelectorAll(".menu-item");
     items.forEach(el => {
         const idx = parseInt(el.getAttribute("data-index"));
@@ -77,7 +141,7 @@ function renderMenu() {
     });
 }
 
-// --- FIXED Menu functions with proper touch support ---
+// --- Menu functions with proper touch support ---
 function openMenu() {
     menuOpen = true;
     menuIndex = 0;
@@ -113,18 +177,18 @@ function hideExitPopup() {
     if (exitPopup) exitPopup.style.display = "none";
 }
 
-// --- Menu selection ---
+// --- Updated Menu Selection Function ---
 function selectMenuOption(option) {
     closeMenu();
     switch(option) {
         case "Calendar":
-            rightIframe.contentWindow.postMessage({ action: "showCalendar" }, "*");
+            switchWidget("rightBottom", "calendar");
             break;
         case "Map":
-            rightIframe.contentWindow.postMessage({ action: "showLocation" }, "*");
+            switchWidget("rightBottom", "map");
             break;
         case "Camera":
-            rightIframe.contentWindow.postMessage({ action: "showCamera" }, "*");
+            switchWidget("rightBottom", "camera");
             break;
         case "Reload Dashie":
             window.location.reload();
@@ -213,6 +277,9 @@ function handleRemoteInput(keyCode) {
 
 // --- Listeners ---
 window.addEventListener('DOMContentLoaded', () => {
+    // Set initial widget
+    switchWidget("rightBottom", "calendar");
+    
     document.addEventListener('keydown', e => {
         e.preventDefault();
         e.stopPropagation();
@@ -222,56 +289,85 @@ window.addEventListener('DOMContentLoaded', () => {
 
 // --- Send message to focus iframe ---
 function sendToFocus(action) { 
-    const msg={action, mode};
-    if(FocusMode==="RightPanel") rightIframe.contentWindow.postMessage(msg,"*");
-    else if(FocusMode==="LeftPanel") {
+    const msg = { action, mode };
+    if(FocusMode === "RightPanel") {
+        const rightIframe = document.getElementById('rightpanel');
+        if (rightIframe && rightIframe.contentWindow) {
+            rightIframe.contentWindow.postMessage(msg, "*");
+        }
+    } else if(FocusMode === "LeftPanel") {
         // Left panel focus handling - you may need to implement this based on your needs
         console.log("Left panel focus not implemented");
     }
 }
 
 // --- Listen for iframe messages ---
-window.addEventListener('message', (event)=>{
+window.addEventListener('message', (event) => {
     const { action } = event.data || {};
     if (!action) return;
-    if (action==="focusLeftPanel") { FocusMode="LeftPanel"; document.body.classList.add("left-focus"); }
+    if (action === "focusLeftPanel") { 
+        FocusMode = "LeftPanel"; 
+        document.body.classList.add("left-focus"); 
+    }
 });
 
-// --- Rotating mode ---
+// --- Updated Toggle Mode Function ---
 function toggleMode() {
-    if(mode==="calendar"){ mode="map"; rightIframe.contentWindow.postMessage({action:"showLocation"},"*"); }
-    else if(mode==="map"){ mode="camera"; rightIframe.contentWindow.postMessage({action:"showCamera"},"*"); }
-    else { mode="calendar"; rightIframe.contentWindow.postMessage({action:"showCalendar"},"*"); }
+    const currentWidget = widgets.rightBottom.current;
+    
+    if(currentWidget === "calendar") { 
+        switchWidget("rightBottom", "map");
+    }
+    else if(currentWidget === "map") { 
+        switchWidget("rightBottom", "camera");
+    }
+    else { 
+        switchWidget("rightBottom", "calendar");
+    }
 }
 
 // --- Black overlay ---
-function toggleBlack(forceOff=false, forceOn=false){
-    if((mode==="black" && !forceOn) || forceOff){ 
-        mode="calendar"; 
-        if(overlay){ overlay.remove(); overlay=null; } 
-        rightIframe.contentWindow.postMessage({action:"showCalendar"},"*"); 
-    } else if(mode!=="black" || forceOn){ 
-        mode="black"; 
-        overlay=document.createElement("div"); 
-        overlay.className="black-overlay"; 
+function toggleBlack(forceOff = false, forceOn = false) {
+    if((mode === "black" && !forceOn) || forceOff) { 
+        switchWidget("rightBottom", "calendar");
+        if(overlay) { 
+            overlay.remove(); 
+            overlay = null; 
+        } 
+    } else if(mode !== "black" || forceOn) { 
+        mode = "black"; 
+        overlay = document.createElement("div"); 
+        overlay.className = "black-overlay"; 
         document.body.appendChild(overlay); 
     }
 }
 
 // --- Dashboard focus ---
-function focusDashboard(){ window.focus(); document.body.focus(); }
+function focusDashboard() { 
+    window.focus(); 
+    document.body.focus(); 
+}
+
 focusDashboard();
-rightIframe.addEventListener('load', focusDashboard);
-setInterval(focusDashboard,1000);
+
+// Focus dashboard when right iframe loads
+const rightIframe = document.getElementById('rightpanel');
+if (rightIframe) {
+    rightIframe.addEventListener('load', focusDashboard);
+}
+
+setInterval(focusDashboard, 1000);
 
 // --- Auto black/dash schedule ---
-function checkAutoMode(){
-    const now=new Date();
-    const hours=now.getHours(), minutes=now.getMinutes();
-    const isNight=(hours>=22)||(hours<6||(hours===6&&minutes<30));
-    const isMorningWindow=(hours===6&&minutes>=30&&minutes<45);
-    if(isNight && mode!=="black") toggleBlack(false,true);
-    else if(isMorningWindow && mode!=="black") toggleBlack(false,true);
-    else if(!isNight && !isMorningWindow && mode==="black") toggleBlack(true,false);
+function checkAutoMode() {
+    const now = new Date();
+    const hours = now.getHours(), minutes = now.getMinutes();
+    const isNight = (hours >= 22) || (hours < 6 || (hours === 6 && minutes < 30));
+    const isMorningWindow = (hours === 6 && minutes >= 30 && minutes < 45);
+    
+    if(isNight && mode !== "black") toggleBlack(false, true);
+    else if(isMorningWindow && mode !== "black") toggleBlack(false, true);
+    else if(!isNight && !isMorningWindow && mode === "black") toggleBlack(true, false);
 }
-setInterval(checkAutoMode,10*60*1000);
+
+setInterval(checkAutoMode, 10 * 60 * 1000);
