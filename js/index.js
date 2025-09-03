@@ -1,14 +1,13 @@
-// index.js
-
-// Define the grid layout (null = empty slot)
-const layout = [
-  ["calendar", "agenda", null, null],
-  ["photos", "main", null, null],
-  ["news", "main", null, null],
-  [null, null, null, null]
+// Explicit widget layout
+const widgets = [
+  { id: "calendar", row: 1, col: 1, rowSpan: 1, colSpan: 1 },
+  { id: "agenda",   row: 1, col: 2, rowSpan: 1, colSpan: 1 },
+  { id: "photos",   row: 2, col: 1, rowSpan: 1, colSpan: 1 },
+  { id: "news",     row: 3, col: 1, rowSpan: 1, colSpan: 1 },
+  { id: "main",     row: 2, col: 2, rowSpan: 2, colSpan: 1 }
 ];
 
-// Map widget types to renderers (for now, simple placeholders)
+// Map widget IDs to renderers
 const widgetRenderers = {
   calendar: () => "📅 Calendar",
   agenda: () => "📝 Agenda",
@@ -20,27 +19,21 @@ const widgetRenderers = {
 const gridEl = document.getElementById("grid");
 const sidebarEl = document.getElementById("sidebar");
 
-let focus = { type: "grid", row: 0, col: 0 }; // start in top-left
+let focus = { type: "grid", row: 1, col: 1 };
 let selectedCell = null;
 
 // Render grid
 function renderGrid() {
   gridEl.innerHTML = "";
-  layout.forEach((row, r) => {
-    row.forEach((cell, c) => {
-      if (cell) {
-        const div = document.createElement("div");
-        div.classList.add("widget");
-        if (cell === "main") {
-          div.style.gridRow = "2 / span 2";
-          div.style.gridColumn = "2";
-        }
-        div.dataset.row = r;
-        div.dataset.col = c;
-        div.textContent = widgetRenderers[cell]();
-        gridEl.appendChild(div);
-      }
-    });
+  widgets.forEach(w => {
+    const div = document.createElement("div");
+    div.classList.add("widget");
+    div.dataset.row = w.row;
+    div.dataset.col = w.col;
+    div.style.gridRow = `${w.row} / span ${w.rowSpan}`;
+    div.style.gridColumn = `${w.col} / span ${w.colSpan}`;
+    div.textContent = widgetRenderers[w.id]();
+    gridEl.appendChild(div);
   });
 }
 
@@ -64,13 +57,18 @@ function updateFocus() {
   }
 }
 
+// Navigation matrix helper
+function findWidget(row, col) {
+  return widgets.find(w => w.row === row && w.col === col);
+}
+
 // Handle navigation
 function moveFocus(dir) {
   if (focus.type === "grid") {
     let { row, col } = focus;
 
     if (dir === "left") {
-      if (col === 0) {
+      if (col === 1) {
         focus = { type: "menu", index: 0 };
         return;
       }
@@ -80,7 +78,7 @@ function moveFocus(dir) {
     if (dir === "up") row--;
     if (dir === "down") row++;
 
-    if (layout[row] && layout[row][col]) {
+    if (findWidget(row, col)) {
       focus = { type: "grid", row, col };
     }
   } else if (focus.type === "menu") {
@@ -88,7 +86,7 @@ function moveFocus(dir) {
     if (dir === "down" && focus.index < sidebarEl.children.length - 1)
       focus.index++;
     if (dir === "right") {
-      focus = { type: "grid", row: 0, col: 0 };
+      focus = { type: "grid", row: 1, col: 1 };
     }
   }
 }
