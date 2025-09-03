@@ -1,44 +1,46 @@
-// Define the grid layout (null = empty slot)
-const layout = [
-  ["calendar", "agenda", null, null],
-  ["photos", "main", null, null],
-  ["news", "main", null, null],
-  [null, null, null, null]
+// Explicit widget layout
+let widgets = [
+  { id: "clock", row: 1, col: 1, rowSpan: 1, colSpan: 1, label: "⏰ Clock" },
+  { id: "agenda", row: 2, col: 1, rowSpan: 1, colSpan: 1, label: "📝 Agenda" },
+  { id: "photos", row: 3, col: 1, rowSpan: 1, colSpan: 1, label: "🖼️ Photos" },
+  { id: "map", row: 1, col: 2, rowSpan: 1, colSpan: 1, label: "🗺️ Map" },
+  { id: "main", row: 2, col: 2, rowSpan: 2, colSpan: 1, label: "🌟 Main Widget" }
 ];
 
-// Map widget types to renderers (for now, simple placeholders)
-const widgetRenderers = {
-  calendar: () => "📅 Calendar",
-  agenda: () => "📝 Agenda",
-  photos: () => "🖼️ Photos",
-  news: () => "📰 News",
-  main: () => "🌟 Main Widget"
+// Sidebar menu options control the main widget
+const sidebarMapping = {
+  calendar: "📅 Calendar",
+  map: "🗺️ Map",
+  camera: "📷 Camera"
 };
+
+let currentMain = "calendar"; // default
 
 const gridEl = document.getElementById("grid");
 const sidebarEl = document.getElementById("sidebar");
 
-let focus = { type: "grid", row: 0, col: 0 }; // start in top-left
+let focus = { type: "grid", row: 1, col: 1 };
 let selectedCell = null;
 
 // Render grid
 function renderGrid() {
   gridEl.innerHTML = "";
-  layout.forEach((row, r) => {
-    row.forEach((cell, c) => {
-      if (cell) {
-        const div = document.createElement("div");
-        div.classList.add("widget");
-        if (cell === "main") {
-          div.style.gridRow = "2 / span 2";
-          div.style.gridColumn = "2";
-        }
-        div.dataset.row = r;
-        div.dataset.col = c;
-        div.textContent = widgetRenderers[cell]();
-        gridEl.appendChild(div);
-      }
-    });
+  widgets.forEach(w => {
+    const div = document.createElement("div");
+    div.classList.add("widget");
+    div.dataset.row = w.row;
+    div.dataset.col = w.col;
+    div.style.gridRow = `${w.row} / span ${w.rowSpan}`;
+    div.style.gridColumn = `${w.col} / span ${w.colSpan}`;
+
+    // If this is the main widget, use the dynamic content
+    if (w.id === "main") {
+      div.textContent = sidebarMapping[currentMain];
+    } else {
+      div.textContent = w.label;
+    }
+
+    gridEl.appendChild(div);
   });
 }
 
@@ -62,13 +64,18 @@ function updateFocus() {
   }
 }
 
+// Navigation helper
+function findWidget(row, col) {
+  return widgets.find(w => w.row === row && w.col === col);
+}
+
 // Handle navigation
 function moveFocus(dir) {
   if (focus.type === "grid") {
     let { row, col } = focus;
 
     if (dir === "left") {
-      if (col === 0) {
+      if (col === 1) {
         focus = { type: "menu", index: 0 };
         return;
       }
@@ -78,7 +85,7 @@ function moveFocus(dir) {
     if (dir === "up") row--;
     if (dir === "down") row++;
 
-    if (layout[row] && layout[row][col]) {
+    if (findWidget(row, col)) {
       focus = { type: "grid", row, col };
     }
   } else if (focus.type === "menu") {
@@ -86,7 +93,7 @@ function moveFocus(dir) {
     if (dir === "down" && focus.index < sidebarEl.children.length - 1)
       focus.index++;
     if (dir === "right") {
-      focus = { type: "grid", row: 0, col: 0 };
+      focus = { type: "grid", row: 1, col: 1 };
     }
   }
 }
@@ -103,7 +110,15 @@ function handleEnter() {
       selectedCell = el;
     }
   } else if (focus.type === "menu") {
-    alert(`Menu option: ${sidebarEl.children[focus.index].dataset.menu}`);
+    const menuItem = sidebarEl.children[focus.index];
+    const menuKey = menuItem.dataset.menu;
+
+    if (menuKey === "settings") {
+      alert("Settings menu (placeholder)");
+    } else {
+      currentMain = menuKey;
+      renderGrid(); // update Main_Widget content
+    }
   }
 }
 
