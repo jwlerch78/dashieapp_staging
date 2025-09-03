@@ -43,9 +43,9 @@ html, body {
   display: grid;
   grid-template-rows: 10% 50% 40%;
   grid-template-columns: 30% 70%;
-  gap: 8px;
-  padding: 8px;
-  height: 100%;
+  gap: 4px; /* smaller gap */
+  padding: 4px;
+  box-sizing: border-box; /* include padding in width/height */
 }
 
 .widget {
