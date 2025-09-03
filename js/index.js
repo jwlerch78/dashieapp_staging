@@ -14,12 +14,6 @@ let widgets = [
 ];
 
 // Sidebar menu options
-const sidebarOptions = [
-  { id: "calendar", iconSrc: "icons/calendar-white.png" },
-  { id: "map", icon: "🗺️" },
-  { id: "camera", icon: "📷" },
-  { id: "settings", icon: "⚙️" }
-];
 
 const sidebarOptions = [
   { id: "calendar", iconSrc: "icons/Menu-Calendar-60px.png" },
