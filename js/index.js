@@ -15,11 +15,19 @@ let widgets = [
 
 // Sidebar menu options
 const sidebarOptions = [
-  { id: "calendar", icon: "📅" },
+  { id: "calendar", iconSrc: "icons/calendar-white.png" },
   { id: "map", icon: "🗺️" },
   { id: "camera", icon: "📷" },
   { id: "settings", icon: "⚙️" }
 ];
+
+const sidebarOptions = [
+  { id: "calendar", iconSrc: "icons/Menu-Calendar-60px.png" },
+  { id: "map", iconSrc: "icons/Menu-Location-360px.png" },
+  { id: "camera", iconSrc: "icons/Menu-VidCam-60px.png" },
+  { id: "settings", iconSrc: "icons/Menu-Settings-60px.png" }
+];
+
 
 // Map sidebar key to main widget content
 const sidebarMapping = {
@@ -64,12 +72,21 @@ function renderGrid() {
 }
 
 function renderSidebar() {
-  sidebarEl.innerHTML = "";
+  sidebarEl.innerHTML = ""; // clear previous
+
   sidebarOptions.forEach((item, index) => {
     const div = document.createElement("div");
     div.classList.add("menu-item");
     div.dataset.menu = item.id;
-    div.textContent = item.icon; // only the icon
+
+    // Create image
+    const img = document.createElement("img");
+    img.src = item.iconSrc; // path to your icon
+    img.classList.add("menu-icon");
+    img.width = 60; // force width
+    img.height = 60; // force height
+    img.style.objectFit = "contain"; // ensure it scales properly
+    div.appendChild(img);
 
     // Mouse / touch support
     div.addEventListener("mouseover", () => {
