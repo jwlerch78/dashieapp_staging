@@ -1,1 +1,56 @@
+<!-- index.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashie Grid</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- Grid Container -->
+<div id="grid-container">
+  <!-- Row 1 -->
+  <div class="grid-cell" id="cell-1-1" data-row="1" data-col="1">Clock</div>
+  <div class="grid-cell" id="cell-1-2" data-row="1" data-col="2">Map (spanning rows 2-3)</div>
+  <div class="grid-cell" id="cell-1-3" data-row="1" data-col="3"></div>
+  <div class="grid-cell" id="cell-1-4" data-row="1" data-col="4"></div>
+
+  <!-- Row 2 -->
+  <div class="grid-cell" id="cell-2-1" data-row="2" data-col="1">Agenda</div>
+  <div class="grid-cell main-widget" id="cell-2-2" data-row="2" data-col="2" data-rowspan="2">Calendar</div>
+  <div class="grid-cell" id="cell-2-3" data-row="2" data-col="3"></div>
+  <div class="grid-cell" id="cell-2-4" data-row="2" data-col="4"></div>
+
+  <!-- Row 3 -->
+  <div class="grid-cell" id="cell-3-1" data-row="3" data-col="1">Photos</div>
+  <div class="grid-cell" id="cell-3-3" data-row="3" data-col="3"></div>
+  <div class="grid-cell" id="cell-3-4" data-row="3" data-col="4"></div>
+
+  <!-- Row 4 -->
+  <div class="grid-cell" id="cell-4-1" data-row="4" data-col="1"></div>
+  <div class="grid-cell" id="cell-4-2" data-row="4" data-col="2"></div>
+  <div class="grid-cell" id="cell-4-3" data-row="4" data-col="3"></div>
+  <div class="grid-cell" id="cell-4-4" data-row="4" data-col="4"></div>
+</div>
+
+<!-- Bottom Menu -->
+<div id="bottom-menu">
+  <div class="menu-item" data-action="calendar">Calendar</div>
+  <div class="menu-item" data-action="camera">Camera</div>
+  <div class="menu-item" data-action="map">Map</div>
+  <div class="menu-item" data-action="settings">Settings</div>
+</div>
+
+<!-- Side Settings Menu -->
+<div id="settings-menu">
+  <div class="settings-item" id="reload">Reload Dashie</div>
+  <div class="settings-item" id="exit">Exit Dashie</div>
+</div>
+
+<script src="js/index.js"></script>
+</body>
+</html>
 
