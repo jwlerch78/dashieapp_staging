@@ -13,22 +13,20 @@ html, body {
 
 /* Sidebar menu */
 #sidebar {
-  width: 60px;
+  width: 60px; /* smaller width */
   background: #222;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 10px 0;
+  padding: 8px 0;
+  justify-content: space-around; /* spread icons vertically */
 }
 
 .menu-item {
-  margin: 15px 0;
-  font-size: 24px;
+  font-size: 2rem;
   cursor: pointer;
-  padding: 10px;
-  border-radius: 12px;
+  user-select: none;
 }
-
 .menu-item.selected {
   outline: 2px solid yellow;
 }
