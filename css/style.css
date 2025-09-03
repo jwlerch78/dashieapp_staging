@@ -1,0 +1,75 @@
+body {
+  margin: 0;
+  font-family: sans-serif;
+  background: #111;
+  color: #fff;
+}
+
+#grid-container {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 100px);
+  gap: 5px;
+  padding: 5px;
+}
+
+.grid-cell {
+  background: #222;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #333;
+  position: relative;
+}
+
+.grid-cell.selected {
+  outline: 2px solid yellow;
+}
+
+.grid-cell.focused {
+  outline: 4px solid orange;
+}
+
+.main-widget {
+  grid-row: 2 / span 2; /* spans rows 2-3 */
+  background: #333;
+}
+
+/* Bottom menu */
+#bottom-menu {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  background: #222;
+  padding: 5px;
+  justify-content: space-around;
+  border-top: 2px solid #444;
+  display: none; /* hidden initially */
+}
+
+.menu-item {
+  padding: 10px;
+  background: #333;
+  cursor: pointer;
+}
+
+/* Settings menu */
+#settings-menu {
+  position: fixed;
+  right: 0;
+  top: 0;
+  width: 200px;
+  height: 100%;
+  background: #222;
+  display: none;
+  flex-direction: column;
+  padding: 10px;
+}
+
+.settings-item {
+  padding: 10px;
+  border-bottom: 1px solid #444;
+  cursor: pointer;
+}
