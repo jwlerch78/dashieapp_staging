@@ -1,3 +1,9 @@
+// --- index.js ---
+
+// ---------------------
+// CONFIGURATION
+// ---------------------
+
 // Explicit widget layout
 let widgets = [
   { id: "clock", row: 1, col: 1, rowSpan: 1, colSpan: 1, label: "⏰ Clock" },
@@ -7,22 +13,36 @@ let widgets = [
   { id: "main", row: 2, col: 2, rowSpan: 2, colSpan: 1, label: "🌟 Main Widget" }
 ];
 
-// Sidebar menu options control the main widget
+// Sidebar menu options
+const sidebarOptions = [
+  { id: "calendar", label: "📅 Calendar" },
+  { id: "map", label: "🗺️ Map" },
+  { id: "camera", label: "📷 Camera" },
+  { id: "settings", label: "⚙️ Settings" }
+];
+
+// Map sidebar key to main widget content
 const sidebarMapping = {
   calendar: "📅 Calendar",
   map: "🗺️ Map",
   camera: "📷 Camera"
 };
 
-let currentMain = "calendar"; // default
+let currentMain = "calendar"; // default main widget
 
+// ---------------------
+// STATE
+// ---------------------
 const gridEl = document.getElementById("grid");
 const sidebarEl = document.getElementById("sidebar");
 
-let focus = { type: "grid", row: 1, col: 1 };
-let selectedCell = null;
+let focus = { type: "grid", row: 1, col: 1 }; // current focus for D-pad navigation
+let selectedCell = null; // focused widget
 
-// Render grid
+// ---------------------
+// RENDERING
+// ---------------------
+
 function renderGrid() {
   gridEl.innerHTML = "";
   widgets.forEach(w => {
@@ -33,7 +53,6 @@ function renderGrid() {
     div.style.gridRow = `${w.row} / span ${w.rowSpan}`;
     div.style.gridColumn = `${w.col} / span ${w.colSpan}`;
 
-    // If this is the main widget, use the dynamic content
     if (w.id === "main") {
       div.textContent = sidebarMapping[currentMain];
     } else {
@@ -44,39 +63,86 @@ function renderGrid() {
   });
 }
 
-// Update highlighting
+function renderSidebar() {
+  sidebarEl.innerHTML = "";
+  sidebarOptions.forEach((item, index) => {
+    const div = document.createElement("div");
+    div.classList.add("menu-item");
+    div.dataset.menu = item.id;
+    div.textContent = item.label;
+
+    // Mouse / touch support
+    div.addEventListener("mouseover", () => {
+      focus = { type: "menu", index };
+      updateFocus();
+    });
+
+    div.addEventListener("click", () => {
+      focus = { type: "menu", index };
+      handleEnter();
+    });
+
+    sidebarEl.appendChild(div);
+  });
+}
+
 function updateFocus() {
+  // clear all highlights
   document.querySelectorAll(".widget, .menu-item")
     .forEach(el => el.classList.remove("selected", "focused"));
 
+  // grid focus
   if (focus.type === "grid") {
     const cell = document.querySelector(
       `.widget[data-row="${focus.row}"][data-col="${focus.col}"]`
     );
     if (cell) cell.classList.add("selected");
-  } else if (focus.type === "menu") {
+  }
+
+  // sidebar focus
+  if (focus.type === "menu") {
     const items = sidebarEl.querySelectorAll(".menu-item");
     items[focus.index].classList.add("selected");
   }
 
+  // focused widget
   if (selectedCell) {
     selectedCell.classList.add("focused");
   }
 }
 
-// Navigation helper
+// ---------------------
+// NAVIGATION HELPERS
+// ---------------------
+
 function findWidget(row, col) {
   return widgets.find(w => w.row === row && w.col === col);
 }
 
-// Handle navigation
+// Send D-pad action to focused widget
+function sendToWidget(action) {
+  if (!selectedCell) return;
+  const iframe = selectedCell.querySelector("iframe");
+  if (iframe && iframe.contentWindow) {
+    iframe.contentWindow.postMessage({ action }, "*");
+  }
+}
+
 function moveFocus(dir) {
+  if (selectedCell) {
+    // Widget is focused — send input there
+    sendToWidget(dir);
+    return;
+  }
+
   if (focus.type === "grid") {
     let { row, col } = focus;
 
     if (dir === "left") {
       if (col === 1) {
+        // Move to sidebar
         focus = { type: "menu", index: 0 };
+        updateFocus();
         return;
       }
       col--;
@@ -96,9 +162,14 @@ function moveFocus(dir) {
       focus = { type: "grid", row: 1, col: 1 };
     }
   }
+
+  updateFocus();
 }
 
-// Handle select/deselect
+// ---------------------
+// ENTER / BACK
+// ---------------------
+
 function handleEnter() {
   if (focus.type === "grid") {
     const el = document.querySelector(
@@ -117,27 +188,37 @@ function handleEnter() {
       alert("Settings menu (placeholder)");
     } else {
       currentMain = menuKey;
-      renderGrid(); // update Main_Widget content
+      renderGrid();
     }
   }
+  updateFocus();
 }
 
 function handleBack() {
   selectedCell = null;
+  updateFocus();
 }
 
-// Key handling
-document.addEventListener("keydown", e => {
-  if (e.key === "ArrowLeft") moveFocus("left");
-  if (e.key === "ArrowRight") moveFocus("right");
-  if (e.key === "ArrowUp") moveFocus("up");
-  if (e.key === "ArrowDown") moveFocus("down");
-  if (e.key === "Enter") handleEnter();
-  if (e.key === "Backspace") handleBack();
+// ---------------------
+// KEY HANDLER
+// ---------------------
 
-  updateFocus();
+document.addEventListener("keydown", e => {
+  switch (e.key) {
+    case "ArrowLeft": moveFocus("left"); break;
+    case "ArrowRight": moveFocus("right"); break;
+    case "ArrowUp": moveFocus("up"); break;
+    case "ArrowDown": moveFocus("down"); break;
+    case "Enter": handleEnter(); break;
+    case "Escape": handleBack(); break;
+    case "Backspace": handleBack(); break;
+  }
 });
 
-// Init
+// ---------------------
+// INIT
+// ---------------------
+
+renderSidebar();
 renderGrid();
 updateFocus();
