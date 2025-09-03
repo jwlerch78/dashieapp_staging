@@ -37,6 +37,15 @@ html, body {
   outline: 3px solid cyan;
 }
 
+.menu-icon {
+  width: 60px;
+  height: 60px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto; /* center in menu item */
+}
+
+
 /* Main grid */
 #grid {
   flex: 1;
