@@ -1,7 +1,10 @@
+// --- index.js ---
+
 // ---------------------
 // CONFIGURATION
 // ---------------------
 
+// Explicit widget layout
 let widgets = [
   { id: "clock", row: 1, col: 1, rowSpan: 1, colSpan: 1, label: "⏰ Clock" },
   { id: "agenda", row: 2, col: 1, rowSpan: 1, colSpan: 1, label: "📝 Agenda" },
@@ -10,20 +13,22 @@ let widgets = [
   { id: "main", row: 2, col: 2, rowSpan: 2, colSpan: 1, label: "🌟 Main Widget" }
 ];
 
+// Sidebar menu options
 const sidebarOptions = [
-  { id: "calendar", icon: "📅" },
-  { id: "map", icon: "🗺️" },
-  { id: "camera", icon: "📷" },
-  { id: "settings", icon: "⚙️" }
+  { id: "calendar", label: "📅 Calendar" },
+  { id: "map", label: "🗺️ Map" },
+  { id: "camera", label: "📷 Camera" },
+  { id: "settings", label: "⚙️ Settings" }
 ];
 
+// Map sidebar key to main widget content
 const sidebarMapping = {
   calendar: "📅 Calendar",
   map: "🗺️ Map",
   camera: "📷 Camera"
 };
 
-let currentMain = "calendar";
+let currentMain = "calendar"; // default main widget
 
 // ---------------------
 // STATE
@@ -31,11 +36,8 @@ let currentMain = "calendar";
 const gridEl = document.getElementById("grid");
 const sidebarEl = document.getElementById("sidebar");
 
-let focus = { type: "grid", row: 1, col: 1 };
-let selectedCell = null;
-
-// Settings overlay
-let settingsVisible = false;
+let focus = { type: "grid", row: 1, col: 1 }; // current focus for D-pad navigation
+let selectedCell = null; // focused widget
 
 // ---------------------
 // RENDERING
@@ -51,7 +53,11 @@ function renderGrid() {
     div.style.gridRow = `${w.row} / span ${w.rowSpan}`;
     div.style.gridColumn = `${w.col} / span ${w.colSpan}`;
 
-    div.textContent = w.id === "main" ? sidebarMapping[currentMain] : w.label;
+    if (w.id === "main") {
+      div.textContent = sidebarMapping[currentMain];
+    } else {
+      div.textContent = w.label;
+    }
 
     gridEl.appendChild(div);
   });
@@ -63,13 +69,14 @@ function renderSidebar() {
     const div = document.createElement("div");
     div.classList.add("menu-item");
     div.dataset.menu = item.id;
-    div.textContent = item.icon;
+    div.textContent = item.label;
 
     // Mouse / touch support
     div.addEventListener("mouseover", () => {
       focus = { type: "menu", index };
       updateFocus();
     });
+
     div.addEventListener("click", () => {
       focus = { type: "menu", index };
       handleEnter();
@@ -79,50 +86,12 @@ function renderSidebar() {
   });
 }
 
-function renderSettingsOverlay() {
-  let overlay = document.getElementById("settingsOverlay");
-  if (!overlay) {
-    overlay = document.createElement("div");
-    overlay.id = "settingsOverlay";
-    overlay.style.position = "absolute";
-    overlay.style.top = "0";
-    overlay.style.left = "60px";
-    overlay.style.width = "180px";
-    overlay.style.height = "100%";
-    overlay.style.background = "rgba(0,0,0,0.7)";
-    overlay.style.display = "none";
-    overlay.style.flexDirection = "column";
-    overlay.style.padding = "10px";
-    overlay.style.zIndex = "100";
-    document.body.appendChild(overlay);
-
-    const refreshBtn = document.createElement("div");
-    refreshBtn.textContent = "🔄 Refresh Dashie";
-    refreshBtn.classList.add("settings-item");
-    refreshBtn.addEventListener("click", () => window.location.reload());
-
-    const exitBtn = document.createElement("div");
-    exitBtn.textContent = "❌ Exit Dashie";
-    exitBtn.classList.add("settings-item");
-    exitBtn.addEventListener("click", () => alert("Exit Dashie triggered"));
-
-    overlay.appendChild(refreshBtn);
-    overlay.appendChild(exitBtn);
-  }
-
-  overlay.style.display = settingsVisible ? "flex" : "none";
-}
-
-// ---------------------
-// FOCUS & HIGHLIGHTS
-// ---------------------
-
 function updateFocus() {
-  document.querySelectorAll(".widget, .menu-item").forEach(el => {
-    el.classList.remove("selected", "focused", "active");
-  });
+  // clear all highlights
+  document.querySelectorAll(".widget, .menu-item")
+    .forEach(el => el.classList.remove("selected", "focused"));
 
-  // Grid focus
+  // grid focus
   if (focus.type === "grid") {
     const cell = document.querySelector(
       `.widget[data-row="${focus.row}"][data-col="${focus.col}"]`
@@ -130,21 +99,16 @@ function updateFocus() {
     if (cell) cell.classList.add("selected");
   }
 
-  // Sidebar focus
+  // sidebar focus
   if (focus.type === "menu") {
     const items = sidebarEl.querySelectorAll(".menu-item");
-    if (items[focus.index]) items[focus.index].classList.add("selected");
+    items[focus.index].classList.add("selected");
   }
 
-  // Focused widget
-  if (selectedCell) selectedCell.classList.add("focused");
-
-  // Active main widget highlight on sidebar
-  sidebarEl.querySelectorAll(".menu-item").forEach(el => {
-    if (el.dataset.menu === currentMain) el.classList.add("active");
-  });
-
-  renderSettingsOverlay();
+  // focused widget
+  if (selectedCell) {
+    selectedCell.classList.add("focused");
+  }
 }
 
 // ---------------------
@@ -155,24 +119,48 @@ function findWidget(row, col) {
   return widgets.find(w => w.row === row && w.col === col);
 }
 
+// Send D-pad action to focused widget
+function sendToWidget(action) {
+  if (!selectedCell) return;
+  const iframe = selectedCell.querySelector("iframe");
+  if (iframe && iframe.contentWindow) {
+    iframe.contentWindow.postMessage({ action }, "*");
+  }
+}
+
 function moveFocus(dir) {
   if (selectedCell) {
-    return; // focused widget handles D-pad
+    // Widget is focused — send input there
+    sendToWidget(dir);
+    return;
   }
 
   if (focus.type === "grid") {
     let { row, col } = focus;
-    if (dir === "left") col = col > 1 ? col - 1 : 1;
+
+    if (dir === "left") {
+      if (col === 1) {
+        // Move to sidebar
+        focus = { type: "menu", index: 0 };
+        updateFocus();
+        return;
+      }
+      col--;
+    }
     if (dir === "right") col++;
-    if (dir === "up") row = row > 1 ? row - 1 : 1;
+    if (dir === "up") row--;
     if (dir === "down") row++;
 
-    if (findWidget(row, col)) focus = { type: "grid", row, col };
+    if (findWidget(row, col)) {
+      focus = { type: "grid", row, col };
+    }
   } else if (focus.type === "menu") {
     if (dir === "up" && focus.index > 0) focus.index--;
     if (dir === "down" && focus.index < sidebarEl.children.length - 1)
       focus.index++;
-    if (dir === "right") focus = { type: "grid", row: 1, col: 1 };
+    if (dir === "right") {
+      focus = { type: "grid", row: 1, col: 1 };
+    }
   }
 
   updateFocus();
@@ -187,13 +175,17 @@ function handleEnter() {
     const el = document.querySelector(
       `.widget[data-row="${focus.row}"][data-col="${focus.col}"]`
     );
-    if (selectedCell === el) selectedCell = null;
-    else selectedCell = el;
+    if (selectedCell === el) {
+      selectedCell = null;
+    } else {
+      selectedCell = el;
+    }
   } else if (focus.type === "menu") {
     const menuItem = sidebarEl.children[focus.index];
     const menuKey = menuItem.dataset.menu;
+
     if (menuKey === "settings") {
-      settingsVisible = !settingsVisible;
+      alert("Settings menu (placeholder)");
     } else {
       currentMain = menuKey;
       renderGrid();
@@ -204,7 +196,6 @@ function handleEnter() {
 
 function handleBack() {
   selectedCell = null;
-  settingsVisible = false;
   updateFocus();
 }
 
@@ -219,7 +210,7 @@ document.addEventListener("keydown", e => {
     case "ArrowUp": moveFocus("up"); break;
     case "ArrowDown": moveFocus("down"); break;
     case "Enter": handleEnter(); break;
-    case "Escape":
+    case "Escape": handleBack(); break;
     case "Backspace": handleBack(); break;
   }
 });
