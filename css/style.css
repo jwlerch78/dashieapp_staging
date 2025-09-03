@@ -1,110 +1,66 @@
-html, body {
+body {
   margin: 0;
-  padding: 0;
-  height: 100%;
-  width: 100%;
-  overflow: hidden; /* prevent scrolling */
-  font-family: sans-serif;
-  background-color: #111;
+  background: #111;
   color: white;
+  font-family: sans-serif;
 }
 
-#container {
-  display: grid;
-  grid-template-columns: 30% 70%;
-  grid-template-rows: 10% 50% 40%;
-  width: 100%;
-  height: 100%;
-  box-sizing: border-box;
-}
-
-/* GRID WIDGETS */
-#grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-template-rows: 10% 50% 40%;
-  width: 100%;
-  height: 100%;
-  gap: 5px;
-  padding: 5px;
-  box-sizing: border-box;
-}
-
-.widget {
-  background-color: #222;
+#app {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  font-size: 2em;
-  border: 2px solid transparent;
-  border-radius: 6px;
-  text-align: center;
-  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
 }
 
-.widget.selected {
-  border: 2px solid #fff;
-}
-
-.widget.focused {
-  border: 2px solid #0ff;
-}
-
-/* SIDEBAR */
+/* Sidebar menu */
 #sidebar {
-  position: absolute;
-  top: 0;
-  left: 0;
   width: 60px;
-  height: 100%;
+  background: #222;
   display: flex;
   flex-direction: column;
-  justify-content: flex-end; /* bottom justify */
   align-items: center;
-  padding-bottom: 10px;
-  background-color: #000;
-  box-sizing: border-box;
+  padding: 10px 0;
 }
 
 .menu-item {
-  font-size: 2em;
-  margin: 8px 0;
+  margin: 15px 0;
+  font-size: 24px;
   cursor: pointer;
-  transition: transform 0.1s;
+  padding: 10px;
+  border-radius: 12px;
 }
 
 .menu-item.selected {
-  transform: scale(1.2);
+  outline: 2px solid yellow;
 }
 
-.menu-item.active {
-  color: #0ff;
+.menu-item.focused {
+  outline: 3px solid cyan;
 }
 
-/* SETTINGS OVERLAY */
-#settingsOverlay {
-  display: none;
-  position: absolute;
-  top: 0;
-  left: 60px;
-  width: 180px;
+/* Main grid */
+#grid {
+  flex: 1;
+  display: grid;
+  grid-template-rows: 10% 50% 40%;
+  grid-template-columns: 30% 70%;
+  gap: 8px;
+  padding: 8px;
   height: 100%;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
+}
+
+.widget {
+  background: #333;
   display: flex;
-  flex-direction: column;
-  padding: 10px;
-  box-sizing: border-box;
-  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-size: 18px;
 }
 
-.settings-item {
-  font-size: 1.2em;
-  margin-bottom: 15px;
-  cursor: pointer;
-  user-select: none;
+.widget.selected {
+  outline: 2px solid yellow;
 }
 
-.settings-item:hover {
-  color: #0ff;
+.widget.focused {
+  outline: 3px solid cyan;
 }
