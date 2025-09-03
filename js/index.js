@@ -15,10 +15,10 @@ let widgets = [
 
 // Sidebar menu options
 const sidebarOptions = [
-  { id: "calendar", label: "📅 Calendar" },
-  { id: "map", label: "🗺️ Map" },
-  { id: "camera", label: "📷 Camera" },
-  { id: "settings", label: "⚙️ Settings" }
+  { id: "calendar", icon: "📅" },
+  { id: "map", icon: "🗺️" },
+  { id: "camera", icon: "📷" },
+  { id: "settings", icon: "⚙️" }
 ];
 
 // Map sidebar key to main widget content
@@ -69,14 +69,13 @@ function renderSidebar() {
     const div = document.createElement("div");
     div.classList.add("menu-item");
     div.dataset.menu = item.id;
-    div.textContent = item.label;
+    div.textContent = item.icon; // only the icon
 
     // Mouse / touch support
     div.addEventListener("mouseover", () => {
       focus = { type: "menu", index };
       updateFocus();
     });
-
     div.addEventListener("click", () => {
       focus = { type: "menu", index };
       handleEnter();
