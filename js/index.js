@@ -1,91 +1,130 @@
 // index.js
 
-const rows = 4;
-const cols = 4;
+// Define the grid layout (null = empty slot)
+const layout = [
+  ["calendar", "agenda", null, null],
+  ["photos", "main", null, null],
+  ["news", "main", null, null],
+  [null, null, null, null]
+];
 
-let selectedCell = "cell-1-1";
-let focusedCell = null;
-let menuOpen = false;
-let settingsOpen = false;
+// Map widget types to renderers (for now, simple placeholders)
+const widgetRenderers = {
+  calendar: () => "📅 Calendar",
+  agenda: () => "📝 Agenda",
+  photos: () => "🖼️ Photos",
+  news: () => "📰 News",
+  main: () => "🌟 Main Widget"
+};
 
-// D-pad keycodes: up=38, down=40, left=37, right=39, enter=13, back=27
-document.addEventListener("keydown", (e) => {
-  if(menuOpen) handleMenuInput(e);
-  else if(settingsOpen) handleSettingsInput(e);
-  else if(focusedCell) handleFocusedWidget(e);
-  else handleGridNavigation(e);
-  e.preventDefault();
+const gridEl = document.getElementById("grid");
+const sidebarEl = document.getElementById("sidebar");
+
+let focus = { type: "grid", row: 0, col: 0 }; // start in top-left
+let selectedCell = null;
+
+// Render grid
+function renderGrid() {
+  gridEl.innerHTML = "";
+  layout.forEach((row, r) => {
+    row.forEach((cell, c) => {
+      if (cell) {
+        const div = document.createElement("div");
+        div.classList.add("widget");
+        if (cell === "main") {
+          div.style.gridRow = "2 / span 2";
+          div.style.gridColumn = "2";
+        }
+        div.dataset.row = r;
+        div.dataset.col = c;
+        div.textContent = widgetRenderers[cell]();
+        gridEl.appendChild(div);
+      }
+    });
+  });
+}
+
+// Update highlighting
+function updateFocus() {
+  document.querySelectorAll(".widget, .menu-item")
+    .forEach(el => el.classList.remove("selected", "focused"));
+
+  if (focus.type === "grid") {
+    const cell = document.querySelector(
+      `.widget[data-row="${focus.row}"][data-col="${focus.col}"]`
+    );
+    if (cell) cell.classList.add("selected");
+  } else if (focus.type === "menu") {
+    const items = sidebarEl.querySelectorAll(".menu-item");
+    items[focus.index].classList.add("selected");
+  }
+
+  if (selectedCell) {
+    selectedCell.classList.add("focused");
+  }
+}
+
+// Handle navigation
+function moveFocus(dir) {
+  if (focus.type === "grid") {
+    let { row, col } = focus;
+
+    if (dir === "left") {
+      if (col === 0) {
+        focus = { type: "menu", index: 0 };
+        return;
+      }
+      col--;
+    }
+    if (dir === "right") col++;
+    if (dir === "up") row--;
+    if (dir === "down") row++;
+
+    if (layout[row] && layout[row][col]) {
+      focus = { type: "grid", row, col };
+    }
+  } else if (focus.type === "menu") {
+    if (dir === "up" && focus.index > 0) focus.index--;
+    if (dir === "down" && focus.index < sidebarEl.children.length - 1)
+      focus.index++;
+    if (dir === "right") {
+      focus = { type: "grid", row: 0, col: 0 };
+    }
+  }
+}
+
+// Handle select/deselect
+function handleEnter() {
+  if (focus.type === "grid") {
+    const el = document.querySelector(
+      `.widget[data-row="${focus.row}"][data-col="${focus.col}"]`
+    );
+    if (selectedCell === el) {
+      selectedCell = null;
+    } else {
+      selectedCell = el;
+    }
+  } else if (focus.type === "menu") {
+    alert(`Menu option: ${sidebarEl.children[focus.index].dataset.menu}`);
+  }
+}
+
+function handleBack() {
+  selectedCell = null;
+}
+
+// Key handling
+document.addEventListener("keydown", e => {
+  if (e.key === "ArrowLeft") moveFocus("left");
+  if (e.key === "ArrowRight") moveFocus("right");
+  if (e.key === "ArrowUp") moveFocus("up");
+  if (e.key === "ArrowDown") moveFocus("down");
+  if (e.key === "Enter") handleEnter();
+  if (e.key === "Backspace") handleBack();
+
+  updateFocus();
 });
 
-function handleGridNavigation(e) {
-  const current = document.getElementById(selectedCell);
-  let row = parseInt(current.dataset.row);
-  let col = parseInt(current.dataset.col);
-
-  switch(e.keyCode) {
-    case 38: row = Math.max(1, row - 1); break;
-    case 40: 
-      if(row < rows) row++; 
-      else { openBottomMenu(); return; } 
-      break;
-    case 37: col = Math.max(1, col - 1); break;
-    case 39: col = Math.min(cols, col + 1); break;
-    case 13: focusCell(selectedCell); return;
-    case 27: /* nothing when no focus */ return;
-  }
-
-  const newCell = document.querySelector(`.grid-cell[data-row='${row}'][data-col='${col}']`);
-  if(newCell && newCell.textContent.trim() !== "") {
-    selectCell(newCell.id);
-  }
-}
-
-function selectCell(id) {
-  if(selectedCell) document.getElementById(selectedCell).classList.remove("selected");
-  selectedCell = id;
-  document.getElementById(selectedCell).classList.add("selected");
-}
-
-function focusCell(id) {
-  if(focusedCell) document.getElementById(focusedCell).classList.remove("focused");
-  focusedCell = id;
-  document.getElementById(focusedCell).classList.add("focused");
-}
-
-function unfocusCell() {
-  if(focusedCell) document.getElementById(focusedCell).classList.remove("focused");
-  focusedCell = null;
-}
-
-function handleFocusedWidget(e) {
-  switch(e.keyCode) {
-    case 27: unfocusCell(); break; // back
-    default:
-      console.log("Send to widget", focusedCell, e.keyCode);
-  }
-}
-
-function openBottomMenu() {
-  menuOpen = true;
-  document.getElementById("bottom-menu").style.display = "flex";
-}
-
-function handleMenuInput(e) {
-  switch(e.keyCode) {
-    case 27: closeBottomMenu(); break;
-    case 13: selectMenuItem(); break;
-    default: break;
-  }
-}
-
-function closeBottomMenu() {
-  menuOpen = false;
-  document.getElementById("bottom-menu").style.display = "none";
-}
-
-function selectMenuItem() {
-  console.log("Menu action clicked (implement later)");
-}
-
-// Initialize
-selectCell(selectedCell);
+// Init
+renderGrid();
+updateFocus();
