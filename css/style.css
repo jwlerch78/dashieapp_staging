@@ -1,75 +1,65 @@
 body {
   margin: 0;
-  font-family: sans-serif;
   background: #111;
-  color: #fff;
+  color: white;
+  font-family: sans-serif;
 }
 
-#grid-container {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  grid-template-rows: repeat(4, 100px);
-  gap: 5px;
-  padding: 5px;
+#app {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
 }
 
-.grid-cell {
+/* Sidebar menu */
+#sidebar {
+  width: 60px;
   background: #222;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-  border: 1px solid #333;
-  position: relative;
-}
-
-.grid-cell.selected {
-  outline: 2px solid yellow;
-}
-
-.grid-cell.focused {
-  outline: 4px solid orange;
-}
-
-.main-widget {
-  grid-row: 2 / span 2; /* spans rows 2-3 */
-  background: #333;
-}
-
-/* Bottom menu */
-#bottom-menu {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  background: #222;
-  padding: 5px;
-  justify-content: space-around;
-  border-top: 2px solid #444;
-  display: none; /* hidden initially */
+  padding: 10px 0;
 }
 
 .menu-item {
+  margin: 15px 0;
+  font-size: 24px;
+  cursor: pointer;
   padding: 10px;
+  border-radius: 12px;
+}
+
+.menu-item.selected {
+  outline: 2px solid yellow;
+}
+
+.menu-item.focused {
+  outline: 3px solid cyan;
+}
+
+/* Main grid */
+#grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  grid-template-rows: repeat(4, 1fr);
+  gap: 10px;
+  padding: 10px;
+}
+
+.widget {
   background: #333;
-  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  font-size: 18px;
 }
 
-/* Settings menu */
-#settings-menu {
-  position: fixed;
-  right: 0;
-  top: 0;
-  width: 200px;
-  height: 100%;
-  background: #222;
-  display: none;
-  flex-direction: column;
-  padding: 10px;
+.widget.selected {
+  outline: 2px solid yellow;
 }
 
-.settings-item {
-  padding: 10px;
-  border-bottom: 1px solid #444;
-  cursor: pointer;
+.widget.focused {
+  outline: 3px solid cyan;
 }
