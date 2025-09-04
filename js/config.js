@@ -15,7 +15,7 @@ const sidebarOptions = [
   { id: "calendar", iconSrc: "icons/icon-calendar.svg" },
   { id: "map", iconSrc: "icons/icon-map.svg" },
   { id: "camera", iconSrc: "icons/icon-video-camera.svg" },
-  { id: "separator", type: "separator" }, // special separator item
+ // { id: "separator", type: "separator" }, // special separator item
   { id: "settings", iconSrc: "icons/icon-settings.svg" },
   { id: "exit", iconSrc: "icons/icon-exit.svg" }
 ];
