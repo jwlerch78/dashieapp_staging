@@ -25,7 +25,6 @@ html, body {
 
 .menu-item {
   margin: 15px 0;
-  font-size: 24px;
   cursor: pointer;
   padding: 10px;
   border-radius: 12px;
@@ -40,12 +39,21 @@ html, body {
 }
 
 .menu-icon {
-  width: 60px;
-  height: 60px;
+  width: 30px;
+  height: 30px;
   object-fit: contain;
   display: block;
-  margin: 0 auto; /* center in menu item */
+  margin: 0 auto;
+  filter: brightness(0) invert(1); /* force white */
 }
+
+.menu-separator {
+  width: 30px;
+  height: 1px;
+  background: #555;
+  margin: 10px 0;
+}
+
 
 
 /* Main grid */
