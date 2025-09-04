@@ -58,27 +58,35 @@ function renderGrid() {
 }
 
 function renderSidebar() {
-  sidebarEl.innerHTML = ""; // clear previous
+  sidebarEl.innerHTML = "";
 
   sidebarOptions.forEach((item, index) => {
     const div = document.createElement("div");
     div.classList.add("menu-item");
     div.dataset.menu = item.id;
 
-    // Use <img> for external SVGs
+    // mark active main widget
+    if (["calendar","map","camera"].includes(item.id) && item.id === currentMain) {
+      div.classList.add("active");
+    }
+
+    // create SVG icon
     const img = document.createElement("img");
     img.src = item.iconSrc;
     img.classList.add("menu-icon");
     img.width = 30;
     img.height = 30;
     img.style.objectFit = "contain";
-    img.style.filter = "invert(100%)"; // force white
     div.appendChild(img);
 
-    // Mouse / touch support
+    // mouse / touch support
     div.addEventListener("mouseover", () => {
       focus = { type: "menu", index };
+      showMenuLabel(item.label);
       updateFocus();
+    });
+    div.addEventListener("mouseout", () => {
+      showMenuLabel(""); // hide label when mouse leaves
     });
     div.addEventListener("click", () => {
       focus = { type: "menu", index };
@@ -87,13 +95,31 @@ function renderSidebar() {
 
     sidebarEl.appendChild(div);
 
-    // Optional separator
-    if (item.separator) {
+    // optional: separator after some items
+    if (item.id === "camera") {
       const sep = document.createElement("div");
-      sep.classList.add("menu-separator");
+      sep.classList.add("sidebar-separator");
       sidebarEl.appendChild(sep);
     }
   });
+}
+
+// function to display the menu label
+function showMenuLabel(text) {
+  let labelEl = document.getElementById("menu-label");
+  if (!labelEl) {
+    labelEl = document.createElement("div");
+    labelEl.id = "menu-label";
+    labelEl.style.position = "absolute";
+    labelEl.style.right = "70px"; // place it next to sidebar
+    labelEl.style.top = "50%";
+    labelEl.style.transform = "translateY(-50%)";
+    labelEl.style.color = "white";
+    labelEl.style.fontSize = "14px";
+    labelEl.style.whiteSpace = "nowrap";
+    document.body.appendChild(labelEl);
+  }
+  labelEl.textContent = text;
 }
 
 
