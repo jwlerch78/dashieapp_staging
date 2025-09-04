@@ -65,22 +65,18 @@ function renderSidebar() {
     div.classList.add("menu-item");
     div.dataset.menu = item.id;
 
-    // Highlight active main widget
-    if (["calendar","map","camera"].includes(item.id) && item.id === currentMain) {
+    // Highlight active main widget dynamically
+    if (["calendar", "map", "camera"].includes(item.id) && item.id === currentMain) {
       div.classList.add("active");
     }
 
-    // Use <img> for external SVGs
+    // icon
     const img = document.createElement("img");
     img.src = item.iconSrc;
     img.classList.add("menu-icon");
-    img.width = 30;
-    img.height = 30;
-    img.style.objectFit = "contain";
-    img.style.filter = "invert(100%)"; // force white
     div.appendChild(img);
 
-    // Mouse / touch support
+    // mouse/touch support
     div.addEventListener("mouseover", () => {
       focus = { type: "menu", index };
       updateFocus();
@@ -92,7 +88,7 @@ function renderSidebar() {
 
     sidebarEl.appendChild(div);
 
-    // Optional separator
+    // optional separator
     if (item.separator) {
       const sep = document.createElement("div");
       sep.classList.add("menu-separator");
@@ -100,6 +96,7 @@ function renderSidebar() {
     }
   });
 }
+
 
 // function to display the menu label
 function showMenuLabel(text) {
