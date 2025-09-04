@@ -11,11 +11,12 @@ const theme = {
 };
 
 const sidebarOptions = [
-  { id: "reload", iconSrc: "icons/icon-reload.svg" },
   { id: "calendar", iconSrc: "icons/icon-calendar.svg" },
   { id: "map", iconSrc: "icons/icon-map.svg" },
   { id: "camera", iconSrc: "icons/icon-video-camera.svg" },
  // { id: "separator", type: "separator" }, // special separator item
+  { id: "reload", iconSrc: "icons/icon-reload.svg" },
+  { id: "sleep", iconSrc: "icons/icon-sleep.svg" },
   { id: "settings", iconSrc: "icons/icon-settings.svg" },
   { id: "exit", iconSrc: "icons/icon-exit.svg" }
 ];
