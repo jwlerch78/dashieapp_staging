@@ -65,18 +65,15 @@ function renderSidebar() {
     div.classList.add("menu-item");
     div.dataset.menu = item.id;
 
-    // Create SVG element
-    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-    svg.classList.add("menu-icon");
-    svg.setAttribute("width", 30);
-    svg.setAttribute("height", 30);
-    svg.setAttribute("viewBox", "0 0 24 24"); // adjust if your SVGs have different viewBox
-
-    const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
-    use.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", item.iconSrc);
-    svg.appendChild(use);
-
-    div.appendChild(svg);
+    // Use <img> for external SVGs
+    const img = document.createElement("img");
+    img.src = item.iconSrc;
+    img.classList.add("menu-icon");
+    img.width = 30;
+    img.height = 30;
+    img.style.objectFit = "contain";
+    img.style.filter = "invert(100%)"; // force white
+    div.appendChild(img);
 
     // Mouse / touch support
     div.addEventListener("mouseover", () => {
@@ -89,6 +86,13 @@ function renderSidebar() {
     });
 
     sidebarEl.appendChild(div);
+
+    // Optional separator
+    if (item.separator) {
+      const sep = document.createElement("div");
+      sep.classList.add("menu-separator");
+      sidebarEl.appendChild(sep);
+    }
   });
 }
 
