@@ -46,6 +46,15 @@ html, body {
   outline: 3px solid cyan;
 }
 
+.menu-item.active {
+  background: #444; /* highlight for the current main widget */
+  border-radius: 12px;
+}
+
+#menu-label {
+  pointer-events: none; /* label doesn't block mouse */
+}
+
 .menu-icon {
   width: 30px;
   height: 30px;
