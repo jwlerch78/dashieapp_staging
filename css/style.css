@@ -31,10 +31,10 @@ html, body {
 }
 
 .menu-item {
-  margin: 15px 0;
-  cursor: pointer;
-  padding: 10px;
+  margin: 8px 0;       /* tighter spacing between items */
+  padding: 5px;        /* smaller padding */
   border-radius: 12px;
+  cursor: pointer;
   color: white;
 }
 
@@ -47,7 +47,7 @@ html, body {
 }
 
 .menu-item.active {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.1); /* highlight active main widget */
   border-radius: 8px;
 }
 
@@ -56,11 +56,12 @@ html, body {
 }
 
 .menu-icon {
-  width: 30px;
-  height: 30px;
+  width: 24px;         /* smaller icon */
+  height: 24px;
   object-fit: contain;
   display: block;
   margin: 0 auto;
+  filter: invert(100%); /* keep icons white */
 }
 
 .menu-separator {
