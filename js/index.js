@@ -196,8 +196,11 @@ function handleEnter() {
     const menuItem = sidebarEl.children[focus.index];
     const menuKey = menuItem?.dataset?.menu;
 
+    
+    if (menuKey === "sleep") {
+      alert("Sleep function (placeholder)");  // TODO: hook into real sleep
     if (menuKey === "settings") {
-      alert("Settings menu (placeholder)");
+      alert("Settings menu (placeholder)");  // TODO: hook into real settings
     } else if (menuKey === "reload") {
       location.reload();
     } else if (menuKey === "exit") {
