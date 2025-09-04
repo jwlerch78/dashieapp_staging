@@ -225,7 +225,7 @@ function handleEnter() {
     
     if (menuKey === "sleep") {
       alert("Sleep function (placeholder)");  // TODO: hook into real sleep
-    if (menuKey === "settings") {
+    } else if (menuKey === "settings") {
       alert("Settings menu (placeholder)");  // TODO: hook into real settings
     } else if (menuKey === "reload") {
       location.reload();
