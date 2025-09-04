@@ -61,27 +61,24 @@ function renderSidebar() {
   sidebarEl.innerHTML = ""; // clear previous
 
   sidebarOptions.forEach((item, index) => {
-    // create the menu item container
     const div = document.createElement("div");
     div.classList.add("menu-item");
     div.dataset.menu = item.id;
 
-    // fetch the SVG and insert it into the div
-    fetch(item.iconSrc)
-      .then(res => res.text())
-      .then(svg => {
-        div.innerHTML = svg;
-        const svgEl = div.querySelector("svg");
-        if (svgEl) {
-          svgEl.classList.add("menu-icon");
-          svgEl.setAttribute("width", "30");
-          svgEl.setAttribute("height", "30");
-          svgEl.setAttribute("fill", "white"); // base color, can be themed later
-        }
-      })
-      .catch(err => console.error("Failed to load SVG:", item.iconSrc, err));
+    // Create SVG element
+    const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.classList.add("menu-icon");
+    svg.setAttribute("width", 30);
+    svg.setAttribute("height", 30);
+    svg.setAttribute("viewBox", "0 0 24 24"); // adjust if your SVGs have different viewBox
 
-    // mouse/touch support
+    const use = document.createElementNS("http://www.w3.org/2000/svg", "use");
+    use.setAttributeNS("http://www.w3.org/1999/xlink", "xlink:href", item.iconSrc);
+    svg.appendChild(use);
+
+    div.appendChild(svg);
+
+    // Mouse / touch support
     div.addEventListener("mouseover", () => {
       focus = { type: "menu", index };
       updateFocus();
@@ -94,6 +91,7 @@ function renderSidebar() {
     sidebarEl.appendChild(div);
   });
 }
+
 
 
 function updateFocus() {
