@@ -61,24 +61,27 @@ function renderSidebar() {
   sidebarEl.innerHTML = ""; // clear previous
 
   sidebarOptions.forEach((item, index) => {
-    if (item.type === "separator") {
-      const sep = document.createElement("div");
-      sep.classList.add("menu-separator");
-      sidebarEl.appendChild(sep);
-      return;
-    }
-
+    // create the menu item container
     const div = document.createElement("div");
     div.classList.add("menu-item");
     div.dataset.menu = item.id;
 
-    // Create image (SVG)
-    const img = document.createElement("img");
-    img.src = item.iconSrc;
-    img.classList.add("menu-icon");
-    div.appendChild(img);
+    // fetch the SVG and insert it into the div
+    fetch(item.iconSrc)
+      .then(res => res.text())
+      .then(svg => {
+        div.innerHTML = svg;
+        const svgEl = div.querySelector("svg");
+        if (svgEl) {
+          svgEl.classList.add("menu-icon");
+          svgEl.setAttribute("width", "30");
+          svgEl.setAttribute("height", "30");
+          svgEl.setAttribute("fill", "white"); // base color, can be themed later
+        }
+      })
+      .catch(err => console.error("Failed to load SVG:", item.iconSrc, err));
 
-    // Mouse / touch support
+    // mouse/touch support
     div.addEventListener("mouseover", () => {
       focus = { type: "menu", index };
       updateFocus();
@@ -90,10 +93,8 @@ function renderSidebar() {
 
     sidebarEl.appendChild(div);
   });
-
-  // Apply theme background
-  sidebarEl.style.background = theme.sidebarBg;
 }
+
 
 function updateFocus() {
   // clear all highlights
