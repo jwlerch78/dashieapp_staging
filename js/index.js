@@ -1,8 +1,10 @@
 // --- index.js ---
 
 // ---------------------
-// CONFIGURATION
+// CONFIGURATION (comes from config.js)
 // ---------------------
+// - theme
+// - sidebarOptions
 
 // Explicit widget layout
 let widgets = [
@@ -12,16 +14,6 @@ let widgets = [
   { id: "map", row: 1, col: 2, rowSpan: 1, colSpan: 1, label: "🗺️ Map" },
   { id: "main", row: 2, col: 2, rowSpan: 2, colSpan: 1, label: "🌟 Main Widget" }
 ];
-
-// Sidebar menu options
-
-const sidebarOptions = [
-  { id: "calendar", iconSrc: "icons/Menu-Calendar-60px.png" },
-  { id: "map", iconSrc: "icons/Menu-Location-360px.png" },
-  { id: "camera", iconSrc: "icons/Menu-VidCam-60px.png" },
-  { id: "settings", iconSrc: "icons/Menu-Settings-60px.png" }
-];
-
 
 // Map sidebar key to main widget content
 const sidebarMapping = {
@@ -56,7 +48,7 @@ function renderGrid() {
     div.style.gridColumn = `${w.col} / span ${w.colSpan}`;
 
     if (w.id === "main") {
-      div.textContent = sidebarMapping[currentMain];
+      div.textContent = sidebarMapping[currentMain] || "🌟 Main Widget";
     } else {
       div.textContent = w.label;
     }
@@ -69,17 +61,21 @@ function renderSidebar() {
   sidebarEl.innerHTML = ""; // clear previous
 
   sidebarOptions.forEach((item, index) => {
+    if (item.type === "separator") {
+      const sep = document.createElement("div");
+      sep.classList.add("menu-separator");
+      sidebarEl.appendChild(sep);
+      return;
+    }
+
     const div = document.createElement("div");
     div.classList.add("menu-item");
     div.dataset.menu = item.id;
 
-    // Create image
+    // Create image (SVG)
     const img = document.createElement("img");
-    img.src = item.iconSrc; // path to your icon
+    img.src = item.iconSrc;
     img.classList.add("menu-icon");
-    img.width = 60; // force width
-    img.height = 60; // force height
-    img.style.objectFit = "contain"; // ensure it scales properly
     div.appendChild(img);
 
     // Mouse / touch support
@@ -94,6 +90,9 @@ function renderSidebar() {
 
     sidebarEl.appendChild(div);
   });
+
+  // Apply theme background
+  sidebarEl.style.background = theme.sidebarBg;
 }
 
 function updateFocus() {
@@ -112,7 +111,7 @@ function updateFocus() {
   // sidebar focus
   if (focus.type === "menu") {
     const items = sidebarEl.querySelectorAll(".menu-item");
-    items[focus.index].classList.add("selected");
+    if (items[focus.index]) items[focus.index].classList.add("selected");
   }
 
   // focused widget
@@ -148,16 +147,16 @@ function moveFocus(dir) {
   if (focus.type === "grid") {
     let { row, col } = focus;
 
-    if (dir === "left") {
-      if (col === 1) {
+    if (dir === "left") col--;
+    if (dir === "right") {
+      if (col === 2) {
         // Move to sidebar
         focus = { type: "menu", index: 0 };
         updateFocus();
         return;
       }
-      col--;
+      col++;
     }
-    if (dir === "right") col++;
     if (dir === "up") row--;
     if (dir === "down") row++;
 
@@ -168,8 +167,8 @@ function moveFocus(dir) {
     if (dir === "up" && focus.index > 0) focus.index--;
     if (dir === "down" && focus.index < sidebarEl.children.length - 1)
       focus.index++;
-    if (dir === "right") {
-      focus = { type: "grid", row: 1, col: 1 };
+    if (dir === "left") {
+      focus = { type: "grid", row: 1, col: 2 };
     }
   }
 
@@ -192,11 +191,15 @@ function handleEnter() {
     }
   } else if (focus.type === "menu") {
     const menuItem = sidebarEl.children[focus.index];
-    const menuKey = menuItem.dataset.menu;
+    const menuKey = menuItem?.dataset?.menu;
 
     if (menuKey === "settings") {
       alert("Settings menu (placeholder)");
-    } else {
+    } else if (menuKey === "reload") {
+      location.reload();
+    } else if (menuKey === "exit") {
+      alert("Exit Dashie (placeholder)"); // TODO: hook into real exit
+    } else if (menuKey) {
       currentMain = menuKey;
       renderGrid();
     }
