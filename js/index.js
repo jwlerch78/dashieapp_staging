@@ -58,35 +58,32 @@ function renderGrid() {
 }
 
 function renderSidebar() {
-  sidebarEl.innerHTML = "";
+  sidebarEl.innerHTML = ""; // clear previous
 
   sidebarOptions.forEach((item, index) => {
     const div = document.createElement("div");
     div.classList.add("menu-item");
     div.dataset.menu = item.id;
 
-    // mark active main widget
+    // Highlight active main widget
     if (["calendar","map","camera"].includes(item.id) && item.id === currentMain) {
       div.classList.add("active");
     }
 
-    // create SVG icon
+    // Use <img> for external SVGs
     const img = document.createElement("img");
     img.src = item.iconSrc;
     img.classList.add("menu-icon");
     img.width = 30;
     img.height = 30;
     img.style.objectFit = "contain";
+    img.style.filter = "invert(100%)"; // force white
     div.appendChild(img);
 
-    // mouse / touch support
+    // Mouse / touch support
     div.addEventListener("mouseover", () => {
       focus = { type: "menu", index };
-      showMenuLabel(item.label);
       updateFocus();
-    });
-    div.addEventListener("mouseout", () => {
-      showMenuLabel(""); // hide label when mouse leaves
     });
     div.addEventListener("click", () => {
       focus = { type: "menu", index };
@@ -95,10 +92,10 @@ function renderSidebar() {
 
     sidebarEl.appendChild(div);
 
-    // optional: separator after some items
-    if (item.id === "camera") {
+    // Optional separator
+    if (item.separator) {
       const sep = document.createElement("div");
-      sep.classList.add("sidebar-separator");
+      sep.classList.add("menu-separator");
       sidebarEl.appendChild(sep);
     }
   });
