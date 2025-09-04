@@ -101,26 +101,6 @@ function renderSidebar() {
   });
 }
 
-// function to display the menu label
-function showMenuLabel(text) {
-  let labelEl = document.getElementById("menu-label");
-  if (!labelEl) {
-    labelEl = document.createElement("div");
-    labelEl.id = "menu-label";
-    labelEl.style.position = "absolute";
-    labelEl.style.right = "70px"; // place it next to sidebar
-    labelEl.style.top = "50%";
-    labelEl.style.transform = "translateY(-50%)";
-    labelEl.style.color = "white";
-    labelEl.style.fontSize = "14px";
-    labelEl.style.whiteSpace = "nowrap";
-    document.body.appendChild(labelEl);
-  }
-  labelEl.textContent = text;
-}
-
-
-
 function updateFocus() {
   // clear all highlights
   document.querySelectorAll(".widget, .menu-item")
