@@ -23,11 +23,19 @@ html, body {
   padding: 10px 0;
 }
 
+.sidebar-separator {
+  width: 50%;
+  height: 1px;
+  background: rgba(255,255,255,0.3);
+  margin: 10px auto;
+}
+
 .menu-item {
   margin: 15px 0;
   cursor: pointer;
   padding: 10px;
   border-radius: 12px;
+  color: white;
 }
 
 .menu-item.selected {
@@ -44,7 +52,6 @@ html, body {
   object-fit: contain;
   display: block;
   margin: 0 auto;
-  filter: brightness(0) invert(1); /* force white */
 }
 
 .menu-separator {
