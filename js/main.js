@@ -28,14 +28,11 @@ function initializeApp() {
   console.log("Initializing Dashie Dashboard...");
 
   // Check if user is authenticated
-/*  setTimeout(() => {
+  setTimeout(() => {
     if (window.dashieAuth && window.dashieAuth.isAuthenticated()) {
       document.getElementById('app').classList.add('authenticated');
     }
   }, 1000);
-*/
-    document.getElementById('app').classList.add('authenticated');
-
   
   // Initialize theme system first (before any UI rendering)
   // Note: Early theme application already happened above
