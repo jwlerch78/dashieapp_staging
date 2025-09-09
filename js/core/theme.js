@@ -1,5 +1,18 @@
 // js/core/theme.js - Complete Theme Management System with Flash Prevention
 
+
+const storage = (() => {
+  try {
+    return localStorage;
+  } catch (e) {
+    return { 
+      getItem: () => null, 
+      setItem: () => {}, 
+      removeItem: () => {} 
+    };
+  }
+})();
+
 // ---------------------
 // THEME CONSTANTS
 // ---------------------
@@ -88,7 +101,7 @@ function sendThemeViaPostMessage(iframe, theme) {
 
 function loadSavedTheme() {
   try {
-    const saved = localStorage.getItem('dashie-theme');
+    const saved = storage.getItem('dashie-theme');
     if (saved && Object.values(THEMES).includes(saved)) {
       return saved;
     }
@@ -100,7 +113,7 @@ function loadSavedTheme() {
 
 function saveTheme(theme) {
   try {
-    localStorage.setItem('dashie-theme', theme);
+    storage.setItem('dashie-theme', theme);
     console.log(`💾 Theme saved: ${theme}`);
   } catch (e) {
     console.warn('Failed to save theme:', e);

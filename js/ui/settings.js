@@ -3,9 +3,23 @@
 import { state, setConfirmDialog } from '../core/state.js';
 import { getCurrentTheme, getAvailableThemes, switchTheme } from '../core/theme.js';
 
+
+
 // ---------------------
 // SETTINGS STATE
 // ---------------------
+
+const storage = (() => {
+  try {
+    return localStorage;
+  } catch (e) {
+    return { 
+      getItem: () => null, 
+      setItem: () => {}, 
+      removeItem: () => {} 
+    };
+  }
+})();
 
 export const settings = {
   sleepTime: { hour: 21, minute: 30 }, // 9:30 PM
@@ -28,7 +42,7 @@ let expandedSections = new Set(); // Track which sections are expanded - start a
 // ---------------------
 
 function loadSettings() {
-  const saved = localStorage.getItem('dashie-settings');
+  const saved = storage.getItem('dashie-settings');
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
@@ -45,7 +59,7 @@ function saveSettings() {
   try {
     // Sync current theme to settings
     settings.theme = getCurrentTheme();
-    localStorage.setItem('dashie-settings', JSON.stringify(settings));
+    storage.setItem('dashie-settings', JSON.stringify(settings));
   } catch (e) {
     console.warn('Failed to save settings:', e);
   }
