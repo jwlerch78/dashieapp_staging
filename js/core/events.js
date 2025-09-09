@@ -1,4 +1,4 @@
-// js/core/events.js - Global Event Handlers
+// js/core/events.js - Unified Input Handling System
 
 import { state, elements, setFocus, setWidgetReady } from './state.js';
 import { moveFocus, handleEnter, handleBack, openMenuWithCurrentSelection, updateFocus } from './navigation.js';
@@ -19,148 +19,243 @@ function initializeWidgetMessages() {
 }
 
 // ---------------------
-// KEY MAPPING HELPER
+// UNIFIED INPUT PROCESSING
 // ---------------------
 
-function getActionFromKey(key) {
+// Convert various input sources to standardized action strings
+function normalizeInput(source, value) {
+  if (source === 'keyboard') {
+    // Browser keyboard event
+    return {
+      action: getActionFromKeyboardEvent(value),
+      originalEvent: value
+    };
+  } else if (source === 'android') {
+    // Android keycode
+    return {
+      action: getActionFromAndroidKeycode(value),
+      originalEvent: null
+    };
+  }
+  return { action: null, originalEvent: null };
+}
+
+// Map keyboard events to actions
+function getActionFromKeyboardEvent(event) {
   const keyMap = {
     "ArrowLeft": "left",
     "ArrowRight": "right", 
     "ArrowUp": "up",
     "ArrowDown": "down",
     "Enter": "enter",
+    "Escape": "escape",
+    "Backspace": "escape",
     "m": "menu",
     "M": "menu",
-    " ": "space"
+    " ": "space",
+    ",": "prev-view",
+    ".": "next-view"
   };
   
-  return keyMap[key] || key; // Return mapped action or the key itself
+  return keyMap[event.key] || null;
+}
+
+// Map Android keycodes to actions
+function getActionFromAndroidKeycode(keyCode) {
+  const keyMap = {
+    // D-pad navigation
+    38: "up",           // KEYCODE_DPAD_UP
+    40: "down",         // KEYCODE_DPAD_DOWN  
+    37: "left",         // KEYCODE_DPAD_LEFT
+    39: "right",        // KEYCODE_DPAD_RIGHT
+    13: "enter",        // KEYCODE_DPAD_CENTER / KEYCODE_ENTER
+    
+    // System keys
+    4: "escape",        // KEYCODE_BACK (Android back button)
+    82: "menu",         // KEYCODE_MENU
+    77: "menu",         // M key for menu
+    
+    // Media keys for view cycling
+    227: "prev-view",   // KEYCODE_MEDIA_REWIND
+    228: "next-view",   // KEYCODE_MEDIA_FAST_FORWARD
+    188: "prev-view",   // Alternative comma key
+    190: "next-view",   // Alternative period key
+    87: "next-view",    // KEYCODE_MEDIA_NEXT  
+    88: "prev-view",    // KEYCODE_MEDIA_PREVIOUS
+    
+    // Sleep toggle
+    179: "sleep-toggle", // KEYCODE_MEDIA_PLAY_PAUSE
+    85: "sleep-toggle"   // Alternative play/pause
+  };
+  
+  return keyMap[keyCode] || null;
+}
+
+// Unified input handler - processes all input regardless of source
+async function handleUnifiedInput(action, originalEvent = null) {
+  if (!action) {
+    console.log('🎮 Ignoring unmapped input');
+    return;
+  }
+  
+  console.log('🎮 Processing action:', action);
+  
+  // Prevent default if we have an original event
+  if (originalEvent) {
+    originalEvent.preventDefault();
+  }
+  
+  // Handle special actions first
+  if (action === "sleep-toggle") {
+    await handleSleepToggle();
+    return;
+  }
+  
+  // Handle sleep mode - any key wakes up
+  if (state.isAsleep) {
+    const { wakeUp } = await import('../ui/modals.js');
+    const { startResleepTimer } = await import('../ui/settings.js');
+    wakeUp();
+    startResleepTimer();
+    return;
+  }
+  
+  // Handle settings modal
+  try {
+    const { isSettingsOpen, moveSettingsFocus, handleSettingsEnter, closeSettings } = await import('../ui/settings.js');
+    if (isSettingsOpen()) {
+      switch (action) {
+        case "left":
+        case "right":
+        case "up":
+        case "down":
+          moveSettingsFocus(action);
+          break;
+        case "enter":
+          handleSettingsEnter();
+          break;
+        case "escape":
+          closeSettings();
+          break;
+      }
+      return;
+    }
+  } catch (err) {
+    // Settings module not loaded yet, continue
+  }
+  
+  // Handle exit confirmation dialog
+  if (state.confirmDialog) {
+    const { moveExitFocus, handleExitChoice } = await import('../ui/modals.js');
+    switch (action) {
+      case "left":
+      case "right":
+        moveExitFocus(action);
+        break;
+      case "up":
+      case "down":
+        // Map up/down to left/right for dialog navigation
+        moveExitFocus(action === "up" ? "left" : "right");
+        break;
+      case "enter":
+        handleExitChoice(state.confirmDialog.selectedButton);
+        break;
+      case "escape":
+        handleExitChoice(state.confirmDialog.isAuthenticated ? "cancel" : "no");
+        break;
+    }
+    return;
+  }
+  
+  // If widget is focused, send commands to widget (except escape)
+  if (state.selectedCell) {
+    switch (action) {
+      case "escape":
+        handleBack(); // This will unfocus the widget
+        break;
+      default:
+        // Send action to the widget (including prev-view/next-view for calendar)
+        import('./navigation.js').then(({ sendToWidget }) => {
+          sendToWidget(action);
+        });
+        break;
+    }
+    return;
+  }
+  
+  // Regular navigation when no widget is focused
+  switch (action) {
+    case "left": 
+      moveFocus("left"); 
+      break;
+    case "right": 
+      moveFocus("right"); 
+      break;
+    case "up": 
+      moveFocus("up"); 
+      break;
+    case "down": 
+      moveFocus("down"); 
+      break;
+    case "enter": 
+      handleEnter(); 
+      break;
+    case "escape": 
+      handleBack(); 
+      break;
+    case "menu": 
+      openMenuWithCurrentSelection(); 
+      break;
+    case "prev-view":
+    case "next-view":
+      // These only work when a widget is focused, ignore in main navigation
+      console.log('🎮 View cycling requires focused widget');
+      break;
+    default:
+      console.log('🎮 Unhandled action in main navigation:', action);
+      break;
+  }
+}
+
+// Helper function for sleep toggle
+async function handleSleepToggle() {
+  const { state } = await import('./state.js');
+  
+  if (state.isAsleep) {
+    const { wakeUp } = await import('../ui/modals.js');
+    const { startResleepTimer } = await import('../ui/settings.js');
+    wakeUp();
+    startResleepTimer();
+  } else {
+    const { enterSleepMode } = await import('../ui/modals.js');
+    enterSleepMode();
+  }
 }
 
 // ---------------------
-// KEYBOARD EVENTS
+// INPUT SOURCE HANDLERS
 // ---------------------
 
+// Browser keyboard events
 export function initializeKeyboardEvents() {
   document.addEventListener("keydown", async e => {
-    // Handle sleep mode - any key wakes up
-    if (state.isAsleep) {
-      e.preventDefault();
-      const { wakeUp } = await import('../ui/modals.js');
-      const { startResleepTimer } = await import('../ui/settings.js');
-      wakeUp();
-      startResleepTimer();
-      return;
-    }
-    
-    // Handle settings modal
-    try {
-      const { isSettingsOpen, moveSettingsFocus, handleSettingsEnter, closeSettings } = await import('../ui/settings.js');
-      if (isSettingsOpen()) {
-        e.preventDefault();
-        switch (e.key) {
-          case "ArrowLeft":
-          case "ArrowRight":
-          case "ArrowUp":
-          case "ArrowDown":
-            moveSettingsFocus(e.key.replace('Arrow', '').toLowerCase());
-            break;
-          case "Enter":
-            handleSettingsEnter();
-            break;
-          case "Escape":
-          case "Backspace":
-            closeSettings();
-            break;
-        }
-        return;
-      }
-    } catch (err) {
-      // Settings module not loaded yet, continue
-    }
-    
-    // Handle exit confirmation dialog
-    if (state.confirmDialog) {
-      e.preventDefault();
-      
-      // Import modal functions
-      const { moveExitFocus, handleExitChoice } = await import('../ui/modals.js');
-      switch (e.key) {
-        case "ArrowLeft":
-        case "ArrowRight":
-          moveExitFocus(e.key === "ArrowLeft" ? "left" : "right");
-          break;
-        case "Enter":
-          handleExitChoice(state.confirmDialog.selectedButton);
-          break;
-        case "Escape":
-        case "Backspace":
-          handleExitChoice("no");
-          break;
-      }
-      return;
-    }
-    
-    // If widget is focused, send ALL commands to widget except Escape
-    if (state.selectedCell) {
-      switch (e.key) {
-        case "Escape":
-        case "Backspace":
-          e.preventDefault();
-          handleBack(); // This will unfocus the widget
-          break;
-        default:
-          // Send all other keys to the widget
-          e.preventDefault();
-          const action = getActionFromKey(e.key);
-          if (action) {
-            import('../core/navigation.js').then(({ sendToWidget }) => {
-              sendToWidget(action);
-            });
-          }
-          break;
-      }
-      return;
-    }
-    
-    // Regular navigation when no widget is focused
-    switch (e.key) {
-      case "ArrowLeft": 
-        e.preventDefault();
-        moveFocus("left"); 
-        break;
-      case "ArrowRight": 
-        e.preventDefault();
-        moveFocus("right"); 
-        break;
-      case "ArrowUp": 
-        e.preventDefault();
-        moveFocus("up"); 
-        break;
-      case "ArrowDown": 
-        e.preventDefault();
-        moveFocus("down"); 
-        break;
-      case "Enter": 
-        e.preventDefault();
-        handleEnter(); 
-        break;
-      case "Escape": 
-        e.preventDefault();
-        handleBack(); 
-        break;
-      case "Backspace": 
-        e.preventDefault();
-        handleBack(); 
-        break;
-      case "m":
-      case "M": 
-        e.preventDefault();
-        openMenuWithCurrentSelection(); 
-        break;
+    const { action, originalEvent } = normalizeInput('keyboard', e);
+    if (action) {
+      await handleUnifiedInput(action, originalEvent);
     }
   });
 }
+
+// Android WebView remote input (called by Android app)
+window.handleRemoteInput = async function(keyCode) {
+  console.log('🎮 Remote input received:', keyCode);
+  const { action } = normalizeInput('android', keyCode);
+  if (action) {
+    await handleUnifiedInput(action);
+  } else {
+    console.log('🎮 Unmapped Android keycode:', keyCode);
+  }
+};
 
 // ---------------------
 // MOUSE EVENTS
@@ -198,7 +293,7 @@ export function initializeMouseEvents() {
     }
   });
 
-  // ADD: Grid-level click handler as backup
+  // Grid-level click handler as backup
   if (elements.grid) {
     elements.grid.addEventListener("click", e => {
       console.log("🖱️ GRID CLICK:", e.target.tagName);
@@ -227,5 +322,6 @@ export function initializeEvents() {
   initializeMouseEvents();
   initializeWidgetMessages();
   
-  console.log("📡 Event handlers initialized with widget communication support");
+  console.log("📡 Event handlers initialized with unified input processing");
+  console.log("🎮 Android WebView remote input handler available");
 }
