@@ -1,0 +1,205 @@
+/* css/components/sidebar.css - Sidebar Menu Styles with Theme Support */
+
+/* Sidebar menu */
+/* Base collapsed sidebar — part of flex layout */
+#sidebar {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: var(--sidebar-width-collapsed);
+  background: var(--bg-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 0;
+  transition: width var(--transition-medium), background var(--transition-medium);
+  z-index: var(--z-sidebar);
+}
+
+#sidebar-wrapper {
+  width: var(--sidebar-width-collapsed);
+  position: relative;
+}
+
+#sidebar.expanded {
+  width: var(--sidebar-width-expanded);
+  background: var(--bg-primary);
+  background: linear-gradient(
+    to right,
+    var(--bg-primary) 0%,
+    var(--bg-primary) 40%,
+    var(--bg-primary-semi-transparent) 100%
+  );
+  z-index: var(--z-sidebar-expanded);
+}
+
+/* Dashie logo at top - now uses theme variable */
+.dashie-logo {
+  width: 100px;
+  height: auto;
+  margin: 8px auto 20px auto;
+  opacity: 0;
+  object-fit: contain;
+  transition: opacity var(--transition-medium);
+  /* Remove the src attribute from CSS - will be set dynamically by JavaScript */
+}
+
+#sidebar.expanded .dashie-logo {
+  opacity: 1;
+}
+
+/* Base menu item styling */
+.menu-item {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+/* Main content selection items */
+.menu-item.main {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 4px 0;
+  padding: 6px 0;
+  border-radius: 0;
+  width: 100%;
+  height: 40px;
+  box-sizing: border-box;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.menu-item.main img.menu-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  filter: var(--sidebar-icon-filter); /* Use theme variable for icon color */
+  flex-shrink: 0;
+  transition: transform var(--transition-fast), filter var(--transition-fast);
+}
+
+/* System function items (smaller, in mini-grid) */
+.menu-item.system {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 1px;
+  padding: 2px;
+  border-radius: 0;
+  width: 100%;
+  height: 20px;
+  box-sizing: border-box;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.menu-item.system img.menu-icon {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  filter: var(--sidebar-icon-filter); /* Use theme variable for icon color */
+  flex-shrink: 0;
+  transition: transform var(--transition-fast), filter var(--transition-fast);
+}
+
+/* Container for system functions mini-grid */
+.system-functions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 2px;
+  margin-top: auto;
+  margin-bottom: 20px;
+  margin-left: 5px;
+  margin-right: 5px;
+  width: 50px;
+  height: 44px;
+  justify-content: center;
+}
+
+/* Expanded state - all items become full width with labels */
+#sidebar.expanded .menu-item {
+  width: 100%;
+  height: auto;
+  justify-content: flex-start;
+  margin: 8px 0;
+  padding: 8px;
+  border-radius: var(--border-radius);
+}
+
+/* Main items keep same margins when expanded */
+#sidebar.expanded .menu-item.main {
+  margin: 8px 0;
+  padding: 8px 12px;
+}
+
+/* Main icons keep same size when expanded */
+#sidebar.expanded .menu-item.main img.menu-icon {
+  width: 24px;
+  height: 24px;
+}
+
+/* System icons keep same size when expanded */
+#sidebar.expanded .menu-item.system img.menu-icon {
+  width: 14px;
+  height: 14px;
+}
+
+#sidebar.expanded .system-functions {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: auto;
+  gap: 0;
+  margin: 0;
+  margin-top: auto;
+  padding-bottom: 10px;
+}
+
+/* Make system items compact in expanded mode */
+#sidebar.expanded .menu-item.system {
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  padding: 4px 8px;
+  line-height: 1.2;
+  justify-content: flex-start;
+}
+
+/* Label that appears only in expanded mode */
+.menu-item span.menu-label {
+  position: absolute;
+  left: 40px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-primary);
+  font-size: var(--font-size-small);
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+  pointer-events: none;
+}
+
+/* Show label when sidebar is expanded */
+#sidebar.expanded .menu-item span.menu-label {
+  opacity: 1;
+  position: static;
+  transform: none;
+  margin-left: 10px;
+  pointer-events: auto;
+  cursor: pointer;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Separator line between main and system functions */
+.menu-separator {
+  width: 30px;
+  height: 1px;
+  background: var(--text-muted);
+  margin: 15px 0;
+  flex-shrink: 0;
+  transition: background var(--transition-fast);
+}

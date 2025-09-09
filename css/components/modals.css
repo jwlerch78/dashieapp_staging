@@ -1,0 +1,97 @@
+/* css/components/modals.css - Modal Dialog Styles */
+
+/* Sleep Mode Overlay */
+.sleep-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-sleep);
+  z-index: var(--z-sleep);
+  cursor: pointer;
+  transition: opacity var(--transition-slow);
+  opacity: 0;
+}
+
+.sleep-overlay.visible {
+  opacity: 1;
+}
+
+/* Exit Confirmation Modal */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-modal-backdrop);
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.exit-dialog {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 30px;
+  border-radius: var(--border-radius);
+  text-align: center;
+  min-width: 300px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.exit-dialog h2 {
+  margin: 0 0 20px 0;
+  font-size: var(--font-size-heading);
+  color: var(--text-primary);
+}
+
+.exit-buttons {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin-top: 30px;
+}
+
+.exit-button {
+  padding: 12px 24px;
+  background: var(--bg-button);
+  color: var(--text-primary);
+  border: none;
+  border-radius: var(--border-radius-small);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  outline: 3px solid transparent;
+  transition: all var(--transition-fast);
+}
+
+.exit-button:hover {
+  transform: scale(1.02);
+}
+
+.exit-button.selected {
+  outline: var(--outline-width-selected) solid var(--outline-selected);
+  transform: scale(1.05);
+}
+
+.exit-button.focused {
+  outline: var(--outline-width-focused) solid var(--outline-focused);
+  transform: scale(1.05);
+}
+
+/* Menu Icon Styles (moved from JS) */
+.menu-icon {
+  object-fit: contain;
+  filter: invert(100%); /* force white icons */
+}
+
+/* Utility classes for dynamic opacity changes */
+.fade-in {
+  opacity: 1 !important;
+}
+
+.fade-out {
+  opacity: 0 !important;
+}

@@ -1,0 +1,65 @@
+/* css/components/widgets.css - Widget Container Styles */
+
+.widget-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  pointer-events: auto;
+
+  background: var(--bg-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--border-radius);
+  font-size: var(--font-size-large);
+  color: var(--text-primary);
+  overflow: hidden; /* ADD THIS - Ensures iframe content respects border radius */
+  
+}
+
+.widget-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-fallback-widget);
+  color: var(--text-muted);
+  font-size: var(--font-size-small);
+  text-align: center;
+  padding: var(--padding-widget);
+  box-sizing: border-box;
+  flex-direction: column;
+}
+
+.fallback-title {
+  font-size: var(--font-size-widget-title);
+  margin-bottom: var(--padding-widget-small);
+}
+
+.fallback-message {
+  font-size: var(--font-size-base);
+}
+
+.fallback-url {
+  font-size: var(--font-size-widget-subtitle);
+  margin-top: var(--padding-widget-small);
+  color: var(--text-muted);
+}
+
+/* Overlay for click interception when sidebar is expanded */
+.widget-click-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10;
+  pointer-events: none; /* Default to not intercept clicks */
+  background: transparent;
+}
+
+/* When sidebar is expanded, overlay should intercept clicks */
+#sidebar.expanded ~ #grid .widget-click-overlay {
+  pointer-events: auto;
+}

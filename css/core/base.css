@@ -1,0 +1,66 @@
+/* css/core/base.css - Base Layout & Reset */
+
+/* Reset & Normalize */
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  overflow: hidden; /* prevent scrolling */
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: var(--font-size-base);
+  color: var(--text-primary);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* App Layout Container */
+#app {
+  display: none;
+  width: 100%;
+  height: 100%;
+}
+
+#app.authenticated {
+  display: flex; /* Show when authenticated */
+}
+
+
+/* Sidebar Layout Container */
+#sidebar-wrapper {
+  width: var(--sidebar-width-collapsed);
+  position: relative;
+}
+
+/* Base Interactive States */
+button {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  font-size: inherit;
+  transition: all var(--transition-fast);
+}
+
+button:focus {
+  outline: none; /* We'll handle focus with our own system */
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+/* Utility Classes */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

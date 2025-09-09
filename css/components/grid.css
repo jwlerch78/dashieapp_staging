@@ -1,0 +1,14 @@
+/* css/components/grid.css - Widget Grid Layout */
+
+/* Main grid */
+#grid {
+  flex: 1;
+  display: grid;
+  grid-template-rows: 10% 45% 45%;
+  grid-template-columns: 70% 30%;
+  gap: var(--grid-gap);
+  padding: var(--grid-gap);
+  box-sizing: border-box;
+  background: var(--grid-gap-color);
+
+}

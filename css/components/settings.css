@@ -1,0 +1,314 @@
+/* css/components/settings.css - Settings Modal Interface with Theme Support */
+
+/* Settings Modal */
+.settings-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-modal-backdrop);
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.settings-container {
+  width: 90%;
+  max-width: 800px;
+  height: 80%;
+  background: var(--bg-primary);
+  border-radius: var(--border-radius);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.settings-header {
+  background: var(--bg-secondary);
+  padding: 20px 30px;
+  border-bottom: 1px solid var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.settings-title {
+  font-size: var(--font-size-heading);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.settings-close {
+  background: var(--bg-button);
+  color: var(--text-primary);
+  border: none;
+  border-radius: var(--border-radius-small);
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: var(--font-size-small);
+  transition: all var(--transition-fast);
+}
+
+.settings-close:hover {
+  transform: scale(1.05);
+}
+
+.settings-close.selected {
+  outline: var(--outline-width-selected) solid var(--outline-selected);
+  outline-offset: 2px;
+}
+
+.settings-content {
+  flex: 1;
+  padding: 20px 30px;
+  overflow-y: auto;
+}
+
+/* Settings Sections */
+.settings-section {
+  margin-bottom: 25px;
+}
+
+.settings-section h3.section-header {
+  color: var(--text-primary);
+  font-size: var(--font-size-large);
+  margin: 0 0 15px 0;
+  border-bottom: 1px solid var(--text-muted);
+  padding-bottom: 8px;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  transition: all var(--transition-fast);
+}
+
+.settings-section h3.section-header:hover {
+  color: var(--accent-orange);
+}
+
+.settings-section h3.section-header.selected {
+  outline: var(--outline-width-selected) solid var(--outline-selected);
+  outline-offset: 2px;
+  border-radius: var(--border-radius-small);
+  padding: 4px 8px;
+  margin: -4px -8px 15px -8px;
+}
+
+.settings-section h3.section-header span {
+  margin-right: 8px;
+  font-size: 14px;
+  width: 16px;
+  text-align: center;
+}
+
+.section-content {
+  padding-left: 24px;
+}
+
+/* Settings Form Controls */
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px;
+  padding: 10px 0;
+}
+
+.settings-row.compact {
+  margin-bottom: 10px;
+  padding: 6px 0;
+}
+
+.settings-label {
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+  flex: 1;
+}
+
+.settings-control {
+  flex: 0 0 200px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Time Input Controls */
+.time-input {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--text-muted);
+  border-radius: var(--border-radius-small);
+  padding: 8px 12px;
+  font-size: var(--font-size-base);
+  width: 80px;
+  text-align: center;
+  transition: all var(--transition-fast);
+}
+
+.time-input:focus {
+  outline: none;
+  border-color: var(--outline-focused);
+  box-shadow: 0 0 0 2px rgba(0, 170, 255, 0.3);
+}
+
+.time-input.selected {
+  border-color: var(--outline-selected);
+  box-shadow: 0 0 0 2px rgba(255, 170, 0, 0.3);
+}
+
+.time-separator {
+  color: var(--text-primary);
+  font-size: var(--font-size-large);
+  font-weight: bold;
+}
+
+.time-period {
+  background: var(--bg-button);
+  color: var(--text-primary);
+  border: none;
+  border-radius: var(--border-radius-small);
+  padding: 8px 12px;
+  cursor: pointer;
+  font-size: var(--font-size-small);
+  transition: all var(--transition-fast);
+  min-width: 45px;
+}
+
+.time-period:hover {
+  transform: scale(1.05);
+}
+
+.time-period.selected {
+  outline: var(--outline-width-selected) solid var(--outline-selected);
+  outline-offset: 2px;
+}
+
+/* Number Input for Minutes */
+.number-input {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--text-muted);
+  border-radius: var(--border-radius-small);
+  padding: 8px 12px;
+  font-size: var(--font-size-base);
+  width: 80px;
+  text-align: center;
+  transition: all var(--transition-fast);
+}
+
+.number-input:focus {
+  outline: none;
+  border-color: var(--outline-focused);
+  box-shadow: 0 0 0 2px rgba(0, 170, 255, 0.3);
+}
+
+.number-input.selected {
+  border-color: var(--outline-selected);
+  box-shadow: 0 0 0 2px rgba(255, 170, 0, 0.3);
+}
+
+.input-error {
+  border-color: var(--color-error) !important;
+  box-shadow: 0 0 0 2px rgba(255, 107, 107, 0.3) !important;
+}
+
+/* URL Select, Album Select & Theme Select Dropdowns */
+.url-select,
+.album-select,
+.theme-select {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border: 1px solid var(--text-muted);
+  border-radius: var(--border-radius-small);
+  padding: 8px 12px;
+  font-size: var(--font-size-base);
+  width: 200px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.url-select:focus,
+.album-select:focus,
+.theme-select:focus {
+  outline: none;
+  border-color: var(--outline-focused);
+  box-shadow: 0 0 0 2px rgba(0, 170, 255, 0.3);
+}
+
+.url-select.selected,
+.album-select.selected,
+.theme-select.selected {
+  border-color: var(--outline-selected);
+  box-shadow: 0 0 0 2px rgba(255, 170, 0, 0.3);
+}
+
+.album-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  color: var(--text-muted);
+}
+
+/* Settings Navigation */
+.settings-nav {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.nav-tab {
+  background: var(--bg-button);
+  color: var(--text-secondary);
+  border: none;
+  border-radius: var(--border-radius-small);
+  padding: 10px 20px;
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  transition: all var(--transition-fast);
+}
+
+.nav-tab.active {
+  background: var(--accent-orange);
+  color: var(--text-primary);
+}
+
+.nav-tab.selected {
+  outline: var(--outline-width-selected) solid var(--outline-selected);
+  outline-offset: 2px;
+}
+
+/* Settings Footer */
+.settings-footer {
+  background: var(--bg-secondary);
+  padding: 20px 30px;
+  border-top: 1px solid var(--text-muted);
+  display: flex;
+  justify-content: flex-end;
+  gap: 15px;
+}
+
+.settings-button {
+  background: var(--bg-button);
+  color: var(--text-primary);
+  border: none;
+  border-radius: var(--border-radius-small);
+  padding: 12px 24px;
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  transition: all var(--transition-fast);
+}
+
+.settings-button.primary {
+  background: var(--accent-orange);
+}
+
+.settings-button:hover {
+  transform: scale(1.05);
+}
+
+.settings-button.selected {
+  outline: var(--outline-width-selected) solid var(--outline-selected);
+  outline-offset: 2px;
+}

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Map Widget</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 15px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #333;
+      color: white;
+      height: 100vh;
+      box-sizing: border-box;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+    }
+
+    .map-container {
+      width: 80%;
+      height: 60%;
+      background: #444;
+      border: 2px solid #666;
+      border-radius: 8px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+    }
+
+    .map-marker {
+      width: 20px;
+      height: 20px;
+      background: #ff4444;
+      border-radius: 50%;
+      position: absolute;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+    }
+
+    .map-marker.active {
+      transform: scale(1.5);
+      box-shadow: 0 0 20px rgba(255, 68, 68, 0.8);
+    }
+
+    .coordinates {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 12px;
+      color: #999;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 5px 10px;
+      border-radius: 4px;
+    }
+
+    .command-display {
+      background: #444;
+      border: 2px solid #666;
+      border-radius: 6px;
+      padding: 10px 20px;
+      font-size: 16px;
+      transition: all 0.3s ease;
+    }
+
+    .command-display.highlight {
+      border-color: #ffaa00;
+      background: #555;
+    }
+
+    .status {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      font-size: 12px;
+      color: #999;
+    }
+  </style>
+</head>
+<body>
+  <div class="status">🗺️ Map Widget</div>
+  
+  <div class="map-container" id="mapContainer">
+    <div class="map-marker" id="marker"></div>
+    <div class="coordinates" id="coordinates">
+      Lat: 40.7128, Lng: -74.0060
+    </div>
+  </div>
+  
+  <div class="command-display" id="commandDisplay">
+    Use arrow keys to pan the map
+  </div>
+
+  <script>
+    let markerX = 50; // percentage
+    let markerY = 50; // percentage
+    
+    function updateMarker() {
+      const marker = document.getElementById('marker');
+      const coordinates = document.getElementById('coordinates');
+      
+      marker.style.left = `${markerX}%`;
+      marker.style.top = `${markerY}%`;
+      
+      // Simulate coordinate changes
+      const lat = (40.7128 + (markerY - 50) * 0.01).toFixed(4);
+      const lng = (-74.0060 + (markerX - 50) * 0.01).toFixed(4);
+      coordinates.textContent = `Lat: ${lat}, Lng: ${lng}`;
+    }
+
+    function handleMapCommand(action) {
+      const commandDisplay = document.getElementById('commandDisplay');
+      const marker = document.getElementById('marker');
+      
+      let moved = false;
+      
+      switch(action) {
+        case 'left':
+          if (markerX > 10) {
+            markerX -= 10;
+            moved = true;
+          }
+          break;
+        case 'right':
+          if (markerX < 90) {
+            markerX += 10;
+            moved = true;
+          }
+          break;
+        case 'up':
+          if (markerY > 10) {
+            markerY -= 10;
+            moved = true;
+          }
+          break;
+        case 'down':
+          if (markerY < 90) {
+            markerY += 10;
+            moved = true;
+          }
+          break;
+      }
+      
+      if (moved) {
+        updateMarker();
+        marker.classList.add('active');
+        setTimeout(() => marker.classList.remove('active'), 300);
+      }
+      
+      // Show command feedback
+      commandDisplay.textContent = `Command: ${action.toUpperCase()} ${moved ? '✓' : '(edge)'}`;
+      commandDisplay.classList.add('highlight');
+      
+      setTimeout(() => {
+        commandDisplay.classList.remove('highlight');
+        commandDisplay.textContent = 'Use arrow keys to pan the map';
+      }, 1000);
+    }
+
+    // Initialize marker position
+    updateMarker();
+
+    // Listen for commands from parent dashboard
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.action) {
+        handleMapCommand(event.data.action);
+        console.log('Map widget received command:', event.data.action);
+      }
+    });
+
+    // Send ready signal to parent
+    window.addEventListener('load', () => {
+      if (window.parent !== window) {
+        window.parent.postMessage({ 
+          type: 'widget-ready', 
+          widget: 'map' 
+        }, '*');
+      }
+    });
+  </script>
+</body>
+</html>

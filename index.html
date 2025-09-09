@@ -1,80 +1,53 @@
+<!---------------->
 <!-- index.html -->
+<!---------------->
 
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Dashie</title>
-<link rel="stylesheet" href="css/index.css">
-<link rel="icon" type="image/png" sizes="512x512" href="icon/DashieIconOrange512.png">
-</head>
-
-<body>
-  <!-- LEFT COLUMN -->
-  <section class="left-col">
-    
- <!-- Clock Widget -->
-  <div class="iframe-wrapper" id="dateTime-wrapper">
-    <iframe id="dateTime" src="widget_time_weather.html" title="Time & Weather"></iframe>
-  </div>
-    
-  <!-- Agenda Widget -->
-  <div class="iframe-wrapper" id="agenda-wrapper">
-    <iframe id="agenda-frame" src="widget_agenda.html" title="Agenda"></iframe>
-  </div>
-
-    <!-- Photos Widget -->
-  <div class="iframe-wrapper" id="photo-wrapper">
-    <iframe id="photo-frame" src="widget_photos.html" title="Photos"></iframe>
-  </div>
-    
-  </section>
-
-  <div class="divider" aria-hidden="true"></div>
-
-<!-- RIGHT PANEL -->
-<div id="right-col">
-  <!-- Family tracker bar (Location Widget) -->
-  <div id="location-widget">
-    <iframe id="location-frame" src="widget_location.html" frameborder="0" style="width: 100%; height: 100%;"></iframe>
-  </div>
+  <meta charset="UTF-8">
+  <title>Dashie Grid</title>
   
-  <!-- RIGHT PANEL WRAPPER - NEW -->
-  <div id="rightpanel-wrapper">
-    <!-- Right panel iframe -->
-    <iframe id="rightpanel" src="widget_calendar.html" title="RightPanel"></iframe>
+  <!-- Favicons -->
+  <link rel="icon" type="image/png" sizes="512x512" href="icons/Dashie_Logo_Orange_Transparent.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/Dashie_Logo_Orange_Transparent.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/Dashie_Logo_Orange_Transparent.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="icons/Dashie_Logo_Orange_Transparent.png">
+  
+  <!-- CSS Core Files (in order) -->
+  <link rel="stylesheet" href="css/core/variables.css">
+  <link rel="stylesheet" href="css/core/base.css">
+  
+  <!-- CSS Component Files -->
+  <link rel="stylesheet" href="css/components/grid.css">
+  <link rel="stylesheet" href="css/components/widgets.css">
+  <link rel="stylesheet" href="css/components/sidebar.css">
+  <link rel="stylesheet" href="css/components/navigation.css">
+  <link rel="stylesheet" href="css/components/modals.css">
+  <link rel="stylesheet" href="css/components/settings.css">
+</head>
+<body>
+<div id="app">
+  <!-- Sidebar Menu (now on the left) -->
+  <div id="sidebar-wrapper">
+    <div id="sidebar"></div>
   </div>
+  <div id="grid"></div>
 </div>
 
+<!-- Google SSO Login -->
+<script type="module" src="js/auth/simple-auth.js"></script>
+  
 
+  <!-- Configuration (keep this) -->
+  <script src="js/config.js"></script>
+  
+  <!-- Modular JavaScript (ES6 modules) -->
+  <script type="module" src="js/main.js"></script>
 
-  <!-- Hamburger menu button (top-right) -->
-  <button id="hamburgerBtn" aria-label="Menu">&#9776;</button>
-
-  <!-- MENU OVERLAY -->
-  <div id="menuOverlay"></div>
-
-  <!-- EXIT POPUP -->
-  <div id="exitPopup">
-    <div class="popup-content">
-      <p>Are you sure you want to quit?</p>
-      <div class="popup-buttons">
-        <button id="exitYes">Yes</button>
-        <button id="exitNo">No</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Key log for debugging -->
-  <div id="keyLog">-</div>
-
-
-<script src="js/config.js"></script>
-<script src="js/index.js"></script>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="js/location.js"></script>
-
+  <!-- Location code (traccar) -->
+  <!--<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script> -->
+  <!--<script src="widgets/location/location.js"></script> -->
   
 </body>
 </html>

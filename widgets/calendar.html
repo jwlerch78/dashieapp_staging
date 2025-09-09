@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calendar Widget</title>
+  
+  <!-- Apply theme immediately to prevent flash -->
+  <script>
+    (function() {
+      try {
+        const savedTheme = localStorage.getItem('dashie-theme') || 'dark';
+        document.documentElement.className = `theme-${savedTheme}`;
+        if (document.body) {
+          document.body.className = `theme-${savedTheme}`;
+        } else {
+          document.addEventListener('DOMContentLoaded', function() {
+            document.body.className = `theme-${savedTheme}`;
+          });
+        }
+      } catch (e) {
+        document.documentElement.className = 'theme-dark';
+        if (document.body) document.body.className = 'theme-dark';
+      }
+    })();
+  </script>
+  
+  <!-- Import theme variables from parent -->
+  <link rel="stylesheet" href="../css/core/variables.css">
+  
+  <!-- Toast UI Calendar CSS -->
+  <link rel="stylesheet" href="https://uicdn.toast.com/calendar/latest/toastui-calendar.min.css" />
+  
+  <!-- Calendar Widget Styles -->
+  <link rel="stylesheet" href="calendar/calendar.css">
+</head>
+<body class="theme-dark">
+  <div id="calendar-container">
+    <div class="loading" id="loading">Loading calendar...</div>
+    
+    <div class="calendar-header" id="calendarHeader" style="display: none;">
+      <div class="calendar-title" id="calendarTitle">Loading...</div>
+      <div class="calendar-mode" id="calendarMode">Week</div>
+    </div>
+    
+    <div id="calendar" style="display: none;"></div>
+    
+    <div class="controls-info">
+      ←→: Navigate | ↑↓: Scroll Time | ,.: Change View
+    </div>
+  </div>
+
+  <!-- Toast UI Calendar JS -->
+  <script src="https://uicdn.toast.com/calendar/latest/toastui-calendar.min.js"></script>
+  
+  <!-- Calendar Widget Logic -->
+  <script src="calendar/calendar.js"></script>
+  
+  <script>
+    // Enhanced theme management
+    function applyTheme(theme) {
+      const themeClass = `theme-${theme}`;
+      
+      // Remove existing theme classes
+      document.documentElement.classList.remove('theme-dark', 'theme-light');
+      document.body.classList.remove('theme-dark', 'theme-light');
+      
+      // Add new theme class
+      document.documentElement.classList.add(themeClass);
+      document.body.classList.add(themeClass);
+      
+      console.log(`📅 Calendar widget applied ${theme} theme`);
+    }
+
+    // Listen for theme changes from parent
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'theme-change') {
+        const newTheme = event.data.theme;
+        applyTheme(newTheme);
+      }
+    });
+
+    // Request current theme from parent and send ready signal
+    window.addEventListener('load', () => {
+      if (window.parent !== window) {
+        // Request theme first
+        window.parent.postMessage({ 
+          type: 'widget-request-theme',
+          widget: 'calendar' 
+        }, '*');
+        
+        // Then signal ready
+        setTimeout(() => {
+          window.parent.postMessage({ 
+            type: 'widget-ready', 
+            widget: 'calendar' 
+          }, '*');
+        }, 100);
+      }
+    });
+  </script>
+</body>
+</html>

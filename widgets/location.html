@@ -1,0 +1,269 @@
+<!-- widgets/location.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>Location Widget</title>
+  
+<style>
+/* Base page styles */
+html, body {
+  height: 100%;
+  margin: 0;
+  background: var(--bg-primary, #000); /* Change from #000 */
+  overflow: hidden;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+/* Family Tracker bar - FIXED FOR 10VH */
+#family-bar {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between; /* spread members across full width */
+  align-items: center; /* Center vertically within the 10vh */
+  padding: 4px 8px;
+  background: var(--bg-primary, #000); /* Change from #000 */
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  transition: height 0.3s ease;
+  overflow: hidden;
+  height: 100%; /* Fill the 10vh container */
+  width: 100%;
+  box-sizing: border-box;
+}
+
+#family-bar.location-mode {
+  height: 320px; /* taller in location mode */
+}
+
+/* Each member card - SIZED FOR 10VH */
+.member {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center; /* Center content vertically */
+  background-color: var(--bg-secondary, #111); /* Change from #111 */
+  padding: 2px 6px; /* Minimal padding */
+  border-radius: 6px;
+  min-width: 0;
+  width: calc(20% - 8px);
+  flex: 1;
+  margin: 0 2px;
+  box-sizing: border-box;
+  height: 100%; /* Fill available height */
+}
+
+/* Top row: image + location */
+.member-top {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center; /* center horizontally inside member */
+  width: 100%;
+  min-width: 0; /* Allow shrinking */
+}
+
+/* Profile photo - SMALLER FOR 10VH */
+.member-top img {
+  width: clamp(25px, 4vh, 35px); /* Much smaller: min 25px, max 35px */
+  height: clamp(25px, 4vh, 35px);
+  border-radius: 50%;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+/* Info next to photo (main location + subtext) */
+.member-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  text-align: left;
+  flex: 1;
+  min-width: 0; /* Allow text to shrink and wrap */
+}
+
+/* Main location text - SMALLER FOR 10VH */
+.location {
+  font-size: clamp(10px, 1.5vh, 14px); /* Much smaller font */
+  font-weight: bold;
+  color: var(--text-primary, #fff); /* Change from #fff */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1; /* Tighter line height */
+}
+
+/* Subtext below main location */
+.location-sub {
+  font-size: clamp(8px, 1.2vh, 11px); /* Much smaller font */
+  color: var(--text-secondary, #ccc); /* Change from #ccc */
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.1;
+}
+
+/* Expanded info (centered under entire top row) */
+.member-extra {
+  display: none;
+  flex-direction: column;
+  font-size: clamp(11px, 2vw, 14px); /* Responsive font size */
+  color: var(--text-secondary, #ddd); /* Change from #ddd */
+  text-align: center;
+  line-height: 1.4;
+  margin-top: 12px; /* spacing below top row */
+  width: 100%; /* span entire member card */
+  box-sizing: border-box;
+}
+
+#family-bar.location-mode .member-extra {
+  display: flex;
+}
+
+/* Optional small icons in subtext */
+.status-icon img {
+  width: 14px;
+  height: 14px;
+  vertical-align: middle;
+  margin-right: 3px;
+}
+
+/* Media query for very small screens */
+@media (max-width: 600px) {
+  .member-top {
+    flex-direction: column; /* Stack image above text on small screens */
+    text-align: center;
+  }
+  
+  .member-top img {
+    margin-right: 0;
+    margin-bottom: 4px;
+  }
+  
+  .member-info {
+    text-align: center;
+  }
+}
+</style>
+</head>
+<body>
+  <!-- Family Bar Widget -->
+<div id="family-bar">
+  <!-- Dad -->
+  <div class="member" id="dad">
+    <div class="member-top">
+      <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Dad.png" alt="Dad">
+      <div class="member-info">
+        <div class="location" id="dad-location">Loading...</div>
+        <div class="location-sub" id="dad-sub"></div>
+      </div>
+    </div>
+    <div class="member-extra" id="dad-extra"></div>
+  </div>
+
+  <!-- Mom -->
+  <div class="member" id="mom">
+    <div class="member-top">
+      <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mom.png" alt="Mom">
+      <div class="member-info">
+        <div class="location" id="mom-location">Loading...</div>
+        <div class="location-sub" id="mom-sub"></div>
+      </div>
+    </div>
+    <div class="member-extra" id="mom-extra"></div>
+  </div>
+
+  <!-- Mary -->
+  <div class="member" id="mary">
+    <div class="member-top">
+      <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Mary.png" alt="Mary">
+      <div class="member-info">
+        <div class="location" id="mary-location">Loading...</div>
+        <div class="location-sub" id="mary-sub"></div>
+      </div>
+    </div>
+    <div class="member-extra" id="mary-extra"></div>
+  </div>
+
+  <!-- Charlie -->
+  <div class="member" id="charlie">
+    <div class="member-top">
+      <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Char.png" alt="Charlie">
+      <div class="member-info">
+        <div class="location" id="charlie-location">Loading...</div>
+        <div class="location-sub" id="charlie-sub"></div>
+      </div>
+    </div>
+    <div class="member-extra" id="charlie-extra"></div>
+  </div>
+
+  <!-- Jack -->
+  <div class="member" id="jack">
+    <div class="member-top">
+      <img src="https://raw.githubusercontent.com/jwlerch78/family_calendar/main/images/Jack.png" alt="Jack">
+      <div class="member-info">
+        <div class="location" id="jack-location">Loading...</div>
+        <div class="location-sub" id="jack-sub"></div>
+      </div>
+    </div>
+    <div class="member-extra" id="jack-extra"></div>
+  </div>
+</div>
+
+<script>
+function updateLocationBar(device) {
+  const bar = document.getElementById("family-bar");
+  if (!bar) return;
+
+  const name = device.device.toLowerCase(); // "device" is the name field in your payload
+  const locEl = document.getElementById(`${name}-location`);
+  const subEl = document.getElementById(`${name}-sub`);
+  const extraEl = document.getElementById(`${name}-extra`);
+
+  if (locEl) locEl.textContent = device.zone || "Unknown location";
+  if (subEl) subEl.textContent = device.distance ? `${device.distance} mi away` : "";
+  if (extraEl) extraEl.innerHTML = `
+    At Location: ${device.timeAtLocation || "Unknown"}<br>
+    Speed: ${device.speedMph || 0} mph<br>
+    Is Moving: ${device.movementStatus || "No"}<br>
+    ${device.poi || ""}
+  `;
+}
+
+window.addEventListener("message", (event) => {
+  const { type, payload, action } = event.data || {};
+  const bar = document.getElementById("family-bar");
+  if (!bar) return;
+
+  // --- Location mode class ---
+  if (action === "enterLocationMode") bar.classList.add("location-mode");
+  if (action === "exitLocationMode") bar.classList.remove("location-mode");
+
+  // --- Location update data ---
+  if (type === "locationUpdate") {
+    console.log("Updating location bar with payload:", payload);
+    updateLocationBar(payload);
+  }
+});
+
+console.log("Location bar widget initialized");
+
+// Send ready signal to parent
+window.addEventListener('load', () => {
+  if (window.parent !== window) {
+    window.parent.postMessage({ 
+      type: 'widget-ready', 
+      widget: 'location' 
+    }, '*');
+  }
+});
+</script>
+</body>
+</html>

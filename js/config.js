@@ -1,6 +1,32 @@
+// ****************
 // config.js
+//*****************
 
+// Theme + configuration
+const theme = {
+  sidebarBg: "#222",
+  iconColor: "white",
+  selectedOutline: "yellow",
+  focusedOutline: "cyan"
+};
+
+const sidebarOptions = [
+  // Main content selection items (larger, always visible)
+  { id: "calendar", type: "main", iconSrc: "icons/icon-calendar.svg", label: "Calendar" },
+  { id: "map", type: "main", iconSrc: "icons/icon-map.svg", label: "Location Map" },
+  { id: "camera", type: "main", iconSrc: "icons/icon-video-camera.svg", label: "Camera Feed" },
+  
+  // System function items (smaller, in mini-grid)
+  { id: "reload", type: "system", iconSrc: "icons/icon-reload.svg", label: "Reload" },
+  { id: "sleep", type: "system", iconSrc: "icons/icon-sleep.svg", label: "Sleep" },
+  { id: "settings", type: "system", iconSrc: "icons/icon-settings.svg", label: "Settings" },
+  { id: "exit", type: "system", iconSrc: "icons/icon-exit.svg", label: "Exit" }
+];
+
+
+//******************
 // Traccar proxy URL
+//******************
 const PROXY_URL = "https://traccar-proxy-fcj3.onrender.com";
 
 // Devices
@@ -36,61 +62,3 @@ const ZONES = [
   { name: "The Break",   lat: 27.922,     lon: -82.8145,     radius: 0.003} 
   
 ];
-
-
-// Scroll Configuration
-const SCROLL_CONFIG = {
-  initial: -510,      // Initial scroll position for weekly/work modes
-  step: 150,          // Pixels to scroll per up/down action
-  max: -184,          // Maximum scroll up (closest to top)
-  min: -750           // Maximum scroll down (furthest from top)
-};
-
-// General Calendar Settings
-const CALENDAR_SETTINGS = {
-  autoRefreshInterval: 900000,    // Auto-refresh every 15 minutes (in milliseconds)
-  headerHeight: 184,              // Header container height in pixels
-  transitionDuration: 300,        // CSS transition duration in milliseconds
-  iframeHeightPercent: 250,        // Iframe height as percentage for weekly/work modes
-  verticalScale: 0.9  // 10% zoom out
-};
-
-// Calendar embed
-const BASE_URL = "https://calendar.google.com/calendar/embed?ctz=America/New_York&showTitle=0&showNav=0&showPrint=0&showTabs=0&showCalendars=0&showTz=0&wkst=2";
-
-const CALENDAR_SETS = {
-  weekly: [
-    { id: "desilerch@gmail.com", color: "%234285F4" },  // Blue
-    { id: "e48b36883ae237a9551de738523b7a246d5a1f6b15a3dbb6c78ee455a3aa4688@group.calendar.google.com", color: "%23001F54" }, // Navy
-    { id: "180b3d0e7c1ae0241b2e60ba9c566500949ff16a487adf11625cd72306b2310f@group.calendar.google.com", color: "%230B8043" }, // Green
-    { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" }, // Red
-    { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }  // Yellow
-  ],
-  monthly: [
-    { id: "desilerch@gmail.com", color: "%234285F4" },  // Blue
-    { id: "0d9003b61604007a26868b678b71e5ad894354cbfdab1f071193207ed7e4b7e8@group.calendar.google.com", color: "%23001F54" }, // Navy
-    { id: "a2ffcf08f82cc50f9d7d0d055f80652074979d74a9a0664e11d6a029a8c8b1ed@group.calendar.google.com", color: "%230B8043" }, // Green
-    { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" }, // Red
-    { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" } // Yellow
-  ],
-  work: [
-    { id: "desilerch@gmail.com", color: "%234285F4" },
-    { id: "e48b36883ae237a9551de738523b7a246d5a1f6b15a3dbb6c78ee455a3aa4688@group.calendar.google.com", color: "%23001F54" },
-    { id: "180b3d0e7c1ae0241b2e60ba9c566500949ff16a487adf11625cd72306b2310f@group.calendar.google.com", color: "%230B8043" },
-    { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }, // Yellow
-    { id: "fd5949d42a667f6ca3e88dcf1feb27818463bbdc19c5e56d2e0da62b87d881c5@group.calendar.google.com", color: "%23FF6F00" }
-  ]
-};
-
-// Agenda calendars for left panel
-const AGENDA_CALENDARS = [
-  { id: "desilerch@gmail.com", color: "%23E67C73" },
-  { id: "e48b36883ae237a9551de738523b7a246d5a1f6b15a3dbb6c78ee455a3aa4688@group.calendar.google.com", color: "%231565C0" },
-  { id: "180b3d0e7c1ae0241b2e60ba9c566500949ff16a487adf11625cd72306b2310f@group.calendar.google.com", color: "%230B8043" },
-  { id: "47489b378d24a631f96c2e6b4cbd6eda2876b98fa4d06fd1c83a8ac7badd5118@group.calendar.google.com", color: "%23d50000" },
-  { id: "fd5949d42a667f6ca3e88dcf1feb27818463bbdc19c5e56d2e0da62b87d881c5@group.calendar.google.com", color: "%23F18B3C" },
-  { id: "en.usa#holiday@group.v.calendar.google.com", color: "%23FDD835" }
-];
-
-// Calendar modes
-const MODES = ["weekly","monthly","work"];

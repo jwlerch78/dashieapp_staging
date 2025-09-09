@@ -1,0 +1,51 @@
+/* css/components/navigation.css - Focus & Selection States */
+
+/* Enhanced Widget selection and focus states */
+.widget.selected {
+  outline: var(--outline-width-selected) solid var(--outline-selected);
+  outline-offset: var(--outline-offset-widget);
+  box-shadow: var(--glow-selected);
+  transform: scale(1.02);
+  transition: all var(--transition-fast);
+  position: relative;
+  z-index: var(--z-widget-selected);
+}
+
+.widget.focused {
+  outline: var(--outline-width-focused) solid var(--outline-focused);
+  outline-offset: var(--outline-offset-widget);
+  box-shadow: var(--glow-focused);
+  transform: scale(1.04);
+  transition: all var(--transition-fast);
+  position: relative;
+  z-index: var(--z-widget-focused);
+}
+
+/* Menu item selection and focus states */
+.menu-item.active {
+  background-color: var(--bg-active);
+}
+
+.menu-item.selected {
+  outline: 3px solid var(--outline-selected);
+  outline-offset: 2px;
+}
+
+.menu-item.focused {
+  outline: 4px solid var(--outline-focused);
+  outline-offset: 2px;
+}
+
+/* Hide highlights when timed out or manually hidden */
+.highlights-hidden .widget.selected,
+.highlights-hidden .widget.focused {
+  outline: none;
+  box-shadow: none;
+  transform: scale(1);
+}
+
+.highlights-hidden .menu-item.selected,
+.highlights-hidden .menu-item.focused {
+  outline: none;
+  background-color: transparent;
+}

@@ -1,0 +1,163 @@
+/* css/core/variables.css - Theme Foundation with Dark/Light Support */
+
+/* Base theme variables - will be overridden by theme-specific classes */
+:root {
+  /* Background Colors */
+  --bg-primary: #222;
+  --bg-secondary: #333;
+  --bg-modal-backdrop: rgba(0, 0, 0, 0.7);
+  --bg-sleep: #000;
+  --bg-button: #666;
+  --bg-active: rgba(255, 255, 255, 0.2);
+  --bg-primary-transparent: rgba(34, 34, 34, 0);
+  --bg-primary-semi-transparent: rgba(34, 34, 34, 0.8);
+  --bg-tertiary: #444;
+  --bg-widget-iframe: var(--bg-secondary);
+  --bg-fallback-widget: var(--bg-tertiary);
+  --bg-button-semi: rgba(102, 102, 102, 0.6);
+  --bg-menu-overlay: rgba(50, 50, 50, 0.9);
+
+  /* Error/validation colors */
+  --color-error: #ff6b6b;
+  --color-success: #51cf66;
+  --color-warning: #ffd43b;
+
+  /* Widget-specific spacing */
+  --padding-widget: 10px;
+  --padding-widget-small: 6px;
+    
+  /* Text Colors */
+  --text-primary: #fff;
+  --text-secondary: #ccc;
+  --text-muted: #999;
+  
+  /* Accent Colors */
+  --accent-orange: #ffaa00;
+  --accent-blue: #00aaff;
+
+  /* Interactive States */
+  --outline-selected: var(--accent-orange);
+  --outline-focused: var(--accent-blue);
+  --outline-width-selected: 2px;
+  --outline-width-focused: 3px;
+  --outline-offset: 0px;
+  --outline-offset-widget: 0px;
+  
+  /* Enhanced Glow Effects */
+  --glow-selected: 0 0 20px rgba(255, 170, 0, 0.8), 0 0 45px rgba(255, 170, 0, 0.4);
+  --glow-focused: 0 0 25px rgba(0, 170, 255, 0.9), 0 0 55px rgba(0, 170, 255, 0.5);
+  
+  /* Layout & Spacing */
+  --sidebar-width-collapsed: 60px;
+  --sidebar-width-expanded: 200px;
+  --grid-gap: 10px;
+  --grid-gap-color: #333;
+  --border-radius: 8px;
+  --border-radius-small: 4px;
+  
+  /* Typography */
+  --font-size-base: 16px;
+  --font-size-large: 18px;
+  --font-size-small: 14px;
+  --font-size-heading: 24px;
+  --font-size-widget-title: 24px;
+  --font-size-widget-subtitle: 12px;
+  
+  /* Transitions */
+  --transition-fast: 0.2s ease;
+  --transition-medium: 0.3s ease;
+  --transition-slow: 0.5s ease;
+  
+  /* Z-index Stack */
+  --z-sidebar: 10;
+  --z-widget-selected: 100;
+  --z-widget-focused: 200;
+  --z-sidebar-expanded: 300;
+  --z-modal: 999;
+  --z-sleep: 1000;
+
+  /* Theme-specific variables */
+  --sidebar-logo-src: url('../../icons/Dashie_Full_Logo_White_Transparent.png');
+  --sidebar-icon-filter: invert(100%); /* White icons for dark theme */
+}
+
+/* ===== DARK THEME (Default) ===== */
+body.theme-dark,
+body:not([class*="theme-"]) {
+  /* Background Colors */
+  --bg-primary: #222;
+  --bg-secondary: #333;
+  --bg-modal-backdrop: rgba(0, 0, 0, 0.7);
+  --bg-sleep: #000;
+  --bg-button: #666;
+  --bg-active: rgba(255, 255, 255, 0.2);
+  --bg-primary-transparent: rgba(34, 34, 34, 0);
+  --bg-primary-semi-transparent: rgba(34, 34, 34, 0.8);
+  --bg-tertiary: #444;
+  --bg-widget-iframe: var(--bg-secondary);
+  --bg-fallback-widget: var(--bg-tertiary);
+  --bg-button-semi: rgba(102, 102, 102, 0.6);
+  --bg-menu-overlay: rgba(50, 50, 50, 0.9);
+  --grid-gap-color: #333;
+
+  /* Text Colors */
+  --text-primary: #fff;
+  --text-secondary: #ccc;
+  --text-muted: #999;
+
+  /* Theme-specific */
+  --sidebar-logo-src: url('../../icons/Dashie_Full_Logo_White_Transparent.png');
+  --sidebar-icon-filter: invert(100%); /* White icons */
+}
+
+/* ===== LIGHT THEME ===== */
+body.theme-light {
+  --bg-primary: #FCFCFF;    /* Off-white grid background */
+  --bg-secondary: #FCFCFF;    /* Off-white widget background */
+  --bg-modal-backdrop: rgba(0, 0, 0, 0.5);
+  --bg-sleep: #000;           /* Keep sleep mode black */
+  --bg-button: #90a4ae;       /* Light gray buttons */
+  --bg-active: rgba(33, 150, 243, 0.2); /* Light blue active state */
+  --bg-primary-transparent: rgba(227, 242, 253, 0);
+  --bg-primary-semi-transparent: rgba(227, 242, 253, 0.8);
+  --bg-tertiary: #eeeeee;     /* Light gray tertiary */
+  --bg-widget-iframe: var(--bg-secondary);
+  --bg-fallback-widget: var(--bg-tertiary);
+  --bg-button-semi: rgba(144, 164, 174, 0.6);
+  --bg-menu-overlay: rgba(245, 245, 245, 0.9);
+  --grid-gap-color: #9eb4fe;  /* Bluish-purple */
+
+  /* Text Colors - Dark gray for readability */
+  --text-primary: #424242;    /* Dark gray text */
+  --text-secondary: #616161;  /* Medium gray text */
+  --text-muted: #9e9e9e;      /* Light gray muted text */
+
+  /* Accent Colors - Keep the same for consistency */
+  --accent-orange: #ff9800;   /* Slightly darker orange for light theme */
+  --accent-blue: #2196f3;     /* Slightly darker blue for light theme */
+
+  /* Interactive States - Adjusted for light theme */
+  --outline-selected: var(--accent-orange);
+  --outline-focused: var(--accent-blue);
+  
+  /* Glow Effects - Adjusted for light theme */
+  --glow-selected: 0 0 15px rgba(255, 152, 0, 0.6), 0 0 30px rgba(255, 152, 0, 0.3);
+  --glow-focused: 0 0 15px rgba(33, 150, 243, 0.6), 0 0 30px rgba(33, 150, 243, 0.3);
+
+  /* Theme-specific */
+  --sidebar-logo-src: url('../../icons/Dashie_Full_Logo_Orange_Transparent.png');
+  --sidebar-icon-filter: invert(20%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(0.3); /* Dark gray icons */
+}
+
+/* Smooth transitions when switching themes */
+* {
+  transition: background-color var(--transition-medium), 
+              color var(--transition-medium), 
+              border-color var(--transition-medium),
+              box-shadow var(--transition-medium);
+}
+
+/* Prevent transition on page load */
+body.no-transitions * {
+  transition: none !important;
+}
