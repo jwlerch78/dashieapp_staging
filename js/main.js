@@ -33,9 +33,6 @@ function initializeApp() {
       document.getElementById('app').classList.add('authenticated');
     }
   }, 1000); 
-
-      document.getElementById('app').classList.add('authenticated');
-
   
   // Initialize theme system first (before any UI rendering)
   // Note: Early theme application already happened above

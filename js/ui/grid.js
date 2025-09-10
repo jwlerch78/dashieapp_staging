@@ -23,13 +23,11 @@ function createWidgetIframe(widget) {
   
   // Add load event listener and apply theme when widget loads
   iframe.addEventListener("load", () => {
-    console.log(`Widget iframe loaded: ${widget.id}`);
     
     // Apply current theme to newly loaded widget
     import('../core/theme.js').then(({ applyThemeToWidget }) => {
       applyThemeToWidget(iframe);
     }).catch(() => {
-      console.log('Theme system not available for widget theming');
     });
   });
   
@@ -99,18 +97,15 @@ export function renderGrid() {
     const updateOverlay = () => {
       const sidebarExpanded = elements.sidebar.classList.contains("expanded");
       clickOverlay.style.pointerEvents = sidebarExpanded ? "auto" : "none";
-      console.log(`Overlay for ${w.id}: ${sidebarExpanded ? "enabled" : "disabled"}`);
     };
 
     // Click handler on overlay (intercepts clicks when sidebar is expanded)
     clickOverlay.addEventListener("click", (e) => {
-      console.log("🖱️ Widget overlay clicked:", w.id);
       e.preventDefault();
       e.stopPropagation();
       
       // Close sidebar if expanded
       if (elements.sidebar.classList.contains("expanded")) {
-        console.log("✅ Closing sidebar from widget overlay click");
         elements.sidebar.classList.remove("expanded");
         
         // Return focus to this specific widget
@@ -168,11 +163,9 @@ export function renderSidebar() {
       ? 'icons/Dashie_Full_Logo_Black_Transparent.png'
       : 'icons/Dashie_Full_Logo_White_Transparent.png';
     logo.src = logoSrc;
-    console.log(`🖼️ Logo set for ${currentTheme} theme:`, logoSrc);
   }).catch(() => {
     // Fallback if theme system isn't loaded yet
     logo.src = 'icons/Dashie_Full_Logo_White_Transparent.png';
-    console.log('🖼️ Logo set to default (white)');
   });
   
   elements.sidebar.appendChild(logo);
@@ -244,7 +237,6 @@ export function createMenuItem(item, type, globalIndex) {
 function addMenuItemEventListeners(div, type, globalIndex) {
   // RESTORED: Mouse hover events for nice UX
   div.addEventListener("mouseover", () => {
-    console.log("Mouse hover on menu item:", div.dataset.menu, {
       isAsleep: state.isAsleep,
       confirmDialog: !!state.confirmDialog,
       selectedCell: !!state.selectedCell
@@ -276,7 +268,6 @@ function addMenuItemEventListeners(div, type, globalIndex) {
     
     // Don't allow menu clicks when widget is focused
     if (state.selectedCell) {
-      console.log("⚠️ Menu item clicked while widget focused - ignoring");
       return;
     }
     

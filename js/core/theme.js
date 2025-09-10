@@ -70,7 +70,6 @@ function applyThemeClassToWidget(iframe, theme) {
     // Add new theme class (CSS variables will handle the rest)
     doc.body.classList.add(`theme-${theme}`);
     
-    console.log(`✅ Applied theme-${theme} class to widget`);
     return true;
 
   } catch (error) {
@@ -155,7 +154,6 @@ function applyThemeToBody(theme) {
   // Add the new theme class
   body.classList.add(`theme-${theme}`);
   
-  console.log(`🎨 Applied theme class: theme-${theme}`);
 }
 
 function preventTransitionsOnLoad() {
@@ -184,7 +182,6 @@ export function applyThemeBeforeLoad() {
     observer.observe(document.documentElement, { childList: true });
   }
   
-  console.log(`🎨 Pre-applied theme: ${savedTheme}`);
 }
 
 // ---------------------
@@ -213,7 +210,6 @@ function notifyWidgetsThemeChange(theme) {
     postMessageCount++;
   });
   
-  console.log(`🎨 Theme applied: ${classApplicationCount} via CSS class, ${postMessageCount} via postMessage`);
 }
 
 function handleWidgetThemeRequest(widgetName) {
@@ -287,14 +283,10 @@ export function switchTheme(newTheme) {
 }
 
 export function initializeThemeSystem() {
-  console.log('🎨 Initializing theme system...');
   
   // IMPORTANT: Apply theme before preventing transitions to avoid flash
   applyThemeBeforeLoad();
   preventTransitionsOnLoad();
-  
-  // Theme is already loaded and applied by applyThemeBeforeLoad()
-  console.log(`📖 Using theme: ${currentTheme}`);
   
   initializeWidgetCommunication();
   
@@ -307,8 +299,7 @@ export function initializeThemeSystem() {
   updateLogo(currentTheme);
   setTimeout(() => updateLogo(currentTheme), 300);
   setTimeout(() => updateLogo(currentTheme), 600);
-  
-  console.log(`✅ Theme system initialized with ${THEME_CONFIG[currentTheme].name}`);
+
 }
 
 export function applyThemeToWidget(iframe) {

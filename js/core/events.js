@@ -13,7 +13,6 @@ function initializeWidgetMessages() {
     if (event.data && event.data.type === 'widget-ready') {
       const widgetId = event.data.widget;
       setWidgetReady(widgetId, true);
-      console.log(`🚀 Widget ready: ${widgetId}`);
     }
   });
 }
@@ -98,7 +97,6 @@ async function handleUnifiedInput(action, originalEvent = null) {
     return;
   }
   
-  console.log('🎮 Processing action:', action);
   
   // Prevent default if we have an original event
   if (originalEvent) {
@@ -209,10 +207,8 @@ async function handleUnifiedInput(action, originalEvent = null) {
     case "prev-view":
     case "next-view":
       // These only work when a widget is focused, ignore in main navigation
-      console.log('🎮 View cycling requires focused widget');
       break;
     default:
-      console.log('🎮 Unhandled action in main navigation:', action);
       break;
   }
 }
@@ -284,7 +280,6 @@ export function initializeMouseEvents() {
     }
     
     // Close the sidebar
-    console.log("✅ CLOSING SIDEBAR from document click");
     elements.sidebar.classList.remove("expanded");
     
     if (state.focus.type === "menu") {
@@ -296,11 +291,9 @@ export function initializeMouseEvents() {
   // Grid-level click handler as backup
   if (elements.grid) {
     elements.grid.addEventListener("click", e => {
-      console.log("🖱️ GRID CLICK:", e.target.tagName);
       
       // Close sidebar if expanded
       if (elements.sidebar.classList.contains("expanded")) {
-        console.log("✅ Closing sidebar from grid click");
         elements.sidebar.classList.remove("expanded");
         
         // Return focus to grid
@@ -322,6 +315,4 @@ export function initializeEvents() {
   initializeMouseEvents();
   initializeWidgetMessages();
   
-  console.log("📡 Event handlers initialized with unified input processing");
-  console.log("🎮 Android WebView remote input handler available");
 }
