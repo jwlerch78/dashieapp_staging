@@ -5,6 +5,7 @@ export class DeviceFlowAuth {
     this.config = {
       // Use Fire TV client ID for Device Flow
       client_id: '221142210647-m9vf7t0qgm6nlc6gggfsqefmjrak1mo9.apps.googleusercontent.com',
+      client_secret: 'YOUR_CLIENT_SECRET_HERE', // Replace with actual secret from Google Cloud Console
       device_code_endpoint: 'https://oauth2.googleapis.com/device/code',
       token_endpoint: 'https://oauth2.googleapis.com/token',
       scope: 'openid email profile'
@@ -121,6 +122,7 @@ export class DeviceFlowAuth {
         
         const requestBody = new URLSearchParams({
           client_id: this.config.client_id,
+          client_secret: this.config.client_secret,
           device_code: deviceCode,
           grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
           client_secret: '' // Try empty client_secret to see what Google expects
