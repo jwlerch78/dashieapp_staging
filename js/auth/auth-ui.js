@@ -1,4 +1,4 @@
-// js/auth/auth-ui.js - Authentication UI Management (Updated)
+// js/auth/auth-ui.js - Authentication UI Management (Fixed)
 
 export class AuthUI {
   constructor() {
@@ -34,23 +34,14 @@ export class AuthUI {
         <div class="sign-in-content">
           ${this.getSignInButtonHTML(hasNativeAuth, isFireTV)}
           
-          <div class="action-buttons">
-            <button id="reload-app-btn" class="signin-button secondary" tabindex="2" ${isFireTV ? 'autofocus' : ''}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-              </svg>
-              Reload App
-            </button>
-            
-            ${onExit ? `
-            <button id="exit-app-btn" class="signin-button secondary" tabindex="3">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
-              </svg>
-              Exit
-            </button>
-            ` : ''}
-          </div>
+          ${onExit ? `
+          <button id="exit-app-btn" class="signin-button secondary" tabindex="2" ${isFireTV ? 'autofocus' : ''}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+            </svg>
+            Exit
+          </button>
+          ` : ''}
         </div>
         
         <div class="sign-in-footer">
@@ -67,32 +58,31 @@ export class AuthUI {
 
   getSignInButtonHTML(hasNativeAuth, isFireTV) {
     if (hasNativeAuth) {
-      // Native auth - custom button that works with D-pad, updated styling
+      // Native auth - custom button that works with D-pad
       return `
-        <button id="native-signin-btn" class="signin-button google-styled fire-tv-button" tabindex="1">
-          <svg class="google-logo" width="20" height="20" viewBox="0 0 24 24">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        <button id="native-signin-btn" class="signin-button primary fire-tv-button" tabindex="1">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
-          <span>Sign in with Google</span>
+          Sign in with Google
         </button>
       `;
     } else {
       // Web auth - try Google button first, fallback to custom
       return `
         <div id="web-signin-container">
-          <div id="google-signin-button" style="display: none;"></div>
-          
-          <button id="custom-signin-btn" class="signin-button google-styled" tabindex="1">
-            <svg class="google-logo" width="20" height="20" viewBox="0 0 24 24">
-              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          <div id="google-signin-button"></div>
+          <button id="custom-signin-btn" class="signin-button primary" style="display: none;" tabindex="1">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            <span>Sign in with Google</span>
+            Sign in with Google
           </button>
         </div>
       `;
@@ -100,41 +90,97 @@ export class AuthUI {
   }
 
   setupSignInEventHandlers(onSignIn, onExit, hasNativeAuth, isFireTV) {
-    // Sign in button handlers
     if (hasNativeAuth) {
-      const nativeBtn = document.getElementById('native-signin-btn');
-      if (nativeBtn) {
-        nativeBtn.addEventListener('click', onSignIn);
+      // Native auth button setup
+      const signInBtn = document.getElementById('native-signin-btn');
+      if (signInBtn) {
+        // Click handler
+        signInBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          onSignIn();
+        });
+        
+        // Keyboard/D-pad handler
+        signInBtn.addEventListener('keydown', (e) => {
+          console.log('🔐 Sign-in button keydown:', e.keyCode, e.key);
+          if (e.keyCode === 13 || e.keyCode === 23 || e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            onSignIn();
+          }
+        });
+        
+        // Auto-focus for Fire TV
+        if (isFireTV) {
+          setTimeout(() => {
+            signInBtn.focus();
+            console.log('🔐 Auto-focused sign-in button');
+          }, 200);
+        }
       }
     } else {
-      this.setupWebSignInButton(onSignIn);
-      this.loadGoogleAPIAndTryRender(onSignIn);
+      // Web auth setup - try Google button first
+      this.setupWebAuth(onSignIn);
     }
     
-    // Reload app button handler
-    const reloadBtn = document.getElementById('reload-app-btn');
-    if (reloadBtn) {
-      reloadBtn.addEventListener('click', () => {
-        console.log('🔄 Reloading app...');
-        window.location.reload();
-      });
-    }
-    
-    // Exit button handler
+    // Exit button setup
     if (onExit) {
       const exitBtn = document.getElementById('exit-app-btn');
       if (exitBtn) {
-        exitBtn.addEventListener('click', onExit);
+        exitBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          onExit();
+        });
+        
+        exitBtn.addEventListener('keydown', (e) => {
+          console.log('🔐 Exit button keydown:', e.keyCode, e.key);
+          if (e.keyCode === 13 || e.keyCode === 23 || e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            onExit();
+          }
+        });
       }
     }
-    
-    // Setup Fire TV navigation if needed
+
+    // Add global keydown handler for Fire TV navigation
     if (isFireTV) {
       this.setupFireTVNavigation();
     }
   }
 
-  setupWebSignInButton(onSignIn) {
+  setupWebAuth(onSignIn) {
+    // Try to render Google's button immediately
+    if (window.google && google.accounts && google.accounts.id) {
+      this.renderGoogleButton(onSignIn);
+    } else {
+      // Show custom button immediately, try to load Google API
+      this.showCustomButton(onSignIn);
+      this.loadGoogleAPIAndTryRender(onSignIn);
+    }
+  }
+
+  renderGoogleButton(onSignIn) {
+    try {
+      const container = document.getElementById('google-signin-button');
+      if (container) {
+        google.accounts.id.renderButton(container, {
+          theme: 'outline',
+          size: 'large',
+          type: 'standard',
+          text: 'signin_with',
+          shape: 'rectangular',
+          width: '100%'
+        });
+        console.log('🔐 Rendered Google official button');
+      }
+    } catch (error) {
+      console.log('🔐 Google button failed, using custom:', error);
+      this.showCustomButton(onSignIn);
+    }
+  }
+
+  showCustomButton(onSignIn) {
     const customBtn = document.getElementById('custom-signin-btn');
     const googleContainer = document.getElementById('google-signin-button');
     
@@ -174,33 +220,24 @@ export class AuthUI {
     const handleFireTVKey = (e) => {
       console.log('🔐 Fire TV key event:', e.keyCode, e.key);
       
-      const signInBtn = document.getElementById('native-signin-btn') || document.getElementById('custom-signin-btn');
-      const reloadBtn = document.getElementById('reload-app-btn');
+      const signInBtn = document.getElementById('native-signin-btn');
       const exitBtn = document.getElementById('exit-app-btn');
       const focusedElement = document.activeElement;
       
       switch (e.keyCode) {
         case 40: // D-pad down
           e.preventDefault();
-          if (focusedElement === signInBtn && reloadBtn) {
-            reloadBtn.focus();
-          } else if (focusedElement === reloadBtn && exitBtn) {
+          if (focusedElement === signInBtn && exitBtn) {
             exitBtn.focus();
-          } else if (focusedElement === exitBtn && signInBtn) {
+          } else if (signInBtn) {
             signInBtn.focus();
-          } else if (reloadBtn) {
-            reloadBtn.focus();
           }
           break;
           
         case 38: // D-pad up
           e.preventDefault();
-          if (focusedElement === reloadBtn && signInBtn) {
+          if (focusedElement === exitBtn && signInBtn) {
             signInBtn.focus();
-          } else if (focusedElement === exitBtn && reloadBtn) {
-            reloadBtn.focus();
-          } else if (focusedElement === signInBtn && exitBtn) {
-            exitBtn.focus();
           } else if (exitBtn) {
             exitBtn.focus();
           }
@@ -258,23 +295,14 @@ export class AuthUI {
             Continue to Dashboard
           </button>
           
-          <div class="action-buttons">
-            <button id="reload-app-btn" class="signin-button secondary" tabindex="2">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
-              </svg>
-              Reload App
-            </button>
-            
-            ${onExit ? `
-            <button id="exit-app-btn" class="signin-button secondary" tabindex="3">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
-              </svg>
-              Exit
-            </button>
-            ` : ''}
-          </div>
+          ${onExit ? `
+          <button id="exit-app-btn" class="signin-button secondary" tabindex="2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+            </svg>
+            Exit
+          </button>
+          ` : ''}
         </div>
         
         <div class="sign-in-footer">
@@ -289,19 +317,8 @@ export class AuthUI {
     // Add event listeners
     document.getElementById('webview-continue-btn').addEventListener('click', onContinue);
     
-    const reloadBtn = document.getElementById('reload-app-btn');
-    if (reloadBtn) {
-      reloadBtn.addEventListener('click', () => {
-        console.log('🔄 Reloading app...');
-        window.location.reload();
-      });
-    }
-    
     if (onExit) {
-      const exitBtn = document.getElementById('exit-app-btn');
-      if (exitBtn) {
-        exitBtn.addEventListener('click', onExit);
-      }
+      document.getElementById('exit-app-btn').addEventListener('click', onExit);
     }
   }
 
@@ -387,14 +404,15 @@ export class AuthUI {
 
   showSignedInState() {
     this.hideSignInPrompt();
-    
+    this.showDashboard();
+  }
+
+  showDashboard() {
     const app = document.getElementById('app');
     if (app) {
       app.style.display = 'flex';
       app.classList.add('authenticated');
     }
-    
-    console.log('🔐 UI showing signed-in state');
   }
 
   styleSignInOverlay(overlay) {
@@ -408,139 +426,113 @@ export class AuthUI {
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 10000;
+      z-index: 9999;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     `;
   }
 
   addSignInStyles() {
-    if (document.getElementById('signin-styles')) return;
+    if (document.querySelector('#auth-ui-styles')) return;
     
     const style = document.createElement('style');
-    style.id = 'signin-styles';
+    style.id = 'auth-ui-styles';
     style.textContent = `
-      /* Light theme override for sign-in */
-      .temp-light-theme {
-        background-color: #f5f5f5 !important;
+      /* Force light theme for sign-in modals */
+      .temp-light-theme .sign-in-modal,
+      .sign-in-modal {
+        background: #FCFCFF !important;
+        border-radius: 12px;
+        padding: 40px;
+        max-width: 400px;
+        width: 90%;
+        text-align: center;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         color: #424242 !important;
       }
       
-      .sign-in-modal {
-        background: #FCFCFF;
-        border-radius: 16px;
-        padding: 40px;
-        max-width: 450px;
-        width: 90%;
-        text-align: center;
-        color: #424242;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      }
-      
       .dashie-logo-signin {
-        width: 150px;
+        width: 150px !important;
         height: auto;
-        margin-bottom: 24px;
+        margin: 0 auto 20px auto;
+        display: block;
       }
       
       .sign-in-header h2 {
-        margin: 0 0 8px 0;
+        color: #424242 !important;
+        margin: 0 0 10px 0;
         font-size: 28px;
         font-weight: bold;
-        color: #424242;
       }
       
       .sign-in-header p {
-        margin: 0 0 32px 0;
+        color: #616161 !important;
+        margin: 0 0 30px 0;
         font-size: 16px;
-        color: #616161;
+        font-style: italic;
       }
       
       .sign-in-content {
-        margin-bottom: 24px;
+        margin: 30px 0;
       }
       
-      .action-buttons {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        margin-top: 20px;
-      }
-      
+      /* Enhanced button styling */
       .signin-button {
-        width: 100%;
-        padding: 14px 20px;
-        border: none;
-        border-radius: 8px;
-        font-size: 16px;
-        font-weight: 500;
-        cursor: pointer;
-        transition: all 0.2s ease;
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 12px;
-        outline: none;
-        position: relative;
-      }
-      
-      /* Updated Google Sign-in button styling */
-      .signin-button.google-styled {
-        background: #ffffff;
-        color: #757575;
+        width: 100%;
+        padding: 12px 20px;
+        background: white;
+        color: #333;
         border: 1px solid #dadce0;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      }
-      
-      .signin-button.google-styled:hover {
-        background: #f8f9fa;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-      }
-      
-      .signin-button.google-styled .google-logo {
-        margin-right: 8px;
-      }
-      
-      .signin-button.google-styled span {
-        color: #3c4043;
+        border-radius: 6px;
+        font-size: 16px;
         font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin-top: 15px;
+        outline: none;
+      }
+      
+      .signin-button:hover,
+      .signin-button:focus {
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        background: #f8f9fa;
+        transform: translateY(-1px);
       }
       
       .signin-button.primary {
         background: #1a73e8;
         color: white;
+        border: 1px solid #1a73e8;
       }
       
-      .signin-button.primary:hover {
+      .signin-button.primary:hover,
+      .signin-button.primary:focus {
         background: #1557b0;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3);
+        border: 1px solid #1557b0;
+        box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
       }
       
       .signin-button.secondary {
-        background: #f8f9fa;
-        color: #5f6368;
+        background: white;
+        color: #333;
         border: 1px solid #dadce0;
       }
       
-      .signin-button.secondary:hover {
-        background: #f1f3f4;
+      .signin-button.secondary:hover,
+      .signin-button.secondary:focus {
+        background: #f8f9fa;
         border: 1px solid #bdc1c6;
       }
       
-      /* Fire TV specific styling with consistent orange outline */
+      /* Fire TV specific styling */
       .fire-tv-button {
         position: relative;
       }
       
-      .fire-tv-button:focus,
-      .signin-button.secondary:focus {
-        outline: 3px solid #ffaa00 !important;
-        outline-offset: 2px;
-        transform: scale(1.02) !important;
-        box-shadow: 0 0 15px rgba(255, 170, 0, 0.5) !important;
-      }
-      
-      .signin-button.google-styled:focus {
+      .fire-tv-button:focus {
         outline: 3px solid #ffaa00 !important;
         outline-offset: 2px;
         transform: scale(1.02) !important;
