@@ -1,5 +1,5 @@
 # Auth secrets
-js/auth/config.js
+js/auth/auth-config.js
 
 # Other common ignores
 node_modules/
