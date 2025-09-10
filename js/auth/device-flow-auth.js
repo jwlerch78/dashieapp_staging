@@ -1,11 +1,13 @@
 // js/auth/device-flow-auth.js - OAuth Device Flow for Fire TV (Enhanced Debug Version)
 
+import { AUTH_CONFIG } from './config.js';
+
 export class DeviceFlowAuth {
   constructor() {
     this.config = {
       // Use Fire TV client ID for Device Flow
       client_id: '221142210647-m9vf7t0qgm6nlc6gggfsqefmjrak1mo9.apps.googleusercontent.com',
-      client_secret: 'YOUR_CLIENT_SECRET_HERE', // Replace with actual secret from Google Cloud Console
+      client_secret: AUTH_CONFIG.client_secret,
       device_code_endpoint: 'https://oauth2.googleapis.com/device/code',
       token_endpoint: 'https://oauth2.googleapis.com/token',
       scope: 'openid email profile'
