@@ -127,7 +127,6 @@ export class DeviceFlowAuth {
           client_secret: this.config.client_secret,
           device_code: deviceCode,
           grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-          client_secret: '' // Try empty client_secret to see what Google expects
         });
         
         console.log('🔥 📤 Request body:', requestBody.toString());
