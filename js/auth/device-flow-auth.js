@@ -1,4 +1,4 @@
-// js/auth/device-flow-auth.js - OAuth Device Flow for Fire TV (Fixed Concurrent Polling)
+// js/auth/device-flow-auth.js - OAuth Device Flow for Fire TV (Enhanced Debug Version)
 
 export class DeviceFlowAuth {
   constructor() {
@@ -118,20 +118,30 @@ export class DeviceFlowAuth {
         }
         
         console.log('🔥 📤 Making token request...');
+        
+        const requestBody = new URLSearchParams({
+          client_id: this.config.client_id,
+          device_code: deviceCode,
+          grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+          client_secret: '' // Try empty client_secret to see what Google expects
+        });
+        
+        console.log('🔥 📤 Request body:', requestBody.toString());
+        console.log('🔥 📤 Client ID being used:', this.config.client_id);
+        console.log('🔥 📤 Device code length:', deviceCode.length);
+        console.log('🔥 📤 Grant type:', 'urn:ietf:params:oauth:grant-type:device_code');
+        
         const response = await fetch(this.config.token_endpoint, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/x-www-form-urlencoded',
           },
-          body: new URLSearchParams({
-            client_id: this.config.client_id,
-            device_code: deviceCode,
-            grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
-          })
+          body: requestBody
         });
         
         console.log('🔥 📥 Token response status:', response.status);
         console.log('🔥 📥 Token response ok:', response.ok);
+        console.log('🔥 📥 Token response headers:', Object.fromEntries(response.headers.entries()));
         
         const data = await response.json();
         console.log('🔥 📥 Token response data:', {
@@ -172,6 +182,55 @@ export class DeviceFlowAuth {
           const newInterval = interval + 5;
           console.log('🔥 🐌 Slowing down polling to', newInterval, 'seconds...');
           this.pollInterval = setTimeout(poll, newInterval * 1000);
+          
+        } else if (data.error === 'invalid_request' && data.error_description?.includes('client_secret')) {
+          // Client secret error - try without it
+          console.log('🔥 🔧 Retrying without client_secret parameter...');
+          
+          const retryBody = new URLSearchParams({
+            client_id: this.config.client_id,
+            device_code: deviceCode,
+            grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
+          });
+          
+          console.log('🔥 📤 Retry request body (no client_secret):', retryBody.toString());
+          
+          const retryResponse = await fetch(this.config.token_endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: retryBody
+          });
+          
+          const retryData = await retryResponse.json();
+          console.log('🔥 📥 Retry response:', retryData);
+          
+          if (retryResponse.ok && retryData.access_token) {
+            console.log('🔥 ✅ ACCESS TOKEN RECEIVED on retry!');
+            try {
+              const userInfo = await this.getUserInfo(retryData.access_token);
+              this.cleanup(overlay);
+              resolve({
+                success: true,
+                user: userInfo,
+                tokens: retryData
+              });
+              return;
+            } catch (userError) {
+              console.error('🔥 ❌ Failed to get user info on retry:', userError);
+              this.cleanup(overlay);
+              reject(new Error('Failed to get user information'));
+              return;
+            }
+          } else if (retryData.error === 'authorization_pending') {
+            console.log('🔥 ⏳ Still pending on retry... continuing polling');
+            this.pollInterval = setTimeout(poll, interval * 1000);
+          } else {
+            console.log('🔥 ❌ Retry also failed:', retryData);
+            this.cleanup(overlay);
+            reject(new Error(retryData.error_description || retryData.error || 'Authentication failed'));
+          }
           
         } else {
           // Other error
