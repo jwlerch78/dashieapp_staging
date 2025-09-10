@@ -3,7 +3,8 @@
 export class DeviceFlowAuth {
   constructor() {
     this.config = {
-      client_id: '221142210647-58t8hr48rk7nlgl56j969himso1qjjoo.apps.googleusercontent.com',
+      // Use Fire TV client ID for Device Flow
+      client_id: '221142210647-m9vf7t0qgm6nlc6gggfsqefmjrak1mo9.apps.googleusercontent.com',
       device_code_endpoint: 'https://oauth2.googleapis.com/device/code',
       token_endpoint: 'https://oauth2.googleapis.com/token',
       scope: 'openid email profile'
