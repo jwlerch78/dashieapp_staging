@@ -28,6 +28,7 @@ export class AuthUI {
         </div>
         
         <div class="sign-in-content">
+          <!-- Custom sign-in button for consistency -->
           <button id="signin-btn" class="signin-button primary">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -37,6 +38,9 @@ export class AuthUI {
             </svg>
             Sign in with Google
           </button>
+          
+          <!-- Alternative: Google's official button (hidden by default) -->
+          <div id="google-signin-button" style="display: none; margin-top: 15px;"></div>
           
           ${onExit ? `
           <button id="exit-app-btn" class="signin-button secondary">
@@ -63,6 +67,9 @@ export class AuthUI {
     if (onExit) {
       document.getElementById('exit-app-btn').addEventListener('click', onExit);
     }
+
+    // Try to render Google's official button as a fallback
+    this.tryRenderGoogleButton();
   }
 
   showWebViewAuthPrompt(onContinue, onExit = null) {
@@ -109,6 +116,10 @@ export class AuthUI {
           </button>
           ` : ''}
         </div>
+        
+        <div class="sign-in-footer">
+          <p>Your data stays private and secure</p>
+        </div>
       </div>
     `;
     
@@ -123,7 +134,41 @@ export class AuthUI {
     }
   }
 
-  showAuthError(message, showRetry = false) {
+  tryRenderGoogleButton() {
+    // Try to render Google's official button after a short delay
+    // This gives time for the Google API to load if it's available
+    setTimeout(() => {
+      if (window.google && google.accounts && google.accounts.id) {
+        try {
+          const container = document.getElementById('google-signin-button');
+          if (container) {
+            google.accounts.id.renderButton(container, {
+              theme: 'outline',
+              size: 'large',
+              type: 'standard',
+              text: 'signin_with',
+              shape: 'rectangular'
+            });
+            
+            // Show the Google button and hide the custom one
+            container.style.display = 'block';
+            const customBtn = document.getElementById('signin-btn');
+            if (customBtn) {
+              customBtn.style.display = 'none';
+            }
+            
+            console.log('🔐 Using Google\'s official sign-in button');
+          }
+        } catch (error) {
+          console.log('🔐 Google button rendering failed, using custom button:', error);
+        }
+      } else {
+        console.log('🔐 Google API not available, using custom button');
+      }
+    }, 500);
+  }
+
+  showAuthError(message, allowContinue = false) {
     this.hideSignInPrompt();
     
     const app = document.getElementById('app');
@@ -134,39 +179,59 @@ export class AuthUI {
     
     document.body.classList.add('temp-light-theme');
     
-    const signInOverlay = document.createElement('div');
-    signInOverlay.id = 'sign-in-overlay';
-    signInOverlay.innerHTML = `
+    const errorOverlay = document.createElement('div');
+    errorOverlay.id = 'sign-in-overlay';
+    errorOverlay.innerHTML = `
       <div class="sign-in-modal">
         <img src="icons/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo-signin">
         
         <div class="sign-in-header">
           <h2>Authentication Error</h2>
-          <p>${message}</p>
+          <p style="color: #d32f2f !important;">${message}</p>
         </div>
         
         <div class="sign-in-content">
-          ${showRetry ? `
-          <button id="retry-auth-btn" class="signin-button primary">
+          ${allowContinue ? `
+          <button id="continue-anyway-btn" class="signin-button primary">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
             </svg>
-            Retry
+            Continue Anyway
           </button>
           ` : ''}
           
-          <button id="exit-app-btn" class="signin-button secondary">
+          <button id="retry-auth-btn" class="signin-button ${allowContinue ? 'secondary' : 'primary'}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+              <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
             </svg>
-            Exit
+            Try Again
           </button>
         </div>
       </div>
     `;
     
-    this.styleSignInOverlay(signInOverlay);
-    document.body.appendChild(signInOverlay);
+    this.styleSignInOverlay(errorOverlay);
+    document.body.appendChild(errorOverlay);
+    
+    // Add event listeners
+    const retryBtn = document.getElementById('retry-auth-btn');
+    if (retryBtn) {
+      retryBtn.addEventListener('click', () => {
+        window.location.reload();
+      });
+    }
+    
+    if (allowContinue) {
+      const continueBtn = document.getElementById('continue-anyway-btn');
+      if (continueBtn) {
+        continueBtn.addEventListener('click', () => {
+          // Create a temporary user and continue
+          if (window.dashieAuth && window.dashieAuth.authManager) {
+            window.dashieAuth.authManager.createWebViewUser();
+          }
+        });
+      }
+    }
   }
 
   hideSignInPrompt() {
@@ -207,13 +272,13 @@ export class AuthUI {
   }
 
   addSignInStyles() {
-    if (document.querySelector('#auth-styles')) return;
+    if (document.querySelector('#auth-ui-styles')) return;
     
     const style = document.createElement('style');
-    style.id = 'auth-styles';
+    style.id = 'auth-ui-styles';
     style.textContent = `
+      /* Force light theme for sign-in modals */
       .temp-light-theme .sign-in-modal,
-      .light-theme-signin .sign-in-modal,
       .sign-in-modal {
         background: #FCFCFF !important;
         border-radius: 12px;
@@ -246,6 +311,11 @@ export class AuthUI {
         font-style: italic;
       }
       
+      .sign-in-content {
+        margin: 30px 0;
+      }
+      
+      /* Enhanced button styling */
       .signin-button {
         display: flex;
         align-items: center;
@@ -262,28 +332,87 @@ export class AuthUI {
         cursor: pointer;
         transition: all 0.2s ease;
         margin-top: 15px;
+        outline: none;
       }
       
-      .signin-button:hover {
+      .signin-button:hover,
+      .signin-button:focus {
         box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         background: #f8f9fa;
+        transform: translateY(-1px);
       }
       
       .signin-button.primary {
-        background: #4285f4;
+        background: #1a73e8;
         color: white;
-        border: 1px solid #4285f4;
+        border: 1px solid #1a73e8;
       }
       
-      .signin-button.primary:hover {
-        background: #3367d6;
-        border: 1px solid #3367d6;
+      .signin-button.primary:hover,
+      .signin-button.primary:focus {
+        background: #1557b0;
+        border: 1px solid #1557b0;
+        box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
+      }
+      
+      .signin-button.secondary {
+        background: white;
+        color: #333;
+        border: 1px solid #dadce0;
+      }
+      
+      .signin-button.secondary:hover,
+      .signin-button.secondary:focus {
+        background: #f8f9fa;
+        border: 1px solid #bdc1c6;
+      }
+      
+      /* Google Sign-In button container styling */
+      #google-signin-button {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      
+      #google-signin-button > div {
+        margin: 0 !important;
+        width: 100% !important;
+      }
+      
+      /* Fire TV specific enhancements */
+      @media (max-width: 1920px) and (max-height: 1080px) {
+        .sign-in-modal {
+          max-width: 500px;
+          padding: 50px;
+        }
+        
+        .sign-in-header h2 {
+          font-size: 32px;
+        }
+        
+        .signin-button {
+          font-size: 18px;
+          padding: 16px 24px;
+        }
+        
+        .signin-button:focus {
+          outline: 3px solid #ffaa00;
+          outline-offset: 2px;
+        }
       }
       
       .sign-in-footer p {
         color: #9e9e9e !important;
         font-size: 14px;
         margin: 0;
+      }
+      
+      /* Error state styling */
+      .sign-in-header p[style*="color: #d32f2f"] {
+        background: #ffebee;
+        padding: 10px;
+        border-radius: 4px;
+        border-left: 4px solid #d32f2f;
       }
     `;
     

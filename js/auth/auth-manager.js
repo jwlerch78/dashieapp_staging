@@ -38,12 +38,12 @@ export class AuthManager {
     return isAndroidWebView || isIOSWebView;
   }
 
-detectNativeAuth() {
-  const hasNative = window.DashieNative && 
-                   typeof window.DashieNative.signIn === 'function';
-  console.log('🔐 Native auth available:', hasNative); // This should be true/false, not undefined
-  return !!hasNative; // Force boolean conversion
-}
+  detectNativeAuth() {
+    const hasNative = window.DashieNative && 
+                     typeof window.DashieNative.signIn === 'function';
+    console.log('🔐 Native auth available:', hasNative);
+    return !!hasNative;
+  }
 
   async init() {
     console.log('🔐 Initializing AuthManager...');
@@ -52,8 +52,9 @@ detectNativeAuth() {
       hasNativeAuth: this.hasNativeAuth
     });
 
-    // Set up native auth handler
+    // Set up auth result handlers
     window.handleNativeAuth = (result) => this.handleNativeAuthResult(result);
+    window.handleWebAuth = (result) => this.handleWebAuthResult(result);
     
     // Check for existing authentication first
     this.checkExistingAuth();
@@ -65,19 +66,20 @@ detectNativeAuth() {
       this.checkNativeUser();
     } else if (this.isWebView) {
       console.log('🔐 WebView without native auth - showing WebView prompt');
-      this.ui.showWebViewAuthPrompt(() => this.createWebViewUser());
-} else {
-  console.log('🔐 Browser environment - initializing web auth');
-  try {
-    await this.webAuth.init();
-    // Don't call checkExistingAuth() again - we already did it above
-    // Instead, show sign-in prompt since web auth is a stub
-    this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
-  } catch (error) {
-    console.error('🔐 Web auth initialization failed:', error);
-    this.handleAuthFailure(error);
-  }
-}
+      this.ui.showWebViewAuthPrompt(() => this.createWebViewUser(), () => this.exitApp());
+    } else {
+      console.log('🔐 Browser environment - initializing web auth');
+      try {
+        await this.webAuth.init();
+        // Check if we already have a user, if not show sign-in prompt
+        if (!this.isSignedIn) {
+          this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
+        }
+      } catch (error) {
+        console.error('🔐 Web auth initialization failed:', error);
+        this.handleAuthFailure(error);
+      }
+    }
   }
 
   checkExistingAuth() {
@@ -102,7 +104,7 @@ detectNativeAuth() {
     }
     
     // No native user found, show sign-in prompt
-    this.ui.showSignInPrompt(() => this.signIn());
+    this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
   }
 
   handleNativeAuthResult(result) {
@@ -119,6 +121,21 @@ detectNativeAuth() {
       if (result.error && result.error !== 'Sign-in was cancelled') {
         this.ui.showAuthError(result.error || 'Native authentication failed');
       }
+    }
+  }
+
+  handleWebAuthResult(result) {
+    console.log('🔐 Web auth result received:', result);
+    
+    if (result.success && result.user) {
+      this.setUserFromAuth(result.user, 'web');
+      this.isSignedIn = true;
+      this.storage.saveUser(this.currentUser);
+      this.ui.showSignedInState();
+      console.log('🔐 ✅ Web auth successful:', this.currentUser.name);
+    } else {
+      console.error('🔐 ❌ Web auth failed:', result.error);
+      this.ui.showAuthError(result.error || 'Web authentication failed');
     }
   }
 
@@ -156,10 +173,13 @@ detectNativeAuth() {
     console.log('🔐 Starting sign-in process...');
     
     if (this.hasNativeAuth && this.nativeAuth) {
+      console.log('🔐 Using native sign-in');
       this.nativeAuth.signIn();
     } else if (this.webAuth) {
+      console.log('🔐 Using web sign-in');
       try {
         await this.webAuth.signIn();
+        // The result will be handled by handleWebAuthResult
       } catch (error) {
         console.error('🔐 Web sign-in failed:', error);
         this.ui.showAuthError('Sign-in failed. Please try again.');
@@ -183,7 +203,13 @@ detectNativeAuth() {
     this.currentUser = null;
     this.isSignedIn = false;
     this.storage.clearSavedUser();
-    this.ui.showSignInPrompt(() => this.signIn());
+    
+    // Show appropriate sign-in prompt based on environment
+    if (this.isWebView && !this.hasNativeAuth) {
+      this.ui.showWebViewAuthPrompt(() => this.createWebViewUser(), () => this.exitApp());
+    } else {
+      this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
+    }
   }
 
   exitApp() {
@@ -209,7 +235,7 @@ detectNativeAuth() {
       this.ui.showSignedInState();
     } else {
       if (this.isWebView) {
-        this.ui.showWebViewAuthPrompt(() => this.createWebViewUser());
+        this.ui.showWebViewAuthPrompt(() => this.createWebViewUser(), () => this.exitApp());
       } else {
         this.ui.showAuthError('Authentication service is currently unavailable.', true);
       }
