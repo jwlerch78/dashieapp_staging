@@ -388,62 +388,67 @@ export class DeviceFlowAuth {
     this.countdownInterval = setInterval(updateCountdown, 1000);
   }
 
-  // Step 3: Poll for authorization
-  async pollForToken(deviceCode, interval = 5) {
-    return new Promise((resolve, reject) => {
-      let attempts = 0;
-      const maxAttempts = 120; // 10 minutes max
-      
-      const poll = async () => {
-        try {
-          attempts++;
-          
-          if (attempts > maxAttempts) {
-            reject(new Error('Polling timeout - please try again'));
-            return;
-          }
-          
-          const response = await fetch(this.config.token_endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({
-              client_id: this.config.client_id,
-              device_code: deviceCode,
-              grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
-            })
-          });
-          
-          const data = await response.json();
-          
-          if (response.ok && data.access_token) {
-            // Success!
-            console.log('🔥 ✅ Device flow authentication successful');
-            resolve(data);
-          } else if (data.error === 'authorization_pending') {
-            // Still waiting for user to authorize
-            console.log('🔥 Still waiting for authorization...');
-            this.pollInterval = setTimeout(poll, interval * 1000);
-          } else if (data.error === 'slow_down') {
-            // Increase polling interval
-            console.log('🔥 Slowing down polling...');
-            this.pollInterval = setTimeout(poll, (interval + 5) * 1000);
-          } else {
-            // Other error
-            reject(new Error(data.error_description || data.error || 'Authentication failed'));
-          }
-          
-        } catch (error) {
-          console.error('🔥 Polling error:', error);
-          this.pollInterval = setTimeout(poll, interval * 1000);
+  // Step 3: Poll for authorization (Fire TV safe)
+async pollForToken(deviceCode, interval = 5, expiresIn = 600) {
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+    const maxAttempts = Math.ceil(expiresIn / interval);
+    let currentInterval = interval * 1000; // convert to ms
+
+    const poll = async () => {
+      attempts++;
+
+      try {
+        const response = await fetch(this.config.token_endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: this.config.client_id,
+            device_code: deviceCode,
+            grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
+          })
+        });
+
+        const data = await response.json();
+        console.log('🔥 Poll attempt', attempts, data);
+
+        if (response.ok && data.access_token) {
+          // Success: stop polling and resolve promise
+          clearInterval(intervalId);
+          console.log('🔥 ✅ Device flow authentication successful');
+          resolve(data);
+        } else if (data.error === 'authorization_pending') {
+          // Still waiting, do nothing
+          console.log('🔥 Waiting for user authorization...');
+        } else if (data.error === 'slow_down') {
+          // Increase interval per Google recommendation
+          currentInterval += 5000;
+          clearInterval(intervalId);
+          intervalId = setInterval(poll, currentInterval);
+          console.log('🔥 Received slow_down, increasing interval to', currentInterval / 1000, 's');
+        } else {
+          // Other error: stop polling and reject
+          clearInterval(intervalId);
+          reject(new Error(data.error_description || data.error || 'Authentication failed'));
         }
-      };
-      
-      // Start polling
-      poll();
-    });
-  }
+
+        // Safety: stop if max attempts exceeded
+        if (attempts >= maxAttempts) {
+          clearInterval(intervalId);
+          reject(new Error('Polling timeout — please try again'));
+        }
+
+      } catch (err) {
+        console.error('🔥 Polling error:', err);
+      }
+    };
+
+    // Start polling immediately
+    poll();
+    let intervalId = setInterval(poll, currentInterval);
+  });
+}
+
 
   // Step 4: Get user information
   async getUserInfo(accessToken) {
