@@ -1,11 +1,10 @@
-// js/auth/auth-manager.js - Complete Authentication Solution
+// js/auth/auth-manager.js - Production Auth with Device Flow Priority
 
 import { NativeAuth } from './native-auth.js';
 import { WebAuth } from './web-auth.js';
 import { AuthUI } from './auth-ui.js';
 import { AuthStorage } from './auth-storage.js';
 import { DeviceFlowAuth } from './device-flow-auth.js';
-import { SimpleFireTVAuth } from './fire-tv-fallback.js';
 
 export class AuthManager {
   constructor() {
@@ -21,9 +20,8 @@ export class AuthManager {
     this.nativeAuth = this.hasNativeAuth ? new NativeAuth() : null;
     this.webAuth = new WebAuth();
     this.deviceFlowAuth = new DeviceFlowAuth();
-    this.fireTVFallback = new SimpleFireTVAuth();
     
-    this.nativeAuthAttempted = false;
+    this.nativeAuthFailed = false;
     
     this.init();
   }
@@ -76,24 +74,24 @@ export class AuthManager {
     // Check for existing authentication first
     this.checkExistingAuth();
     
-    // Initialize appropriate auth method based on environment
-    if (this.hasNativeAuth) {
-      console.log('🔐 Using native Android authentication');
-      await this.nativeAuth.init();
-      this.checkNativeUser();
-    } else if (this.isWebView) {
-      console.log('🔐 WebView without native auth - showing WebView prompt');
-      this.ui.showWebViewAuthPrompt(() => this.createWebViewUser(), () => this.exitApp());
-    } else {
-      console.log('🔐 Browser environment - initializing web auth');
-      try {
-        await this.webAuth.init();
-        if (!this.isSignedIn) {
+    // If no existing auth, initialize appropriate method
+    if (!this.isSignedIn) {
+      if (this.hasNativeAuth) {
+        console.log('🔐 Using native Android authentication');
+        await this.nativeAuth.init();
+        this.checkNativeUser();
+      } else if (this.isWebView) {
+        console.log('🔐 WebView without native auth - showing WebView prompt');
+        this.ui.showWebViewAuthPrompt(() => this.createWebViewUser(), () => this.exitApp());
+      } else {
+        console.log('🔐 Browser environment - initializing web auth');
+        try {
+          await this.webAuth.init();
           this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
+        } catch (error) {
+          console.error('🔐 Web auth initialization failed:', error);
+          this.handleAuthFailure(error);
         }
-      } catch (error) {
-        console.error('🔐 Web auth initialization failed:', error);
-        this.handleAuthFailure(error);
       }
     }
   }
@@ -125,7 +123,6 @@ export class AuthManager {
 
   handleNativeAuthResult(result) {
     console.log('🔐 Native auth result received:', result);
-    this.nativeAuthAttempted = true;
     
     if (result.success && result.user) {
       this.setUserFromAuth(result.user, 'native');
@@ -135,22 +132,25 @@ export class AuthManager {
       console.log('🔐 ✅ Native auth successful:', this.currentUser.name);
     } else {
       console.error('🔐 ❌ Native auth failed:', result.error);
+      this.nativeAuthFailed = true;
       
-      // Enhanced Fire TV fallback strategy
+      // For Fire TV, immediately try Device Flow
       if (this.isFireTV) {
-        this.handleFireTVAuthFailure(result.error);
+        console.log('🔥 Native auth failed on Fire TV, switching to Device Flow...');
+        this.startDeviceFlow();
       } else if (result.error && result.error !== 'Sign-in was cancelled') {
         this.ui.showAuthError(result.error || 'Native authentication failed');
       }
     }
   }
 
-  async handleFireTVAuthFailure(error) {
-    console.log('🔥 Native auth failed on Fire TV, trying alternative methods...');
-    
+  async startDeviceFlow() {
     try {
-      // First, try OAuth Device Flow (Google's recommended method for TV)
-      console.log('🔥 Attempting OAuth Device Flow...');
+      console.log('🔥 Starting Device Flow authentication...');
+      
+      // Hide any existing prompts
+      this.ui.hideSignInPrompt();
+      
       const result = await this.deviceFlowAuth.startDeviceFlow();
       
       if (result.success && result.user) {
@@ -159,29 +159,13 @@ export class AuthManager {
         this.storage.saveUser(this.currentUser);
         this.ui.showSignedInState();
         console.log('🔥 ✅ Device Flow successful:', this.currentUser.name);
-        return;
+      } else {
+        throw new Error('Device Flow was cancelled or failed');
       }
       
-    } catch (deviceFlowError) {
-      console.log('🔥 Device Flow failed, trying simple fallback:', deviceFlowError);
-      
-      try {
-        // If Device Flow fails, offer simple "Continue" option
-        const fallbackResult = await this.fireTVFallback.showFireTVFallback();
-        
-        if (fallbackResult.success && fallbackResult.user) {
-          this.setUserFromAuth(fallbackResult.user, 'fire_tv_fallback');
-          this.isSignedIn = true;
-          this.storage.saveUser(this.currentUser);
-          this.ui.showSignedInState();
-          console.log('🔥 ✅ Fire TV fallback successful:', this.currentUser.name);
-          return;
-        }
-        
-      } catch (fallbackError) {
-        console.error('🔥 All Fire TV auth methods failed:', fallbackError);
-        this.ui.showAuthError('Authentication failed. Please check your network connection and try again.');
-      }
+    } catch (error) {
+      console.error('🔥 Device Flow failed:', error);
+      this.ui.showAuthError(`Authentication failed: ${error.message}. Please try again.`);
     }
   }
 
@@ -233,35 +217,28 @@ export class AuthManager {
   async signIn() {
     console.log('🔐 Starting sign-in process...');
     
-    if (this.hasNativeAuth && this.nativeAuth) {
+    if (this.isFireTV) {
+      // For Fire TV, always use Device Flow unless native auth is available and hasn't failed
+      if (this.hasNativeAuth && !this.nativeAuthFailed) {
+        console.log('🔥 Fire TV: Trying native auth first...');
+        this.nativeAuth.signIn();
+        
+        // Quick timeout to fallback to Device Flow
+        setTimeout(() => {
+          if (!this.isSignedIn && !this.nativeAuthFailed) {
+            console.log('🔥 Native auth timeout, switching to Device Flow...');
+            this.nativeAuthFailed = true;
+            this.startDeviceFlow();
+          }
+        }, 3000);
+      } else {
+        console.log('🔥 Fire TV: Using Device Flow directly...');
+        this.startDeviceFlow();
+      }
+      
+    } else if (this.hasNativeAuth && this.nativeAuth) {
       console.log('🔐 Using native sign-in');
       this.nativeAuth.signIn();
-      
-      // Set a timeout for Fire TV to try alternative methods
-      if (this.isFireTV) {
-        setTimeout(() => {
-          if (!this.isSignedIn && !this.nativeAuthAttempted) {
-            console.log('🔥 Native auth timeout, trying alternatives...');
-            this.handleFireTVAuthFailure('timeout');
-          }
-        }, 3000); // 3 second timeout
-      }
-      
-    } else if (this.isFireTV) {
-      // If no native auth on Fire TV, go straight to Device Flow
-      console.log('🔥 Fire TV without native auth - using Device Flow');
-      try {
-        const result = await this.deviceFlowAuth.startDeviceFlow();
-        if (result.success && result.user) {
-          this.setUserFromAuth(result.user, 'device_flow');
-          this.isSignedIn = true;
-          this.storage.saveUser(this.currentUser);
-          this.ui.showSignedInState();
-        }
-      } catch (error) {
-        console.error('🔥 Device Flow failed:', error);
-        this.handleFireTVAuthFailure(error.message);
-      }
       
     } else if (this.webAuth) {
       console.log('🔐 Using web sign-in');
@@ -289,7 +266,7 @@ export class AuthManager {
     
     this.currentUser = null;
     this.isSignedIn = false;
-    this.nativeAuthAttempted = false;
+    this.nativeAuthFailed = false;
     this.storage.clearSavedUser();
     
     // Show appropriate sign-in prompt based on environment
@@ -323,7 +300,8 @@ export class AuthManager {
       this.ui.showSignedInState();
     } else {
       if (this.isFireTV) {
-        this.handleFireTVAuthFailure(error.message);
+        console.log('🔥 Auth failure on Fire TV, trying Device Flow...');
+        this.startDeviceFlow();
       } else if (this.isWebView) {
         this.ui.showWebViewAuthPrompt(() => this.createWebViewUser(), () => this.exitApp());
       } else {
