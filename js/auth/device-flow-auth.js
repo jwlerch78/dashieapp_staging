@@ -1,4 +1,4 @@
-// js/auth/device-flow-auth.js - OAuth Device Flow for Fire TV (Fixed Polling)
+// js/auth/device-flow-auth.js - OAuth Device Flow for Fire TV (Original + Debug Logging)
 
 export class DeviceFlowAuth {
   constructor() {
@@ -11,8 +11,6 @@ export class DeviceFlowAuth {
     };
     this.pollInterval = null;
     this.countdownInterval = null;
-    this.isPolling = false;
-    this.currentOverlay = null;
   }
 
   // Start the device flow authentication
@@ -22,21 +20,29 @@ export class DeviceFlowAuth {
       
       // Step 1: Get device code and user code
       const deviceData = await this.getDeviceCode();
-      console.log('🔥 Device data received:', deviceData);
       
-      // Step 2: Show user code to user and start polling immediately
-      const result = await this.showDeviceCodeUIAndPoll(deviceData);
+      // Step 2: Show user code to user
+      const result = await this.showDeviceCodeUI(deviceData);
       
-      if (result.success && result.user) {
-        console.log('🔥 ✅ Device Flow completed successfully');
-        return result;
+      if (result.success) {
+        // Step 3: Poll for authorization
+        const tokenData = await this.pollForToken(deviceData.device_code, deviceData.interval);
+        
+        if (tokenData) {
+          // Step 4: Get user info
+          const userInfo = await this.getUserInfo(tokenData.access_token);
+          return {
+            success: true,
+            user: userInfo,
+            tokens: tokenData
+          };
+        }
       }
       
       throw new Error('Authentication was cancelled or failed');
       
     } catch (error) {
       console.error('🔥 Device flow failed:', error);
-      this.cleanup();
       throw error;
     }
   }
@@ -80,193 +86,34 @@ export class DeviceFlowAuth {
     return data;
   }
 
-  // Step 2: Show user code and start polling immediately
-  async showDeviceCodeUIAndPoll(deviceData) {
-    return new Promise((resolve, reject) => {
-      // Create and show the UI
+  // Step 2: Show user code and instructions
+  async showDeviceCodeUI(deviceData) {
+    return new Promise((resolve) => {
       const overlay = this.createDeviceCodeOverlay(deviceData);
       document.body.appendChild(overlay);
-      this.currentOverlay = overlay;
 
-      // Set up navigation and cancel handling
-      this.setupDeviceCodeNavigation(overlay, () => {
-        this.cleanup();
-        resolve({ success: false, cancelled: true });
-      });
-
-      // Start polling immediately - don't wait for any user interaction
-      this.startPolling(deviceData.device_code, deviceData.interval || 5, resolve, reject);
-      
-      // Start countdown timer
-      this.startCountdown(overlay, deviceData.expires_in);
+      // Auto-focus and setup navigation
+      this.setupDeviceCodeNavigation(overlay, resolve);
     });
-  }
-
-  // Step 3: Start polling for authorization (improved)
-  startPolling(deviceCode, interval, resolve, reject) {
-    if (this.isPolling) {
-      console.log('🔥 Already polling, skipping...');
-      return;
-    }
-
-    this.isPolling = true;
-    let attempts = 0;
-    const maxAttempts = Math.floor(600 / interval); // 10 minutes worth of attempts
-    
-    console.log('🔥 Starting polling for device code authorization...');
-    console.log('🔥 Polling interval:', interval, 'seconds');
-    console.log('🔥 Max attempts:', maxAttempts);
-
-    const poll = async () => {
-      // Stop if cleanup was called
-      if (!this.isPolling) {
-        console.log('🔥 Polling stopped by cleanup');
-        return;
-      }
-
-      try {
-        attempts++;
-        console.log(`🔥 Polling attempt ${attempts}/${maxAttempts}`);
-        
-        if (attempts > maxAttempts) {
-          this.cleanup();
-          reject(new Error('Polling timeout - the code has expired. Please try again.'));
-          return;
-        }
-        
-        const response = await fetch(this.config.token_endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: new URLSearchParams({
-            client_id: this.config.client_id,
-            device_code: deviceCode,
-            grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
-          })
-        });
-        
-        const data = await response.json();
-        console.log('🔥 Polling response:', {
-          status: response.status,
-          ok: response.ok,
-          hasAccessToken: !!data.access_token,
-          error: data.error,
-          errorDescription: data.error_description
-        });
-        
-        if (response.ok && data.access_token) {
-          // Success! Stop polling and get user info
-          console.log('🔥 ✅ Access token received!');
-          this.isPolling = false;
-          
-          try {
-            const userInfo = await this.getUserInfo(data.access_token);
-            this.cleanup();
-            resolve({
-              success: true,
-              user: userInfo,
-              tokens: data
-            });
-            return;
-          } catch (userInfoError) {
-            console.error('🔥 Failed to get user info:', userInfoError);
-            this.cleanup();
-            reject(new Error('Failed to get user information: ' + userInfoError.message));
-            return;
-          }
-          
-        } else if (data.error === 'authorization_pending') {
-          // Still waiting for user to authorize - continue polling
-          console.log('🔥 Still waiting for user authorization...');
-          
-        } else if (data.error === 'slow_down') {
-          // Google wants us to slow down - increase interval
-          console.log('🔥 Slowing down polling as requested...');
-          interval = interval + 5;
-          
-        } else if (data.error === 'expired_token') {
-          // Code has expired
-          console.log('🔥 Device code has expired');
-          this.cleanup();
-          reject(new Error('The device code has expired. Please try signing in again.'));
-          return;
-          
-        } else if (data.error === 'access_denied') {
-          // User denied access
-          console.log('🔥 User denied access');
-          this.cleanup();
-          reject(new Error('Access was denied. Please try signing in again.'));
-          return;
-          
-        } else {
-          // Other error
-          console.error('🔥 Unexpected polling error:', data);
-          this.cleanup();
-          reject(new Error(data.error_description || data.error || 'Authentication failed'));
-          return;
-        }
-        
-      } catch (fetchError) {
-        console.error('🔥 Polling fetch error:', fetchError);
-        // Don't reject on network errors, just continue polling
-        console.log('🔥 Network error during polling, will retry...');
-      }
-      
-      // Schedule next poll if we're still polling
-      if (this.isPolling) {
-        this.pollInterval = setTimeout(poll, interval * 1000);
-      }
-    };
-    
-    // Start the first poll immediately
-    poll();
-  }
-
-  // Step 4: Get user information
-  async getUserInfo(accessToken) {
-    console.log('🔥 Fetching user info with access token...');
-    
-    const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
-      }
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('🔥 Failed to get user info:', {
-        status: response.status,
-        statusText: response.statusText,
-        body: errorText
-      });
-      throw new Error(`Failed to get user information: ${response.status}`);
-    }
-    
-    const userInfo = await response.json();
-    console.log('🔥 User info received:', {
-      id: userInfo.id,
-      name: userInfo.name,
-      email: userInfo.email
-    });
-    
-    return {
-      id: userInfo.id,
-      name: userInfo.name,
-      email: userInfo.email,
-      picture: userInfo.picture,
-      authMethod: 'device_flow'
-    };
   }
 
   createDeviceCodeOverlay(deviceData) {
     const overlay = document.createElement('div');
     overlay.id = 'device-flow-overlay';
     
-    // Extract the correct URL field from Google's response
+    // Extract the correct URL field from Google's response - THIS IS THE FIX
     const verificationUrl = deviceData.verification_uri || deviceData.verification_url || 'https://www.google.com/device';
     
-    console.log('🔥 Creating device code overlay with URL:', verificationUrl);
+    // Debug log the device data to see what Google returns
+    console.log('🔥 Device Flow Data received:', {
+      verification_uri: deviceData.verification_uri,
+      verification_url: deviceData.verification_url,
+      user_code: deviceData.user_code,
+      device_code: deviceData.device_code,
+      expires_in: deviceData.expires_in,
+      interval: deviceData.interval,
+      finalUrl: verificationUrl
+    });
     
     overlay.innerHTML = `
       <div class="device-flow-modal">
@@ -293,13 +140,13 @@ export class DeviceFlowAuth {
             
             <div class="step">
               <span class="step-number">3</span>
-              <p>Complete the sign-in process</p>
+              <p>Follow the instructions to sign in</p>
             </div>
           </div>
           
           <div class="device-flow-status">
             <div class="loading-spinner"></div>
-            <p id="polling-status">Waiting for sign-in...</p>
+            <p>Waiting for sign-in...</p>
           </div>
           
           <div class="device-flow-buttons">
@@ -311,9 +158,6 @@ export class DeviceFlowAuth {
         
         <div class="device-flow-footer">
           <p>Code expires in <span id="countdown">${Math.floor(deviceData.expires_in / 60)}</span> minutes</p>
-          <p id="debug-info" style="font-size: 12px; color: #666; margin-top: 10px;">
-            Polling every ${deviceData.interval || 5} seconds...
-          </p>
         </div>
       </div>
     `;
@@ -321,81 +165,10 @@ export class DeviceFlowAuth {
     // Apply styles
     this.applyDeviceFlowStyles(overlay);
     
+    // Start countdown
+    this.startCountdown(overlay, deviceData.expires_in);
+    
     return overlay;
-  }
-
-  setupDeviceCodeNavigation(overlay, onCancel) {
-    const cancelBtn = overlay.querySelector('#cancel-device-flow');
-    
-    // Auto-focus cancel button
-    setTimeout(() => cancelBtn.focus(), 200);
-    
-    // Cancel button handler
-    const handleCancel = () => {
-      console.log('🔥 User cancelled device flow');
-      onCancel();
-    };
-    
-    cancelBtn.addEventListener('click', handleCancel);
-    
-    // Keyboard navigation
-    overlay.addEventListener('keydown', (e) => {
-      if (e.keyCode === 4 || e.key === 'Escape') { // Back button
-        e.preventDefault();
-        handleCancel();
-      } else if (e.keyCode === 13 || e.keyCode === 23) { // Enter
-        if (document.activeElement === cancelBtn) {
-          handleCancel();
-        }
-      }
-    });
-  }
-
-  startCountdown(overlay, expiresIn) {
-    const countdownEl = overlay.querySelector('#countdown');
-    let remaining = expiresIn;
-    
-    const updateCountdown = () => {
-      const minutes = Math.floor(remaining / 60);
-      const seconds = remaining % 60;
-      countdownEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-      
-      if (remaining <= 0) {
-        console.log('🔥 Device code expired');
-        this.cleanup();
-        return;
-      }
-      
-      remaining--;
-    };
-    
-    // Update immediately and then every second
-    updateCountdown();
-    this.countdownInterval = setInterval(updateCountdown, 1000);
-  }
-
-  cleanup() {
-    console.log('🔥 Cleaning up device flow...');
-    
-    // Stop polling
-    this.isPolling = false;
-    
-    // Clear intervals
-    if (this.pollInterval) {
-      clearTimeout(this.pollInterval);
-      this.pollInterval = null;
-    }
-    
-    if (this.countdownInterval) {
-      clearInterval(this.countdownInterval);
-      this.countdownInterval = null;
-    }
-    
-    // Remove overlay
-    if (this.currentOverlay && this.currentOverlay.parentNode) {
-      this.currentOverlay.parentNode.removeChild(this.currentOverlay);
-      this.currentOverlay = null;
-    }
   }
 
   applyDeviceFlowStyles(overlay) {
@@ -451,7 +224,7 @@ export class DeviceFlowAuth {
       
       .step {
         display: flex;
-        align-items: flex-start;
+        align-items: center;
         margin-bottom: 24px;
         text-align: left;
       }
@@ -468,7 +241,6 @@ export class DeviceFlowAuth {
         font-weight: bold;
         margin-right: 16px;
         flex-shrink: 0;
-        margin-top: 4px;
       }
       
       .step p {
@@ -486,7 +258,6 @@ export class DeviceFlowAuth {
         font-weight: bold;
         color: #1a73e8;
         border: 2px solid #e8f0fe;
-        margin-top: 8px;
       }
       
       .user-code {
@@ -499,7 +270,6 @@ export class DeviceFlowAuth {
         color: #ff8f00;
         border: 2px solid #ffcc02;
         letter-spacing: 4px;
-        margin-top: 8px;
       }
       
       .device-flow-status {
@@ -558,7 +328,7 @@ export class DeviceFlowAuth {
       }
       
       .device-flow-footer p {
-        margin: 5px 0;
+        margin: 0;
         font-size: 14px;
         color: #9aa0a6;
       }
@@ -570,5 +340,175 @@ export class DeviceFlowAuth {
     `;
     
     document.head.appendChild(style);
+  }
+
+  setupDeviceCodeNavigation(overlay, resolve) {
+    const cancelBtn = overlay.querySelector('#cancel-device-flow');
+    
+    // Auto-focus cancel button
+    setTimeout(() => cancelBtn.focus(), 200);
+    
+    // Cancel button handler
+    cancelBtn.addEventListener('click', () => {
+      this.cleanup(overlay);
+      resolve({ success: false, cancelled: true });
+    });
+    
+    // Keyboard navigation
+    overlay.addEventListener('keydown', (e) => {
+      if (e.keyCode === 4 || e.key === 'Escape') { // Back button
+        e.preventDefault();
+        cancelBtn.click();
+      } else if (e.keyCode === 13 || e.keyCode === 23) { // Enter
+        if (document.activeElement === cancelBtn) {
+          cancelBtn.click();
+        }
+      }
+    });
+  }
+
+  startCountdown(overlay, expiresIn) {
+    const countdownEl = overlay.querySelector('#countdown');
+    let remaining = expiresIn;
+    
+    const updateCountdown = () => {
+      const minutes = Math.floor(remaining / 60);
+      const seconds = remaining % 60;
+      countdownEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      
+      if (remaining <= 0) {
+        this.cleanup(overlay);
+        return;
+      }
+      
+      remaining--;
+    };
+    
+    // Update immediately and then every second
+    updateCountdown();
+    this.countdownInterval = setInterval(updateCountdown, 1000);
+  }
+
+  // Step 3: Poll for authorization (ORIGINAL CODE with extra debug logging)
+  async pollForToken(deviceCode, interval = 5) {
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
+      const maxAttempts = 120; // 10 minutes max
+      
+      console.log('🔥 🚀 STARTING TOKEN POLLING');
+      console.log('🔥 Device code:', deviceCode);
+      console.log('🔥 Interval:', interval);
+      console.log('🔥 Max attempts:', maxAttempts);
+      
+      const poll = async () => {
+        try {
+          attempts++;
+          console.log(`🔥 📡 POLLING ATTEMPT ${attempts}/${maxAttempts}`);
+          
+          if (attempts > maxAttempts) {
+            console.log('🔥 ❌ Polling timeout reached');
+            reject(new Error('Polling timeout - please try again'));
+            return;
+          }
+          
+          console.log('🔥 📤 Making token request...');
+          const response = await fetch(this.config.token_endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+              client_id: this.config.client_id,
+              device_code: deviceCode,
+              grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
+            })
+          });
+          
+          console.log('🔥 📥 Token response status:', response.status);
+          console.log('🔥 📥 Token response ok:', response.ok);
+          
+          const data = await response.json();
+          console.log('🔥 📥 Token response data:', {
+            hasAccessToken: !!data.access_token,
+            error: data.error,
+            errorDescription: data.error_description,
+            fullResponse: data
+          });
+          
+          if (response.ok && data.access_token) {
+            // Success!
+            console.log('🔥 ✅ ACCESS TOKEN RECEIVED! Authentication successful!');
+            resolve(data);
+          } else if (data.error === 'authorization_pending') {
+            // Still waiting for user to authorize
+            console.log('🔥 ⏳ Still waiting for authorization... scheduling next poll');
+            this.pollInterval = setTimeout(poll, interval * 1000);
+          } else if (data.error === 'slow_down') {
+            // Increase polling interval
+            console.log('🔥 🐌 Slowing down polling...');
+            this.pollInterval = setTimeout(poll, (interval + 5) * 1000);
+          } else {
+            // Other error
+            console.log('🔥 ❌ Authentication error:', data.error, data.error_description);
+            reject(new Error(data.error_description || data.error || 'Authentication failed'));
+          }
+          
+        } catch (error) {
+          console.error('🔥 ❌ Polling fetch error:', error);
+          console.log('🔥 🔄 Retrying polling in', interval, 'seconds...');
+          this.pollInterval = setTimeout(poll, interval * 1000);
+        }
+      };
+      
+      // Start polling immediately
+      console.log('🔥 🎬 Starting first poll...');
+      poll();
+    });
+  }
+
+  // Step 4: Get user information
+  async getUserInfo(accessToken) {
+    console.log('🔥 👤 Fetching user info...');
+    
+    const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: {
+        'Authorization': `Bearer ${accessToken}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to get user information');
+    }
+    
+    const userInfo = await response.json();
+    console.log('🔥 👤 User info received:', userInfo);
+    
+    return {
+      id: userInfo.id,
+      name: userInfo.name,
+      email: userInfo.email,
+      picture: userInfo.picture,
+      authMethod: 'device_flow'
+    };
+  }
+
+  cleanup(overlay) {
+    console.log('🔥 🧹 Cleaning up device flow...');
+    
+    // Clear intervals
+    if (this.pollInterval) {
+      clearTimeout(this.pollInterval);
+      this.pollInterval = null;
+    }
+    
+    if (this.countdownInterval) {
+      clearInterval(this.countdownInterval);
+      this.countdownInterval = null;
+    }
+    
+    // Remove overlay
+    if (overlay && overlay.parentNode) {
+      overlay.parentNode.removeChild(overlay);
+    }
   }
 }
