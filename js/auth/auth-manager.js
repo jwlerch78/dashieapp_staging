@@ -1,91 +1,66 @@
-// js/auth/auth-manager.js - Production Auth with Device Flow Priority
-
-import { NativeAuth } from './native-auth.js';
-import { WebAuth } from './web-auth.js';
-import { AuthUI } from './auth-ui.js';
-import { AuthStorage } from './auth-storage.js';
-import { DeviceFlowAuth } from './device-flow-auth.js';
+// js/auth/auth-manager.js - Authentication Manager (Updated with Reload Support)
 
 export class AuthManager {
   constructor() {
     this.currentUser = null;
     this.isSignedIn = false;
-    this.isWebView = this.detectWebView();
-    this.hasNativeAuth = this.detectNativeAuth();
-    this.isFireTV = this.detectFireTV();
-    
-    // Initialize auth modules
-    this.storage = new AuthStorage();
-    this.ui = new AuthUI();
-    this.nativeAuth = this.hasNativeAuth ? new NativeAuth() : null;
-    this.webAuth = new WebAuth();
-    this.deviceFlowAuth = new DeviceFlowAuth();
-    
     this.nativeAuthFailed = false;
     
-    this.init();
-  }
-
-  detectWebView() {
-    const userAgent = navigator.userAgent;
-    const isAndroidWebView = /wv/.test(userAgent) || 
-                           /Android.*AppleWebKit(?!.*Chrome)/.test(userAgent) ||
-                           userAgent.includes('DashieApp');
-    const isIOSWebView = /(iPhone|iPod|iPad).*AppleWebKit(?!.*Safari)/.test(userAgent);
+    // Environment detection
+    this.isFireTV = this.detectFireTV();
+    this.isWebView = this.detectWebView();
+    this.hasNativeAuth = window.DashieNative && typeof window.DashieNative.signIn === 'function';
     
-    console.log('🔐 Environment detection:', {
-      userAgent: userAgent,
-      isAndroidWebView: isAndroidWebView,
-      isIOSWebView: isIOSWebView,
-      isWebView: isAndroidWebView || isIOSWebView
+    console.log('🔐 Auth Manager initialized:', {
+      isFireTV: this.isFireTV,
+      isWebView: this.isWebView,
+      hasNativeAuth: this.hasNativeAuth
     });
-    
-    return isAndroidWebView || isIOSWebView;
-  }
-
-  detectNativeAuth() {
-    const hasNative = window.DashieNative && 
-                     typeof window.DashieNative.signIn === 'function';
-    console.log('🔐 Native auth available:', hasNative);
-    return !!hasNative;
-  }
-
-  detectFireTV() {
-    const userAgent = navigator.userAgent;
-    const isFireTV = userAgent.includes('AFTS') || userAgent.includes('FireTV') || 
-                    userAgent.includes('AFT') || userAgent.includes('AFTMM') ||
-                    userAgent.includes('AFTRS') || userAgent.includes('AFTSS');
-    console.log('🔥 Fire TV detected:', isFireTV);
-    return isFireTV;
   }
 
   async init() {
-    console.log('🔐 Initializing AuthManager...');
-    console.log('🔐 Environment:', {
-      isWebView: this.isWebView,
-      hasNativeAuth: this.hasNativeAuth,
-      isFireTV: this.isFireTV
-    });
-
-    // Set up auth result handlers
-    window.handleNativeAuth = (result) => this.handleNativeAuthResult(result);
-    window.handleWebAuth = (result) => this.handleWebAuthResult(result);
+    console.log('🔐 Initializing authentication...');
     
-    // Check for existing authentication first
-    this.checkExistingAuth();
-    
-    // If no existing auth, initialize appropriate method
-    if (!this.isSignedIn) {
+    try {
+      // Initialize components
+      const { AuthUI } = await import('./auth-ui.js');
+      const { AuthStorage } = await import('./auth-storage.js');
+      
+      this.ui = new AuthUI();
+      this.storage = new AuthStorage();
+      
+      // Check for existing authentication first
+      this.checkExistingAuth();
+      
+      if (this.isSignedIn) {
+        console.log('🔐 User already authenticated');
+        return;
+      }
+      
+      // Initialize auth methods based on environment
       if (this.hasNativeAuth) {
-        console.log('🔐 Using native Android authentication');
-        await this.nativeAuth.init();
+        console.log('🔐 Native environment detected');
+        const { NativeAuth } = await import('./native-auth.js');
+        this.nativeAuth = new NativeAuth();
+        this.nativeAuth.onAuthResult = (result) => this.handleNativeAuthResult(result);
         this.checkNativeUser();
+        
+      } else if (this.isFireTV) {
+        console.log('🔥 Fire TV without native auth - using Device Flow');
+        const { DeviceFlowAuth } = await import('./device-flow-auth.js');
+        this.deviceFlowAuth = new DeviceFlowAuth();
+        this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
+        
       } else if (this.isWebView) {
-        console.log('🔐 WebView without native auth - showing WebView prompt');
+        console.log('🔐 WebView environment - showing WebView prompt');
         this.ui.showWebViewAuthPrompt(() => this.createWebViewUser(), () => this.exitApp());
+        
       } else {
         console.log('🔐 Browser environment - initializing web auth');
         try {
+          const { WebAuth } = await import('./web-auth.js');
+          this.webAuth = new WebAuth();
+          this.webAuth.onAuthResult = (result) => this.handleWebAuthResult(result);
           await this.webAuth.init();
           this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
         } catch (error) {
@@ -93,7 +68,24 @@ export class AuthManager {
           this.handleAuthFailure(error);
         }
       }
+      
+    } catch (error) {
+      console.error('🔐 Auth initialization error:', error);
+      this.handleAuthFailure(error);
     }
+  }
+
+  detectFireTV() {
+    const userAgent = navigator.userAgent;
+    return userAgent.includes('AFTS') || userAgent.includes('FireTV') || 
+           userAgent.includes('AFT') || userAgent.includes('AFTMM') ||
+           userAgent.includes('AFTRS') || userAgent.includes('AFTSS');
+  }
+
+  detectWebView() {
+    const userAgent = navigator.userAgent;
+    return userAgent.includes('wv') || userAgent.includes('WebView') ||
+           (window.Android !== undefined) || (window.webkit?.messageHandlers !== undefined);
   }
 
   checkExistingAuth() {
@@ -275,6 +267,19 @@ export class AuthManager {
     } else {
       this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
     }
+  }
+
+  reloadApp() {
+    console.log('🔄 Reloading application...');
+    
+    // Clear any temporary auth state
+    this.nativeAuthFailed = false;
+    
+    // Hide any current prompts
+    this.ui.hideSignInPrompt();
+    
+    // Perform a full page reload
+    window.location.reload();
   }
 
   exitApp() {
