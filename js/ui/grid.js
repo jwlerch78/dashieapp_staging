@@ -1,4 +1,4 @@
-// js/ui/grid.js - Widget Grid & Sidebar Rendering with Theme Support
+// js/ui/grid.js - Widget Grid & Sidebar Rendering with Theme Support (Clean Version)
 
 import { state, elements, widgets, sidebarMapping, setFocus } from '../core/state.js';
 
@@ -9,13 +9,12 @@ import { state, elements, widgets, sidebarMapping, setFocus } from '../core/stat
 function createWidgetIframe(widget) {
   const iframe = document.createElement("iframe");
   iframe.src = widget.url || "about:blank";
-  iframe.className = "widget-iframe"; // Use CSS class instead of inline styles
+  iframe.className = "widget-iframe";
   iframe.setAttribute("sandbox", "allow-scripts allow-same-origin");
   
   // Prevent iframe from stealing focus when sidebar is expanded
   iframe.addEventListener("focus", (e) => {
     if (elements.sidebar.classList.contains("expanded")) {
-      console.log("⚠️ Iframe tried to steal focus while sidebar expanded, preventing");
       e.preventDefault();
       iframe.blur();
     }
@@ -23,11 +22,11 @@ function createWidgetIframe(widget) {
   
   // Add load event listener and apply theme when widget loads
   iframe.addEventListener("load", () => {
-    
     // Apply current theme to newly loaded widget
     import('../core/theme.js').then(({ applyThemeToWidget }) => {
       applyThemeToWidget(iframe);
     }).catch(() => {
+      // Theme module not available, continue
     });
   });
   
@@ -77,7 +76,7 @@ export function renderGrid() {
     div.dataset.col = w.col;
     div.style.gridRow = `${w.row} / span ${w.rowSpan}`;
     div.style.gridColumn = `${w.col} / span ${w.colSpan}`;
-    div.style.position = "relative"; // For overlay positioning
+    div.style.position = "relative";
 
     // Create click overlay that sits on top of iframe
     const clickOverlay = document.createElement("div");
@@ -149,7 +148,7 @@ export function renderGrid() {
 // ---------------------
 
 export function renderSidebar() {
-  elements.sidebar.innerHTML = ""; // clear previous
+  elements.sidebar.innerHTML = "";
 
   // Add Dashie logo (only visible when expanded)
   const logo = document.createElement("img");
@@ -205,7 +204,7 @@ export function createMenuItem(item, type, globalIndex) {
   const div = document.createElement("div");
   div.classList.add("menu-item", type);
   div.dataset.menu = item.id;
-  div.dataset.globalIndex = globalIndex; // for focus navigation
+  div.dataset.globalIndex = globalIndex;
 
   // Highlight active main widget
   if (["calendar","map","camera"].includes(item.id) && item.id === state.currentMain) {
@@ -215,7 +214,7 @@ export function createMenuItem(item, type, globalIndex) {
   // Icon - using CSS class instead of inline styles
   const img = document.createElement("img");
   img.src = item.iconSrc;
-  img.classList.add("menu-icon"); // CSS handles objectFit and filter
+  img.classList.add("menu-icon");
   div.appendChild(img);
 
   // Label text (hidden by default, shown when expanded)
@@ -224,25 +223,20 @@ export function createMenuItem(item, type, globalIndex) {
   label.textContent = item.label || "";
   div.appendChild(label);
 
-  // Add event listeners - RESTORED hover functionality
+  // Add event listeners
   addMenuItemEventListeners(div, type, globalIndex);
 
   return div;
 }
 
 // ---------------------
-// EVENT LISTENERS (HOVER RESTORED)
+// EVENT LISTENERS
 // ---------------------
 
 function addMenuItemEventListeners(div, type, globalIndex) {
-  // RESTORED: Mouse hover events for nice UX
+  // Mouse hover events
   div.addEventListener("mouseover", () => {
-      isAsleep: state.isAsleep,
-      confirmDialog: !!state.confirmDialog,
-      selectedCell: !!state.selectedCell
-    });
-    
-    if (state.confirmDialog || state.isAsleep || state.selectedCell) return; // Don't respond when widget is focused
+    if (state.confirmDialog || state.isAsleep || state.selectedCell) return;
     setFocus({ type: "menu", index: globalIndex });
     elements.sidebar.classList.add("expanded");
     
@@ -257,13 +251,6 @@ function addMenuItemEventListeners(div, type, globalIndex) {
 
   // Click events
   div.addEventListener("click", () => {
-    console.log("Menu item clicked:", { 
-      item: div.dataset.menu, 
-      isAsleep: state.isAsleep, 
-      confirmDialog: !!state.confirmDialog,
-      selectedCell: !!state.selectedCell 
-    });
-    
     if (state.confirmDialog || state.isAsleep) return;
     
     // Don't allow menu clicks when widget is focused
