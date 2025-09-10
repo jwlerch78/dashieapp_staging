@@ -39,7 +39,7 @@ export const THEME_CONFIG = {
 // THEME STATE
 // ---------------------
 
-let currentTheme = THEMES.DARK; // Default theme
+let currentTheme = THEMES.LIGHT; // Default theme
 
 // ---------------------
 // WIDGET THEME APPLICATION
