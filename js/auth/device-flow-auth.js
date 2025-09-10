@@ -1,6 +1,6 @@
 // js/auth/device-flow-auth.js - OAuth Device Flow for Fire TV (Enhanced Debug Version)
 
-import { AUTH_CONFIG } from './config.js';
+import { AUTH_CONFIG } from './auth-config.js';
 
 export class DeviceFlowAuth {
   constructor() {
