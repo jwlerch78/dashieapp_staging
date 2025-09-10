@@ -1,0 +1,7 @@
+# Auth secrets
+js/auth/config.js
+
+# Other common ignores
+node_modules/
+.env
+.DS_Store
