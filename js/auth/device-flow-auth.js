@@ -1,4 +1,4 @@
-// js/auth/device-flow-auth.js - OAuth Device Flow for Fire TV (Original + Debug Logging)
+// js/auth/device-flow-auth.js - OAuth Device Flow for Fire TV (Fixed Concurrent Polling)
 
 export class DeviceFlowAuth {
   constructor() {
@@ -21,28 +21,14 @@ export class DeviceFlowAuth {
       // Step 1: Get device code and user code
       const deviceData = await this.getDeviceCode();
       
-      // Step 2: Show user code to user
-      const result = await this.showDeviceCodeUI(deviceData);
+      // Step 2: Show UI and start polling SIMULTANEOUSLY
+      const result = await this.showUIAndPoll(deviceData);
       
-      if (result.success) {
-        // Step 3: Poll for authorization
-        const tokenData = await this.pollForToken(deviceData.device_code, deviceData.interval);
-        
-        if (tokenData) {
-          // Step 4: Get user info
-          const userInfo = await this.getUserInfo(tokenData.access_token);
-          return {
-            success: true,
-            user: userInfo,
-            tokens: tokenData
-          };
-        }
-      }
-      
-      throw new Error('Authentication was cancelled or failed');
+      return result;
       
     } catch (error) {
       console.error('🔥 Device flow failed:', error);
+      this.cleanup();
       throw error;
     }
   }
@@ -86,25 +72,133 @@ export class DeviceFlowAuth {
     return data;
   }
 
-  // Step 2: Show user code and instructions
-  async showDeviceCodeUI(deviceData) {
-    return new Promise((resolve) => {
+  // Step 2: Show UI and start polling concurrently
+  async showUIAndPoll(deviceData) {
+    return new Promise((resolve, reject) => {
+      // Create and show the UI
       const overlay = this.createDeviceCodeOverlay(deviceData);
       document.body.appendChild(overlay);
 
-      // Auto-focus and setup navigation
-      this.setupDeviceCodeNavigation(overlay, resolve);
+      // Set up cancel handling
+      this.setupDeviceCodeNavigation(overlay, () => {
+        console.log('🔥 User cancelled - cleaning up');
+        this.cleanup(overlay);
+        resolve({ success: false, cancelled: true });
+      });
+
+      // Start countdown
+      this.startCountdown(overlay, deviceData.expires_in);
+
+      // START POLLING IMMEDIATELY - Don't wait for anything
+      console.log('🔥 🚀 STARTING CONCURRENT POLLING');
+      this.startPolling(deviceData.device_code, deviceData.interval, overlay, resolve, reject);
     });
+  }
+
+  // Step 3: Start polling immediately (runs concurrently with UI)
+  startPolling(deviceCode, interval, overlay, resolve, reject) {
+    let attempts = 0;
+    const maxAttempts = 120; // 10 minutes max
+    
+    console.log('🔥 🚀 STARTING TOKEN POLLING');
+    console.log('🔥 Device code:', deviceCode);
+    console.log('🔥 Interval:', interval);
+    console.log('🔥 Max attempts:', maxAttempts);
+    
+    const poll = async () => {
+      try {
+        attempts++;
+        console.log(`🔥 📡 POLLING ATTEMPT ${attempts}/${maxAttempts}`);
+        
+        if (attempts > maxAttempts) {
+          console.log('🔥 ❌ Polling timeout reached');
+          this.cleanup(overlay);
+          reject(new Error('Polling timeout - please try again'));
+          return;
+        }
+        
+        console.log('🔥 📤 Making token request...');
+        const response = await fetch(this.config.token_endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            client_id: this.config.client_id,
+            device_code: deviceCode,
+            grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
+          })
+        });
+        
+        console.log('🔥 📥 Token response status:', response.status);
+        console.log('🔥 📥 Token response ok:', response.ok);
+        
+        const data = await response.json();
+        console.log('🔥 📥 Token response data:', {
+          hasAccessToken: !!data.access_token,
+          error: data.error,
+          errorDescription: data.error_description,
+          fullResponse: data
+        });
+        
+        if (response.ok && data.access_token) {
+          // Success!
+          console.log('🔥 ✅ ACCESS TOKEN RECEIVED! Authentication successful!');
+          
+          try {
+            console.log('🔥 👤 Getting user info...');
+            const userInfo = await this.getUserInfo(data.access_token);
+            this.cleanup(overlay);
+            resolve({
+              success: true,
+              user: userInfo,
+              tokens: data
+            });
+            return;
+          } catch (userError) {
+            console.error('🔥 ❌ Failed to get user info:', userError);
+            this.cleanup(overlay);
+            reject(new Error('Failed to get user information'));
+            return;
+          }
+          
+        } else if (data.error === 'authorization_pending') {
+          // Still waiting for user to authorize
+          console.log('🔥 ⏳ Still waiting for authorization... scheduling next poll in', interval, 'seconds');
+          this.pollInterval = setTimeout(poll, interval * 1000);
+          
+        } else if (data.error === 'slow_down') {
+          // Increase polling interval
+          const newInterval = interval + 5;
+          console.log('🔥 🐌 Slowing down polling to', newInterval, 'seconds...');
+          this.pollInterval = setTimeout(poll, newInterval * 1000);
+          
+        } else {
+          // Other error
+          console.log('🔥 ❌ Authentication error:', data.error, data.error_description);
+          this.cleanup(overlay);
+          reject(new Error(data.error_description || data.error || 'Authentication failed'));
+        }
+        
+      } catch (error) {
+        console.error('🔥 ❌ Polling fetch error:', error);
+        console.log('🔥 🔄 Retrying polling in', interval, 'seconds...');
+        this.pollInterval = setTimeout(poll, interval * 1000);
+      }
+    };
+    
+    // Start polling immediately
+    console.log('🔥 🎬 Starting first poll NOW...');
+    poll();
   }
 
   createDeviceCodeOverlay(deviceData) {
     const overlay = document.createElement('div');
     overlay.id = 'device-flow-overlay';
     
-    // Extract the correct URL field from Google's response - THIS IS THE FIX
+    // Extract the correct URL field from Google's response
     const verificationUrl = deviceData.verification_uri || deviceData.verification_url || 'https://www.google.com/device';
     
-    // Debug log the device data to see what Google returns
     console.log('🔥 Device Flow Data received:', {
       verification_uri: deviceData.verification_uri,
       verification_url: deviceData.verification_url,
@@ -128,25 +222,32 @@ export class DeviceFlowAuth {
           <div class="step-instructions">
             <div class="step">
               <span class="step-number">1</span>
-              <p>On your phone or computer, go to:</p>
-              <div class="verification-url">${verificationUrl}</div>
+              <div>
+                <p>On your phone or computer, go to:</p>
+                <div class="verification-url">${verificationUrl}</div>
+              </div>
             </div>
             
             <div class="step">
               <span class="step-number">2</span>
-              <p>Enter this code:</p>
-              <div class="user-code">${deviceData.user_code}</div>
+              <div>
+                <p>Enter this code:</p>
+                <div class="user-code">${deviceData.user_code}</div>
+              </div>
             </div>
             
             <div class="step">
               <span class="step-number">3</span>
-              <p>Follow the instructions to sign in</p>
+              <div>
+                <p>Complete the sign-in process</p>
+                <p style="font-size: 14px; color: #666; margin-top: 8px;">This window will automatically close when you finish signing in.</p>
+              </div>
             </div>
           </div>
           
           <div class="device-flow-status">
             <div class="loading-spinner"></div>
-            <p>Waiting for sign-in...</p>
+            <p>Waiting for sign-in... (polling every ${deviceData.interval || 5} seconds)</p>
           </div>
           
           <div class="device-flow-buttons">
@@ -164,9 +265,6 @@ export class DeviceFlowAuth {
 
     // Apply styles
     this.applyDeviceFlowStyles(overlay);
-    
-    // Start countdown
-    this.startCountdown(overlay, deviceData.expires_in);
     
     return overlay;
   }
@@ -224,7 +322,7 @@ export class DeviceFlowAuth {
       
       .step {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         margin-bottom: 24px;
         text-align: left;
       }
@@ -241,6 +339,7 @@ export class DeviceFlowAuth {
         font-weight: bold;
         margin-right: 16px;
         flex-shrink: 0;
+        margin-top: 4px;
       }
       
       .step p {
@@ -258,6 +357,7 @@ export class DeviceFlowAuth {
         font-weight: bold;
         color: #1a73e8;
         border: 2px solid #e8f0fe;
+        margin-top: 8px;
       }
       
       .user-code {
@@ -270,6 +370,7 @@ export class DeviceFlowAuth {
         color: #ff8f00;
         border: 2px solid #ffcc02;
         letter-spacing: 4px;
+        margin-top: 8px;
       }
       
       .device-flow-status {
@@ -342,26 +443,23 @@ export class DeviceFlowAuth {
     document.head.appendChild(style);
   }
 
-  setupDeviceCodeNavigation(overlay, resolve) {
+  setupDeviceCodeNavigation(overlay, onCancel) {
     const cancelBtn = overlay.querySelector('#cancel-device-flow');
     
     // Auto-focus cancel button
     setTimeout(() => cancelBtn.focus(), 200);
     
     // Cancel button handler
-    cancelBtn.addEventListener('click', () => {
-      this.cleanup(overlay);
-      resolve({ success: false, cancelled: true });
-    });
+    cancelBtn.addEventListener('click', onCancel);
     
     // Keyboard navigation
     overlay.addEventListener('keydown', (e) => {
       if (e.keyCode === 4 || e.key === 'Escape') { // Back button
         e.preventDefault();
-        cancelBtn.click();
+        onCancel();
       } else if (e.keyCode === 13 || e.keyCode === 23) { // Enter
         if (document.activeElement === cancelBtn) {
-          cancelBtn.click();
+          onCancel();
         }
       }
     });
@@ -377,6 +475,7 @@ export class DeviceFlowAuth {
       countdownEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
       
       if (remaining <= 0) {
+        console.log('🔥 ⏰ Device code expired');
         this.cleanup(overlay);
         return;
       }
@@ -387,83 +486,6 @@ export class DeviceFlowAuth {
     // Update immediately and then every second
     updateCountdown();
     this.countdownInterval = setInterval(updateCountdown, 1000);
-  }
-
-  // Step 3: Poll for authorization (ORIGINAL CODE with extra debug logging)
-  async pollForToken(deviceCode, interval = 5) {
-    return new Promise((resolve, reject) => {
-      let attempts = 0;
-      const maxAttempts = 120; // 10 minutes max
-      
-      console.log('🔥 🚀 STARTING TOKEN POLLING');
-      console.log('🔥 Device code:', deviceCode);
-      console.log('🔥 Interval:', interval);
-      console.log('🔥 Max attempts:', maxAttempts);
-      
-      const poll = async () => {
-        try {
-          attempts++;
-          console.log(`🔥 📡 POLLING ATTEMPT ${attempts}/${maxAttempts}`);
-          
-          if (attempts > maxAttempts) {
-            console.log('🔥 ❌ Polling timeout reached');
-            reject(new Error('Polling timeout - please try again'));
-            return;
-          }
-          
-          console.log('🔥 📤 Making token request...');
-          const response = await fetch(this.config.token_endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: new URLSearchParams({
-              client_id: this.config.client_id,
-              device_code: deviceCode,
-              grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
-            })
-          });
-          
-          console.log('🔥 📥 Token response status:', response.status);
-          console.log('🔥 📥 Token response ok:', response.ok);
-          
-          const data = await response.json();
-          console.log('🔥 📥 Token response data:', {
-            hasAccessToken: !!data.access_token,
-            error: data.error,
-            errorDescription: data.error_description,
-            fullResponse: data
-          });
-          
-          if (response.ok && data.access_token) {
-            // Success!
-            console.log('🔥 ✅ ACCESS TOKEN RECEIVED! Authentication successful!');
-            resolve(data);
-          } else if (data.error === 'authorization_pending') {
-            // Still waiting for user to authorize
-            console.log('🔥 ⏳ Still waiting for authorization... scheduling next poll');
-            this.pollInterval = setTimeout(poll, interval * 1000);
-          } else if (data.error === 'slow_down') {
-            // Increase polling interval
-            console.log('🔥 🐌 Slowing down polling...');
-            this.pollInterval = setTimeout(poll, (interval + 5) * 1000);
-          } else {
-            // Other error
-            console.log('🔥 ❌ Authentication error:', data.error, data.error_description);
-            reject(new Error(data.error_description || data.error || 'Authentication failed'));
-          }
-          
-        } catch (error) {
-          console.error('🔥 ❌ Polling fetch error:', error);
-          console.log('🔥 🔄 Retrying polling in', interval, 'seconds...');
-          this.pollInterval = setTimeout(poll, interval * 1000);
-        }
-      };
-      
-      // Start polling immediately
-      console.log('🔥 🎬 Starting first poll...');
-      poll();
-    });
   }
 
   // Step 4: Get user information
@@ -477,11 +499,21 @@ export class DeviceFlowAuth {
     });
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('🔥 Failed to get user info:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      });
       throw new Error('Failed to get user information');
     }
     
     const userInfo = await response.json();
-    console.log('🔥 👤 User info received:', userInfo);
+    console.log('🔥 👤 User info received:', {
+      id: userInfo.id,
+      name: userInfo.name,
+      email: userInfo.email
+    });
     
     return {
       id: userInfo.id,
