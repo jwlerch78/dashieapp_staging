@@ -48,6 +48,8 @@ export class DeviceFlowAuth {
 
   // Step 1: Get device code from Google
   async getDeviceCode() {
+    console.log('🔥 Requesting device code from Google...');
+    
     const response = await fetch(this.config.device_code_endpoint, {
       method: 'POST',
       headers: {
@@ -59,15 +61,25 @@ export class DeviceFlowAuth {
       })
     });
 
+    console.log('🔥 Device code response status:', response.status);
+    
     if (!response.ok) {
-      throw new Error(`Failed to get device code: ${response.status}`);
+      const errorText = await response.text();
+      console.error('🔥 Device code request failed:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      });
+      throw new Error(`Failed to get device code: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
-    console.log('🔥 Device code received:', {
+    console.log('🔥 Device code received successfully:', {
       user_code: data.user_code,
       verification_uri: data.verification_uri,
-      expires_in: data.expires_in
+      verification_url: data.verification_url,
+      expires_in: data.expires_in,
+      interval: data.interval
     });
 
     return data;
@@ -87,6 +99,21 @@ export class DeviceFlowAuth {
   createDeviceCodeOverlay(deviceData) {
     const overlay = document.createElement('div');
     overlay.id = 'device-flow-overlay';
+    
+    // Extract the correct URL field from Google's response - THIS IS THE FIX
+    const verificationUrl = deviceData.verification_uri || deviceData.verification_url || 'https://www.google.com/device';
+    
+    // Debug log the device data to see what Google returns
+    console.log('🔥 Device Flow Data received:', {
+      verification_uri: deviceData.verification_uri,
+      verification_url: deviceData.verification_url,
+      user_code: deviceData.user_code,
+      device_code: deviceData.device_code,
+      expires_in: deviceData.expires_in,
+      interval: deviceData.interval,
+      finalUrl: verificationUrl
+    });
+    
     overlay.innerHTML = `
       <div class="device-flow-modal">
         <img src="icons/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo">
@@ -101,7 +128,7 @@ export class DeviceFlowAuth {
             <div class="step">
               <span class="step-number">1</span>
               <p>On your phone or computer, go to:</p>
-              <div class="verification-url">${deviceData.verification_uri}</div>
+              <div class="verification-url">${verificationUrl}</div>
             </div>
             
             <div class="step">
