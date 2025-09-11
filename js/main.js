@@ -1,10 +1,11 @@
-// js/main.js - App Initialization & Orchestration with Early Theme Support
+// js/main.js - App Initialization & Orchestration with Firebase Settings
 
 import { initializeEvents } from './core/events.js';
 import { updateFocus, initializeHighlightTimeout } from './core/navigation.js';
 import { renderGrid, renderSidebar } from './ui/grid.js';
 import { initializeSleepTimer } from './ui/settings.js';
 import { initializeThemeSystem } from './core/theme.js';
+import { initializeSettings } from './ui/settings.js';
 
 // ---------------------
 // EARLY THEME APPLICATION
@@ -27,12 +28,8 @@ async function preApplyTheme() {
 function initializeApp() {
   console.log("Initializing Dashie Dashboard...");
 
-  // Check if user is authenticated
-   setTimeout(() => {
-    if (window.dashieAuth && window.dashieAuth.isAuthenticated()) {
-      document.getElementById('app').classList.add('authenticated');
-    }
-  }, 1000); 
+  // Initialize Firebase settings early (handles auth state internally)
+  initializeSettings();
   
   // Initialize theme system first (before any UI rendering)
   // Note: Early theme application already happened above
@@ -41,7 +38,7 @@ function initializeApp() {
   // Set up event listeners
   initializeEvents();
   
-  // Initialize sleep timer system
+  // Initialize sleep timer system (this loads settings, but Firebase will override)
   initializeSleepTimer();
   
   // Initialize navigation highlight timeout system
@@ -50,6 +47,14 @@ function initializeApp() {
   // Render initial UI
   renderSidebar();
   renderGrid();
+  
+  // Handle authenticated state when ready
+  setTimeout(() => {
+    if (window.dashieAuth && window.dashieAuth.isAuthenticated()) {
+      document.getElementById('app').classList.add('authenticated');
+      console.log('🔐 App marked as authenticated');
+    }
+  }, 1000); 
   
   // DON'T call updateFocus() here - let it start clean with no highlights
   // updateFocus();
