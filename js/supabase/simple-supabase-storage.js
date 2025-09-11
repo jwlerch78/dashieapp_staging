@@ -104,41 +104,43 @@ export class SimpleSupabaseStorage {
   }
 
   // Load from Supabase
-  async loadFromSupabase() {
-    if (!this.userId) return null;
+ async loadFromSupabase() {
+  if (!this.userId) return null;
 
-    try {
-      const { data, error } = await supabase
-        .from('user_settings')
-        .select('settings, updated_at')
-        .eq('user_id', this.userId)
-        .single();
+  try {
+    console.log('🔍 Debug: Loading from Supabase for user:', this.userId);
+    
+    // Remove .single() - get array instead
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select('settings, updated_at')
+      .eq('user_id', this.userId);
 
-      if (error) {
-        if (error.code === 'PGRST116') {
-          // No rows found - normal for new users
-          console.log('📊 No settings found in Supabase (new user)');
-          return null;
-        }
-        console.error('Supabase load error details:', error);
-        throw error;
-      }
+    console.log('🔍 Debug: Supabase response:', { data, error });
 
-      if (data && data.settings) {
-        console.log('📊 Settings loaded from Supabase');
-        return {
-          ...data.settings,
-          lastModified: new Date(data.updated_at).getTime()
-        };
-      }
-
-      return null;
-    } catch (error) {
-      console.error('Supabase load failed:', error);
+    if (error) {
+      console.error('🔍 Debug: Supabase load error:', error);
       throw error;
     }
-  }
 
+    // Check if we got any results
+    if (data && data.length > 0) {
+      const settings = data[0]; // Get first (and only) result
+      console.log('📊 Settings loaded from Supabase');
+      return {
+        ...settings.settings,
+        lastModified: new Date(settings.updated_at).getTime()
+      };
+    } else {
+      console.log('📊 No settings found in Supabase (new user)');
+      return null;
+    }
+
+  } catch (error) {
+    console.error('🔍 Debug: Supabase load failed:', error);
+    throw error;
+  }
+}
   // Subscribe to real-time changes
   subscribeToChanges(callback) {
     if (!this.userId) return null;
