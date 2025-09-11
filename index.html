@@ -35,6 +35,20 @@
   <div id="grid"></div>
 </div>
 
+
+<script type="module">
+  // Initialize Firebase settings when the page loads
+  import { initializeSettings } from './js/ui/enhanced-settings.js';
+  
+  // Wait for auth to be ready, then initialize settings
+  document.addEventListener('DOMContentLoaded', () => {
+    // Give auth system time to initialize
+    setTimeout(() => {
+      initializeSettings();
+    }, 1000);
+  });
+</script>
+  
 <!-- Google SSO Login -->
 <script type="module" src="js/auth/simple-auth.js"></script>
   
