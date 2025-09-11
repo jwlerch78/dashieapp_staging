@@ -366,6 +366,26 @@ setUserFromAuth(userData, authMethod, tokens = null) {
     }
   }
 
+// ENHANCED: Update web auth handling
+handleWebAuthResult(result) {
+  console.log('🔐 Web auth result received:', result);
+  
+  if (result.success && result.user) {
+    this.setUserFromAuth(result.user, 'web', result.tokens); // Pass tokens!
+    this.isSignedIn = true;
+    this.storage.saveUser(this.currentUser);
+    
+    // IMPORTANT: Hide the sign-in UI immediately after successful auth
+    this.ui.hideSignInPrompt();
+    this.ui.showSignedInState();
+    
+    console.log('🔐 ✅ Web auth successful:', this.currentUser.name);
+  } else {
+    console.error('🔐 ❌ Web auth failed:', result.error);
+    this.ui.showAuthError(result.error || 'Web authentication failed');
+  }
+}
+  
   handleAuthFailure(error) {
     console.error('🔐 Auth initialization failed:', error);
     
@@ -387,6 +407,8 @@ setUserFromAuth(userData, authMethod, tokens = null) {
     }
   }
 
+
+  
   // Public API
   getUser() {
     return this.currentUser;
