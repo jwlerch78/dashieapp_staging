@@ -39,7 +39,7 @@ export function initializeSupabaseSettings() {
   if (user && user.id) {
     console.log('🔥 Initializing Supabase settings for user:', user.name);
     
-    supabaseStorage = new SupabaseSettingsStorage(user.id);
+    supabaseStorage = new SimpleSupabaseStorage(user.id);
     supabaseStorage.ensureUserDocument();
     loadSettings();
     setupRealTimeSync();
