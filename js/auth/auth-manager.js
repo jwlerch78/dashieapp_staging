@@ -200,32 +200,51 @@ setUserFromAuth(userData, authMethod, tokens = null) {
     authMethod: authMethod
   };
 
-  // DEBUG: Log what we received
-  console.log('🔍 DEBUG setUserFromAuth:', {
+  // ENHANCED DEBUG: Detailed logging for each auth method
+  console.log('🔍 DEBUG setUserFromAuth DETAILED:', {
     authMethod,
-    tokens,
+    userId: userData.id,
+    userEmail: userData.email,
+    tokens_provided: !!tokens,
+    tokens_type: typeof tokens,
+    tokens_keys: tokens ? Object.keys(tokens) : null,
+    tokens_has_access_token: tokens?.access_token ? true : false,
+    access_token_length: tokens?.access_token?.length,
+    access_token_preview: tokens?.access_token?.substring(0, 20) + '...',
     userData_has_googleAccessToken: !!userData.googleAccessToken,
-    webAuth_accessToken: this.webAuth?.accessToken
+    webAuth_exists: !!this.webAuth,
+    webAuth_has_accessToken: !!this.webAuth?.accessToken
   });
 
   // Store Google access token based on auth method
   if (tokens && tokens.access_token) {
     this.googleAccessToken = tokens.access_token;
-    console.log('🔐 Stored Google access token from tokens object (', authMethod, ')');
+    console.log('🔐 ✅ Stored Google access token from tokens object (', authMethod, ')');
+    console.log('🔐 Token length:', tokens.access_token.length);
+    console.log('🔐 Token preview:', tokens.access_token.substring(0, 30) + '...');
   } else if (userData.googleAccessToken) {
     this.googleAccessToken = userData.googleAccessToken;
-    console.log('🔐 Stored Google access token from user data (', authMethod, ')');
+    console.log('🔐 ✅ Stored Google access token from user data (', authMethod, ')');
   } else if (authMethod === 'web' && this.webAuth?.accessToken) {
     this.googleAccessToken = this.webAuth.accessToken;
-    console.log('🔐 Stored Google access token from web auth (', authMethod, ')');
+    console.log('🔐 ✅ Stored Google access token from web auth (', authMethod, ')');
   } else {
     console.warn('🔐 ⚠️ No Google access token found for', authMethod);
-    console.warn('🔐 Available:', {
-      tokens_access_token: tokens?.access_token,
-      userData_googleAccessToken: userData?.googleAccessToken,
-      webAuth_accessToken: this.webAuth?.accessToken
+    console.warn('🔐 This means RLS authentication will not work');
+    console.warn('🔐 Available sources:', {
+      tokens_access_token: tokens?.access_token ? 'EXISTS' : 'MISSING',
+      userData_googleAccessToken: userData?.googleAccessToken ? 'EXISTS' : 'MISSING',
+      webAuth_accessToken: this.webAuth?.accessToken ? 'EXISTS' : 'MISSING'
     });
   }
+
+  // Final verification
+  console.log('🔍 FINAL TOKEN STATUS:', {
+    authMethod,
+    hasStoredToken: !!this.googleAccessToken,
+    tokenLength: this.googleAccessToken?.length,
+    canUseRLS: !!this.googleAccessToken
+  });
 
   // Notify that auth is ready
   document.dispatchEvent(new CustomEvent('dashie-auth-ready'));
