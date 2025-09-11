@@ -98,15 +98,26 @@ export class AuthManager {
     }
   }
 
-  checkExistingAuth() {
-    const savedUser = this.storage.getSavedUser();
-    if (savedUser) {
-      console.log('🔐 Found saved user:', savedUser.name);
-      this.currentUser = savedUser;
-      this.isSignedIn = true;
-      this.ui.showSignedInState();
+checkExistingAuth() {
+  const savedUser = this.storage.getSavedUser();
+  if (savedUser) {
+    console.log('🔐 Found saved user:', savedUser.name);
+    this.currentUser = savedUser;
+    this.isSignedIn = true;
+    
+    // CRITICAL FIX: Restore the Google access token from saved user data
+    if (savedUser.googleAccessToken) {
+      this.googleAccessToken = savedUser.googleAccessToken;
+      console.log('🔐 ✅ Restored Google access token from saved user');
+      console.log('🔐 Token length:', savedUser.googleAccessToken.length);
+      console.log('🔐 Token preview:', savedUser.googleAccessToken.substring(0, 30) + '...');
+    } else {
+      console.warn('🔐 ⚠️ No Google access token in saved user data');
     }
+    
+    this.ui.showSignedInState();
   }
+}
 
   checkNativeUser() {
     if (this.nativeAuth) {
@@ -189,18 +200,42 @@ handleWebAuthResult(result) {
   }
 }
   
-// ENHANCED: Store access token from any auth method
+// FIXED: Store access token from any auth method
 setUserFromAuth(userData, authMethod, tokens = null) {
+  // Determine the Google access token from various sources
+  let googleAccessToken = null;
+  
+  if (tokens && tokens.access_token) {
+    googleAccessToken = tokens.access_token;
+    console.log('🔐 ✅ Found Google access token from tokens object (', authMethod, ')');
+    console.log('🔐 Token length:', tokens.access_token.length);
+    console.log('🔐 Token preview:', tokens.access_token.substring(0, 30) + '...');
+  } else if (userData.googleAccessToken) {
+    googleAccessToken = userData.googleAccessToken;
+    console.log('🔐 ✅ Found Google access token from user data (', authMethod, ')');
+  } else if (authMethod === 'web' && this.webAuth?.accessToken) {
+    googleAccessToken = this.webAuth.accessToken;
+    console.log('🔐 ✅ Found Google access token from web auth (', authMethod, ')');
+  } else {
+    console.warn('🔐 ⚠️ No Google access token found for', authMethod);
+    console.warn('🔐 This means RLS authentication will not work');
+  }
+
+  // Create user object with Google access token included
   this.currentUser = {
     id: userData.id,
     name: userData.name,
     email: userData.email,
     picture: userData.picture,
     signedInAt: Date.now(),
-    authMethod: authMethod
+    authMethod: authMethod,
+    googleAccessToken: googleAccessToken // ← KEY FIX: Include token in user object
   };
 
-  // ENHANCED DEBUG: Detailed logging for each auth method
+  // Store token separately for quick access (existing behavior)
+  this.googleAccessToken = googleAccessToken;
+
+  // Enhanced debug logging
   console.log('🔍 DEBUG setUserFromAuth DETAILED:', {
     authMethod,
     userId: userData.id,
@@ -213,35 +248,16 @@ setUserFromAuth(userData, authMethod, tokens = null) {
     access_token_preview: tokens?.access_token?.substring(0, 20) + '...',
     userData_has_googleAccessToken: !!userData.googleAccessToken,
     webAuth_exists: !!this.webAuth,
-    webAuth_has_accessToken: !!this.webAuth?.accessToken
+    webAuth_has_accessToken: !!this.webAuth?.accessToken,
+    FINAL_USER_HAS_TOKEN: !!this.currentUser.googleAccessToken, // ← New verification
+    STORED_TOKEN_MATCHES: this.googleAccessToken === this.currentUser.googleAccessToken
   });
-
-  // Store Google access token based on auth method
-  if (tokens && tokens.access_token) {
-    this.googleAccessToken = tokens.access_token;
-    console.log('🔐 ✅ Stored Google access token from tokens object (', authMethod, ')');
-    console.log('🔐 Token length:', tokens.access_token.length);
-    console.log('🔐 Token preview:', tokens.access_token.substring(0, 30) + '...');
-  } else if (userData.googleAccessToken) {
-    this.googleAccessToken = userData.googleAccessToken;
-    console.log('🔐 ✅ Stored Google access token from user data (', authMethod, ')');
-  } else if (authMethod === 'web' && this.webAuth?.accessToken) {
-    this.googleAccessToken = this.webAuth.accessToken;
-    console.log('🔐 ✅ Stored Google access token from web auth (', authMethod, ')');
-  } else {
-    console.warn('🔐 ⚠️ No Google access token found for', authMethod);
-    console.warn('🔐 This means RLS authentication will not work');
-    console.warn('🔐 Available sources:', {
-      tokens_access_token: tokens?.access_token ? 'EXISTS' : 'MISSING',
-      userData_googleAccessToken: userData?.googleAccessToken ? 'EXISTS' : 'MISSING',
-      webAuth_accessToken: this.webAuth?.accessToken ? 'EXISTS' : 'MISSING'
-    });
-  }
 
   // Final verification
   console.log('🔍 FINAL TOKEN STATUS:', {
     authMethod,
     hasStoredToken: !!this.googleAccessToken,
+    userObjectHasToken: !!this.currentUser.googleAccessToken, // ← New check
     tokenLength: this.googleAccessToken?.length,
     canUseRLS: !!this.googleAccessToken
   });
@@ -249,7 +265,6 @@ setUserFromAuth(userData, authMethod, tokens = null) {
   // Notify that auth is ready
   document.dispatchEvent(new CustomEvent('dashie-auth-ready'));
 }
-
   createWebViewUser() {
     console.log('🔐 Creating WebView user');
     
