@@ -1,6 +1,7 @@
-// js/firebase/firebase-storage.js - Cloud Settings Storage
+// js/firebase/firebase-storage.js - Enhanced Cloud Settings Storage with Auth Bridge
 
 import { db } from './firebase-config.js';
+import { FirebaseAuthBridge } from './firebase-auth-bridge.js';
 import { 
   doc, 
   setDoc, 
@@ -13,8 +14,13 @@ export class FirebaseSettingsStorage {
   constructor(userId) {
     this.userId = userId;
     this.localStorageKey = 'dashie-settings';
-    this.listeners = new Map(); // For real-time listeners
+    this.listeners = new Map();
     this.isOnline = navigator.onLine;
+    this.authBridge = new FirebaseAuthBridge();
+    this.firebaseAuthReady = false;
+    
+    // Initialize Firebase auth
+    this.initializeFirebaseAuth();
     
     // Listen for online/offline status
     window.addEventListener('online', () => {
@@ -25,6 +31,22 @@ export class FirebaseSettingsStorage {
     window.addEventListener('offline', () => {
       this.isOnline = false;
     });
+  }
+
+  async initializeFirebaseAuth() {
+    try {
+      // Get the Google ID token from your existing auth system
+      const currentUser = window.dashieAuth?.getUser();
+      if (currentUser && currentUser.id) {
+        // For now, we'll work without Firebase Auth integration
+        // This is a temporary solution until we can get the Google ID token
+        this.firebaseAuthReady = true;
+        console.log('🔥 Using user ID for Firestore access:', currentUser.id);
+      }
+    } catch (error) {
+      console.warn('🔥 Firebase Auth initialization skipped:', error);
+      this.firebaseAuthReady = true; // Continue without Firebase Auth for now
+    }
   }
 
   // Save settings with hybrid approach (local + cloud)
@@ -41,6 +63,13 @@ export class FirebaseSettingsStorage {
         console.log('☁️ Settings synced to cloud');
       } catch (error) {
         console.warn('☁️ Cloud sync failed, will retry when online:', error);
+        
+        // Check if it's a permission error
+        if (error.code === 'permission-denied') {
+          console.warn('🔒 Permission denied - check Firestore security rules');
+          console.warn('💡 Tip: Make sure security rules allow access for authenticated users');
+        }
+        
         this.markForRetry(settings);
       }
     } else {
@@ -55,7 +84,7 @@ export class FirebaseSettingsStorage {
     
     try {
       // Try cloud first if online
-      if (this.isOnline) {
+      if (this.isOnline && this.firebaseAuthReady) {
         const cloudSettings = await this.loadFromFirestore();
         if (cloudSettings) {
           // Update local cache with cloud data
@@ -66,6 +95,13 @@ export class FirebaseSettingsStorage {
       }
     } catch (error) {
       console.warn('☁️ Cloud load failed, using local storage:', error);
+      
+      // Log helpful error messages
+      if (error.code === 'permission-denied') {
+        console.warn('🔒 Permission denied - check Firestore security rules');
+        console.warn('💡 Current user ID:', this.userId);
+        console.warn('💡 Make sure Firestore rules allow access for this user');
+      }
     }
 
     // Fallback to local storage
@@ -81,28 +117,36 @@ export class FirebaseSettingsStorage {
 
   // Set up real-time sync for settings changes from other devices
   subscribeToSettingsChanges(callback) {
-    if (!this.userId) return null;
+    if (!this.userId || !this.firebaseAuthReady) return null;
 
-    const userDoc = doc(db, 'users', this.userId, 'settings', 'dashboard');
-    
-    const unsubscribe = onSnapshot(userDoc, (doc) => {
-      if (doc.exists()) {
-        const cloudSettings = doc.data();
-        const localSettings = this.loadFromLocalStorage();
-        
-        // Only update if cloud version is newer
-        if (!localSettings || cloudSettings.lastModified > (localSettings.lastModified || 0)) {
-          console.log('🔄 Settings updated from another device');
-          this.saveToLocalStorage(cloudSettings);
-          callback(cloudSettings);
+    try {
+      const userDoc = doc(db, 'users', this.userId, 'settings', 'dashboard');
+      
+      const unsubscribe = onSnapshot(userDoc, (doc) => {
+        if (doc.exists()) {
+          const cloudSettings = doc.data();
+          const localSettings = this.loadFromLocalStorage();
+          
+          // Only update if cloud version is newer
+          if (!localSettings || cloudSettings.lastModified > (localSettings.lastModified || 0)) {
+            console.log('🔄 Settings updated from another device');
+            this.saveToLocalStorage(cloudSettings);
+            callback(cloudSettings);
+          }
         }
-      }
-    }, (error) => {
-      console.warn('Real-time sync error:', error);
-    });
+      }, (error) => {
+        console.warn('Real-time sync error:', error);
+        if (error.code === 'permission-denied') {
+          console.warn('🔒 Real-time sync disabled due to permissions');
+        }
+      });
 
-    this.listeners.set('settings', unsubscribe);
-    return unsubscribe;
+      this.listeners.set('settings', unsubscribe);
+      return unsubscribe;
+    } catch (error) {
+      console.warn('Failed to set up real-time sync:', error);
+      return null;
+    }
   }
 
   // Ensure user document exists
@@ -135,6 +179,9 @@ export class FirebaseSettingsStorage {
       }
     } catch (error) {
       console.warn('Failed to ensure user document:', error);
+      if (error.code === 'permission-denied') {
+        console.warn('🔒 Cannot create user document - check Firestore security rules');
+      }
     }
   }
 
@@ -184,7 +231,6 @@ export class FirebaseSettingsStorage {
   }
 
   markForRetry(settings) {
-    // Store settings to retry when back online
     try {
       localStorage.setItem('dashie-settings-pending', JSON.stringify({
         settings,
