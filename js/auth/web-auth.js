@@ -1,4 +1,4 @@
-// js/auth/web-auth.js - Redirect-Based Web Auth (No Popup)
+// js/auth/web-auth.js - Redirect-Based Web Auth (No Popup) - FIXED VERSION
 
 export class WebAuth {
   constructor() {
@@ -86,8 +86,9 @@ export class WebAuth {
       response_type: 'token', // This gives us access_token in URL fragment
       scope: this.config.scope,
       state: 'oauth-flow', // To identify OAuth return
-      // REMOVED: prompt: 'none' - this was causing interaction_required error
-      include_granted_scopes: 'true' // Include previously granted scopes
+      // REMOVED: prompt: 'none' - this was causing multiple user selections
+      include_granted_scopes: 'true', // Include previously granted scopes
+      login_hint: userInfo.email // Pre-fill the email to reduce user selection
     });
 
     const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
@@ -95,7 +96,7 @@ export class WebAuth {
     window.location.href = oauthUrl;
   }
 
-   async handleOAuthCallback() {
+  async handleOAuthCallback() {
     // Check if we're returning from OAuth (access token in URL fragment)
     const urlFragment = window.location.hash;
     const urlParams = new URLSearchParams(window.location.search);
