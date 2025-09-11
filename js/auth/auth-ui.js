@@ -1,4 +1,4 @@
-// js/auth/auth-ui.js - Authentication UI Management (Fixed)
+// js/auth/auth-ui.js - Authentication UI Management (Fixed All Issues)
 
 export class AuthUI {
   constructor() {
@@ -14,6 +14,7 @@ export class AuthUI {
       app.classList.remove('authenticated');
     }
     
+    // FIX 1: Keep light theme for auth even on FireTV
     document.body.classList.add('temp-light-theme');
     
     // Detect if we're in Fire TV/native environment
@@ -58,31 +59,31 @@ export class AuthUI {
 
   getSignInButtonHTML(hasNativeAuth, isFireTV) {
     if (hasNativeAuth) {
-      // Native auth - custom button that works with D-pad
+      // FIX 2: Native auth - white button with colored G logo (same as Exit style)
       return `
-        <button id="native-signin-btn" class="signin-button primary fire-tv-button" tabindex="1">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-            <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        <button id="native-signin-btn" class="signin-button secondary fire-tv-button" tabindex="1">
+          <svg class="google-logo" width="20" height="20" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
           </svg>
-          Sign in with Google
+          <span>Sign in with Google</span>
         </button>
       `;
     } else {
-      // Web auth - try Google button first, fallback to custom
+      // FIX 3: Web auth - white button with colored G logo, full width
       return `
         <div id="web-signin-container">
-          <div id="google-signin-button"></div>
-          <button id="custom-signin-btn" class="signin-button primary" style="display: none;" tabindex="1">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          <div id="google-signin-button" class="full-width-google-button"></div>
+          <button id="custom-signin-btn" class="signin-button secondary" style="display: none;" tabindex="1">
+            <svg class="google-logo" width="20" height="20" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
             </svg>
-            Sign in with Google
+            <span>Sign in with Google</span>
           </button>
         </div>
       `;
@@ -346,7 +347,7 @@ export class AuthUI {
         
         <div class="sign-in-content">
           ${allowContinue ? `
-          <button id="continue-anyway-btn" class="signin-button primary">
+          <button id="continue-anyway-btn" class="signin-button primary" tabindex="1">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
             </svg>
@@ -354,7 +355,7 @@ export class AuthUI {
           </button>
           ` : ''}
           
-          <button id="retry-auth-btn" class="signin-button ${allowContinue ? 'secondary' : 'primary'}">
+          <button id="retry-auth-btn" class="signin-button ${allowContinue ? 'secondary' : 'primary'}" tabindex="${allowContinue ? '2' : '1'}">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
               <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
             </svg>
@@ -367,12 +368,20 @@ export class AuthUI {
     this.styleSignInOverlay(errorOverlay);
     document.body.appendChild(errorOverlay);
     
+    // FIX 4: Add proper FireTV navigation and focus for error buttons
+    this.setupErrorButtonNavigation(allowContinue);
+    
     // Add event listeners
     const retryBtn = document.getElementById('retry-auth-btn');
     if (retryBtn) {
       retryBtn.addEventListener('click', () => {
         window.location.reload();
       });
+      
+      // Auto-focus retry button
+      setTimeout(() => {
+        retryBtn.focus();
+      }, 200);
     }
     
     if (allowContinue) {
@@ -388,11 +397,57 @@ export class AuthUI {
     }
   }
 
+  // FIX 4: Setup navigation for error buttons
+  setupErrorButtonNavigation(allowContinue) {
+    const handleErrorNavigation = (e) => {
+      const continueBtn = document.getElementById('continue-anyway-btn');
+      const retryBtn = document.getElementById('retry-auth-btn');
+      const focusedElement = document.activeElement;
+      
+      switch (e.keyCode) {
+        case 40: // D-pad down
+        case 38: // D-pad up
+          e.preventDefault();
+          if (allowContinue) {
+            if (focusedElement === continueBtn && retryBtn) {
+              retryBtn.focus();
+            } else if (focusedElement === retryBtn && continueBtn) {
+              continueBtn.focus();
+            } else if (continueBtn) {
+              continueBtn.focus();
+            }
+          }
+          break;
+          
+        case 13: // Enter
+        case 23: // FireTV Select
+          e.preventDefault();
+          if (focusedElement === retryBtn) {
+            retryBtn.click();
+          } else if (focusedElement === continueBtn) {
+            continueBtn.click();
+          }
+          break;
+      }
+    };
+    
+    document.addEventListener('keydown', handleErrorNavigation, true);
+    
+    // Store reference for cleanup
+    this.errorNavHandler = handleErrorNavigation;
+  }
+
   hideSignInPrompt() {
     // Remove Fire TV key handler if it exists
     if (this.fireTVKeyHandler) {
       document.removeEventListener('keydown', this.fireTVKeyHandler, true);
       this.fireTVKeyHandler = null;
+    }
+    
+    // Remove error navigation handler if it exists
+    if (this.errorNavHandler) {
+      document.removeEventListener('keydown', this.errorNavHandler, true);
+      this.errorNavHandler = null;
     }
     
     const overlay = document.getElementById('sign-in-overlay');
@@ -475,7 +530,7 @@ export class AuthUI {
         margin: 30px 0;
       }
       
-      /* Enhanced button styling */
+      /* Enhanced button styling - ALL BUTTONS SAME STYLE */
       .signin-button {
         display: flex;
         align-items: center;
@@ -484,7 +539,7 @@ export class AuthUI {
         width: 100%;
         padding: 12px 20px;
         background: white;
-        color: #333;
+        color: #5f6368;
         border: 1px solid #dadce0;
         border-radius: 6px;
         font-size: 16px;
@@ -517,7 +572,7 @@ export class AuthUI {
       
       .signin-button.secondary {
         background: white;
-        color: #333;
+        color: #5f6368;
         border: 1px solid #dadce0;
       }
       
@@ -527,29 +582,37 @@ export class AuthUI {
         border: 1px solid #bdc1c6;
       }
       
-      /* Fire TV specific styling */
-      .fire-tv-button {
-        position: relative;
-      }
-      
-      .fire-tv-button:focus {
+      /* FIX 2 & 3: ALL BUTTONS GET ORANGE FOCUS - Fire TV and regular */
+      .fire-tv-button:focus,
+      .signin-button:focus {
         outline: 3px solid #ffaa00 !important;
         outline-offset: 2px;
         transform: scale(1.02) !important;
         box-shadow: 0 0 15px rgba(255, 170, 0, 0.5) !important;
       }
       
-      /* Google Sign-In button container styling */
-      #google-signin-button {
+      /* FIX 3: Google Sign-In button container styling - FULL WIDTH */
+      #google-signin-button,
+      .full-width-google-button {
         display: flex;
         justify-content: center;
         align-items: center;
         margin-top: 15px;
+        width: 100% !important;
       }
       
-      #google-signin-button > div {
+      #google-signin-button > div,
+      .full-width-google-button > div {
         margin: 0 !important;
         width: 100% !important;
+        min-width: 100% !important;
+      }
+      
+      /* Force Google's button to full width */
+      #google-signin-button iframe,
+      .full-width-google-button iframe {
+        width: 100% !important;
+        min-width: 100% !important;
       }
       
       #web-signin-container {
