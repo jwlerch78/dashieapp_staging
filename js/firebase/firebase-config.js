@@ -5,14 +5,15 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.13.0/fireba
 import { getFirestore, connectFirestoreEmulator } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
 import { getAuth, connectAuthEmulator } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js';
 
-// Your Firebase config from Firebase Console
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
 const firebaseConfig = {
-  apiKey: "your-api-key-here",
-  authDomain: "your-project.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project.appspot.com",
-  messagingSenderId: "123456789",
-  appId: "1:123456789:web:abcdef123456"
+  apiKey: "AIzaSyBSDQEVWmeiV7SzIT-XVhPRTO8E4RRvEXM",
+  authDomain: "be-dashie.firebaseapp.com",
+  projectId: "be-dashie",
+  storageBucket: "be-dashie.firebasestorage.app",
+  messagingSenderId: "157124384932",
+  appId: "1:157124384932:web:73ffb70a482b98892a2e31",
+  measurementId: "G-J1Z2YDYYYE"
 };
 
 // Initialize Firebase
