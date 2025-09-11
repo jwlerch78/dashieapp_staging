@@ -204,7 +204,6 @@ export class DeviceFlowAuth {
     reject(new Error('Failed to get user information'));
     return;
   }
-}
           
         } else if (data.error === 'authorization_pending') {
           // Still waiting for user to authorize
