@@ -193,6 +193,10 @@ export class AuthManager {
       signedInAt: Date.now(),
       authMethod: authMethod
     };
+
+  // Trigger Firebase settings initialization
+  document.dispatchEvent(new CustomEvent('dashie-auth-ready'));
+    
   }
 
   createWebViewUser() {
