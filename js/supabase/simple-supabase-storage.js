@@ -73,6 +73,7 @@ getGoogleAccessToken() {
 }
 
 // Get Supabase auth token from Google OAuth via Edge Function
+// Get Supabase auth token from Google OAuth via Edge Function
 async ensureSupabaseAuth() {
   if (this.supabaseAuthToken) {
     return this.supabaseAuthToken; // Already authenticated
