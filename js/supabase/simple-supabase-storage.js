@@ -73,7 +73,6 @@ getGoogleAccessToken() {
 }
 
 // Get Supabase auth token from Google OAuth via Edge Function
-// Get Supabase auth token from Google OAuth via Edge Function
 async ensureSupabaseAuth() {
   if (this.supabaseAuthToken) {
     return this.supabaseAuthToken; // Already authenticated
@@ -97,11 +96,12 @@ async ensureSupabaseAuth() {
     console.log('🔐 Google token length:', googleToken.length);
     console.log('🔐 Google token preview:', googleToken.substring(0, 30) + '...');
 
-    // Call your Edge Function (no auth headers needed based on the function code)
+    // Call your Edge Function (adding auth header due to Supabase requirements)
     const response = await fetch(`https://cseaywxcvnxcsypaqaid.supabase.co/functions/v1/hyper-responder`, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNzZWF5d3hjdm54Y3N5cGFxYWlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MDIxOTEsImV4cCI6MjA3MzE3ODE5MX0.Wnd7XELrtPIDKeTcHVw7dl3awn3BlI0z9ADKPgSfHhA`
       },
       body: JSON.stringify({
         googleToken: googleToken,
