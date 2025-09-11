@@ -22,6 +22,8 @@ export class AuthManager {
     this.deviceFlowAuth = new DeviceFlowAuth();
     
     this.nativeAuthFailed = false;
+
+    this.googleAccessToken = null; // Store the Google access token for RLS authentication with Supabase
     
     this.init();
   }
@@ -121,11 +123,13 @@ export class AuthManager {
     this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
   }
 
+// ENHANCED: Update native auth handling
   handleNativeAuthResult(result) {
     console.log('🔐 Native auth result received:', result);
     
     if (result.success && result.user) {
-      this.setUserFromAuth(result.user, 'native');
+      // Native auth might also have tokens
+      this.setUserFromAuth(result.user, 'native', result.tokens);
       this.isSignedIn = true;
       this.storage.saveUser(this.currentUser);
       this.ui.showSignedInState();
@@ -134,7 +138,6 @@ export class AuthManager {
       console.error('🔐 ❌ Native auth failed:', result.error);
       this.nativeAuthFailed = true;
       
-      // For Fire TV, immediately try Device Flow
       if (this.isFireTV) {
         console.log('🔥 Native auth failed on Fire TV, switching to Device Flow...');
         this.startDeviceFlow();
@@ -144,17 +147,18 @@ export class AuthManager {
     }
   }
 
+ // ENHANCED: Update device flow handling to pass tokens
   async startDeviceFlow() {
     try {
       console.log('🔥 Starting Device Flow authentication...');
       
-      // Hide any existing prompts
       this.ui.hideSignInPrompt();
       
       const result = await this.deviceFlowAuth.startDeviceFlow();
       
       if (result.success && result.user) {
-        this.setUserFromAuth(result.user, 'device_flow');
+        // Pass the tokens object so setUserFromAuth can extract access_token
+        this.setUserFromAuth(result.user, 'device_flow', result.tokens);
         this.isSignedIn = true;
         this.storage.saveUser(this.currentUser);
         this.ui.showSignedInState();
@@ -169,6 +173,7 @@ export class AuthManager {
     }
   }
 
+  // ENHANCED: Update web auth handling
   handleWebAuthResult(result) {
     console.log('🔐 Web auth result received:', result);
     
@@ -183,8 +188,8 @@ export class AuthManager {
       this.ui.showAuthError(result.error || 'Web authentication failed');
     }
   }
-
-  setUserFromAuth(userData, authMethod) {
+// ENHANCED: Store access token from any auth method
+  setUserFromAuth(userData, authMethod, tokens = null) {
     this.currentUser = {
       id: userData.id,
       name: userData.name,
@@ -194,9 +199,23 @@ export class AuthManager {
       authMethod: authMethod
     };
 
-  // Trigger Firebase settings initialization
-  document.dispatchEvent(new CustomEvent('dashie-auth-ready'));
-    
+    // NEW: Store Google access token based on auth method
+    if (tokens) {
+      // Device Flow and potentially others pass tokens object
+      this.googleAccessToken = tokens.access_token;
+      console.log('🔐 Stored Google access token from', authMethod);
+    } else if (userData.googleAccessToken) {
+      // Web auth might pass token in user data
+      this.googleAccessToken = userData.googleAccessToken;
+      console.log('🔐 Stored Google access token from user data');
+    } else if (authMethod === 'web' && this.webAuth?.accessToken) {
+      // Get token directly from web auth
+      this.googleAccessToken = this.webAuth.accessToken;
+      console.log('🔐 Stored Google access token from web auth');
+    }
+
+    // NEW: Notify that auth is ready (for settings initialization)
+    document.dispatchEvent(new CustomEvent('dashie-auth-ready'));
   }
 
   createWebViewUser() {
@@ -257,6 +276,12 @@ export class AuthManager {
     }
   }
 
+  // NEW: Public method to get Google access token
+  getGoogleAccessToken() {
+    return this.googleAccessToken;
+  }
+
+// ENHANCED: Clear token on sign out
   signOut() {
     console.log('🔐 Signing out...');
     
@@ -271,9 +296,10 @@ export class AuthManager {
     this.currentUser = null;
     this.isSignedIn = false;
     this.nativeAuthFailed = false;
+    this.googleAccessToken = null; // NEW: Clear stored token
     this.storage.clearSavedUser();
     
-    // Show appropriate sign-in prompt based on environment
+    // Show appropriate sign-in prompt
     if (this.isWebView && !this.hasNativeAuth) {
       this.ui.showWebViewAuthPrompt(() => this.createWebViewUser(), () => this.exitApp());
     } else {
