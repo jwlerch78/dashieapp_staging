@@ -31,16 +31,19 @@ let supabaseStorage = null;
 let realTimeUnsubscribe = null;
 
 // ---------------------
-// FIREBASE INTEGRATION
+// SUPABASE INTEGRATION
 // ---------------------
 
 export function initializeSupabaseSettings() {
   const user = window.dashieAuth?.getUser();
   if (user && user.id) {
-    console.log('🔥 Initializing Supabase settings for user:', user.name);
+    console.log('📊 Initializing Supabase settings for user:', user.name);
     
-    supabaseStorage = new SimpleSupabaseStorage(user.id);
-    supabaseStorage.ensureUserDocument();
+    // Fixed: Pass email and use correct class
+    supabaseStorage = new SimpleSupabaseStorage(user.id, user.email);
+    
+    // Removed: ensureUserDocument() - not needed with our simplified approach
+    
     loadSettings();
     setupRealTimeSync();
   } else {
@@ -51,7 +54,8 @@ export function initializeSupabaseSettings() {
 
 function setupRealTimeSync() {
   if (supabaseStorage && !realTimeUnsubscribe) {
-    realTimeUnsubscribe = supabaseStorage.subscribeToSettingsChanges((newSettings) => {
+    // Fixed: Use correct method name
+    realTimeUnsubscribe = supabaseStorage.subscribeToChanges((newSettings) => {
       console.log('🔄 Settings updated from another device');
       Object.assign(settings, newSettings);
       
@@ -67,7 +71,6 @@ function setupRealTimeSync() {
     });
   }
 }
-
 // ---------------------
 // SETTINGS PERSISTENCE
 // ---------------------
