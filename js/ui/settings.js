@@ -1,8 +1,8 @@
-// js/ui/settings.js - Complete Settings Modal & Sleep Timer Management with Firebase Integration
+// js/ui/settings.js - Complete Settings Modal & Sleep Timer Management with Supabase Integration
 
 import { state, setConfirmDialog } from '../core/state.js';
 import { getCurrentTheme, getAvailableThemes, switchTheme } from '../core/theme.js';
-import { FirebaseSettingsStorage } from '../firebase/firebase-storage.js';
+import { SimpleSupabaseStorage } from '../supabase/simple-supabase-storage.js';
 
 // ---------------------
 // SETTINGS STATE
@@ -26,21 +26,21 @@ let resleepTimer = null;
 let checkInterval = null;
 let expandedSections = new Set(); // Track which sections are expanded - start all collapsed
 
-// Firebase storage instance
-let firebaseStorage = null;
+// Supabase storage instance
+let supabaseStorage = null;
 let realTimeUnsubscribe = null;
 
 // ---------------------
 // FIREBASE INTEGRATION
 // ---------------------
 
-export function initializeFirebaseSettings() {
+export function initializeSupabaseSettings() {
   const user = window.dashieAuth?.getUser();
   if (user && user.id) {
-    console.log('🔥 Initializing Firebase settings for user:', user.name);
+    console.log('🔥 Initializing Supabase settings for user:', user.name);
     
-    firebaseStorage = new FirebaseSettingsStorage(user.id);
-    firebaseStorage.ensureUserDocument();
+    supabaseStorage = new SupabaseSettingsStorage(user.id);
+    supabaseStorage.ensureUserDocument();
     loadSettings();
     setupRealTimeSync();
   } else {
@@ -50,8 +50,8 @@ export function initializeFirebaseSettings() {
 }
 
 function setupRealTimeSync() {
-  if (firebaseStorage && !realTimeUnsubscribe) {
-    realTimeUnsubscribe = firebaseStorage.subscribeToSettingsChanges((newSettings) => {
+  if (supabaseStorage && !realTimeUnsubscribe) {
+    realTimeUnsubscribe = supabaseStorage.subscribeToSettingsChanges((newSettings) => {
       console.log('🔄 Settings updated from another device');
       Object.assign(settings, newSettings);
       
@@ -74,8 +74,8 @@ function setupRealTimeSync() {
 
 async function loadSettings() {
   try {
-    if (firebaseStorage) {
-      const savedSettings = await firebaseStorage.loadSettings();
+    if (supabaseStorage) {
+      const savedSettings = await supabaseStorage.loadSettings();
       if (savedSettings) {
         Object.assign(settings, savedSettings);
         if (savedSettings.theme && savedSettings.theme !== getCurrentTheme()) {
@@ -86,7 +86,7 @@ async function loadSettings() {
       }
     }
   } catch (error) {
-    console.warn('Firebase settings load failed, using local fallback:', error);
+    console.warn('Supabase settings load failed, using local fallback:', error);
   }
   
   loadSettingsLocal();
@@ -110,8 +110,8 @@ async function saveSettings() {
   try {
     settings.theme = getCurrentTheme();
     
-    if (firebaseStorage) {
-      await firebaseStorage.saveSettings(settings);
+    if (supabaseStorage) {
+      await supabaseStorage.saveSettings(settings);
       console.log('💾 Settings saved to cloud');
     } else {
       localStorage.setItem('dashie-settings', JSON.stringify(settings));
@@ -512,7 +512,7 @@ function saveSettingsAndClose() {
   // Update photo widget if it exists
   updatePhotoWidget();
   
-  saveSettings(); // Now uses Firebase!
+  saveSettings(); // Now uses Supabase!
   closeSettings();
 }
 
@@ -669,10 +669,10 @@ export function isSettingsOpen() {
 
 export function initializeSettings() {
   if (window.dashieAuth && window.dashieAuth.isAuthenticated()) {
-    initializeFirebaseSettings();
+    initializeSupabaseSettings();
   } else {
     document.addEventListener('dashie-auth-ready', () => {
-      initializeFirebaseSettings();
+      initializeSupabaseSettings();
     });
     loadSettingsLocal();
   }
@@ -730,8 +730,8 @@ export function cleanupSettings() {
     realTimeUnsubscribe = null;
   }
   
-  if (firebaseStorage) {
-    firebaseStorage.unsubscribeAll();
-    firebaseStorage = null;
+  if (supabaseStorage) {
+    supabaseStorage.unsubscribeAll();
+    supabaseStorage = null;
   }
 }
