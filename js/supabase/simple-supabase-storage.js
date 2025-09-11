@@ -72,78 +72,86 @@ getGoogleAccessToken() {
   return null;
 }
 
-  // Get Supabase auth token from Google OAuth via Edge Function
-  async ensureSupabaseAuth() {
-    if (this.supabaseAuthToken) {
-      return this.supabaseAuthToken; // Already authenticated
-    }
-
-    try {
-      console.log('🔐 Getting Supabase auth via Edge Function...');
-      
-      const currentUser = window.dashieAuth?.getUser();
-      if (!currentUser) {
-        throw new Error('No authenticated user found');
-      }
-
-      // Get Google access token
-      const googleToken = this.getGoogleAccessToken();
-      if (!googleToken) {
-        throw new Error('No Google access token available');
-      }
-
-      console.log('🔐 Calling Edge Function with user:', currentUser.email);
-
-      // Call your Edge Function - REPLACE WITH YOUR ACTUAL PROJECT URL
-      const response = await fetch(`https://cseaywxcvnxcsypaqaid.supabase.co/functions/v1/hyper-responder`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          googleToken: googleToken,
-          userData: {
-            id: currentUser.id,
-            email: currentUser.email,
-            name: currentUser.name,
-            picture: currentUser.picture,
-            authMethod: currentUser.authMethod
-          }
-        })
-      });
-
-      console.log('🔐 Edge Function response status:', response.status);
-
-      const result = await response.json();
-      console.log('🔐 Edge Function result:', result);
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to authenticate with Supabase');
-      }
-
-      this.supabaseAuthToken = result.supabaseToken;
-      
-      // Set the session in Supabase client
-      const { error } = await supabase.auth.setSession({
-        access_token: result.supabaseToken,
-        refresh_token: null
-      });
-
-      if (error) {
-        console.warn('Session set warning:', error);
-      }
-
-      this.isRLSEnabled = true;
-      console.log('🔐 ✅ Supabase RLS authentication established');
-      return this.supabaseAuthToken;
-
-    } catch (error) {
-      console.error('🔐 ❌ Supabase auth failed:', error);
-      console.log('🔐 ⚠️ Falling back to non-RLS mode');
-      this.isRLSEnabled = false;
-      return null;
-    }
+// Get Supabase auth token from Google OAuth via Edge Function
+async ensureSupabaseAuth() {
+  if (this.supabaseAuthToken) {
+    return this.supabaseAuthToken; // Already authenticated
   }
+
+  try {
+    console.log('🔐 Getting Supabase auth via Edge Function...');
+    
+    const currentUser = window.dashieAuth?.getUser();
+    if (!currentUser) {
+      throw new Error('No authenticated user found');
+    }
+
+    // Get Google access token
+    const googleToken = this.getGoogleAccessToken();
+    if (!googleToken) {
+      throw new Error('No Google access token available');
+    }
+
+    console.log('🔐 Calling Edge Function with user:', currentUser.email);
+
+    // Import the supabase client to get the anon key
+    const { supabase } = await import('./supabase-config.js');
+    
+    // Get the anon key from the Supabase client configuration
+    const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNzZWF5d3hjdm54Y3N5cGFxYWlkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc2MDIxOTEsImV4cCI6MjA3MzE3ODE5MX0.Wnd7XELrtPIDKeTcHVw7dl3awn3BlI0z9ADKPgSfHhA';
+
+    // Call your Edge Function with proper authorization
+    const response = await fetch(`https://cseaywxcvnxcsypaqaid.supabase.co/functions/v1/hyper-responder`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${supabaseAnonKey}`, // Add the required auth header
+        'apikey': supabaseAnonKey // Some Edge Functions also expect this
+      },
+      body: JSON.stringify({
+        googleToken: googleToken,
+        userData: {
+          id: currentUser.id,
+          email: currentUser.email,
+          name: currentUser.name,
+          picture: currentUser.picture,
+          authMethod: currentUser.authMethod
+        }
+      })
+    });
+
+    console.log('🔐 Edge Function response status:', response.status);
+
+    const result = await response.json();
+    console.log('🔐 Edge Function result:', result);
+    
+    if (!result.success) {
+      throw new Error(result.error || 'Failed to authenticate with Supabase');
+    }
+
+    this.supabaseAuthToken = result.supabaseToken;
+    
+    // Set the session in Supabase client
+    const { error } = await supabase.auth.setSession({
+      access_token: result.supabaseToken,
+      refresh_token: null
+    });
+
+    if (error) {
+      console.warn('Session set warning:', error);
+    }
+
+    this.isRLSEnabled = true;
+    console.log('🔐 ✅ Supabase RLS authentication established');
+    return this.supabaseAuthToken;
+
+  } catch (error) {
+    console.error('🔐 ❌ Supabase auth failed:', error);
+    console.log('🔐 ⚠️ Falling back to non-RLS mode');
+    this.isRLSEnabled = false;
+    return null;
+  }
+}
 
   // Save settings with hybrid approach (local + cloud)
   async saveSettings(settings) {
