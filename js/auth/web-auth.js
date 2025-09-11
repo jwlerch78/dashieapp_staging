@@ -1,4 +1,4 @@
-// js/auth/web-auth.js - Single OAuth-Only Web Auth
+// js/auth/web-auth.js - Single OAuth-Only Web Auth (Complete Rewrite)
 
 export class WebAuth {
   constructor() {
@@ -13,195 +13,238 @@ export class WebAuth {
 
   async init() {
     try {
-      console.log('🔐 Initializing web browser auth...');
+      console.log('🔐 Initializing simplified web auth...');
       
-      // Check if we're returning from OAuth redirect
+      // IMPORTANT: Check OAuth callback FIRST before doing anything else
       const callbackHandled = await this.handleOAuthCallback();
       
-      // Mark as initialized regardless of callback handling
+      if (callbackHandled) {
+        console.log('🔐 OAuth callback handled, skipping further initialization');
+      } else {
+        console.log('🔐 No OAuth callback detected, ready for sign-in');
+      }
+      
       this.isInitialized = true;
-      console.log('🔐 Web auth initialized successfully');
+      console.log('🔐 Simplified web auth initialized');
+      
     } catch (error) {
       console.error('🔐 Web auth initialization failed:', error);
-      throw error;
+      this.isInitialized = true; // Still mark as initialized to allow sign-in
     }
   }
 
-  // SIMPLIFIED: Direct OAuth flow only - no Google ID Services
+  // CORE METHOD: Single OAuth flow - no Google ID Services
   async signIn() {
     if (!this.isInitialized) {
       throw new Error('Web auth not initialized');
     }
 
     try {
-      console.log('🔐 Starting single OAuth flow...');
+      console.log('🔐 ⚡ Starting SINGLE OAuth flow - no double login!');
       
-      // Go directly to OAuth - no Google ID Services step
-      this.redirectToOAuth();
+      // Go directly to OAuth - skip all Google API loading
+      this.startDirectOAuth();
       
     } catch (error) {
-      console.error('🔐 Web sign-in failed:', error);
+      console.error('🔐 Single OAuth sign-in failed:', error);
       throw error;
     }
   }
 
-  // DIRECT OAuth flow - gets both user info and access token in one step
-  redirectToOAuth() {
-    console.log('🔐 Starting direct OAuth flow...');
+  // DIRECT OAuth - gets everything in one step
+  startDirectOAuth() {
+    console.log('🔐 🚀 Redirecting to Google OAuth (single step)...');
     
     const params = new URLSearchParams({
       client_id: this.config.client_id,
       redirect_uri: this.config.redirect_uri,
-      response_type: 'token', // Gets access token directly
+      response_type: 'token', // Get access token directly
       scope: this.config.scope,
-      state: 'single-oauth-flow',
+      state: 'dashie-single-oauth',
       include_granted_scopes: 'true'
-      // NO login_hint since we don't have user info yet
     });
 
     const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-    console.log('🔐 Redirecting to single OAuth flow...');
+    console.log('🔐 📍 OAuth URL:', oauthUrl);
+    
+    // Direct redirect - no popups, no additional APIs
     window.location.href = oauthUrl;
   }
 
-  // Handle OAuth callback and get user info
+  // Handle the single OAuth callback
   async handleOAuthCallback() {
     const urlFragment = window.location.hash;
     const urlParams = new URLSearchParams(window.location.search);
     
-    // Check for errors first
-    const errorInFragment = urlFragment.includes('error=');
-    const errorInQuery = urlParams.get('error');
+    console.log('🔐 🔍 Checking for OAuth callback...');
+    console.log('🔐 URL fragment:', urlFragment);
+    console.log('🔐 URL params state:', urlParams.get('state'));
     
-    if (errorInFragment || errorInQuery) {
-      console.log('🔐 OAuth callback has error, handling...');
+    // Check for errors first
+    if (urlFragment.includes('error=') || urlParams.get('error')) {
+      console.log('🔐 ❌ OAuth error detected');
       this.handleOAuthError(urlFragment, urlParams);
       return true;
     }
     
-    // Check if this is an OAuth callback
-    const isOAuthCallback = urlFragment.includes('access_token') || 
-                           urlParams.get('state') === 'single-oauth-flow';
+    // Check if this is our OAuth callback
+    const isOurCallback = urlFragment.includes('access_token') && 
+                         (urlParams.get('state') === 'dashie-single-oauth' || 
+                          urlFragment.includes('state=dashie-single-oauth'));
     
-    if (isOAuthCallback) {
-      console.log('🔐 Handling single OAuth callback...');
+    if (isOurCallback) {
+      console.log('🔐 ✅ OAuth callback detected! Processing...');
       
       try {
-        const params = new URLSearchParams(urlFragment.substring(1));
-        const accessToken = params.get('access_token');
+        // Extract access token from URL fragment
+        const fragmentParams = new URLSearchParams(urlFragment.substring(1)); // Remove #
+        const accessToken = fragmentParams.get('access_token');
+        const tokenType = fragmentParams.get('token_type');
+        const expiresIn = fragmentParams.get('expires_in');
         
-        if (accessToken) {
-          console.log('🔐 Access token received from OAuth redirect');
-          this.accessToken = accessToken;
-          
-          // Get user info from Google using the access token
-          console.log('🔐 Getting user info from Google API...');
-          const userData = await this.getUserInfoFromToken(accessToken);
-          
-          const completeUserData = {
-            id: userData.id,
-            name: userData.name,
-            email: userData.email,
-            picture: userData.picture,
-            authMethod: 'web',
-            googleAccessToken: accessToken
-          };
-          
-          console.log('🔐 Single OAuth flow successful:', completeUserData.name);
-          
-          // Clean up URL
-          window.history.replaceState({}, document.title, window.location.pathname);
-          
-          // Notify auth manager
-          this.notifyAuthSuccess(completeUserData, accessToken);
-          
-          return true; // Successfully handled callback
+        console.log('🔐 🎫 Token extracted:', {
+          hasToken: !!accessToken,
+          tokenType: tokenType,
+          expiresIn: expiresIn,
+          tokenPreview: accessToken ? accessToken.substring(0, 20) + '...' : 'NONE'
+        });
+        
+        if (!accessToken) {
+          throw new Error('No access token found in OAuth callback');
         }
         
-        console.error('🔐 OAuth callback succeeded but no access token found');
-        this.notifyAuthFailure('No access token received from OAuth');
+        this.accessToken = accessToken;
+        
+        // Get user info using the access token
+        console.log('🔐 👤 Fetching user info from Google...');
+        const userInfo = await this.fetchUserInfo(accessToken);
+        
+        const completeUserData = {
+          id: userInfo.id,
+          name: userInfo.name,
+          email: userInfo.email,
+          picture: userInfo.picture,
+          authMethod: 'web',
+          googleAccessToken: accessToken
+        };
+        
+        console.log('🔐 🎉 Single OAuth SUCCESS:', completeUserData.name);
+        
+        // Clean up the URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+        
+        // Notify the auth manager
+        this.notifyAuthSuccess(completeUserData, accessToken);
+        
+        return true; // Successfully handled callback
         
       } catch (error) {
-        console.error('🔐 Error handling OAuth callback:', error);
-        this.notifyAuthFailure('OAuth callback error: ' + error.message);
+        console.error('🔐 ❌ OAuth callback processing failed:', error);
+        this.notifyAuthFailure('Authentication failed: ' + error.message);
+        return true; // We handled the callback (even though it failed)
       }
-      
-      return true; // We handled a callback
     }
     
-    return false; // Not an OAuth callback
+    console.log('🔐 ℹ️ Not an OAuth callback, continuing normal flow');
+    return false; // Not our callback
   }
 
-  // Get user info from access token
-  async getUserInfoFromToken(accessToken) {
+  // Fetch user info from Google using access token
+  async fetchUserInfo(accessToken) {
     try {
-      const response = await fetch(`https://www.googleapis.com/oauth2/v2/userinfo?access_token=${accessToken}`);
+      console.log('🔐 📡 Calling Google userinfo API...');
+      
+      const response = await fetch(`https://www.googleapis.com/oauth2/v2/userinfo`, {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+      
       if (!response.ok) {
-        throw new Error(`Failed to fetch user info: ${response.status}`);
+        throw new Error(`Google API error: ${response.status} ${response.statusText}`);
       }
+      
       const userInfo = await response.json();
-      console.log('🔐 Retrieved user info:', userInfo.name);
+      console.log('🔐 👤 User info received:', {
+        id: userInfo.id,
+        name: userInfo.name,
+        email: userInfo.email,
+        hasPicture: !!userInfo.picture
+      });
+      
       return userInfo;
+      
     } catch (error) {
-      console.error('🔐 Failed to get user info from token:', error);
-      throw error;
+      console.error('🔐 ❌ Failed to fetch user info:', error);
+      throw new Error(`Failed to get user information: ${error.message}`);
     }
   }
 
   // Handle OAuth errors
   handleOAuthError(urlFragment, urlParams) {
-    let errorDetails = {};
+    let errorInfo = {};
+    
     if (urlFragment.includes('error=')) {
       const fragmentParams = new URLSearchParams(urlFragment.substring(1));
-      errorDetails.error = fragmentParams.get('error');
-      errorDetails.error_description = fragmentParams.get('error_description');
+      errorInfo.error = fragmentParams.get('error');
+      errorInfo.error_description = fragmentParams.get('error_description');
+      errorInfo.error_uri = fragmentParams.get('error_uri');
     } else {
-      errorDetails.error = urlParams.get('error');
-      errorDetails.error_description = urlParams.get('error_description');
+      errorInfo.error = urlParams.get('error');
+      errorInfo.error_description = urlParams.get('error_description');
     }
     
-    console.error('🔐 OAuth error details:', errorDetails);
+    console.error('🔐 OAuth error details:', errorInfo);
     
     // Clean up URL
     window.history.replaceState({}, document.title, window.location.pathname);
     
-    this.notifyAuthFailure(`OAuth failed: ${errorDetails.error} - ${errorDetails.error_description || 'Please try again'}`);
+    const errorMessage = `OAuth error: ${errorInfo.error}${errorInfo.error_description ? ' - ' + errorInfo.error_description : ''}`;
+    this.notifyAuthFailure(errorMessage);
   }
 
-  // Notify auth manager of success
+  // Notify auth manager of successful authentication
   notifyAuthSuccess(userData, accessToken) {
+    console.log('🔐 📢 Notifying auth manager of success');
     if (window.handleWebAuth) {
       window.handleWebAuth({
         success: true,
         user: userData,
         tokens: { access_token: accessToken }
       });
+    } else {
+      console.warn('🔐 ⚠️ window.handleWebAuth not available');
     }
   }
 
-  // Notify auth manager of failure  
+  // Notify auth manager of authentication failure
   notifyAuthFailure(error) {
+    console.error('🔐 📢 Notifying auth manager of failure:', error);
     if (window.handleWebAuth) {
       window.handleWebAuth({
         success: false,
         error: error
       });
+    } else {
+      console.warn('🔐 ⚠️ window.handleWebAuth not available');
     }
   }
 
+  // Get stored access token
   getAccessToken() {
     return this.accessToken;
   }
 
+  // Sign out
   signOut() {
     try {
-      console.log('🔐 Web sign-out');
+      console.log('🔐 🚪 Web auth sign out');
       this.accessToken = null;
       
-      // Note: No Google ID Services to disable since we're not using it
+      // Note: We don't use Google ID Services anymore, so no need to disable it
       
     } catch (error) {
-      console.error('🔐 Error during web sign-out:', error);
+      console.error('🔐 ❌ Error during web sign-out:', error);
     }
   }
 }
