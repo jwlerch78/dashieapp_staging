@@ -1,34 +1,23 @@
-// js/ui/settings.js - Settings Modal & Sleep Timer Management with Theme Support
+// js/ui/settings.js - Complete Settings Modal & Sleep Timer Management with Firebase Integration
 
 import { state, setConfirmDialog } from '../core/state.js';
 import { getCurrentTheme, getAvailableThemes, switchTheme } from '../core/theme.js';
-
-
+import { FirebaseSettingsStorage } from '../firebase/firebase-storage.js';
 
 // ---------------------
 // SETTINGS STATE
 // ---------------------
 
-const storage = (() => {
-  try {
-    return localStorage;
-  } catch (e) {
-    return { 
-      getItem: () => null, 
-      setItem: () => {}, 
-      removeItem: () => {} 
-    };
-  }
-})();
-
-export const settings = {
+export const defaultSettings = {
   sleepTime: { hour: 21, minute: 30 }, // 9:30 PM
   wakeTime: { hour: 6, minute: 30 },   // 6:30 AM
   resleepDelay: 15, // minutes
   photoTransitionTime: 15, // seconds
   redirectUrl: 'https://jwlerch78.github.io/dashie/', // default URL
-  theme: 'light' // default theme
+  theme: 'dark' // default theme
 };
+
+export let settings = { ...defaultSettings };
 
 let settingsModal = null;
 let settingsFocus = { type: 'close', index: 0 };
@@ -37,31 +26,104 @@ let resleepTimer = null;
 let checkInterval = null;
 let expandedSections = new Set(); // Track which sections are expanded - start all collapsed
 
+// Firebase storage instance
+let firebaseStorage = null;
+let realTimeUnsubscribe = null;
+
+// ---------------------
+// FIREBASE INTEGRATION
+// ---------------------
+
+export function initializeFirebaseSettings() {
+  const user = window.dashieAuth?.getUser();
+  if (user && user.id) {
+    console.log('🔥 Initializing Firebase settings for user:', user.name);
+    
+    firebaseStorage = new FirebaseSettingsStorage(user.id);
+    firebaseStorage.ensureUserDocument();
+    loadSettings();
+    setupRealTimeSync();
+  } else {
+    console.log('📱 No authenticated user, using local storage only');
+    loadSettingsLocal();
+  }
+}
+
+function setupRealTimeSync() {
+  if (firebaseStorage && !realTimeUnsubscribe) {
+    realTimeUnsubscribe = firebaseStorage.subscribeToSettingsChanges((newSettings) => {
+      console.log('🔄 Settings updated from another device');
+      Object.assign(settings, newSettings);
+      
+      if (newSettings.theme && newSettings.theme !== getCurrentTheme()) {
+        switchTheme(newSettings.theme);
+      }
+      
+      if (settingsModal) {
+        updateSettingsModalValues();
+      }
+      
+      updatePhotoWidget();
+    });
+  }
+}
+
 // ---------------------
 // SETTINGS PERSISTENCE
 // ---------------------
 
-function loadSettings() {
-  const saved = storage.getItem('dashie-settings');
-  if (saved) {
-    try {
+async function loadSettings() {
+  try {
+    if (firebaseStorage) {
+      const savedSettings = await firebaseStorage.loadSettings();
+      if (savedSettings) {
+        Object.assign(settings, savedSettings);
+        if (savedSettings.theme && savedSettings.theme !== getCurrentTheme()) {
+          switchTheme(savedSettings.theme);
+        }
+        console.log('📖 Settings loaded successfully');
+        return;
+      }
+    }
+  } catch (error) {
+    console.warn('Firebase settings load failed, using local fallback:', error);
+  }
+  
+  loadSettingsLocal();
+}
+
+function loadSettingsLocal() {
+  try {
+    const saved = localStorage.getItem('dashie-settings');
+    if (saved) {
       const parsed = JSON.parse(saved);
       Object.assign(settings, parsed);
-      // Sync theme setting with current theme
       settings.theme = getCurrentTheme();
-    } catch (e) {
-      console.warn('Failed to load settings:', e);
     }
+  } catch (e) {
+    console.warn('Failed to load local settings:', e);
+    Object.assign(settings, defaultSettings);
   }
 }
 
-function saveSettings() {
+async function saveSettings() {
   try {
-    // Sync current theme to settings
     settings.theme = getCurrentTheme();
-    storage.setItem('dashie-settings', JSON.stringify(settings));
+    
+    if (firebaseStorage) {
+      await firebaseStorage.saveSettings(settings);
+      console.log('💾 Settings saved to cloud');
+    } else {
+      localStorage.setItem('dashie-settings', JSON.stringify(settings));
+      console.log('💾 Settings saved locally');
+    }
   } catch (e) {
     console.warn('Failed to save settings:', e);
+    try {
+      localStorage.setItem('dashie-settings', JSON.stringify(settings));
+    } catch (localError) {
+      console.error('Critical: All storage methods failed!', localError);
+    }
   }
 }
 
@@ -251,14 +313,15 @@ export function showSettings() {
             </div>
             
             <div class="settings-row compact">
-              <div class="settings-label">Re-sleep Delay (minutes):</div>
+              <div class="settings-label">Re-sleep Delay:</div>
               <div class="settings-control">
-                <input type="number" class="number-input" id="resleep-delay" min="1" max="120" value="${settings.resleepDelay}">
+                <input type="number" class="number-input" id="resleep-delay" min="1" max="60" value="${settings.resleepDelay}">
+                <span class="unit-label">minutes</span>
               </div>
             </div>
           </div>
         </div>
-
+        
         <!-- Testing Section -->
         <div class="settings-section">
           <h3 class="section-header" data-section="testing">
@@ -269,39 +332,27 @@ export function showSettings() {
               <div class="settings-label">Redirect URL:</div>
               <div class="settings-control">
                 <select class="url-select" id="redirect-url">
-                  <option value="https://jwlerch78.github.io/dashie/" ${settings.redirectUrl === 'https://jwlerch78.github.io/dashie/' ? 'selected' : ''}>Main (dashie)</option>
-                  <option value="https://jwlerch78.github.io/dashie_staging/" ${settings.redirectUrl === 'https://jwlerch78.github.io/dashie_staging/' ? 'selected' : ''}>Staging</option>
-                  <option value="https://jwlerch78.github.io/dashie_widget/" ${settings.redirectUrl === 'https://jwlerch78.github.io/dashie_widget/' ? 'selected' : ''}>Widget Test</option>
+                  <option value="https://jwlerch78.github.io/dashie/" ${settings.redirectUrl === 'https://jwlerch78.github.io/dashie/' ? 'selected' : ''}>Production (jwlerch78.github.io/dashie/)</option>
+                  <option value="https://jwlerch78.github.io/dashie_staging/" ${settings.redirectUrl === 'https://jwlerch78.github.io/dashie_staging/' ? 'selected' : ''}>Staging (jwlerch78.github.io/dashie_staging/)</option>
+                  <option value="http://localhost:3000/" ${settings.redirectUrl === 'http://localhost:3000/' ? 'selected' : ''}>Local Development (localhost:3000)</option>
                 </select>
-              </div>
-            </div>
-            <div class="settings-row compact">
-              <div class="settings-label"></div>
-              <div class="settings-control">
-                <button class="settings-button" id="redirect-button">Redirect Now</button>
+                <button class="settings-button small" id="redirect-button">Go</button>
               </div>
             </div>
           </div>
         </div>
-
-        <!-- Photo Widgets Section -->
+        
+        <!-- Photos Section -->
         <div class="settings-section">
           <h3 class="section-header" data-section="photos">
-            <span id="photos-arrow">▶</span> Photo Widgets
+            <span id="photos-arrow">▶</span> Photos
           </h3>
           <div id="photos-content" class="section-content" style="display: none;">
             <div class="settings-row compact">
-              <div class="settings-label">Select Album:</div>
+              <div class="settings-label">Transition Time:</div>
               <div class="settings-control">
-                <select class="album-select" id="photo-album" disabled>
-                  <option>Family Photos (Coming Soon)</option>
-                </select>
-              </div>
-            </div>
-            <div class="settings-row compact">
-              <div class="settings-label">Transition Time (seconds):</div>
-              <div class="settings-control">
-                <input type="number" class="number-input" id="photo-transition" min="5" max="120" value="${settings.photoTransitionTime}">
+                <input type="number" class="number-input" id="photo-transition" min="5" max="60" value="${settings.photoTransitionTime}">
+                <span class="unit-label">seconds</span>
               </div>
             </div>
           </div>
@@ -461,7 +512,7 @@ function saveSettingsAndClose() {
   // Update photo widget if it exists
   updatePhotoWidget();
   
-  saveSettings();
+  saveSettings(); // Now uses Firebase!
   closeSettings();
 }
 
@@ -584,28 +635,103 @@ export function handleSettingsEnter() {
     });
   
   const focused = focusable[settingsFocus.index];
+  if (!focused) return;
   
-  if (focused) {
-    if (focused.classList.contains('section-header')) {
-      const sectionId = focused.dataset.section;
-      toggleSection(sectionId);
-    } else if (focused.classList.contains('time-period')) {
-      focused.click();
-    } else if (focused.classList.contains('settings-button') || focused.classList.contains('settings-close')) {
-      focused.click();
-    } else if (focused.classList.contains('time-input') || focused.classList.contains('number-input')) {
-      focused.focus();
-      focused.select();
-    } else if (focused.classList.contains('url-select') || focused.classList.contains('album-select') || focused.classList.contains('theme-select')) {
-      focused.focus();
-    }
+  if (focused.classList.contains('section-header')) {
+    // Toggle section
+    const sectionId = focused.dataset.section;
+    toggleSection(sectionId);
+  } else if (focused.classList.contains('time-period')) {
+    // Toggle AM/PM
+    togglePeriod(focused.id);
+  } else if (focused.tagName === 'BUTTON') {
+    // Click button
+    focused.click();
+  } else if (focused.tagName === 'SELECT') {
+    // For selects, we could implement dropdown navigation
+    // For now, just focus it
+    focused.focus();
+  } else if (focused.tagName === 'INPUT') {
+    // Focus input for editing
+    focused.focus();
+    focused.select();
   }
 }
 
-// ---------------------
-// PUBLIC API
-// ---------------------
-
+// Check if settings modal is open
 export function isSettingsOpen() {
   return settingsModal !== null;
+}
+
+// ---------------------
+// NEW FIREBASE FUNCTIONS
+// ---------------------
+
+export function initializeSettings() {
+  if (window.dashieAuth && window.dashieAuth.isAuthenticated()) {
+    initializeFirebaseSettings();
+  } else {
+    document.addEventListener('dashie-auth-ready', () => {
+      initializeFirebaseSettings();
+    });
+    loadSettingsLocal();
+  }
+}
+
+export function getSettings() {
+  return { ...settings };
+}
+
+export function updateSetting(key, value) {
+  settings[key] = value;
+  saveSettings();
+}
+
+function updateSettingsModalValues() {
+  if (!settingsModal) return;
+  
+  const themeSelect = settingsModal.querySelector('#theme-select');
+  if (themeSelect) themeSelect.value = settings.theme;
+  
+  // Update sleep time
+  const sleepHour = settingsModal.querySelector('#sleep-hour');
+  const sleepMinute = settingsModal.querySelector('#sleep-minute');
+  if (sleepHour && sleepMinute) {
+    const displayHour = settings.sleepTime.hour > 12 ? settings.sleepTime.hour - 12 : 
+                      settings.sleepTime.hour === 0 ? 12 : settings.sleepTime.hour;
+    sleepHour.value = displayHour;
+    sleepMinute.value = settings.sleepTime.minute;
+  }
+  
+  // Update wake time
+  const wakeHour = settingsModal.querySelector('#wake-hour');
+  const wakeMinute = settingsModal.querySelector('#wake-minute');
+  if (wakeHour && wakeMinute) {
+    const displayHour = settings.wakeTime.hour > 12 ? settings.wakeTime.hour - 12 : 
+                      settings.wakeTime.hour === 0 ? 12 : settings.wakeTime.hour;
+    wakeHour.value = displayHour;
+    wakeMinute.value = settings.wakeTime.minute;
+  }
+  
+  // Update other fields
+  const resleepDelay = settingsModal.querySelector('#resleep-delay');
+  if (resleepDelay) resleepDelay.value = settings.resleepDelay;
+  
+  const redirectUrl = settingsModal.querySelector('#redirect-url');
+  if (redirectUrl) redirectUrl.value = settings.redirectUrl;
+  
+  const photoTransition = settingsModal.querySelector('#photo-transition');
+  if (photoTransition) photoTransition.value = settings.photoTransitionTime;
+}
+
+export function cleanupSettings() {
+  if (realTimeUnsubscribe) {
+    realTimeUnsubscribe();
+    realTimeUnsubscribe = null;
+  }
+  
+  if (firebaseStorage) {
+    firebaseStorage.unsubscribeAll();
+    firebaseStorage = null;
+  }
 }
