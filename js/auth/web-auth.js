@@ -86,7 +86,8 @@ export class WebAuth {
       response_type: 'token', // This gives us access_token in URL fragment
       scope: this.config.scope,
       state: 'oauth-flow', // To identify OAuth return
-      prompt: 'none' // Don't show account picker again
+      // REMOVED: prompt: 'none' - this was causing interaction_required error
+      include_granted_scopes: 'true' // Include previously granted scopes
     });
 
     const oauthUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
@@ -94,10 +95,48 @@ export class WebAuth {
     window.location.href = oauthUrl;
   }
 
-  async handleOAuthCallback() {
+   async handleOAuthCallback() {
     // Check if we're returning from OAuth (access token in URL fragment)
     const urlFragment = window.location.hash;
     const urlParams = new URLSearchParams(window.location.search);
+    
+    // Also check for errors in the URL
+    const errorInFragment = urlFragment.includes('error=');
+    const errorInQuery = urlParams.get('error');
+    
+    if (errorInFragment || errorInQuery) {
+      console.log('🔐 OAuth callback has error, handling...');
+      
+      // Extract error details
+      let errorDetails = {};
+      if (errorInFragment) {
+        const fragmentParams = new URLSearchParams(urlFragment.substring(1));
+        errorDetails.error = fragmentParams.get('error');
+        errorDetails.error_description = fragmentParams.get('error_description');
+        errorDetails.error_subtype = fragmentParams.get('error_subtype');
+      } else {
+        errorDetails.error = urlParams.get('error');
+        errorDetails.error_description = urlParams.get('error_description');
+      }
+      
+      console.error('🔐 OAuth error details:', errorDetails);
+      
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      // Clear any stored user data
+      sessionStorage.removeItem('pending-user-data');
+      
+      // Notify auth manager of failure
+      if (window.handleWebAuth) {
+        window.handleWebAuth({
+          success: false,
+          error: `OAuth failed: ${errorDetails.error} - ${errorDetails.error_description || 'Please try again'}`
+        });
+      }
+      
+      return true; // We handled the error callback
+    }
     
     if (urlFragment.includes('access_token') || urlParams.get('state') === 'oauth-flow') {
       console.log('🔐 Handling OAuth callback...');
@@ -145,12 +184,12 @@ export class WebAuth {
           }
         }
         
-        // If we got here, OAuth failed
-        console.error('🔐 OAuth callback failed - no access token or user data');
+        // If we got here, OAuth succeeded but no access token
+        console.error('🔐 OAuth callback succeeded but no access token found');
         if (window.handleWebAuth) {
           window.handleWebAuth({
             success: false,
-            error: 'OAuth flow failed'
+            error: 'No access token received from OAuth'
           });
         }
         
