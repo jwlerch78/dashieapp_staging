@@ -22,27 +22,55 @@ export class SimpleSupabaseStorage {
     });
   }
 
-  // Get Google access token from your auth system
-  getGoogleAccessToken() {
-    // Try to get token from auth manager first
-    if (window.dashieAuth?.getGoogleAccessToken) {
-      const token = window.dashieAuth.getGoogleAccessToken();
-      if (token) {
-        console.log('🔐 Found Google access token from auth manager');
-        return token;
-      }
+// Enhanced Google access token retrieval with better debugging
+getGoogleAccessToken() {
+  console.log('🔐 🔍 SUPABASE: Starting token search...');
+  
+  // Method 1: Try to get token from auth manager first
+  if (window.dashieAuth?.getGoogleAccessToken) {
+    const token = window.dashieAuth.getGoogleAccessToken();
+    if (token) {
+      console.log('🔐 ✅ SUPABASE: Found Google access token from auth manager');
+      console.log('🔐 Token length:', token.length);
+      console.log('🔐 Token preview:', token.substring(0, 30) + '...');
+      return token;
+    } else {
+      console.log('🔐 ❌ SUPABASE: Auth manager returned null/undefined token');
     }
-    
-    // Fallback: try to get from user object
-    const user = window.dashieAuth?.getUser();
-    if (user?.googleAccessToken) {
-      console.log('🔐 Found Google access token from user data');
-      return user.googleAccessToken;
-    }
-    
-    console.warn('🔐 No Google access token found - will use non-RLS mode');
-    return null;
+  } else {
+    console.log('🔐 ❌ SUPABASE: No dashieAuth.getGoogleAccessToken method available');
   }
+  
+  // Method 2: Fallback - try to get from user object
+  const user = window.dashieAuth?.getUser();
+  console.log('🔐 🔍 SUPABASE: User object check:', {
+    hasUser: !!user,
+    userId: user?.id,
+    authMethod: user?.authMethod,
+    hasGoogleAccessToken: !!user?.googleAccessToken,
+    userKeys: user ? Object.keys(user) : null
+  });
+  
+  if (user?.googleAccessToken) {
+    console.log('🔐 ✅ SUPABASE: Found Google access token from user data');
+    console.log('🔐 Token length:', user.googleAccessToken.length);
+    console.log('🔐 Token preview:', user.googleAccessToken.substring(0, 30) + '...');
+    return user.googleAccessToken;
+  }
+  
+  // Method 3: Additional debugging - check if dashieAuth exists at all
+  console.log('🔐 🔍 SUPABASE: Auth system debug:', {
+    hasDashieAuth: !!window.dashieAuth,
+    dashieAuthType: typeof window.dashieAuth,
+    dashieAuthMethods: window.dashieAuth ? Object.getOwnPropertyNames(Object.getPrototypeOf(window.dashieAuth)) : null,
+    hasGetUser: !!window.dashieAuth?.getUser,
+    hasGetGoogleAccessToken: !!window.dashieAuth?.getGoogleAccessToken
+  });
+  
+  console.warn('🔐 ❌ SUPABASE: No Google access token found - will use non-RLS mode');
+  console.warn('🔐 Available methods tried: auth manager, user object');
+  return null;
+}
 
   // Get Supabase auth token from Google OAuth via Edge Function
   async ensureSupabaseAuth() {
