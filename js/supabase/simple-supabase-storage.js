@@ -1,4 +1,4 @@
-// js/supabase/simple-supabase-storage.js - Supabase as Database Only
+// js/supabase/simple-supabase-storage.js - Complete Storage with RLS Support
 
 import { supabase } from './supabase-config.js';
 
@@ -8,6 +8,8 @@ export class SimpleSupabaseStorage {
     this.userEmail = userEmail;
     this.localStorageKey = 'dashie-settings';
     this.isOnline = navigator.onLine;
+    this.supabaseAuthToken = null;
+    this.isRLSEnabled = false;
     
     // Listen for online/offline status
     window.addEventListener('online', () => {
@@ -18,6 +20,101 @@ export class SimpleSupabaseStorage {
     window.addEventListener('offline', () => {
       this.isOnline = false;
     });
+  }
+
+  // Get Google access token from your auth system
+  getGoogleAccessToken() {
+    // Try to get token from auth manager first
+    if (window.dashieAuth?.getGoogleAccessToken) {
+      const token = window.dashieAuth.getGoogleAccessToken();
+      if (token) {
+        console.log('🔐 Found Google access token from auth manager');
+        return token;
+      }
+    }
+    
+    // Fallback: try to get from user object
+    const user = window.dashieAuth?.getUser();
+    if (user?.googleAccessToken) {
+      console.log('🔐 Found Google access token from user data');
+      return user.googleAccessToken;
+    }
+    
+    console.warn('🔐 No Google access token found - will use non-RLS mode');
+    return null;
+  }
+
+  // Get Supabase auth token from Google OAuth via Edge Function
+  async ensureSupabaseAuth() {
+    if (this.supabaseAuthToken) {
+      return this.supabaseAuthToken; // Already authenticated
+    }
+
+    try {
+      console.log('🔐 Getting Supabase auth via Edge Function...');
+      
+      const currentUser = window.dashieAuth?.getUser();
+      if (!currentUser) {
+        throw new Error('No authenticated user found');
+      }
+
+      // Get Google access token
+      const googleToken = this.getGoogleAccessToken();
+      if (!googleToken) {
+        throw new Error('No Google access token available');
+      }
+
+      console.log('🔐 Calling Edge Function with user:', currentUser.email);
+
+      // Call your Edge Function - REPLACE WITH YOUR ACTUAL PROJECT URL
+      const response = await fetch(`https://cseaywxcvnxcsypaqaid.supabase.co/functions/v1/hyper-responder`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          googleToken: googleToken,
+          userData: {
+            id: currentUser.id,
+            email: currentUser.email,
+            name: currentUser.name,
+            picture: currentUser.picture,
+            authMethod: currentUser.authMethod
+          }
+        })
+      });
+
+      console.log('🔐 Edge Function response status:', response.status);
+
+      const result = await response.json();
+      console.log('🔐 Edge Function result:', result);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to authenticate with Supabase');
+      }
+
+      this.supabaseAuthToken = result.supabaseToken;
+      
+      // Set the session in Supabase client
+      const { error } = await supabase.auth.setSession({
+        access_token: result.supabaseToken,
+        refresh_token: null
+      });
+
+      if (error) {
+        console.warn('Session set warning:', error);
+      }
+
+      this.isRLSEnabled = true;
+      console.log('🔐 ✅ Supabase RLS authentication established');
+      return this.supabaseAuthToken;
+
+    } catch (error) {
+      console.error('🔐 ❌ Supabase auth failed:', error);
+      console.log('🔐 ⚠️ Falling back to non-RLS mode');
+      this.isRLSEnabled = false;
+      return null;
+    }
   }
 
   // Save settings with hybrid approach (local + cloud)
@@ -72,12 +169,15 @@ export class SimpleSupabaseStorage {
     return null;
   }
 
-  // Save to Supabase using direct database access
+  // Save to Supabase with RLS support
   async saveToSupabase(settings) {
     if (!this.userId) throw new Error('No user ID');
 
     try {
-      // Use upsert to insert or update
+      // Try to establish Supabase auth (won't break if it fails)
+      await this.ensureSupabaseAuth();
+      
+      // Save with current auth status
       const { data, error } = await supabase
         .from('user_settings')
         .upsert({
@@ -95,52 +195,55 @@ export class SimpleSupabaseStorage {
         throw error;
       }
       
-      console.log('📊 Settings saved to Supabase successfully');
+      const mode = this.isRLSEnabled ? '(with RLS auth)' : '(without RLS)';
+      console.log(`📊 Settings saved to Supabase successfully ${mode}`);
       return data;
+      
     } catch (error) {
       console.error('Supabase save failed:', error);
       throw error;
     }
   }
 
-  // Load from Supabase
- async loadFromSupabase() {
-  if (!this.userId) return null;
+  // Load from Supabase with RLS support
+  async loadFromSupabase() {
+    if (!this.userId) return null;
 
-  try {
-    console.log('🔍 Debug: Loading from Supabase for user:', this.userId);
-    
-    // Remove .single() - get array instead
-    const { data, error } = await supabase
-      .from('user_settings')
-      .select('settings, updated_at')
-      .eq('user_id', this.userId);
+    try {
+      // Try to establish auth (optional)
+      await this.ensureSupabaseAuth();
+      
+      console.log('🔍 Loading from Supabase for user:', this.userId);
+      
+      const { data, error } = await supabase
+        .from('user_settings')
+        .select('settings, updated_at')
+        .eq('user_id', this.userId);
 
-    console.log('🔍 Debug: Supabase response:', { data, error });
+      if (error) {
+        console.error('🔍 Supabase load error:', error);
+        throw error;
+      }
 
-    if (error) {
-      console.error('🔍 Debug: Supabase load error:', error);
+      if (data && data.length > 0) {
+        const record = data[0];
+        const mode = this.isRLSEnabled ? '(with RLS auth)' : '(without RLS)';
+        console.log(`📊 Settings loaded from Supabase ${mode}`);
+        return {
+          ...record.settings,
+          lastModified: new Date(record.updated_at).getTime()
+        };
+      } else {
+        console.log('📊 No settings found in Supabase (new user)');
+        return null;
+      }
+
+    } catch (error) {
+      console.error('🔍 Supabase load failed:', error);
       throw error;
     }
-
-    // Check if we got any results
-    if (data && data.length > 0) {
-      const settings = data[0]; // Get first (and only) result
-      console.log('📊 Settings loaded from Supabase');
-      return {
-        ...settings.settings,
-        lastModified: new Date(settings.updated_at).getTime()
-      };
-    } else {
-      console.log('📊 No settings found in Supabase (new user)');
-      return null;
-    }
-
-  } catch (error) {
-    console.error('🔍 Debug: Supabase load failed:', error);
-    throw error;
   }
-}
+
   // Subscribe to real-time changes
   subscribeToChanges(callback) {
     if (!this.userId) return null;
@@ -230,30 +333,4 @@ export class SimpleSupabaseStorage {
   unsubscribeAll() {
     console.log('🧹 Cleaning up Supabase subscriptions');
   }
-}
-
-// js/supabase/simple-supabase-storage.js - Simplified token access
-// Just update this one method in your existing storage class:
-
-// Get Google access token from your auth system
-getGoogleAccessToken() {
-  // Try to get token from auth manager
-  if (window.dashieAuth?.getGoogleAccessToken) {
-    const token = window.dashieAuth.getGoogleAccessToken();
-    if (token) {
-      console.log('🔐 Found Google access token from auth manager');
-      return token;
-    }
-  }
-  
-  // Fallback: try to get from user object
-  const user = window.dashieAuth?.getUser();
-  if (user?.googleAccessToken) {
-    console.log('🔐 Found Google access token from user data');
-    return user.googleAccessToken;
-  }
-  
-  console.warn('🔐 No Google access token found - RLS will not work');
-  console.warn('🔐 Available auth methods will fall back to non-RLS mode');
-  return null;
 }
