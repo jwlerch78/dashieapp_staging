@@ -190,34 +190,46 @@ export class AuthManager {
   }
   
 // ENHANCED: Store access token from any auth method
-  setUserFromAuth(userData, authMethod, tokens = null) {
-    this.currentUser = {
-      id: userData.id,
-      name: userData.name,
-      email: userData.email,
-      picture: userData.picture,
-      signedInAt: Date.now(),
-      authMethod: authMethod
-    };
+setUserFromAuth(userData, authMethod, tokens = null) {
+  this.currentUser = {
+    id: userData.id,
+    name: userData.name,
+    email: userData.email,
+    picture: userData.picture,
+    signedInAt: Date.now(),
+    authMethod: authMethod
+  };
 
-    // NEW: Store Google access token based on auth method
-    if (tokens) {
-      // Device Flow and potentially others pass tokens object
-      this.googleAccessToken = tokens.access_token;
-      console.log('🔐 Stored Google access token from', authMethod);
-    } else if (userData.googleAccessToken) {
-      // Web auth might pass token in user data
-      this.googleAccessToken = userData.googleAccessToken;
-      console.log('🔐 Stored Google access token from user data');
-    } else if (authMethod === 'web' && this.webAuth?.accessToken) {
-      // Get token directly from web auth
-      this.googleAccessToken = this.webAuth.accessToken;
-      console.log('🔐 Stored Google access token from web auth');
-    }
+  // DEBUG: Log what we received
+  console.log('🔍 DEBUG setUserFromAuth:', {
+    authMethod,
+    tokens,
+    userData_has_googleAccessToken: !!userData.googleAccessToken,
+    webAuth_accessToken: this.webAuth?.accessToken
+  });
 
-    // NEW: Notify that auth is ready (for settings initialization)
-    document.dispatchEvent(new CustomEvent('dashie-auth-ready'));
+  // Store Google access token based on auth method
+  if (tokens && tokens.access_token) {
+    this.googleAccessToken = tokens.access_token;
+    console.log('🔐 Stored Google access token from tokens object (', authMethod, ')');
+  } else if (userData.googleAccessToken) {
+    this.googleAccessToken = userData.googleAccessToken;
+    console.log('🔐 Stored Google access token from user data (', authMethod, ')');
+  } else if (authMethod === 'web' && this.webAuth?.accessToken) {
+    this.googleAccessToken = this.webAuth.accessToken;
+    console.log('🔐 Stored Google access token from web auth (', authMethod, ')');
+  } else {
+    console.warn('🔐 ⚠️ No Google access token found for', authMethod);
+    console.warn('🔐 Available:', {
+      tokens_access_token: tokens?.access_token,
+      userData_googleAccessToken: userData?.googleAccessToken,
+      webAuth_accessToken: this.webAuth?.accessToken
+    });
   }
+
+  // Notify that auth is ready
+  document.dispatchEvent(new CustomEvent('dashie-auth-ready'));
+}
 
   createWebViewUser() {
     console.log('🔐 Creating WebView user');
