@@ -1,608 +1,656 @@
-// js/auth/device-flow-auth.js - OAuth Device Flow for Fire TV (Enhanced Debug Version)
+// js/auth/auth-ui.js - Authentication UI Management (Fixed All Issues)
 
-import { AUTH_CONFIG } from './auth-config.js';
-
-export class DeviceFlowAuth {
+export class AuthUI {
   constructor() {
-    this.config = {
-      // Use Fire TV client ID for Device Flow
-      client_id: '221142210647-m9vf7t0qgm6nlc6gggfsqefmjrak1mo9.apps.googleusercontent.com',
-      client_secret: AUTH_CONFIG.client_secret,
-      device_code_endpoint: 'https://oauth2.googleapis.com/device/code',
-      token_endpoint: 'https://oauth2.googleapis.com/token',
-      scope: 'openid email profile'
-    };
-    this.pollInterval = null;
-    this.countdownInterval = null;
+    this.addSignInStyles();
   }
 
-  // Start the device flow authentication
-  async startDeviceFlow() {
-    try {
-      console.log('🔥 Starting OAuth Device Flow...');
-      
-      // Step 1: Get device code and user code
-      const deviceData = await this.getDeviceCode();
-      
-      // Step 2: Show UI and start polling SIMULTANEOUSLY
-      const result = await this.showUIAndPoll(deviceData);
-      
-      return result;
-      
-    } catch (error) {
-      console.error('🔥 Device flow failed:', error);
-      this.cleanup();
-      throw error;
+  showSignInPrompt(onSignIn, onExit = null) {
+    this.hideSignInPrompt();
+    
+    const app = document.getElementById('app');
+    if (app) {
+      app.style.display = 'none';
+      app.classList.remove('authenticated');
     }
-  }
-
-  // Step 1: Get device code from Google
-  async getDeviceCode() {
-    console.log('🔥 Requesting device code from Google...');
     
-    const response = await fetch(this.config.device_code_endpoint, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        client_id: this.config.client_id,
-        scope: this.config.scope
-      })
-    });
-
-    console.log('🔥 Device code response status:', response.status);
+    // FIX 1: Keep light theme for auth even on FireTV
+    document.body.classList.add('temp-light-theme');
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('🔥 Device code request failed:', {
-        status: response.status,
-        statusText: response.statusText,
-        body: errorText
-      });
-      throw new Error(`Failed to get device code: ${response.status} - ${errorText}`);
-    }
-
-    const data = await response.json();
-    console.log('🔥 Device code received successfully:', {
-      user_code: data.user_code,
-      verification_uri: data.verification_uri,
-      verification_url: data.verification_url,
-      expires_in: data.expires_in,
-      interval: data.interval
-    });
-
-    return data;
-  }
-
-  // Step 2: Show UI and start polling concurrently
-  async showUIAndPoll(deviceData) {
-    return new Promise((resolve, reject) => {
-      // Create and show the UI
-      const overlay = this.createDeviceCodeOverlay(deviceData);
-      document.body.appendChild(overlay);
-
-      // Set up cancel handling
-      this.setupDeviceCodeNavigation(overlay, () => {
-        console.log('🔥 User cancelled - cleaning up');
-        this.cleanup(overlay);
-        resolve({ success: false, cancelled: true });
-      });
-
-      // Start countdown
-      this.startCountdown(overlay, deviceData.expires_in);
-
-      // START POLLING IMMEDIATELY - Don't wait for anything
-      console.log('🔥 🚀 STARTING CONCURRENT POLLING');
-      this.startPolling(deviceData.device_code, deviceData.interval, overlay, resolve, reject);
-    });
-  }
-
-  // Step 3: Start polling immediately (runs concurrently with UI)
-  startPolling(deviceCode, interval, overlay, resolve, reject) {
-    let attempts = 0;
-    const maxAttempts = 120; // 10 minutes max
+    // Detect if we're in Fire TV/native environment
+    const isFireTV = this.detectFireTV();
+    const hasNativeAuth = window.DashieNative && typeof window.DashieNative.signIn === 'function';
     
-    console.log('🔥 🚀 STARTING TOKEN POLLING');
-    console.log('🔥 Device code:', deviceCode);
-    console.log('🔥 Interval:', interval);
-    console.log('🔥 Max attempts:', maxAttempts);
-    
-    const poll = async () => {
-      try {
-        attempts++;
-        console.log(`🔥 📡 POLLING ATTEMPT ${attempts}/${maxAttempts}`);
+    const signInOverlay = document.createElement('div');
+    signInOverlay.id = 'sign-in-overlay';
+    signInOverlay.innerHTML = `
+      <div class="sign-in-modal">
+        <img src="icons/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo-signin">
         
-        if (attempts > maxAttempts) {
-          console.log('🔥 ❌ Polling timeout reached');
-          this.cleanup(overlay);
-          reject(new Error('Polling timeout - please try again'));
-          return;
-        }
-        
-        console.log('🔥 📤 Making token request...');
-        
-        const requestBody = new URLSearchParams({
-          client_id: this.config.client_id,
-          client_secret: this.config.client_secret,
-          device_code: deviceCode,
-          grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-        });
-        
-        console.log('🔥 📤 Request body:', requestBody.toString());
-        console.log('🔥 📤 Client ID being used:', this.config.client_id);
-        console.log('🔥 📤 Device code length:', deviceCode.length);
-        console.log('🔥 📤 Grant type:', 'urn:ietf:params:oauth:grant-type:device_code');
-        
-        const response = await fetch(this.config.token_endpoint, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: requestBody
-        });
-        
-        console.log('🔥 📥 Token response status:', response.status);
-        console.log('🔥 📥 Token response ok:', response.ok);
-        console.log('🔥 📥 Token response headers:', Object.fromEntries(response.headers.entries()));
-        
-        const data = await response.json();
-        console.log('🔥 📥 Token response data:', {
-          hasAccessToken: !!data.access_token,
-          error: data.error,
-          errorDescription: data.error_description,
-          fullResponse: data
-        });
-        
-        if (response.ok && data.access_token) {
-          // Success!
-          console.log('🔥 ✅ ACCESS TOKEN RECEIVED! Authentication successful!');
-          
-          try {
-            console.log('🔥 👤 Getting user info...');
-            const userInfo = await this.getUserInfo(data.access_token);
-            this.cleanup(overlay);
-            resolve({
-              success: true,
-              user: userInfo,
-              tokens: data
-            });
-            return;
-          } catch (userError) {
-            console.error('🔥 ❌ Failed to get user info:', userError);
-            this.cleanup(overlay);
-            reject(new Error('Failed to get user information'));
-            return;
-          }
-          
-        } else if (data.error === 'authorization_pending') {
-          // Still waiting for user to authorize
-          console.log('🔥 ⏳ Still waiting for authorization... scheduling next poll in', interval, 'seconds');
-          this.pollInterval = setTimeout(poll, interval * 1000);
-          
-        } else if (data.error === 'slow_down') {
-          // Increase polling interval
-          const newInterval = interval + 5;
-          console.log('🔥 🐌 Slowing down polling to', newInterval, 'seconds...');
-          this.pollInterval = setTimeout(poll, newInterval * 1000);
-          
-        } else if (data.error === 'invalid_request' && data.error_description?.includes('client_secret')) {
-          // Client secret error - try without it
-          console.log('🔥 🔧 Retrying without client_secret parameter...');
-          
-          const retryBody = new URLSearchParams({
-            client_id: this.config.client_id,
-            device_code: deviceCode,
-            grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
-          });
-          
-          console.log('🔥 📤 Retry request body (no client_secret):', retryBody.toString());
-          
-          const retryResponse = await fetch(this.config.token_endpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: retryBody
-          });
-          
-          const retryData = await retryResponse.json();
-          console.log('🔥 📥 Retry response:', retryData);
-          
-          if (retryResponse.ok && retryData.access_token) {
-            console.log('🔥 ✅ ACCESS TOKEN RECEIVED on retry!');
-            try {
-              const userInfo = await this.getUserInfo(retryData.access_token);
-              this.cleanup(overlay);
-              resolve({
-                success: true,
-                user: userInfo,
-                tokens: retryData
-              });
-              return;
-            } catch (userError) {
-              console.error('🔥 ❌ Failed to get user info on retry:', userError);
-              this.cleanup(overlay);
-              reject(new Error('Failed to get user information'));
-              return;
-            }
-          } else if (retryData.error === 'authorization_pending') {
-            console.log('🔥 ⏳ Still pending on retry... continuing polling');
-            this.pollInterval = setTimeout(poll, interval * 1000);
-          } else {
-            console.log('🔥 ❌ Retry also failed:', retryData);
-            this.cleanup(overlay);
-            reject(new Error(retryData.error_description || retryData.error || 'Authentication failed'));
-          }
-          
-        } else {
-          // Other error
-          console.log('🔥 ❌ Authentication error:', data.error, data.error_description);
-          this.cleanup(overlay);
-          reject(new Error(data.error_description || data.error || 'Authentication failed'));
-        }
-        
-      } catch (error) {
-        console.error('🔥 ❌ Polling fetch error:', error);
-        console.log('🔥 🔄 Retrying polling in', interval, 'seconds...');
-        this.pollInterval = setTimeout(poll, interval * 1000);
-      }
-    };
-    
-    // Start polling immediately
-    console.log('🔥 🎬 Starting first poll NOW...');
-    poll();
-  }
-
-  createDeviceCodeOverlay(deviceData) {
-    const overlay = document.createElement('div');
-    overlay.id = 'device-flow-overlay';
-    
-    // Extract the correct URL field from Google's response
-    const verificationUrl = deviceData.verification_uri || deviceData.verification_url || 'https://www.google.com/device';
-    
-    console.log('🔥 Device Flow Data received:', {
-      verification_uri: deviceData.verification_uri,
-      verification_url: deviceData.verification_url,
-      user_code: deviceData.user_code,
-      device_code: deviceData.device_code,
-      expires_in: deviceData.expires_in,
-      interval: deviceData.interval,
-      finalUrl: verificationUrl
-    });
-    
-    overlay.innerHTML = `
-      <div class="device-flow-modal">
-        <img src="icons/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo">
-        
-        <div class="device-flow-header">
-          <h2>Sign in with Google</h2>
-          <p>Use your phone or computer to complete sign-in</p>
+        <div class="sign-in-header">
+          <h2>Welcome to Dashie!</h2>
+          <p>Helping active families manage the chaos</p>
         </div>
         
-        <div class="device-flow-content">
-          <div class="step-instructions">
-            <div class="step">
-              <span class="step-number">1</span>
-              <div>
-                <p>On your phone or computer, go to:</p>
-                <div class="verification-url">${verificationUrl}</div>
-              </div>
-            </div>
-            
-            <div class="step">
-              <span class="step-number">2</span>
-              <div>
-                <p>Enter this code:</p>
-                <div class="user-code">${deviceData.user_code}</div>
-              </div>
-            </div>
-            
-            <div class="step">
-              <span class="step-number">3</span>
-              <div>
-                <p>Complete the sign-in process</p>
-                <p style="font-size: 14px; color: #666; margin-top: 8px;">This window will automatically close when you finish signing in.</p>
-              </div>
-            </div>
-          </div>
+        <div class="sign-in-content">
+          ${this.getSignInButtonHTML(hasNativeAuth, isFireTV)}
           
-          <div class="device-flow-status">
-            <div class="loading-spinner"></div>
-            <p>Waiting for sign-in... (polling every ${deviceData.interval || 5} seconds)</p>
-          </div>
-          
-          <div class="device-flow-buttons">
-            <button id="cancel-device-flow" class="device-flow-button secondary" tabindex="1">
-              Cancel
-            </button>
-          </div>
+          ${onExit ? `
+          <button id="exit-app-btn" class="signin-button secondary" tabindex="2" ${isFireTV ? 'autofocus' : ''}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+            </svg>
+            Exit
+          </button>
+          ` : ''}
         </div>
         
-        <div class="device-flow-footer">
-          <p>Code expires in <span id="countdown">${Math.floor(deviceData.expires_in / 60)}</span> minutes</p>
+        <div class="sign-in-footer">
+          <p>Your data stays private and secure</p>
         </div>
       </div>
     `;
-
-    // Apply styles
-    this.applyDeviceFlowStyles(overlay);
     
-    return overlay;
+    this.styleSignInOverlay(signInOverlay);
+    document.body.appendChild(signInOverlay);
+    
+    this.setupSignInEventHandlers(onSignIn, onExit, hasNativeAuth, isFireTV);
   }
 
-  applyDeviceFlowStyles(overlay) {
+  getSignInButtonHTML(hasNativeAuth, isFireTV) {
+    if (hasNativeAuth) {
+      // FIX 2: Native auth - white button with colored G logo (same as Exit style)
+      return `
+        <button id="native-signin-btn" class="signin-button secondary fire-tv-button" tabindex="1">
+          <svg class="google-logo" width="20" height="20" viewBox="0 0 24 24">
+            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+          </svg>
+          <span>Sign in with Google</span>
+        </button>
+      `;
+    } else {
+      // FIX 3: Web auth - white button with colored G logo, full width
+      return `
+        <div id="web-signin-container">
+          <div id="google-signin-button" class="full-width-google-button"></div>
+          <button id="custom-signin-btn" class="signin-button secondary" style="display: none;" tabindex="1">
+            <svg class="google-logo" width="20" height="20" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+            </svg>
+            <span>Sign in with Google</span>
+          </button>
+        </div>
+      `;
+    }
+  }
+
+  setupSignInEventHandlers(onSignIn, onExit, hasNativeAuth, isFireTV) {
+    if (hasNativeAuth) {
+      // Native auth button setup
+      const signInBtn = document.getElementById('native-signin-btn');
+      if (signInBtn) {
+        // Click handler
+        signInBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          onSignIn();
+        });
+        
+        // Keyboard/D-pad handler
+        signInBtn.addEventListener('keydown', (e) => {
+          console.log('🔐 Sign-in button keydown:', e.keyCode, e.key);
+          if (e.keyCode === 13 || e.keyCode === 23 || e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            onSignIn();
+          }
+        });
+        
+        // Auto-focus for Fire TV
+        if (isFireTV) {
+          setTimeout(() => {
+            signInBtn.focus();
+            console.log('🔐 Auto-focused sign-in button');
+          }, 200);
+        }
+      }
+    } else {
+      // Web auth setup - try Google button first
+      this.setupWebAuth(onSignIn);
+    }
+    
+    // Exit button setup
+    if (onExit) {
+      const exitBtn = document.getElementById('exit-app-btn');
+      if (exitBtn) {
+        exitBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          onExit();
+        });
+        
+        exitBtn.addEventListener('keydown', (e) => {
+          console.log('🔐 Exit button keydown:', e.keyCode, e.key);
+          if (e.keyCode === 13 || e.keyCode === 23 || e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            onExit();
+          }
+        });
+      }
+    }
+
+    // Add global keydown handler for Fire TV navigation
+    if (isFireTV) {
+      this.setupFireTVNavigation();
+    }
+  }
+
+  setupWebAuth(onSignIn) {
+    // Try to render Google's button immediately
+    if (window.google && google.accounts && google.accounts.id) {
+      this.renderGoogleButton(onSignIn);
+    } else {
+      // Show custom button immediately, try to load Google API
+      this.showCustomButton(onSignIn);
+      this.loadGoogleAPIAndTryRender(onSignIn);
+    }
+  }
+
+  renderGoogleButton(onSignIn) {
+    try {
+      const container = document.getElementById('google-signin-button');
+      if (container) {
+        google.accounts.id.renderButton(container, {
+          theme: 'outline',
+          size: 'large',
+          type: 'standard',
+          text: 'signin_with',
+          shape: 'rectangular',
+          width: '100%'
+        });
+        console.log('🔐 Rendered Google official button');
+      }
+    } catch (error) {
+      console.log('🔐 Google button failed, using custom:', error);
+      this.showCustomButton(onSignIn);
+    }
+  }
+
+  showCustomButton(onSignIn) {
+    const customBtn = document.getElementById('custom-signin-btn');
+    const googleContainer = document.getElementById('google-signin-button');
+    
+    if (customBtn && googleContainer) {
+      googleContainer.style.display = 'none';
+      customBtn.style.display = 'flex';
+      customBtn.addEventListener('click', onSignIn);
+      console.log('🔐 Using custom sign-in button');
+    }
+  }
+
+  loadGoogleAPIAndTryRender(onSignIn) {
+    // Try to load Google API in background
+    setTimeout(() => {
+      if (window.google && google.accounts && google.accounts.id) {
+        const customBtn = document.getElementById('custom-signin-btn');
+        const googleContainer = document.getElementById('google-signin-button');
+        
+        if (customBtn && googleContainer && customBtn.style.display !== 'none') {
+          try {
+            // Hide custom button and show Google button
+            customBtn.style.display = 'none';
+            googleContainer.style.display = 'block';
+            this.renderGoogleButton(onSignIn);
+            console.log('🔐 Switched to Google button');
+          } catch (error) {
+            // Keep custom button if Google fails
+            customBtn.style.display = 'flex';
+            googleContainer.style.display = 'none';
+          }
+        }
+      }
+    }, 1000);
+  }
+
+  setupFireTVNavigation() {
+    const handleFireTVKey = (e) => {
+      console.log('🔐 Fire TV key event:', e.keyCode, e.key);
+      
+      const signInBtn = document.getElementById('native-signin-btn');
+      const exitBtn = document.getElementById('exit-app-btn');
+      const focusedElement = document.activeElement;
+      
+      switch (e.keyCode) {
+        case 40: // D-pad down
+          e.preventDefault();
+          if (focusedElement === signInBtn && exitBtn) {
+            exitBtn.focus();
+          } else if (signInBtn) {
+            signInBtn.focus();
+          }
+          break;
+          
+        case 38: // D-pad up
+          e.preventDefault();
+          if (focusedElement === exitBtn && signInBtn) {
+            signInBtn.focus();
+          } else if (exitBtn) {
+            exitBtn.focus();
+          }
+          break;
+      }
+    };
+    
+    // Add event listener to document for Fire TV navigation
+    document.addEventListener('keydown', handleFireTVKey, true);
+    
+    // Store reference to remove later
+    this.fireTVKeyHandler = handleFireTVKey;
+  }
+
+  detectFireTV() {
+    const userAgent = navigator.userAgent;
+    return userAgent.includes('AFTS') || userAgent.includes('FireTV') || 
+           userAgent.includes('AFT') || userAgent.includes('AFTMM') ||
+           userAgent.includes('AFTRS') || userAgent.includes('AFTSS') ||
+           window.DashieNative !== undefined;
+  }
+
+  showWebViewAuthPrompt(onContinue, onExit = null) {
+    this.hideSignInPrompt();
+    
+    const app = document.getElementById('app');
+    if (app) {
+      app.style.display = 'none';
+      app.classList.remove('authenticated');
+    }
+    
+    document.body.classList.add('temp-light-theme');
+    
+    const signInOverlay = document.createElement('div');
+    signInOverlay.id = 'sign-in-overlay';
+    signInOverlay.innerHTML = `
+      <div class="sign-in-modal">
+        <img src="icons/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo-signin">
+        
+        <div class="sign-in-header">
+          <h2>Welcome to Dashie!</h2>
+          <p>Running in WebView mode</p>
+        </div>
+        
+        <div class="sign-in-content">
+          <p style="color: #616161; margin-bottom: 20px; font-size: 14px;">
+            Google authentication is not available in this environment. 
+            You can continue with limited functionality.
+          </p>
+          
+          <button id="webview-continue-btn" class="signin-button primary" tabindex="1">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            Continue to Dashboard
+          </button>
+          
+          ${onExit ? `
+          <button id="exit-app-btn" class="signin-button secondary" tabindex="2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+            </svg>
+            Exit
+          </button>
+          ` : ''}
+        </div>
+        
+        <div class="sign-in-footer">
+          <p>Your data stays private and secure</p>
+        </div>
+      </div>
+    `;
+    
+    this.styleSignInOverlay(signInOverlay);
+    document.body.appendChild(signInOverlay);
+    
+    // Add event listeners
+    document.getElementById('webview-continue-btn').addEventListener('click', onContinue);
+    
+    if (onExit) {
+      document.getElementById('exit-app-btn').addEventListener('click', onExit);
+    }
+  }
+
+  showAuthError(message, allowContinue = false) {
+    this.hideSignInPrompt();
+    
+    const app = document.getElementById('app');
+    if (app) {
+      app.style.display = 'none';
+      app.classList.remove('authenticated');
+    }
+    
+    document.body.classList.add('temp-light-theme');
+    
+    const errorOverlay = document.createElement('div');
+    errorOverlay.id = 'sign-in-overlay';
+    errorOverlay.innerHTML = `
+      <div class="sign-in-modal">
+        <img src="icons/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo-signin">
+        
+        <div class="sign-in-header">
+          <h2>Authentication Error</h2>
+          <p style="color: #d32f2f !important;">${message}</p>
+        </div>
+        
+        <div class="sign-in-content">
+          ${allowContinue ? `
+          <button id="continue-anyway-btn" class="signin-button primary" tabindex="1">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+            </svg>
+            Continue Anyway
+          </button>
+          ` : ''}
+          
+          <button id="retry-auth-btn" class="signin-button ${allowContinue ? 'secondary' : 'primary'}" tabindex="${allowContinue ? '2' : '1'}">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+            </svg>
+            Try Again
+          </button>
+        </div>
+      </div>
+    `;
+    
+    this.styleSignInOverlay(errorOverlay);
+    document.body.appendChild(errorOverlay);
+    
+    // FIX 4: Add proper FireTV navigation and focus for error buttons
+    this.setupErrorButtonNavigation(allowContinue);
+    
+    // Add event listeners
+    const retryBtn = document.getElementById('retry-auth-btn');
+    if (retryBtn) {
+      retryBtn.addEventListener('click', () => {
+        window.location.reload();
+      });
+      
+      // Auto-focus retry button
+      setTimeout(() => {
+        retryBtn.focus();
+      }, 200);
+    }
+    
+    if (allowContinue) {
+      const continueBtn = document.getElementById('continue-anyway-btn');
+      if (continueBtn) {
+        continueBtn.addEventListener('click', () => {
+          // Create a temporary user and continue
+          if (window.dashieAuth && window.dashieAuth.authManager) {
+            window.dashieAuth.authManager.createWebViewUser();
+          }
+        });
+      }
+    }
+  }
+
+  // FIX 4: Setup navigation for error buttons
+  setupErrorButtonNavigation(allowContinue) {
+    const handleErrorNavigation = (e) => {
+      const continueBtn = document.getElementById('continue-anyway-btn');
+      const retryBtn = document.getElementById('retry-auth-btn');
+      const focusedElement = document.activeElement;
+      
+      switch (e.keyCode) {
+        case 40: // D-pad down
+        case 38: // D-pad up
+          e.preventDefault();
+          if (allowContinue) {
+            if (focusedElement === continueBtn && retryBtn) {
+              retryBtn.focus();
+            } else if (focusedElement === retryBtn && continueBtn) {
+              continueBtn.focus();
+            } else if (continueBtn) {
+              continueBtn.focus();
+            }
+          }
+          break;
+          
+        case 13: // Enter
+        case 23: // FireTV Select
+          e.preventDefault();
+          if (focusedElement === retryBtn) {
+            retryBtn.click();
+          } else if (focusedElement === continueBtn) {
+            continueBtn.click();
+          }
+          break;
+      }
+    };
+    
+    document.addEventListener('keydown', handleErrorNavigation, true);
+    
+    // Store reference for cleanup
+    this.errorNavHandler = handleErrorNavigation;
+  }
+
+  hideSignInPrompt() {
+    // Remove Fire TV key handler if it exists
+    if (this.fireTVKeyHandler) {
+      document.removeEventListener('keydown', this.fireTVKeyHandler, true);
+      this.fireTVKeyHandler = null;
+    }
+    
+    // Remove error navigation handler if it exists
+    if (this.errorNavHandler) {
+      document.removeEventListener('keydown', this.errorNavHandler, true);
+      this.errorNavHandler = null;
+    }
+    
+    const overlay = document.getElementById('sign-in-overlay');
+    if (overlay) {
+      overlay.remove();
+    }
+    document.body.classList.remove('temp-light-theme');
+  }
+
+  showSignedInState() {
+    this.hideSignInPrompt();
+    this.showDashboard();
+  }
+
+  showDashboard() {
+    const app = document.getElementById('app');
+    if (app) {
+      app.style.display = 'flex';
+      app.classList.add('authenticated');
+    }
+  }
+
+  styleSignInOverlay(overlay) {
     overlay.style.cssText = `
       position: fixed;
       top: 0;
       left: 0;
       width: 100%;
       height: 100%;
-      background: rgba(0, 0, 0, 0.9);
+      background: rgba(0, 0, 0, 0.8);
       display: flex;
       align-items: center;
       justify-content: center;
-      z-index: 10000;
+      z-index: 9999;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     `;
+  }
 
+  addSignInStyles() {
+    if (document.querySelector('#auth-ui-styles')) return;
+    
     const style = document.createElement('style');
+    style.id = 'auth-ui-styles';
     style.textContent = `
-      .device-flow-modal {
-        background: #FCFCFF;
-        border-radius: 16px;
+      /* Force light theme for sign-in modals */
+      .temp-light-theme .sign-in-modal,
+      .sign-in-modal {
+        background: #FCFCFF !important;
+        border-radius: 12px;
         padding: 40px;
-        max-width: 600px;
+        max-width: 400px;
         width: 90%;
         text-align: center;
-        color: #424242;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        color: #424242 !important;
       }
       
-      .dashie-logo {
-        width: 120px;
+      .dashie-logo-signin {
+        width: 150px !important;
         height: auto;
-        margin-bottom: 24px;
+        margin: 0 auto 20px auto;
+        display: block;
       }
       
-      .device-flow-header h2 {
-        margin: 0 0 8px 0;
+      .sign-in-header h2 {
+        color: #424242 !important;
+        margin: 0 0 10px 0;
         font-size: 28px;
         font-weight: bold;
-        color: #424242;
       }
       
-      .device-flow-header p {
-        margin: 0 0 32px 0;
+      .sign-in-header p {
+        color: #616161 !important;
+        margin: 0 0 30px 0;
         font-size: 16px;
-        color: #616161;
+        font-style: italic;
       }
       
-      .step-instructions {
-        margin-bottom: 32px;
+      .sign-in-content {
+        margin: 30px 0;
       }
       
-      .step {
-        display: flex;
-        align-items: flex-start;
-        margin-bottom: 24px;
-        text-align: left;
-      }
-      
-      .step-number {
-        background: #1a73e8;
-        color: white;
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        margin-right: 16px;
-        flex-shrink: 0;
-        margin-top: 4px;
-      }
-      
-      .step p {
-        margin: 0 0 8px 0;
-        font-size: 16px;
-        color: #424242;
-      }
-      
-      .verification-url {
-        background: #f8f9fa;
-        padding: 12px 16px;
-        border-radius: 8px;
-        font-family: 'Monaco', 'Menlo', monospace;
-        font-size: 18px;
-        font-weight: bold;
-        color: #1a73e8;
-        border: 2px solid #e8f0fe;
-        margin-top: 8px;
-      }
-      
-      .user-code {
-        background: #fff3e0;
-        padding: 16px 24px;
-        border-radius: 8px;
-        font-family: 'Monaco', 'Menlo', monospace;
-        font-size: 32px;
-        font-weight: bold;
-        color: #ff8f00;
-        border: 2px solid #ffcc02;
-        letter-spacing: 4px;
-        margin-top: 8px;
-      }
-      
-      .device-flow-status {
+      /* Enhanced button styling - ALL BUTTONS SAME STYLE */
+      .signin-button {
         display: flex;
         align-items: center;
         justify-content: center;
         gap: 12px;
-        margin: 24px 0;
-        padding: 16px;
-        background: #f0f8ff;
-        border-radius: 8px;
-      }
-      
-      .loading-spinner {
-        width: 20px;
-        height: 20px;
-        border: 2px solid #e3f2fd;
-        border-top: 2px solid #1a73e8;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-      }
-      
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-      
-      .device-flow-button {
-        padding: 12px 24px;
-        border: none;
-        border-radius: 8px;
+        width: 100%;
+        padding: 12px 20px;
+        background: white;
+        color: #5f6368;
+        border: 1px solid #dadce0;
+        border-radius: 6px;
         font-size: 16px;
         font-weight: 500;
         cursor: pointer;
         transition: all 0.2s ease;
+        margin-top: 15px;
         outline: none;
       }
       
-      .device-flow-button.secondary {
+      .signin-button:hover,
+      .signin-button:focus {
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         background: #f8f9fa;
+        transform: translateY(-1px);
+      }
+      
+      .signin-button.primary {
+        background: #1a73e8;
+        color: white;
+        border: 1px solid #1a73e8;
+      }
+      
+      .signin-button.primary:hover,
+      .signin-button.primary:focus {
+        background: #1557b0;
+        border: 1px solid #1557b0;
+        box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
+      }
+      
+      .signin-button.secondary {
+        background: white;
         color: #5f6368;
         border: 1px solid #dadce0;
       }
       
-      .device-flow-button.secondary:hover,
-      .device-flow-button.secondary:focus {
-        background: #f1f3f4;
-        outline: 3px solid #ffaa00;
-        transform: scale(1.02);
+      .signin-button.secondary:hover,
+      .signin-button.secondary:focus {
+        background: #f8f9fa;
+        border: 1px solid #bdc1c6;
       }
       
-      .device-flow-footer {
-        margin-top: 24px;
-        padding-top: 24px;
-        border-top: 1px solid #e8eaed;
+      /* FIX 2 & 3: ALL BUTTONS GET ORANGE FOCUS - Fire TV and regular */
+      .fire-tv-button:focus,
+      .signin-button:focus {
+        outline: 3px solid #ffaa00 !important;
+        outline-offset: 2px;
+        transform: scale(1.02) !important;
+        box-shadow: 0 0 15px rgba(255, 170, 0, 0.5) !important;
       }
       
-      .device-flow-footer p {
-        margin: 0;
+      /* FIX 3: Google Sign-In button container styling - FULL WIDTH */
+      #google-signin-button,
+      .full-width-google-button {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        margin-top: 15px;
+        width: 100% !important;
+      }
+      
+      #google-signin-button > div,
+      .full-width-google-button > div {
+        margin: 0 !important;
+        width: 100% !important;
+        min-width: 100% !important;
+      }
+      
+      /* Force Google's button to full width */
+      #google-signin-button iframe,
+      .full-width-google-button iframe {
+        width: 100% !important;
+        min-width: 100% !important;
+      }
+      
+      #web-signin-container {
+        width: 100%;
+      }
+      
+      /* Fire TV layout adjustments */
+      @media (max-width: 1920px) and (max-height: 1080px) {
+        .sign-in-modal {
+          max-width: 500px;
+          padding: 50px;
+        }
+        
+        .sign-in-header h2 {
+          font-size: 32px;
+        }
+        
+        .signin-button {
+          font-size: 18px;
+          padding: 16px 24px;
+        }
+      }
+      
+      .sign-in-footer p {
+        color: #9e9e9e !important;
         font-size: 14px;
-        color: #9aa0a6;
+        margin: 0;
       }
       
-      #countdown {
-        font-weight: bold;
-        color: #ea4335;
+      /* Error state styling */
+      .sign-in-header p[style*="color: #d32f2f"] {
+        background: #ffebee;
+        padding: 10px;
+        border-radius: 4px;
+        border-left: 4px solid #d32f2f;
       }
     `;
     
     document.head.appendChild(style);
-  }
-
-  setupDeviceCodeNavigation(overlay, onCancel) {
-    const cancelBtn = overlay.querySelector('#cancel-device-flow');
-    
-    // Auto-focus cancel button
-    setTimeout(() => cancelBtn.focus(), 200);
-    
-    // Cancel button handler
-    cancelBtn.addEventListener('click', onCancel);
-    
-    // Keyboard navigation
-    overlay.addEventListener('keydown', (e) => {
-      if (e.keyCode === 4 || e.key === 'Escape') { // Back button
-        e.preventDefault();
-        onCancel();
-      } else if (e.keyCode === 13 || e.keyCode === 23) { // Enter
-        if (document.activeElement === cancelBtn) {
-          onCancel();
-        }
-      }
-    });
-  }
-
-  startCountdown(overlay, expiresIn) {
-    const countdownEl = overlay.querySelector('#countdown');
-    let remaining = expiresIn;
-    
-    const updateCountdown = () => {
-      const minutes = Math.floor(remaining / 60);
-      const seconds = remaining % 60;
-      countdownEl.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-      
-      if (remaining <= 0) {
-        console.log('🔥 ⏰ Device code expired');
-        this.cleanup(overlay);
-        return;
-      }
-      
-      remaining--;
-    };
-    
-    // Update immediately and then every second
-    updateCountdown();
-    this.countdownInterval = setInterval(updateCountdown, 1000);
-  }
-
-  // Step 4: Get user information
-  async getUserInfo(accessToken) {
-    console.log('🔥 👤 Fetching user info...');
-    
-    const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`
-      }
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('🔥 Failed to get user info:', {
-        status: response.status,
-        statusText: response.statusText,
-        body: errorText
-      });
-      throw new Error('Failed to get user information');
-    }
-    
-    const userInfo = await response.json();
-    console.log('🔥 👤 User info received:', {
-      id: userInfo.id,
-      name: userInfo.name,
-      email: userInfo.email
-    });
-    
-    return {
-      id: userInfo.id,
-      name: userInfo.name,
-      email: userInfo.email,
-      picture: userInfo.picture,
-      authMethod: 'device_flow'
-    };
-  }
-
-  cleanup(overlay) {
-    console.log('🔥 🧹 Cleaning up device flow...');
-    
-    // Clear intervals
-    if (this.pollInterval) {
-      clearTimeout(this.pollInterval);
-      this.pollInterval = null;
-    }
-    
-    if (this.countdownInterval) {
-      clearInterval(this.countdownInterval);
-      this.countdownInterval = null;
-    }
-    
-    // Remove overlay
-    if (overlay && overlay.parentNode) {
-      overlay.parentNode.removeChild(overlay);
-    }
   }
 }
