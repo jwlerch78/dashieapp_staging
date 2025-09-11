@@ -27,7 +27,7 @@ export const settings = {
   resleepDelay: 15, // minutes
   photoTransitionTime: 15, // seconds
   redirectUrl: 'https://jwlerch78.github.io/dashie/', // default URL
-  theme: 'dark' // default theme
+  theme: 'light' // default theme
 };
 
 let settingsModal = null;
