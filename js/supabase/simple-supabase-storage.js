@@ -231,3 +231,29 @@ export class SimpleSupabaseStorage {
     console.log('🧹 Cleaning up Supabase subscriptions');
   }
 }
+
+// js/supabase/simple-supabase-storage.js - Simplified token access
+// Just update this one method in your existing storage class:
+
+// Get Google access token from your auth system
+getGoogleAccessToken() {
+  // Try to get token from auth manager
+  if (window.dashieAuth?.getGoogleAccessToken) {
+    const token = window.dashieAuth.getGoogleAccessToken();
+    if (token) {
+      console.log('🔐 Found Google access token from auth manager');
+      return token;
+    }
+  }
+  
+  // Fallback: try to get from user object
+  const user = window.dashieAuth?.getUser();
+  if (user?.googleAccessToken) {
+    console.log('🔐 Found Google access token from user data');
+    return user.googleAccessToken;
+  }
+  
+  console.warn('🔐 No Google access token found - RLS will not work');
+  console.warn('🔐 Available auth methods will fall back to non-RLS mode');
+  return null;
+}
