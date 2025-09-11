@@ -154,26 +154,57 @@ export class DeviceFlowAuth {
           fullResponse: data
         });
         
-        if (response.ok && data.access_token) {
-          // Success!
-          console.log('🔥 ✅ ACCESS TOKEN RECEIVED! Authentication successful!');
-          
-          try {
-            console.log('🔥 👤 Getting user info...');
-            const userInfo = await this.getUserInfo(data.access_token);
-            this.cleanup(overlay);
-            resolve({
-              success: true,
-              user: userInfo,
-              tokens: data
-            });
-            return;
-          } catch (userError) {
-            console.error('🔥 ❌ Failed to get user info:', userError);
-            this.cleanup(overlay);
-            reject(new Error('Failed to get user information'));
-            return;
-          }
+     if (response.ok && data.access_token) {
+  // Success!
+  console.log('🔥 ✅ ACCESS TOKEN RECEIVED! Authentication successful!');
+  
+  // DEBUG: Log token details
+  console.log('🔍 DEBUG Device Flow Tokens:', {
+    has_access_token: !!data.access_token,
+    access_token_length: data.access_token?.length,
+    access_token_preview: data.access_token?.substring(0, 20) + '...',
+    token_type: data.token_type,
+    expires_in: data.expires_in,
+    scope: data.scope,
+    full_response_keys: Object.keys(data)
+  });
+  
+  try {
+    console.log('🔥 👤 Getting user info...');
+    const userInfo = await this.getUserInfo(data.access_token);
+    
+    // DEBUG: Log user info
+    console.log('🔍 DEBUG User Info:', {
+      id: userInfo.id,
+      name: userInfo.name,
+      email: userInfo.email,
+      has_picture: !!userInfo.picture
+    });
+    
+    this.cleanup(overlay);
+    
+    // DEBUG: Log what we're returning
+    const result = {
+      success: true,
+      user: userInfo,
+      tokens: data
+    };
+    console.log('🔍 DEBUG Device Flow Result:', {
+      success: result.success,
+      user_id: result.user.id,
+      has_tokens: !!result.tokens,
+      tokens_has_access_token: !!result.tokens.access_token
+    });
+    
+    resolve(result);
+    return;
+  } catch (userError) {
+    console.error('🔥 ❌ Failed to get user info:', userError);
+    this.cleanup(overlay);
+    reject(new Error('Failed to get user information'));
+    return;
+  }
+}
           
         } else if (data.error === 'authorization_pending') {
           // Still waiting for user to authorize
