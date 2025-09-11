@@ -178,7 +178,7 @@ export class AuthManager {
     console.log('🔐 Web auth result received:', result);
     
     if (result.success && result.user) {
-      this.setUserFromAuth(result.user, 'web');
+      this.setUserFromAuth(result.user, 'web', result.tokens); 
       this.isSignedIn = true;
       this.storage.saveUser(this.currentUser);
       this.ui.showSignedInState();
@@ -188,6 +188,7 @@ export class AuthManager {
       this.ui.showAuthError(result.error || 'Web authentication failed');
     }
   }
+  
 // ENHANCED: Store access token from any auth method
   setUserFromAuth(userData, authMethod, tokens = null) {
     this.currentUser = {
