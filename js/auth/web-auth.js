@@ -1,4 +1,4 @@
-// js/auth/web-auth.js - Browser Google Authentication Handler
+// js/auth/web-auth.js - Fixed to capture access tokens
 
 export class WebAuth {
   constructor() {
@@ -9,6 +9,7 @@ export class WebAuth {
       scope: 'profile email'
     };
     this.isInitialized = false;
+    this.accessToken = null; // Store access token
   }
 
   async init() {
@@ -48,7 +49,7 @@ export class WebAuth {
       cancel_on_tap_outside: true
     });
 
-    // Set up OAuth for additional permissions
+    // Set up OAuth for access tokens
     this.tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: this.config.client_id,
       scope: this.config.scope,
@@ -63,7 +64,10 @@ export class WebAuth {
     try {
       const userInfo = this.parseJWT(response.credential);
       
-      const userData = {
+      console.log('🔐 Web credential response received:', userInfo.name);
+      
+      // Store the user data temporarily
+      this.pendingUserData = {
         id: userInfo.sub,
         name: userInfo.name,
         email: userInfo.email,
@@ -71,15 +75,9 @@ export class WebAuth {
         authMethod: 'web'
       };
       
-      console.log('🔐 Web credential response received:', userData.name);
-      
-      // Notify the auth manager of successful authentication
-      if (window.handleWebAuth) {
-        window.handleWebAuth({
-          success: true,
-          user: userData
-        });
-      }
+      // Now request access token
+      console.log('🔐 Requesting access token...');
+      this.tokenClient.requestAccessToken();
       
     } catch (error) {
       console.error('🔐 Failed to handle credential response:', error);
@@ -93,10 +91,41 @@ export class WebAuth {
   }
 
   handleTokenResponse(response) {
-    if (response.access_token) {
-      console.log('🔐 Access token received');
-      // Store access token for future API calls if needed
-      this.accessToken = response.access_token;
+    try {
+      console.log('🔐 Access token received:', !!response.access_token);
+      
+      if (response.access_token) {
+        // Store the access token
+        this.accessToken = response.access_token;
+        
+        // Combine with user data from credential response
+        const userData = {
+          ...this.pendingUserData,
+          googleAccessToken: response.access_token // Include token in user data
+        };
+        
+        console.log('🔐 Web auth successful with access token:', userData.name);
+        
+        // Notify the auth manager
+        if (window.handleWebAuth) {
+          window.handleWebAuth({
+            success: true,
+            user: userData,
+            tokens: response // Pass the full token response
+          });
+        }
+      } else {
+        throw new Error('No access token received');
+      }
+      
+    } catch (error) {
+      console.error('🔐 Token response handling failed:', error);
+      if (window.handleWebAuth) {
+        window.handleWebAuth({
+          success: false,
+          error: 'Failed to get access token'
+        });
+      }
     }
   }
 
@@ -132,8 +161,8 @@ export class WebAuth {
     try {
       console.log('🔐 Starting web sign-in process...');
       
-      // Use OAuth popup for more reliable sign-in
-      this.tokenClient.requestAccessToken();
+      // Start with Google ID prompt (this will trigger the credential flow)
+      google.accounts.id.prompt();
       
     } catch (error) {
       console.error('🔐 Web sign-in failed:', error);
@@ -141,30 +170,9 @@ export class WebAuth {
     }
   }
 
-  // Alternative method for Google Sign-In button rendering
-  renderSignInButton(containerId, options = {}) {
-    if (!this.isInitialized || !window.google) {
-      console.error('🔐 Cannot render button - Google API not loaded');
-      return;
-    }
-
-    const defaultOptions = {
-      theme: 'outline',
-      size: 'large',
-      type: 'standard',
-      text: 'signin_with',
-      shape: 'rectangular',
-      ...options
-    };
-
-    try {
-      google.accounts.id.renderButton(
-        document.getElementById(containerId),
-        defaultOptions
-      );
-    } catch (error) {
-      console.error('🔐 Failed to render Google Sign-In button:', error);
-    }
+  // Get current access token
+  getAccessToken() {
+    return this.accessToken;
   }
 
   signOut() {
