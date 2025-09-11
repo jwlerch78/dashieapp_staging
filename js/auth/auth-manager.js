@@ -173,21 +173,21 @@ export class AuthManager {
     }
   }
 
-  // ENHANCED: Update web auth handling
-  handleWebAuthResult(result) {
-    console.log('🔐 Web auth result received:', result);
-    
-    if (result.success && result.user) {
-      this.setUserFromAuth(result.user, 'web', result.tokens); 
-      this.isSignedIn = true;
-      this.storage.saveUser(this.currentUser);
-      this.ui.showSignedInState();
-      console.log('🔐 ✅ Web auth successful:', this.currentUser.name);
-    } else {
-      console.error('🔐 ❌ Web auth failed:', result.error);
-      this.ui.showAuthError(result.error || 'Web authentication failed');
-    }
+// ENHANCED: Update web auth handling
+handleWebAuthResult(result) {
+  console.log('🔐 Web auth result received:', result);
+  
+  if (result.success && result.user) {
+    this.setUserFromAuth(result.user, 'web', result.tokens); // Pass tokens!
+    this.isSignedIn = true;
+    this.storage.saveUser(this.currentUser);
+    this.ui.showSignedInState();
+    console.log('🔐 ✅ Web auth successful:', this.currentUser.name);
+  } else {
+    console.error('🔐 ❌ Web auth failed:', result.error);
+    this.ui.showAuthError(result.error || 'Web authentication failed');
   }
+}
   
 // ENHANCED: Store access token from any auth method
 setUserFromAuth(userData, authMethod, tokens = null) {
