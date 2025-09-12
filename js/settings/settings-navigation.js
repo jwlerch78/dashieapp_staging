@@ -1,7 +1,7 @@
-// js/ui/settings-v2/settings-controller.js
+// js/settings/settings-controller.js
 // Main settings controller with database integration and real-time sync
 
-class SettingsController {
+export class SettingsController {
   constructor() {
     this.storage = null;
     this.currentSettings = {};
@@ -70,8 +70,8 @@ class SettingsController {
         throw new Error('No authenticated user found');
       }
 
-      // Initialize storage with current user
-      const { SimpleSupabaseStorage } = await import('../../supabase/simple-supabase-storage.js');
+      // FIXED: Correct import path for supabase storage
+      const { SimpleSupabaseStorage } = await import('../supabase/simple-supabase-storage.js');
       this.storage = new SimpleSupabaseStorage(currentUser.id, currentUser.email);
       
       // Load settings from database/local storage
@@ -103,14 +103,22 @@ class SettingsController {
 
   // Get current user from the existing auth system
   getCurrentUser() {
-    // Import the auth manager to get current user
+    // ENHANCED: Better user detection with multiple fallbacks
+    
+    // Try auth manager first
     if (window.authManager && window.authManager.currentUser) {
       return window.authManager.currentUser;
     }
     
+    // Try dashieAuth (your auth wrapper)
+    if (window.dashieAuth && window.dashieAuth.getUser) {
+      const user = window.dashieAuth.getUser();
+      if (user) return user;
+    }
+    
     // Fallback: try to get from localStorage
     try {
-      const savedUser = localStorage.getItem('dashie-current-user');
+      const savedUser = localStorage.getItem('dashie-user');
       if (savedUser) {
         return JSON.parse(savedUser);
       }
@@ -118,11 +126,14 @@ class SettingsController {
       console.warn('Failed to get user from localStorage:', error);
     }
     
+    console.warn('⚙️ ⚠️ No authenticated user found');
     return null;
   }
 
   // Default settings structure
   getDefaultSettings() {
+    const currentUser = this.getCurrentUser();
+    
     return {
       // Photos widget settings
       photos: {
@@ -139,7 +150,7 @@ class SettingsController {
       
       // Account settings
       accounts: {
-        dashieAccount: this.getCurrentUser()?.email || 'unknown@example.com',
+        dashieAccount: currentUser?.email || 'unknown@example.com',
         connectedServices: [], // Will be populated later
         pinEnabled: false
       },
@@ -213,6 +224,9 @@ class SettingsController {
       
       // Auto-save after a short delay (debounced)
       this.scheduleAutoSave();
+      
+      // Notify UI immediately
+      this.notifyUIUpdate();
     }
     
     return true;
@@ -236,6 +250,7 @@ class SettingsController {
     
     console.log(`⚙️ Category settings updated: ${categoryId}`, settings);
     this.scheduleAutoSave();
+    this.notifyUIUpdate();
     
     return true;
   }
@@ -385,6 +400,3 @@ class SettingsController {
     return { ...this.currentSettings };
   }
 }
-
-// Export the settings controller
-export { SettingsController };
