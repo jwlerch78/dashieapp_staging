@@ -1,4 +1,4 @@
-// js/ui/settings-v2/settings-controller.js
+// js/ui/settings/settings-controller.js
 // Main settings controller with database integration and real-time sync
 
 class SettingsController {
