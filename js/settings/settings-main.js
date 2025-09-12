@@ -45,8 +45,9 @@ export async function initializeSettings() {
 // Load settings CSS files
 async function loadSettingsCSS() {
   const cssFiles = [
-    'js/ui/settings/settings-layout.css',
-    'js/ui/settings/settings-panel.css'
+    'js/settings/settings-layout.css',     // Fixed path
+    'js/settings/settings-panel.css'      // Fixed path
+
   ];
   
   for (const cssFile of cssFiles) {
