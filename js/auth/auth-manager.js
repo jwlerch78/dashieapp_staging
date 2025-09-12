@@ -76,24 +76,40 @@ export class AuthManager {
     // Check for existing authentication first
     this.checkExistingAuth();
     
-    // If no existing auth, initialize appropriate method
-    if (!this.isSignedIn) {
-      if (this.hasNativeAuth) {
-        console.log('🔐 Using native Android authentication');
-        await this.nativeAuth.init();
-        this.checkNativeUser();
-      } else if (this.isWebView) {
-        console.log('🔐 WebView without native auth - showing WebView prompt');
-        this.ui.showWebViewAuthPrompt(() => this.createWebViewUser(), () => this.exitApp());
-      } else {
-        console.log('🔐 Browser environment - initializing web auth');
-        try {
-          await this.webAuth.init();
-          this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
-        } catch (error) {
-          console.error('🔐 Web auth initialization failed:', error);
-          this.handleAuthFailure(error);
+    // If already signed in, we're done
+    if (this.isSignedIn) {
+      console.log('🔐 ✅ Already authenticated, skipping auth initialization');
+      return;
+    }
+
+    // Initialize appropriate auth method based on platform
+    if (this.hasNativeAuth) {
+      console.log('🔐 Using native Android authentication');
+      await this.nativeAuth.init();
+      this.checkNativeUser();
+      
+    } else if (this.isWebView) {
+      console.log('🔐 WebView without native auth - showing WebView prompt');
+      this.ui.showWebViewAuthPrompt(() => this.createWebViewUser(), () => this.exitApp());
+      
+    } else {
+      console.log('🔐 Browser environment - initializing web auth');
+      try {
+        await this.webAuth.init();
+        
+        // CRITICAL FIX: Check if OAuth callback was handled during init
+        if (this.isSignedIn) {
+          console.log('🔐 ✅ OAuth callback handled during init, user is now signed in');
+          return; // Don't show sign-in prompt if we're already authenticated
         }
+        
+        // Only show sign-in prompt if we're still not signed in
+        console.log('🔐 No existing auth found, showing sign-in prompt');
+        this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
+        
+      } catch (error) {
+        console.error('🔐 Web auth initialization failed:', error);
+        this.handleAuthFailure(error);
       }
     }
   }
