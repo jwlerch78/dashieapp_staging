@@ -71,7 +71,7 @@ export class SettingsController {
       }
 
       // Initialize storage with current user
-      const { SimpleSupabaseStorage } = await import('../../supabase/simple-supabase-storage.js');
+      const { SimpleSupabaseStorage } = await import('../supabase/simple-supabase-storage.js');
       this.storage = new SimpleSupabaseStorage(currentUser.id, currentUser.email);
       
       // Load settings from database/local storage
