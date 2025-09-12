@@ -202,27 +202,7 @@ checkExistingAuth() {
     }
   }
 
-// ENHANCED: Update web auth handling
-handleWebAuthResult(result) {
-  console.log('🔐 Web auth result received:', result);
-  
-  if (result.success && result.user) {
-    this.setUserFromAuth(result.user, 'web', result.tokens);
-    this.isSignedIn = true;
-    this.storage.saveUser(this.currentUser);
-    
-    // CRITICAL: Hide sign-in UI and show dashboard immediately
-    console.log('🔐 🎯 Hiding sign-in UI and showing dashboard...');
-    this.ui.hideSignInPrompt();
-    this.ui.showSignedInState();
-    
-    console.log('🔐 ✅ Web auth successful:', this.currentUser.name);
-  } else {
-    console.error('🔐 ❌ Web auth failed:', result.error);
-    this.ui.showAuthError(result.error || 'Web authentication failed');
-  }
-}
-  
+// FIXED: Store access token from any auth method with duplicate prevention
 setUserFromAuth(userData, authMethod, tokens = null) {
   // Determine the Google access token from various sources
   let googleAccessToken = null;
@@ -242,7 +222,7 @@ setUserFromAuth(userData, authMethod, tokens = null) {
     console.warn('🔐 ⚠️ No Google access token found for', authMethod);
     console.warn('🔐 This means RLS authentication will not work');
   }
-  
+
   // Create user object with Google access token included
   this.currentUser = {
     id: userData.id,
@@ -253,10 +233,10 @@ setUserFromAuth(userData, authMethod, tokens = null) {
     authMethod: authMethod,
     googleAccessToken: googleAccessToken // ← KEY FIX: Include token in user object
   };
-  
+
   // Store token separately for quick access (existing behavior)
   this.googleAccessToken = googleAccessToken;
-  
+
   // Enhanced debug logging
   console.log('🔍 DEBUG setUserFromAuth DETAILED:', {
     authMethod,
@@ -274,7 +254,7 @@ setUserFromAuth(userData, authMethod, tokens = null) {
     FINAL_USER_HAS_TOKEN: !!this.currentUser.googleAccessToken, // ← New verification
     STORED_TOKEN_MATCHES: this.googleAccessToken === this.currentUser.googleAccessToken
   });
-  
+
   // Final verification
   console.log('🔍 FINAL TOKEN STATUS:', {
     authMethod,
@@ -286,7 +266,7 @@ setUserFromAuth(userData, authMethod, tokens = null) {
 
   this.isSignedIn = true;
 
-  // ✅ NEW: Settings initialization guard to prevent duplicates
+  // ✅ NEW: Settings initialization with duplicate prevention
   if (!this.settingsInitialized) {
     console.log('🔐 🎯 Initializing settings for first time...');
     this.settingsInitialized = true;
@@ -299,7 +279,7 @@ setUserFromAuth(userData, authMethod, tokens = null) {
     console.log('🔐 ⏭️ Settings already initialized, skipping...');
   }
 
-  // Hide sign-in UI and show dashboard
+  // ✅ NEW: UI updates (add these if they don't exist elsewhere)
   console.log('🔐 🎯 Hiding sign-in UI and showing dashboard...');
   this.ui.hideSignInPrompt();
   this.ui.showSignedInState();
@@ -309,6 +289,8 @@ setUserFromAuth(userData, authMethod, tokens = null) {
   // Notify that auth is ready
   document.dispatchEvent(new CustomEvent('dashie-auth-ready'));
 }
+
+  
   createWebViewUser() {
     console.log('🔐 Creating WebView user');
     
