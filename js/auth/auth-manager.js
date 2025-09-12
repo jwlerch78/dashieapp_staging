@@ -1,4 +1,4 @@
-// js/auth/auth-manager.js - Production Auth with Device Flow Priority
+// js/auth/auth-manager.js - Production Auth with Singleton Fix
 
 import { NativeAuth } from './native-auth.js';
 import { WebAuth } from './web-auth.js';
@@ -8,6 +8,14 @@ import { DeviceFlowAuth } from './device-flow-auth.js';
 
 export class AuthManager {
   constructor() {
+    // CRITICAL FIX: Prevent duplicate initialization
+    if (window.dashieAuthInitialized) {
+      console.log('🔐 ⚠️ AuthManager already initialized, skipping duplicate');
+      return window.dashieAuthManager;
+    }
+
+    console.log('🔐 🚀 Initializing AuthManager (first time)...');
+    
     this.currentUser = null;
     this.isSignedIn = false;
     this.isWebView = this.detectWebView();
@@ -22,8 +30,11 @@ export class AuthManager {
     this.deviceFlowAuth = new DeviceFlowAuth();
     
     this.nativeAuthFailed = false;
-
     this.googleAccessToken = null; // Store the Google access token for RLS authentication with Supabase
+    
+    // Mark as initialized and store reference
+    window.dashieAuthInitialized = true;
+    window.dashieAuthManager = this;
     
     this.init();
   }
@@ -49,14 +60,12 @@ export class AuthManager {
     const hasNative = window.DashieNative && 
                      typeof window.DashieNative.signIn === 'function';
     console.log('🔐 Native auth available:', hasNative);
-    return !!hasNative;
+    return hasNative;
   }
 
   detectFireTV() {
-    const userAgent = navigator.userAgent;
-    const isFireTV = userAgent.includes('AFTS') || userAgent.includes('FireTV') || 
-                    userAgent.includes('AFT') || userAgent.includes('AFTMM') ||
-                    userAgent.includes('AFTRS') || userAgent.includes('AFTSS');
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isFireTV = userAgent.includes('afts') || userAgent.includes('aftb') || userAgent.includes('aftm');
     console.log('🔥 Fire TV detected:', isFireTV);
     return isFireTV;
   }
@@ -69,22 +78,25 @@ export class AuthManager {
       isFireTV: this.isFireTV
     });
 
-    // Set up auth result handlers
+    // Set up native auth callback handler
     window.handleNativeAuth = (result) => this.handleNativeAuthResult(result);
     window.handleWebAuth = (result) => this.handleWebAuthResult(result);
-    
+
     // Check for existing authentication first
     this.checkExistingAuth();
-    
-    // If no existing auth, initialize appropriate method
+
+    // Initialize platform-specific auth if no existing auth
     if (!this.isSignedIn) {
-      if (this.hasNativeAuth) {
-        console.log('🔐 Using native Android authentication');
-        await this.nativeAuth.init();
-        this.checkNativeUser();
-      } else if (this.isWebView) {
+      if (this.isFireTV || (!this.hasNativeAuth && !this.isWebView)) {
+        console.log('🔥 Fire TV environment - initializing device flow auth');
+        // FireTV or desktop browser without native auth
+        this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
+      } else if (this.isWebView && !this.hasNativeAuth) {
         console.log('🔐 WebView without native auth - showing WebView prompt');
         this.ui.showWebViewAuthPrompt(() => this.createWebViewUser(), () => this.exitApp());
+      } else if (this.hasNativeAuth) {
+        console.log('🔐 Native auth available - checking existing user');
+        this.checkNativeUser();
       } else {
         console.log('🔐 Browser environment - initializing web auth');
         try {
@@ -98,26 +110,32 @@ export class AuthManager {
     }
   }
 
-checkExistingAuth() {
-  const savedUser = this.storage.getSavedUser();
-  if (savedUser) {
-    console.log('🔐 Found saved user:', savedUser.name);
-    this.currentUser = savedUser;
-    this.isSignedIn = true;
-    
-    // CRITICAL FIX: Restore the Google access token from saved user data
-    if (savedUser.googleAccessToken) {
-      this.googleAccessToken = savedUser.googleAccessToken;
-      console.log('🔐 ✅ Restored Google access token from saved user');
-      console.log('🔐 Token length:', savedUser.googleAccessToken.length);
-      console.log('🔐 Token preview:', savedUser.googleAccessToken.substring(0, 30) + '...');
-    } else {
-      console.warn('🔐 ⚠️ No Google access token in saved user data');
+  checkExistingAuth() {
+    const savedUser = this.storage.getSavedUser();
+    if (savedUser) {
+      console.log('🔐 Found saved user:', savedUser.name);
+      this.currentUser = savedUser;
+      this.isSignedIn = true;
+      
+      // CRITICAL FIX: Restore the Google access token from saved user data
+      if (savedUser.googleAccessToken) {
+        this.googleAccessToken = savedUser.googleAccessToken;
+        console.log('🔐 ✅ Restored Google access token from saved user');
+        console.log('🔐 Token length:', savedUser.googleAccessToken.length);
+        console.log('🔐 Token preview:', savedUser.googleAccessToken.substring(0, 30) + '...');
+      } else {
+        console.warn('🔐 ⚠️ No Google access token in saved user data');
+      }
+      
+      // IMPORTANT: Don't show sign-in UI if user is already authenticated
+      console.log('🔐 🎯 User already authenticated, showing dashboard directly');
+      this.ui.showSignedInState();
+      return; // Exit early, don't continue to show sign-in prompt
     }
     
-    this.ui.showSignedInState();
+    // Only show sign-in prompt if no saved user
+    console.log('🔐 No saved user found, will show sign-in prompt if needed');
   }
-}
 
   checkNativeUser() {
     if (this.nativeAuth) {
@@ -134,7 +152,7 @@ checkExistingAuth() {
     this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
   }
 
-// ENHANCED: Update native auth handling
+  // ENHANCED: Update native auth handling
   handleNativeAuthResult(result) {
     console.log('🔐 Native auth result received:', result);
     
@@ -158,7 +176,7 @@ checkExistingAuth() {
     }
   }
 
- // ENHANCED: Update device flow handling to pass tokens
+  // ENHANCED: Update device flow handling to pass tokens
   async startDeviceFlow() {
     try {
       console.log('🔥 Starting Device Flow authentication...');
@@ -184,92 +202,93 @@ checkExistingAuth() {
     }
   }
 
-// ENHANCED: Update web auth handling
-handleWebAuthResult(result) {
-  console.log('🔐 Web auth result received:', result);
-  
-  if (result.success && result.user) {
-    this.setUserFromAuth(result.user, 'web', result.tokens);
-    this.isSignedIn = true;
-    this.storage.saveUser(this.currentUser);
+  // ENHANCED: Update web auth handling with proper UI management
+  handleWebAuthResult(result) {
+    console.log('🔐 Web auth result received:', result);
     
-    // CRITICAL: Hide sign-in UI and show dashboard immediately
-    console.log('🔐 🎯 Hiding sign-in UI and showing dashboard...');
-    this.ui.hideSignInPrompt();
-    this.ui.showSignedInState();
+    if (result.success && result.user) {
+      this.setUserFromAuth(result.user, 'web', result.tokens);
+      this.isSignedIn = true;
+      this.storage.saveUser(this.currentUser);
+      
+      // CRITICAL: Hide sign-in UI and show dashboard immediately
+      console.log('🔐 🎯 Hiding sign-in UI and showing dashboard...');
+      this.ui.hideSignInPrompt();
+      this.ui.showSignedInState();
+      
+      console.log('🔐 ✅ Web auth successful:', this.currentUser.name);
+    } else {
+      console.error('🔐 ❌ Web auth failed:', result.error);
+      this.ui.showAuthError(result.error || 'Web authentication failed');
+    }
+  }
     
-    console.log('🔐 ✅ Web auth successful:', this.currentUser.name);
-  } else {
-    console.error('🔐 ❌ Web auth failed:', result.error);
-    this.ui.showAuthError(result.error || 'Web authentication failed');
+  // FIXED: Store access token from any auth method
+  setUserFromAuth(userData, authMethod, tokens = null) {
+    // Determine the Google access token from various sources
+    let googleAccessToken = null;
+    
+    if (tokens && tokens.access_token) {
+      googleAccessToken = tokens.access_token;
+      console.log('🔐 ✅ Found Google access token from tokens object (', authMethod, ')');
+      console.log('🔐 Token length:', tokens.access_token.length);
+      console.log('🔐 Token preview:', tokens.access_token.substring(0, 30) + '...');
+    } else if (userData.googleAccessToken) {
+      googleAccessToken = userData.googleAccessToken;
+      console.log('🔐 ✅ Found Google access token from user data (', authMethod, ')');
+    } else if (authMethod === 'web' && this.webAuth?.accessToken) {
+      googleAccessToken = this.webAuth.accessToken;
+      console.log('🔐 ✅ Found Google access token from web auth (', authMethod, ')');
+    } else {
+      console.warn('🔐 ⚠️ No Google access token found for', authMethod);
+      console.warn('🔐 This means RLS authentication will not work');
+    }
+
+    // Create user object with Google access token included
+    this.currentUser = {
+      id: userData.id,
+      name: userData.name,
+      email: userData.email,
+      picture: userData.picture,
+      signedInAt: Date.now(),
+      authMethod: authMethod,
+      googleAccessToken: googleAccessToken // ← KEY FIX: Include token in user object
+    };
+
+    // Store token separately for quick access (existing behavior)
+    this.googleAccessToken = googleAccessToken;
+
+    // Enhanced debug logging
+    console.log('🔍 DEBUG setUserFromAuth DETAILED:', {
+      authMethod,
+      userId: userData.id,
+      userEmail: userData.email,
+      tokens_provided: !!tokens,
+      tokens_type: typeof tokens,
+      tokens_keys: tokens ? Object.keys(tokens) : null,
+      tokens_has_access_token: tokens?.access_token ? true : false,
+      access_token_length: tokens?.access_token?.length,
+      access_token_preview: tokens?.access_token?.substring(0, 20) + '...',
+      userData_has_googleAccessToken: !!userData.googleAccessToken,
+      webAuth_exists: !!this.webAuth,
+      webAuth_has_accessToken: !!this.webAuth?.accessToken,
+      FINAL_USER_HAS_TOKEN: !!this.currentUser.googleAccessToken, // ← New verification
+      STORED_TOKEN_MATCHES: this.googleAccessToken === this.currentUser.googleAccessToken
+    });
+
+    // Final verification
+    console.log('🔍 FINAL TOKEN STATUS:', {
+      authMethod,
+      hasStoredToken: !!this.googleAccessToken,
+      userObjectHasToken: !!this.currentUser.googleAccessToken, // ← New check
+      tokenLength: this.googleAccessToken?.length,
+      canUseRLS: !!this.googleAccessToken
+    });
+
+    // Notify that auth is ready
+    document.dispatchEvent(new CustomEvent('dashie-auth-ready'));
   }
-}
-  
-// FIXED: Store access token from any auth method
-setUserFromAuth(userData, authMethod, tokens = null) {
-  // Determine the Google access token from various sources
-  let googleAccessToken = null;
-  
-  if (tokens && tokens.access_token) {
-    googleAccessToken = tokens.access_token;
-    console.log('🔐 ✅ Found Google access token from tokens object (', authMethod, ')');
-    console.log('🔐 Token length:', tokens.access_token.length);
-    console.log('🔐 Token preview:', tokens.access_token.substring(0, 30) + '...');
-  } else if (userData.googleAccessToken) {
-    googleAccessToken = userData.googleAccessToken;
-    console.log('🔐 ✅ Found Google access token from user data (', authMethod, ')');
-  } else if (authMethod === 'web' && this.webAuth?.accessToken) {
-    googleAccessToken = this.webAuth.accessToken;
-    console.log('🔐 ✅ Found Google access token from web auth (', authMethod, ')');
-  } else {
-    console.warn('🔐 ⚠️ No Google access token found for', authMethod);
-    console.warn('🔐 This means RLS authentication will not work');
-  }
 
-  // Create user object with Google access token included
-  this.currentUser = {
-    id: userData.id,
-    name: userData.name,
-    email: userData.email,
-    picture: userData.picture,
-    signedInAt: Date.now(),
-    authMethod: authMethod,
-    googleAccessToken: googleAccessToken // ← KEY FIX: Include token in user object
-  };
-
-  // Store token separately for quick access (existing behavior)
-  this.googleAccessToken = googleAccessToken;
-
-  // Enhanced debug logging
-  console.log('🔍 DEBUG setUserFromAuth DETAILED:', {
-    authMethod,
-    userId: userData.id,
-    userEmail: userData.email,
-    tokens_provided: !!tokens,
-    tokens_type: typeof tokens,
-    tokens_keys: tokens ? Object.keys(tokens) : null,
-    tokens_has_access_token: tokens?.access_token ? true : false,
-    access_token_length: tokens?.access_token?.length,
-    access_token_preview: tokens?.access_token?.substring(0, 20) + '...',
-    userData_has_googleAccessToken: !!userData.googleAccessToken,
-    webAuth_exists: !!this.webAuth,
-    webAuth_has_accessToken: !!this.webAuth?.accessToken,
-    FINAL_USER_HAS_TOKEN: !!this.currentUser.googleAccessToken, // ← New verification
-    STORED_TOKEN_MATCHES: this.googleAccessToken === this.currentUser.googleAccessToken
-  });
-
-  // Final verification
-  console.log('🔍 FINAL TOKEN STATUS:', {
-    authMethod,
-    hasStoredToken: !!this.googleAccessToken,
-    userObjectHasToken: !!this.currentUser.googleAccessToken, // ← New check
-    tokenLength: this.googleAccessToken?.length,
-    canUseRLS: !!this.googleAccessToken
-  });
-
-  // Notify that auth is ready
-  document.dispatchEvent(new CustomEvent('dashie-auth-ready'));
-}
   createWebViewUser() {
     console.log('🔐 Creating WebView user');
     
@@ -333,7 +352,7 @@ setUserFromAuth(userData, authMethod, tokens = null) {
     return this.googleAccessToken;
   }
 
-// ENHANCED: Clear token on sign out
+  // ENHANCED: Clear token on sign out
   signOut() {
     console.log('🔐 Signing out...');
     
@@ -371,7 +390,6 @@ setUserFromAuth(userData, authMethod, tokens = null) {
     }
   }
 
- 
   handleAuthFailure(error) {
     console.error('🔐 Auth initialization failed:', error);
     
@@ -393,8 +411,6 @@ setUserFromAuth(userData, authMethod, tokens = null) {
     }
   }
 
-
-  
   // Public API
   getUser() {
     return this.currentUser;
