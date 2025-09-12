@@ -3,10 +3,8 @@
 import { initializeEvents } from './core/events.js';
 import { updateFocus, initializeHighlightTimeout } from './core/navigation.js';
 import { renderGrid, renderSidebar } from './ui/grid.js';
-import { initializeSleepTimer } from './ui/settings.js';
+import { initializeSleepTimer } from './ui/settings/settings-main.js';
 import { initializeThemeSystem } from './core/theme.js';
-
-// ❌ REMOVED: import { initializeSettings } from './ui/settings.js';
 
 // ---------------------
 // EARLY THEME APPLICATION
@@ -29,9 +27,7 @@ async function preApplyTheme() {
 function initializeApp() {
   console.log("Initializing Dashie Dashboard...");
 
-  // ❌ REMOVED: Settings init moved to auth system
-  // initializeSettings();
-  
+ 
   // Initialize theme system first (before any UI rendering)
   // Note: Early theme application already happened above
   initializeThemeSystem();
