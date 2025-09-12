@@ -13,6 +13,8 @@ export class AuthManager {
     this.isWebView = this.detectWebView();
     this.hasNativeAuth = this.detectNativeAuth();
     this.isFireTV = this.detectFireTV();
+    this.settingsInitialized = false; // ✅ NEW: Prevent duplicate settings init
+
     
     // Initialize auth modules
     this.storage = new AuthStorage();
@@ -221,7 +223,6 @@ handleWebAuthResult(result) {
   }
 }
   
-// FIXED: Store access token from any auth method
 setUserFromAuth(userData, authMethod, tokens = null) {
   // Determine the Google access token from various sources
   let googleAccessToken = null;
@@ -241,7 +242,7 @@ setUserFromAuth(userData, authMethod, tokens = null) {
     console.warn('🔐 ⚠️ No Google access token found for', authMethod);
     console.warn('🔐 This means RLS authentication will not work');
   }
-
+  
   // Create user object with Google access token included
   this.currentUser = {
     id: userData.id,
@@ -252,10 +253,10 @@ setUserFromAuth(userData, authMethod, tokens = null) {
     authMethod: authMethod,
     googleAccessToken: googleAccessToken // ← KEY FIX: Include token in user object
   };
-
+  
   // Store token separately for quick access (existing behavior)
   this.googleAccessToken = googleAccessToken;
-
+  
   // Enhanced debug logging
   console.log('🔍 DEBUG setUserFromAuth DETAILED:', {
     authMethod,
@@ -273,7 +274,7 @@ setUserFromAuth(userData, authMethod, tokens = null) {
     FINAL_USER_HAS_TOKEN: !!this.currentUser.googleAccessToken, // ← New verification
     STORED_TOKEN_MATCHES: this.googleAccessToken === this.currentUser.googleAccessToken
   });
-
+  
   // Final verification
   console.log('🔍 FINAL TOKEN STATUS:', {
     authMethod,
@@ -282,6 +283,28 @@ setUserFromAuth(userData, authMethod, tokens = null) {
     tokenLength: this.googleAccessToken?.length,
     canUseRLS: !!this.googleAccessToken
   });
+
+  this.isSignedIn = true;
+
+  // ✅ NEW: Settings initialization guard to prevent duplicates
+  if (!this.settingsInitialized) {
+    console.log('🔐 🎯 Initializing settings for first time...');
+    this.settingsInitialized = true;
+    
+    // Dynamic import to avoid circular dependencies
+    import('../ui/settings.js').then(({ initializeSupabaseSettings }) => {
+      initializeSupabaseSettings();
+    });
+  } else {
+    console.log('🔐 ⏭️ Settings already initialized, skipping...');
+  }
+
+  // Hide sign-in UI and show dashboard
+  console.log('🔐 🎯 Hiding sign-in UI and showing dashboard...');
+  this.ui.hideSignInPrompt();
+  this.ui.showSignedInState();
+  
+  console.log(`🔐 ✅ ${authMethod} auth successful:`, this.currentUser.name);
 
   // Notify that auth is ready
   document.dispatchEvent(new CustomEvent('dashie-auth-ready'));
