@@ -189,10 +189,15 @@ handleWebAuthResult(result) {
   console.log('🔐 Web auth result received:', result);
   
   if (result.success && result.user) {
-    this.setUserFromAuth(result.user, 'web', result.tokens); // Pass tokens!
+    this.setUserFromAuth(result.user, 'web', result.tokens);
     this.isSignedIn = true;
     this.storage.saveUser(this.currentUser);
+    
+    // CRITICAL: Hide sign-in UI and show dashboard immediately
+    console.log('🔐 🎯 Hiding sign-in UI and showing dashboard...');
+    this.ui.hideSignInPrompt();
     this.ui.showSignedInState();
+    
     console.log('🔐 ✅ Web auth successful:', this.currentUser.name);
   } else {
     console.error('🔐 ❌ Web auth failed:', result.error);
