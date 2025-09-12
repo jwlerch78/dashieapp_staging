@@ -202,6 +202,27 @@ checkExistingAuth() {
     }
   }
 
+// ENHANCED: Update web auth handling
+handleWebAuthResult(result) {
+  console.log('🔐 Web auth result received:', result);
+  
+  if (result.success && result.user) {
+    this.setUserFromAuth(result.user, 'web', result.tokens);
+    this.isSignedIn = true;
+    this.storage.saveUser(this.currentUser);
+    
+    // CRITICAL: Hide sign-in UI and show dashboard immediately
+    console.log('🔐 🎯 Hiding sign-in UI and showing dashboard...');
+    this.ui.hideSignInPrompt();
+    this.ui.showSignedInState();
+    
+    console.log('🔐 ✅ Web auth successful:', this.currentUser.name);
+  } else {
+    console.error('🔐 ❌ Web auth failed:', result.error);
+    this.ui.showAuthError(result.error || 'Web authentication failed');
+  }
+}
+  
 // FIXED: Store access token from any auth method with duplicate prevention
 setUserFromAuth(userData, authMethod, tokens = null) {
   // Determine the Google access token from various sources
@@ -289,6 +310,7 @@ setUserFromAuth(userData, authMethod, tokens = null) {
   // Notify that auth is ready
   document.dispatchEvent(new CustomEvent('dashie-auth-ready'));
 }
+
 
   
   createWebViewUser() {
