@@ -14,43 +14,37 @@ export class SettingsNavigation {
     this.categories = [
       { 
         id: 'accounts', 
-        label: '🔐 Accounts', 
-        icon: '🔐',
+        label: 'Accounts', 
         enabled: true,
         description: 'Manage your account and connected services'
       },
       { 
         id: 'family', 
-        label: '👨‍👩‍👧‍👦 Family', 
-        icon: '👨‍👩‍👧‍👦',
+        label: 'Family', 
         enabled: false,
         description: 'Family member profiles and settings'
       },
       { 
         id: 'widgets', 
-        label: '🖼️ Widgets', 
-        icon: '🖼️',
+        label: 'Widgets', 
         enabled: true,
         description: 'Configure dashboard widgets'
       },
       { 
         id: 'display', 
-        label: '🎨 Display', 
-        icon: '🎨',
+        label: 'Display', 
         enabled: true,
         description: 'Theme, sleep settings, and photos'
       },
       { 
         id: 'system', 
-        label: '🔧 System', 
-        icon: '🔧',
+        label: 'System', 
         enabled: false,
         description: 'System and developer settings'
       },
       { 
         id: 'about', 
-        label: 'ℹ️ About', 
-        icon: 'ℹ️',
+        label: 'About', 
         enabled: false,
         description: 'Version info and support'
       }
@@ -76,7 +70,7 @@ export class SettingsNavigation {
         <!-- Left Panel - Categories -->
         <div class="settings-sidebar">
           <div class="settings-sidebar-header">
-            <h1>⚙️ Settings</h1>
+            <h1>Settings</h1>
             <button class="close-btn" title="Close Settings">×</button>
           </div>
           <div class="settings-categories">
@@ -87,11 +81,7 @@ export class SettingsNavigation {
         <!-- Right Panel - Settings Content -->
         <div class="settings-main">
           <div class="settings-panel-container">
-            <div class="settings-welcome">
-              <div class="settings-welcome-icon">⚙️</div>
-              <h2>Welcome to Settings</h2>
-              <p>Select a category from the left to configure your dashboard settings. Changes are saved automatically.</p>
-            </div>
+            <!-- Welcome message removed -->
           </div>
         </div>
       </div>
@@ -114,11 +104,7 @@ export class SettingsNavigation {
         <div class="category-item ${isSelected ? 'selected' : ''} ${isActive ? 'active' : ''} ${!category.enabled ? 'disabled' : ''}" 
              data-category="${category.id}" 
              data-index="${index}">
-          <span class="category-icon">${category.icon}</span>
-          <div class="category-content">
-            <div class="category-label">${category.label.replace(category.icon + ' ', '')}</div>
-            <div class="category-description">${category.description}</div>
-          </div>
+          <div class="category-label">${category.label}</div>
         </div>
       `;
     }).join('');
@@ -184,10 +170,8 @@ export class SettingsNavigation {
     // Always handle Escape to close
     if (key === 'Escape') {
       this.hide();
-      return;
-    }
-
-    if (this.currentPanel === 'categories') {
+      handled = true;
+    } else if (this.currentPanel === 'categories') {
       handled = this.handleCategoryNavigation(key);
     } else if (this.currentPanel === 'settings') {
       handled = this.handleSettingsNavigation(key);
@@ -196,7 +180,10 @@ export class SettingsNavigation {
     if (handled) {
       event.preventDefault();
       event.stopPropagation();
+      event.stopImmediatePropagation(); // Prevent event from reaching dashboard
     }
+
+    return handled;
   }
 
   // Handle navigation within categories panel
@@ -283,10 +270,6 @@ export class SettingsNavigation {
 
     console.log(`⚙️ 📂 Selecting category: ${categoryId}`);
 
-    // Hide welcome message
-    const welcome = this.element.querySelector('.settings-welcome');
-    if (welcome) welcome.style.display = 'none';
-
     // Hide all panels
     this.hideAllPanels();
 
@@ -298,12 +281,27 @@ export class SettingsNavigation {
       this.updatePanelFocus();
     } else {
       console.warn(`⚙️ ⚠️ No panel found for category: ${categoryId}`);
-      // Show welcome message if no panel
-      if (welcome) welcome.style.display = 'flex';
+      // Show a "Coming Soon" message for unimplemented panels
+      this.showComingSoon(category.label);
     }
 
     // Update category visual state
     this.updateCategorySelection(categoryId);
+  }
+
+  // Show coming soon message for unimplemented panels
+  showComingSoon(categoryName) {
+    const container = this.element.querySelector('.settings-panel-container');
+    const comingSoon = document.createElement('div');
+    comingSoon.className = 'settings-coming-soon';
+    comingSoon.innerHTML = `
+      <div class="coming-soon-content">
+        <h2>${categoryName}</h2>
+        <p>This section is coming soon!</p>
+        <p class="hint">Press left arrow to go back to categories</p>
+      </div>
+    `;
+    container.appendChild(comingSoon);
   }
 
   // Hide all panels
