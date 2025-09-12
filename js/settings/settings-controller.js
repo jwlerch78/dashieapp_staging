@@ -1,7 +1,7 @@
 // js/ui/settings/settings-controller.js
 // Main settings controller with database integration and real-time sync
 
-class SettingsController {
+export class SettingsController {
   constructor() {
     this.storage = null;
     this.currentSettings = {};
