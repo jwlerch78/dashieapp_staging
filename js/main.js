@@ -27,7 +27,8 @@ async function preApplyTheme() {
 function initializeApp() {
   console.log("Initializing Dashie Dashboard...");
 
- 
+  await initializeSettings();  // Add 'await' since it's async
+  
   // Initialize theme system first (before any UI rendering)
   // Note: Early theme application already happened above
   initializeThemeSystem();
@@ -35,10 +36,7 @@ function initializeApp() {
   // Set up event listeners
   initializeEvents();
   
-  // Initialize sleep timer system (this loads LOCAL settings only)
-  initializeSleepTimer();
-  
-  // Initialize navigation highlight timeout system
+    // Initialize navigation highlight timeout system
   initializeHighlightTimeout();
   
   // Render initial UI
