@@ -385,6 +385,3 @@ export class SettingsController {
     return { ...this.currentSettings };
   }
 }
-
-// Export the settings controller
-export { SettingsController };
