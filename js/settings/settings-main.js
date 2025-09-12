@@ -164,7 +164,7 @@ export function getAllSettings() {
 }
 
 // ENHANCED: Apply current theme from settings with better integration
-export function applyCurrentTheme() {
+export async function applyCurrentTheme() {
   const theme = getSetting('display.theme', 'dark');
   console.log(`⚙️ 🎨 Applying theme: ${theme}`);
   
