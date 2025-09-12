@@ -202,7 +202,7 @@ checkExistingAuth() {
     }
   }
 
-// ENHANCED: Update web auth handling
+// ENHANCED: Update web auth handling - REMOVE duplicate UI calls
 handleWebAuthResult(result) {
   console.log('🔐 Web auth result received:', result);
   
@@ -210,13 +210,9 @@ handleWebAuthResult(result) {
     this.setUserFromAuth(result.user, 'web', result.tokens);
     this.isSignedIn = true;
     this.storage.saveUser(this.currentUser);
-    
-    // CRITICAL: Hide sign-in UI and show dashboard immediately
-    console.log('🔐 🎯 Hiding sign-in UI and showing dashboard...');
-    this.ui.hideSignInPrompt();
-    this.ui.showSignedInState();
-    
-    console.log('🔐 ✅ Web auth successful:', this.currentUser.name);
+      
+    // ✅ SIMPLIFIED: setUserFromAuth now handles all UI updates
+    console.log('🔐 ✅ Web auth completed, UI handled by setUserFromAuth');
   } else {
     console.error('🔐 ❌ Web auth failed:', result.error);
     this.ui.showAuthError(result.error || 'Web authentication failed');
