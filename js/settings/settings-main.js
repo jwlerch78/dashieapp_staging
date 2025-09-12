@@ -220,8 +220,27 @@ export function handleSettingsKeyPress(event) {
     return false;
   }
   
+  // Create a proper event-like object if we just got a key string
+  let eventObj = event;
+  if (typeof event === 'string') {
+    eventObj = { 
+      key: event,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+      stopImmediatePropagation: () => {}
+    };
+  } else if (event && !event.preventDefault) {
+    // Handle objects like { key: 'ArrowDown' }
+    eventObj = {
+      ...event,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+      stopImmediatePropagation: () => {}
+    };
+  }
+  
   // Let the settings navigation handle the key
-  return settingsNavigation.handleKeyPress(event);
+  return settingsNavigation.handleKeyPress(eventObj);
 }
 
 // LEGACY COMPATIBILITY: Functions for existing code
