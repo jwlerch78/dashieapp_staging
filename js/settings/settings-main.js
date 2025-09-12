@@ -1,4 +1,4 @@
-// js/ui/settings/settings-main.js
+// js/settings/settings-main.js
 // Main settings integration - replaces existing settings.js
 
 let settingsController = null;
