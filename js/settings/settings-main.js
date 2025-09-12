@@ -32,7 +32,7 @@ export async function initializeSettings() {
     console.log('⚙️ ✅ Settings system initialized successfully');
     
     // Apply current theme on initialization
-    applyCurrentTheme();
+    await applyCurrentTheme();
     
     return true;
     
