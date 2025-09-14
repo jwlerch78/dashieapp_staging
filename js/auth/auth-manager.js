@@ -319,35 +319,6 @@ setUserFromAuth(userData, authMethod, tokens = null) {
 }
 
 
-// Public method to get Google API client
-  getGoogleAPI() {
-    if (!this.googleAPI) {
-      console.warn('Google API client not initialized. User may not be authenticated.');
-      return null;
-    }
-    return this.googleAPI;
-  }
-
-  // Check if specific API is available
-  hasAPIAccess(apiType) {
-    if (!this.apiCapabilities) {
-      return false;
-    }
-    return this.apiCapabilities[apiType] === true;
-  }
-
-  // Enhanced method to get Google access token (for the API client)
-  getGoogleAccessToken() {
-    return this.googleAccessToken;
-  }
-}
-
-
-
-
-
-
-
   
   createWebViewUser() {
     console.log('🔐 Creating WebView user');
