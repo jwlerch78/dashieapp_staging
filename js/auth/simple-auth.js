@@ -13,6 +13,11 @@ export class SimpleAuth {
     return this.authManager.getUser();
   }
 
+getGoogleAPI() {
+  return this.authManager.getGoogleAPI();
+}
+
+  
   isAuthenticated() {
     return this.authManager.isAuthenticated();
   }
