@@ -5,6 +5,8 @@ import { WebAuth } from './web-auth.js';
 import { AuthUI } from './auth-ui.js';
 import { AuthStorage } from './auth-storage.js';
 import { DeviceFlowAuth } from './device-flow-auth.js';
+import { GoogleAPIClient } from '../google-apis/google-api-client.js';
+
 
 export class AuthManager {
   constructor() {
@@ -24,6 +26,7 @@ export class AuthManager {
     this.nativeAuthFailed = false;
 
     this.googleAccessToken = null; // Store the Google access token for RLS authentication with Supabase
+    this.googleAPI = null;
     
     this.init();
   }
@@ -242,6 +245,34 @@ setUserFromAuth(userData, authMethod, tokens = null) {
     console.warn('🔐 This means RLS authentication will not work');
   }
 
+    // After successful authentication, initialize Google API client
+    if (this.googleAccessToken) {
+      this.googleAPI = new GoogleAPIClient(this);
+      console.log('🔧 Google API client initialized');
+      
+      // Test API access in background
+      setTimeout(async () => {
+        try {
+          const testResults = await this.googleAPI.testAccess();
+          console.log('🧪 Google API access test results:', testResults);
+          
+          // Store API capabilities
+          this.apiCapabilities = testResults;
+          
+          // Notify widgets that APIs are ready
+          window.dispatchEvent(new CustomEvent('google-apis-ready', {
+            detail: testResults
+          }));
+          
+        } catch (error) {
+          console.warn('Google API access test failed:', error);
+        }
+      }, 2000);
+    }
+
+
+  
+
   // Create user object with Google access token included
   this.currentUser = {
     id: userData.id,
@@ -286,6 +317,38 @@ setUserFromAuth(userData, authMethod, tokens = null) {
   // Notify that auth is ready
   document.dispatchEvent(new CustomEvent('dashie-auth-ready'));
 }
+
+
+// Public method to get Google API client
+  getGoogleAPI() {
+    if (!this.googleAPI) {
+      console.warn('Google API client not initialized. User may not be authenticated.');
+      return null;
+    }
+    return this.googleAPI;
+  }
+
+  // Check if specific API is available
+  hasAPIAccess(apiType) {
+    if (!this.apiCapabilities) {
+      return false;
+    }
+    return this.apiCapabilities[apiType] === true;
+  }
+
+  // Enhanced method to get Google access token (for the API client)
+  getGoogleAccessToken() {
+    return this.googleAccessToken;
+  }
+}
+
+
+
+
+
+
+
+  
   createWebViewUser() {
     console.log('🔐 Creating WebView user');
     
