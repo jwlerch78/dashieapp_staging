@@ -1,5 +1,5 @@
 // js/settings/simplified-settings.js
-// Replace the complex settings system with this simplified version
+// Complete simplified settings system with enhanced event handling
 
 export class SimplifiedSettings {
   constructor() {
@@ -8,6 +8,7 @@ export class SimplifiedSettings {
     this.navigation = null;
     this.controller = null;
     this.pendingChanges = {};
+    this.keydownHandler = null;
     
     // Initialize storage controller
     this.initializeController();
@@ -257,53 +258,53 @@ export class SimplifiedSettings {
     console.log('📝 Form fields populated with current settings');
   }
 
- setupEventHandlers() {
-  // Initialize navigation
-  this.navigation = new SimplifiedNavigation(this.overlay, {
-    onThemeChange: (theme) => this.handleThemeChange(theme),
-    onSettingChange: (path, value) => this.handleSettingChange(path, value),
-    onSave: () => this.handleSave(),
-    onCancel: () => this.handleCancel()
-  });
-
-  // CRITICAL: Add global keyboard event capture with high priority
-  this.keydownHandler = (event) => {
-    // Only handle if settings modal is visible and active
-    if (!this.isVisible || !this.overlay.classList.contains('active')) {
-      return;
-    }
-
-    console.log('🎮 Settings captured key:', event.key);
-    
-    // Let the navigation handle it
-    if (this.navigation.handleKeyPress(event)) {
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-    }
-  };
-
-  // Add event listener with capture=true to get events before main navigation
-  document.addEventListener('keydown', this.keydownHandler, true);
-
-  // Also add to the overlay itself as backup
-  this.overlay.addEventListener('keydown', this.keydownHandler, true);
-
-  // Listen for form changes to track pending changes
-  this.overlay.querySelectorAll('.form-control[data-setting]').forEach(control => {
-    control.addEventListener('change', (e) => {
-      const path = e.target.dataset.setting;
-      const value = e.target.type === 'number' ? parseInt(e.target.value) : e.target.value;
-      this.pendingChanges[path] = value;
-      console.log(`Setting queued: ${path} = ${value}`);
+  setupEventHandlers() {
+    // Initialize navigation
+    this.navigation = new SimplifiedNavigation(this.overlay, {
+      onThemeChange: (theme) => this.handleThemeChange(theme),
+      onSettingChange: (path, value) => this.handleSettingChange(path, value),
+      onSave: () => this.handleSave(),
+      onCancel: () => this.handleCancel()
     });
-  });
 
-  // Prevent clicks from bubbling to main dashboard
-  this.overlay.addEventListener('click', (e) => {
-    e.stopPropagation();
-  }, true);
-}
+    // CRITICAL: Add global keyboard event capture with high priority
+    this.keydownHandler = (event) => {
+      // Only handle if settings modal is visible and active
+      if (!this.isVisible || !this.overlay.classList.contains('active')) {
+        return;
+      }
+
+      console.log('🎮 Settings captured key:', event.key);
+      
+      // Let the navigation handle it
+      if (this.navigation.handleKeyPress(event)) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+      }
+    };
+
+    // Add event listener with capture=true to get events before main navigation
+    document.addEventListener('keydown', this.keydownHandler, true);
+
+    // Also add to the overlay itself as backup
+    this.overlay.addEventListener('keydown', this.keydownHandler, true);
+
+    // Listen for form changes to track pending changes
+    this.overlay.querySelectorAll('.form-control[data-setting]').forEach(control => {
+      control.addEventListener('change', (e) => {
+        const path = e.target.dataset.setting;
+        const value = e.target.type === 'number' ? parseInt(e.target.value) : e.target.value;
+        this.pendingChanges[path] = value;
+        console.log(`Setting queued: ${path} = ${value}`);
+      });
+    });
+
+    // Prevent clicks from bubbling to main dashboard
+    this.overlay.addEventListener('click', (e) => {
+      e.stopPropagation();
+    }, true);
+  }
 
   handleThemeChange(theme) {
     // Apply theme immediately for preview
@@ -423,24 +424,25 @@ export class SimplifiedSettings {
     this.isVisible = false;
   }
 
-cleanup() {
-  if (this.navigation) {
-    this.navigation.destroy();
-    this.navigation = null;
+  cleanup() {
+    if (this.navigation) {
+      this.navigation.destroy();
+      this.navigation = null;
+    }
+    
+    // Remove the global keyboard event listener
+    if (this.keydownHandler) {
+      document.removeEventListener('keydown', this.keydownHandler, true);
+      this.keydownHandler = null;
+    }
+    
+    if (this.overlay) {
+      this.overlay.remove();
+      this.overlay = null;
+    }
+    
+    this.pendingChanges = {};
   }
-  
-  // Remove the global keyboard event listener
-  if (this.keydownHandler) {
-    document.removeEventListener('keydown', this.keydownHandler, true);
-    this.keydownHandler = null;
-  }
-  
-  if (this.overlay) {
-    this.overlay.remove();
-    this.overlay = null;
-  }
-  
-  this.pendingChanges = {};
 }
 
 // Simplified Navigation Class
@@ -486,6 +488,7 @@ class SimplifiedNavigation {
     // Tab clicks
     this.overlay.querySelectorAll('.tab-button:not(.disabled)').forEach(tab => {
       tab.addEventListener('click', (e) => {
+        e.stopPropagation();
         this.switchTab(e.target.dataset.tab);
       });
     });
@@ -493,6 +496,7 @@ class SimplifiedNavigation {
     // Group title clicks
     this.overlay.querySelectorAll('.group-title').forEach(title => {
       title.addEventListener('click', (e) => {
+        e.stopPropagation();
         this.toggleGroup(title.dataset.group);
       });
     });
@@ -510,45 +514,24 @@ class SimplifiedNavigation {
     });
 
     // Button clicks
-    this.overlay.querySelector('#save-btn').addEventListener('click', () => {
+    this.overlay.querySelector('#save-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
       this.callbacks.onSave();
     });
 
-    this.overlay.querySelector('#cancel-btn').addEventListener('click', () => {
+    this.overlay.querySelector('#cancel-btn').addEventListener('click', (e) => {
+      e.stopPropagation();
       this.callbacks.onCancel();
     });
 
-    // Keyboard navigation
-    document.addEventListener('keydown', (e) => {
-      if (e.target.closest('.settings-overlay')) {
-        this.handleKeyPress(e);
-      }
-    });
-  }
-
-  toggleGroup(groupId) {
-    const title = this.overlay.querySelector(`[data-group="${groupId}"]`);
-    const content = this.overlay.querySelector(`#${groupId}-content`);
-    
-    if (this.collapsedGroups.has(groupId)) {
-      this.collapsedGroups.delete(groupId);
-      title.classList.add('expanded');
-      content.classList.remove('collapsed');
-      content.classList.add('expanded');
-    } else {
-      this.collapsedGroups.add(groupId);
-      title.classList.remove('expanded');
-      content.classList.remove('expanded');
-      content.classList.add('collapsed');
-    }
-    
-    this.updateFocusableElements();
-    this.updateFocus();
+    // NOTE: Keyboard navigation is now handled by the parent SimplifiedSettings class
   }
 
   handleKeyPress(event) {
     const { key } = event;
     let handled = false;
+
+    console.log(`⚙️ 🎹 Settings navigation handling key: ${key}`);
 
     switch (key) {
       case 'ArrowUp':
@@ -577,8 +560,32 @@ class SimplifiedNavigation {
     }
 
     if (handled) {
-      event.preventDefault();
+      console.log(`⚙️ ✅ Settings handled key: ${key}`);
+    } else {
+      console.log(`⚙️ ❌ Settings did not handle key: ${key}`);
     }
+
+    return handled;
+  }
+
+  toggleGroup(groupId) {
+    const title = this.overlay.querySelector(`[data-group="${groupId}"]`);
+    const content = this.overlay.querySelector(`#${groupId}-content`);
+    
+    if (this.collapsedGroups.has(groupId)) {
+      this.collapsedGroups.delete(groupId);
+      title.classList.add('expanded');
+      content.classList.remove('collapsed');
+      content.classList.add('expanded');
+    } else {
+      this.collapsedGroups.add(groupId);
+      title.classList.remove('expanded');
+      content.classList.remove('expanded');
+      content.classList.add('collapsed');
+    }
+    
+    this.updateFocusableElements();
+    this.updateFocus();
   }
 
   moveFocus(direction) {
