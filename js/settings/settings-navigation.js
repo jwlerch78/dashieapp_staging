@@ -293,31 +293,32 @@ handleCategoryClick(event) {
     this.hide();
   }
 
-  // Select a category and show its panel
-  selectCategory(categoryId) {
-    const category = this.categories.find(cat => cat.id === categoryId);
-    if (!category || !category.enabled) return;
+// Select a category and show its panel
+selectCategory(categoryId) {
+  const category = this.categories.find(cat => cat.id === categoryId);
+  if (!category || !category.enabled) return;
 
-    console.log(`⚙️ 📂 Selecting category: ${categoryId}`);
+  console.log(`⚙️ 📂 Selecting category: ${categoryId}`);
 
-    // Hide all panels
-    this.hideAllPanels();
+  // Hide all panels first
+  this.hideAllPanels();
 
-    // Show selected panel
-    const panel = this.panels.get(categoryId);
-    if (panel) {
-      panel.show();
-      this.currentPanel = 'settings';
-      this.updatePanelFocus();
-    } else {
-      console.warn(`⚙️ ⚠️ No panel found for category: ${categoryId}`);
-      // Show a "Coming Soon" message for unimplemented panels
-      this.showComingSoon(category.label);
-    }
-
-    // Update category visual state
-    this.updateCategorySelection(categoryId);
+  // Show selected panel
+  const panel = this.panels.get(categoryId);
+  if (panel) {
+    console.log(`⚙️ 🎨 Found panel for ${categoryId}, calling show()`);
+    panel.show();
+    this.currentPanel = 'settings';
+    this.updatePanelFocus();
+  } else {
+    console.warn(`⚙️ ⚠️ No panel found for category: ${categoryId}`);
+    // Show a "Coming Soon" message for unimplemented panels
+    this.showComingSoon(category.label);
   }
+
+  // Update category visual state
+  this.updateCategorySelection(categoryId);
+}
 
   // Show coming soon message for unimplemented panels
   showComingSoon(categoryName) {
@@ -335,15 +336,23 @@ handleCategoryClick(event) {
   }
 
   // Hide all panels
-  hideAllPanels() {
-    this.panels.forEach(panel => {
-      if (panel.hide) panel.hide();
-    });
-    
-    // Also remove any coming soon messages
-    const comingSoon = this.element.querySelector('.settings-coming-soon');
-    if (comingSoon) comingSoon.remove();
+hideAllPanels() {
+  console.log('⚙️ 👁️ Hiding all panels');
+  
+  this.panels.forEach((panel, panelId) => {
+    console.log(`⚙️ 👁️ Hiding panel: ${panelId}`);
+    if (panel.hide) {
+      panel.hide();
+    }
+  });
+  
+  // Also remove any coming soon messages
+  const comingSoon = this.element.querySelector('.settings-coming-soon');
+  if (comingSoon) {
+    console.log('⚙️ 👁️ Removing coming soon message');
+    comingSoon.remove();
   }
+}
 
   // Update category selection visual state
   updateCategorySelection(selectedId) {
