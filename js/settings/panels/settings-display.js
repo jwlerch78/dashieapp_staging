@@ -20,104 +20,106 @@ export class DisplaySettingsPanel {
   }
 
   // Create the panel HTML
-  render() {
-    const container = document.createElement('div');
-    container.className = 'settings-panel display-panel';
-    
-    // Get current values
-    const theme = this.controller.getSetting(this.settings.theme) || 'dark';
-    const sleepTime = this.controller.getSetting(this.settings.sleepTime) || '22:00';
-    const wakeTime = this.controller.getSetting(this.settings.wakeTime) || '07:00';
-    const reSleepDelay = this.controller.getSetting(this.settings.reSleepDelay) || 30;
-    const photosTransition = this.controller.getSetting(this.settings.photosTransition) || 5;
-    
-    container.innerHTML = `
-      <div class="panel-header">
-        <h2>🎨 Display & Photos</h2>
-        <p class="panel-description">Configure theme, sleep settings, and photo transitions</p>
-      </div>
-      
-      <div class="panel-content">
-        <!-- Theme Selection -->
-        <div class="settings-section">
-          <h3>Theme</h3>
-          <div class="settings-row">
-            <label class="settings-label">Display Theme</label>
-            <div class="settings-control">
-              <select class="theme-select focusable" data-setting="${this.settings.theme}">
-                <option value="dark" ${theme === 'dark' ? 'selected' : ''}>Dark Theme</option>
-                <option value="light" ${theme === 'light' ? 'selected' : ''}>Light Theme</option>
-              </select>
-            </div>
-          </div>
-        </div>
+ // Fix for js/settings/panels/settings-display.js
+// Update the render method with better spacing and simplified header:
 
-        <!-- Sleep Settings -->
-        <div class="settings-section">
-          <h3>Sleep Mode</h3>
-          <div class="settings-row">
-            <label class="settings-label">Sleep Time</label>
-            <div class="settings-control">
-              <input type="time" 
-                     class="time-input focusable" 
-                     data-setting="${this.settings.sleepTime}"
-                     value="${sleepTime}">
-              <span class="setting-description">When display goes to sleep</span>
-            </div>
-          </div>
-          
-          <div class="settings-row">
-            <label class="settings-label">Wake Time</label>
-            <div class="settings-control">
-              <input type="time" 
-                     class="time-input focusable" 
-                     data-setting="${this.settings.wakeTime}"
-                     value="${wakeTime}">
-              <span class="setting-description">When display wakes up</span>
-            </div>
-          </div>
-          
-          <div class="settings-row">
-            <label class="settings-label">Re-sleep Delay</label>
-            <div class="settings-control">
-              <input type="number" 
-                     class="number-input focusable" 
-                     data-setting="${this.settings.reSleepDelay}"
-                     value="${reSleepDelay}"
-                     min="1" 
-                     max="120"
-                     step="1">
-              <span class="setting-description">Minutes before auto-sleep after wake</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Photos Settings -->
-        <div class="settings-section">
-          <h3>Photos Widget</h3>
-          <div class="settings-row">
-            <label class="settings-label">Transition Time</label>
-            <div class="settings-control">
-              <input type="number" 
-                     class="number-input focusable" 
-                     data-setting="${this.settings.photosTransition}"
-                     value="${photosTransition}"
-                     min="1" 
-                     max="60"
-                     step="1">
-              <span class="setting-description">Seconds between photo changes</span>
-            </div>
+render() {
+  const container = document.createElement('div');
+  container.className = 'settings-panel display-panel';
+  
+  // Get current values
+  const theme = this.controller.getSetting(this.settings.theme) || 'dark';
+  const sleepTime = this.controller.getSetting(this.settings.sleepTime) || '22:00';
+  const wakeTime = this.controller.getSetting(this.settings.wakeTime) || '07:00';
+  const reSleepDelay = this.controller.getSetting(this.settings.reSleepDelay) || 30;
+  const photosTransition = this.controller.getSetting(this.settings.photosTransition) || 5;
+  
+  container.innerHTML = `
+    <div class="panel-header">
+      <h2>Display</h2>
+    </div>
+    
+    <div class="panel-content">
+      <!-- Theme Selection -->
+      <div class="settings-section">
+        <h3>Theme</h3>
+        <div class="settings-row">
+          <label class="settings-label">Display Theme</label>
+          <div class="settings-control">
+            <select class="theme-select focusable" data-setting="${this.settings.theme}">
+              <option value="dark" ${theme === 'dark' ? 'selected' : ''}>Dark Theme</option>
+              <option value="light" ${theme === 'light' ? 'selected' : ''}>Light Theme</option>
+            </select>
           </div>
         </div>
       </div>
-    `;
-    
-    this.element = container;
-    this.setupEventListeners();
-    this.updateFocusableElements();
-    
-    return container;
-  }
+
+      <!-- Sleep Settings -->
+      <div class="settings-section">
+        <h3>Sleep Mode</h3>
+        <div class="settings-row">
+          <label class="settings-label">Sleep Time</label>
+          <div class="settings-control">
+            <input type="time" 
+                   class="time-input focusable" 
+                   data-setting="${this.settings.sleepTime}"
+                   value="${sleepTime}">
+            <span class="setting-description">When display goes to sleep</span>
+          </div>
+        </div>
+        
+        <div class="settings-row">
+          <label class="settings-label">Wake Time</label>
+          <div class="settings-control">
+            <input type="time" 
+                   class="time-input focusable" 
+                   data-setting="${this.settings.wakeTime}"
+                   value="${wakeTime}">
+            <span class="setting-description">When display wakes up</span>
+          </div>
+        </div>
+        
+        <div class="settings-row">
+          <label class="settings-label">Re-sleep Delay</label>
+          <div class="settings-control">
+            <input type="number" 
+                   class="number-input focusable" 
+                   data-setting="${this.settings.reSleepDelay}"
+                   value="${reSleepDelay}"
+                   min="1" 
+                   max="120"
+                   step="1">
+            <span class="setting-description">Minutes before auto-sleep after wake</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Photos Settings -->
+      <div class="settings-section">
+        <h3>Photos Widget</h3>
+        <div class="settings-row">
+          <label class="settings-label">Transition Time</label>
+          <div class="settings-control">
+            <input type="number" 
+                   class="number-input focusable" 
+                   data-setting="${this.settings.photosTransition}"
+                   value="${photosTransition}"
+                   min="1" 
+                   max="60"
+                   step="1">
+            <span class="setting-description">Seconds between photo changes</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  this.element = container;
+  this.setupEventListeners();
+  this.updateFocusableElements();
+  
+  return container;
+}
 
   // Set up event listeners for the panel
   setupEventListeners() {
