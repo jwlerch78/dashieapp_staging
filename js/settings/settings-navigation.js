@@ -186,90 +186,119 @@ async loadPanels() {
 }
 
   // Handle keyboard navigation
-  handleKeyPress(event) {
-    if (!this.isVisible) return;
+ handleKeyPress(event) {
+  if (!this.isVisible) return;
 
-    const { key } = event;
-    let handled = false;
-
-    // Always handle Escape to close
-    if (key === 'Escape') {
-      this.hide();
-      handled = true;
-    } else if (this.currentPanel === 'categories') {
-      handled = this.handleCategoryNavigation(key);
-    } else if (this.currentPanel === 'settings') {
-      handled = this.handleSettingsNavigation(key);
-    }
-
-    if (handled) {
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-    }
-
-    return handled;
+  const { key } = event;
+  
+  // Convert Arrow keys to project standard
+  let direction = key;
+  switch (key) {
+    case 'ArrowUp': direction = 'up'; break;
+    case 'ArrowDown': direction = 'down'; break;
+    case 'ArrowLeft': direction = 'left'; break;
+    case 'ArrowRight': direction = 'right'; break;
+    case 'Enter': direction = 'enter'; break;
+    case 'Escape': direction = 'escape'; break;
+    default: direction = key; break;
   }
+  
+  console.log(`⚙️ 🎹 Key pressed: "${key}" -> direction: "${direction}", current panel: ${this.currentPanel}`);
+  
+  let handled = false;
+
+  if (direction === 'escape') {
+    this.hide();
+    handled = true;
+  } else if (this.currentPanel === 'categories') {
+    handled = this.handleCategoryNavigation(direction);
+  } else if (this.currentPanel === 'settings') {
+    handled = this.handleSettingsNavigation(direction);
+  }
+
+  if (handled) {
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+  }
+
+  return handled;
+}
 
   // Handle navigation within categories panel
-  handleCategoryNavigation(key) {
-    const enabledCategories = this.categories.filter(cat => cat.enabled);
-    const currentEnabledIndex = enabledCategories.findIndex(cat => 
-      cat === this.categories[this.currentCategoryIndex]
-    );
-    
-    switch (key) {
-      case 'ArrowUp':
-        if (currentEnabledIndex > 0) {
-          const prevCategory = enabledCategories[currentEnabledIndex - 1];
-          this.currentCategoryIndex = this.categories.indexOf(prevCategory);
-          this.updateCategoryFocus();
-        }
-        return true;
-        
-      case 'ArrowDown':
-        if (currentEnabledIndex < enabledCategories.length - 1) {
-          const nextCategory = enabledCategories[currentEnabledIndex + 1];
-          this.currentCategoryIndex = this.categories.indexOf(nextCategory);
-          this.updateCategoryFocus();
-        }
-        return true;
-        
-      case 'ArrowRight':
-      case 'Enter':
-        const selectedCategory = this.categories[this.currentCategoryIndex];
-        if (selectedCategory && selectedCategory.enabled) {
-          this.selectCategory(selectedCategory.id);
-        }
-        return true;
-        
-      default:
-        return false;
-    }
+handleCategoryNavigation(direction) {
+  const enabledCategories = this.categories.filter(cat => cat.enabled);
+  const currentEnabledIndex = enabledCategories.findIndex(cat => 
+    cat === this.categories[this.currentCategoryIndex]
+  );
+  
+  console.log(`⚙️ 📂 Category navigation: "${direction}"`);
+  
+  switch (direction) {
+    case 'up':
+      if (currentEnabledIndex > 0) {
+        const prevCategory = enabledCategories[currentEnabledIndex - 1];
+        this.currentCategoryIndex = this.categories.indexOf(prevCategory);
+        this.updateCategoryFocus();
+      }
+      return true;
+      
+    case 'down':
+      if (currentEnabledIndex < enabledCategories.length - 1) {
+        const nextCategory = enabledCategories[currentEnabledIndex + 1];
+        this.currentCategoryIndex = this.categories.indexOf(nextCategory);
+        this.updateCategoryFocus();
+      }
+      return true;
+      
+    case 'right':
+    case 'enter':
+      const selectedCategory = this.categories[this.currentCategoryIndex];
+      if (selectedCategory && selectedCategory.enabled) {
+        this.selectCategory(selectedCategory.id);
+      }
+      return true;
+      
+    default:
+      return false;
   }
+}
+
 
   // Handle navigation within settings panel
-  handleSettingsNavigation(key) {
-    const currentCategory = this.getCurrentCategory();
-    const panel = this.panels.get(currentCategory?.id);
-    
-    if (panel && panel.handleNavigation) {
-      const handled = panel.handleNavigation(key);
-      if (handled) return true;
+handleSettingsNavigation(direction) {
+  console.log(`⚙️ 🔍 Settings navigation received direction: "${direction}"`);
+  
+  const currentCategory = this.getCurrentCategory();
+  const panel = this.panels.get(currentCategory?.id);
+  
+  console.log(`⚙️ 🔍 Current category: ${currentCategory?.id}, panel exists: ${!!panel}`);
+  
+  // Let the panel handle navigation first
+  if (panel && panel.handleNavigation) {
+    console.log(`⚙️ 🔍 Calling panel.handleNavigation("${direction}")`);
+    const handled = panel.handleNavigation(direction);
+    console.log(`⚙️ 🔍 Panel handleNavigation returned: ${handled}`);
+    if (handled) {
+      console.log(`⚙️ ✅ Panel handled navigation: ${direction}`);
+      return true;
     }
-    
-    // Handle panel-level navigation
-    switch (key) {
-      case 'ArrowLeft':
-        // Go back to categories
-        this.currentPanel = 'categories';
-        this.updatePanelFocus();
-        return true;
-        
-      default:
-        return false;
-    }
+    console.log(`⚙️ ❌ Panel did not handle navigation: ${direction}`);
   }
+  
+  // Handle panel-level navigation if the panel didn't handle it
+  switch (direction) {
+    case 'left':
+      console.log('⚙️ 🔙 Going back to categories');
+      this.currentPanel = 'categories';
+      this.updatePanelFocus();
+      return true;
+      
+    default:
+      console.log(`⚙️ ❌ Settings navigation ignoring: ${direction}`);
+      return false;
+  }
+}
 
 handleCategoryClick(event) {
   // CRITICAL: Stop event from bubbling to main app
