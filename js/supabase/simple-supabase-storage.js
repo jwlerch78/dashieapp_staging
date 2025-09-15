@@ -72,15 +72,6 @@ getGoogleAccessToken() {
   return null;
 }
 
-  
-// Get Supabase auth token from Google OAuth via Edge Function
-// Updated to use dev or prod edge server
-  // In simple-supabase-storage.js, update ensureSupabaseAuth:
-
-// Replace your ensureSupabaseAuth method with this improved version:
-
-// Get Supabase auth token from Google OAuth via Edge Function
-// Updated to use dev or prod edge server dynamically
 // Get Supabase auth token from Google OAuth via Edge Function
 // Updated to use dev or prod edge server dynamically
 async ensureSupabaseAuth() {
@@ -169,34 +160,47 @@ async ensureSupabaseAuth() {
     
     // Try to set session with improved approach
     try {
-      // Try to set session with proper format
+      // Method 1: Try standard setSession
       const { data, error } = await supabase.auth.setSession({
         access_token: this.supabaseAuthToken,
-        refresh_token: null,
-        token_type: 'bearer',
-        expires_in: 3600
+        refresh_token: null
       });
 
       if (error) {
-        console.warn('⚠️ setSession failed, trying manual auth header:', error.message);
+        console.warn('⚠️ setSession failed, trying alternative approaches:', error.message);
         
-        // Fallback: Set auth header manually on the client
+        // Method 2: Set auth header manually on REST client
         if (supabase.rest && supabase.rest.headers) {
           supabase.rest.headers['Authorization'] = `Bearer ${this.supabaseAuthToken}`;
-          console.log('✅ Set manual Authorization header');
+          console.log('✅ Set manual Authorization header on REST client');
         }
         
-        // Also try setting it globally on the client
-        if (supabase.auth.setAuth) {
-          supabase.auth.setAuth(this.supabaseAuthToken);
-          console.log('✅ Set auth token directly');
+        // Method 3: Set global headers if available
+        if (supabase.supabaseKey) {
+          const originalHeaders = supabase.rest.headers || {};
+          supabase.rest.headers = {
+            ...originalHeaders,
+            'Authorization': `Bearer ${this.supabaseAuthToken}`
+          };
+          console.log('✅ Updated global headers');
         }
+        
+        // Method 4: Try direct auth client method
+        try {
+          if (supabase.auth && typeof supabase.auth.setAuth === 'function') {
+            supabase.auth.setAuth(this.supabaseAuthToken);
+            console.log('✅ Set auth token directly on auth client');
+          }
+        } catch (directAuthError) {
+          console.log('⚠️ Direct auth method not available:', directAuthError.message);
+        }
+        
       } else {
-        console.log('✅ Session set successfully');
+        console.log('✅ Session set successfully via setSession');
       }
     } catch (authSetupError) {
-      console.warn('⚠️ Auth setup failed completely:', authSetupError.message);
-      console.log('🔄 Proceeding without session - RLS may not work properly');
+      console.warn('⚠️ All auth setup methods failed:', authSetupError.message);
+      console.log('🔄 Proceeding without proper session - RLS may not work');
     }
 
     this.isRLSEnabled = true;
@@ -210,7 +214,6 @@ async ensureSupabaseAuth() {
     return null;
   }
 }
-  
   // Save settings with hybrid approach (local + cloud)
   async saveSettings(settings) {
     console.log('💾 Saving settings for user:', this.userId);
