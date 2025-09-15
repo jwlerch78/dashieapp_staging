@@ -77,6 +77,8 @@ getGoogleAccessToken() {
 // Updated to use dev or prod edge server
   // In simple-supabase-storage.js, update ensureSupabaseAuth:
 
+// Replace your ensureSupabaseAuth method with this improved version:
+
 async ensureSupabaseAuth() {
   if (this.supabaseAuthToken) {
     return this.supabaseAuthToken; // Already authenticated
@@ -97,8 +99,12 @@ async ensureSupabaseAuth() {
     }
 
     console.log('🔐 Calling Edge Function with user:', currentUser.email);
+    console.log('🔐 Google token length:', googleToken.length);
+    console.log('🔐 Google token preview:', googleToken.substring(0, 30) + '...');
 
     const edgeFunctionUrl = window.currentDbConfig.supabaseEdgeUrl;
+    console.log('🔐 Using Edge Function URL:', edgeFunctionUrl);
+
     const authToken = window.currentDbConfig.supabaseKey;
 
     const response = await fetch(edgeFunctionUrl, {
@@ -119,32 +125,54 @@ async ensureSupabaseAuth() {
       })
     });
 
+    console.log('🔐 Edge Function response status:', response.status);
+
     const result = await response.json();
     console.log('🔐 Edge Function result:', result);
+    console.log('🔐 Edge Function complete result:', JSON.stringify(result, null, 2));
     
     if (!result.success) {
       throw new Error(result.error || 'Failed to authenticate with Supabase');
     }
 
-    // Store both the token and the Supabase UUID
+    // Handle both possible response formats
     this.supabaseAuthToken = result.supabaseToken || result.token;
-    this.supabaseUserId = result.supabase_user_id || result.user_id;
+    const supabaseUserId = result.supabase_user_id || result.user_id;
     
+    if (!this.supabaseAuthToken) {
+      throw new Error('No token received from Edge Function');
+    }
+
     console.log('🔐 ✅ Authentication successful');
     console.log('🔐 Google ID:', currentUser.id);
-    console.log('🔐 Supabase UUID:', this.supabaseUserId);
+    console.log('🔐 Supabase UUID:', supabaseUserId);
+    console.log('🔐 Token type:', result.tokenType);
     
     // CRITICAL: Update the userId to use Supabase UUID for database operations
-    this.userId = this.supabaseUserId;
+    this.userId = supabaseUserId;
+    console.log('🔐 Updated userId for database operations:', this.userId);
     
-    // Set the session in Supabase client
-    const { error } = await supabase.auth.setSession({
-      access_token: this.supabaseAuthToken,
-      refresh_token: null
-    });
+    // Try different methods to set the session
+    try {
+      // Method 1: Try setSession first
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+        access_token: this.supabaseAuthToken,
+        refresh_token: null
+      });
 
-    if (error) {
-      console.warn('Session set warning:', error);
+      if (sessionError) {
+        console.warn('⚠️ setSession failed:', sessionError);
+        console.log('🔄 Trying alternative auth method...');
+        
+        // Method 2: Try setting auth headers manually  
+        supabase.rest.headers['Authorization'] = `Bearer ${this.supabaseAuthToken}`;
+        console.log('✅ Set manual auth header');
+      } else {
+        console.log('✅ Session set successfully:', sessionData);
+      }
+    } catch (authSetupError) {
+      console.warn('⚠️ Auth setup failed:', authSetupError);
+      console.log('🔄 Will proceed with manual token handling');
     }
 
     this.isRLSEnabled = true;
