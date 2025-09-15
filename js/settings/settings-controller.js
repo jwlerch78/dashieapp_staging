@@ -246,23 +246,34 @@ setSetting(path, value) {
   }
 
   // Save settings to database
-  async saveSettings() {
-    if (!this.isDirty || !this.storage) {
-      return true;
-    }
+async saveSettings() {
+  console.log('⚙️ 💾 saveSettings called');
+  console.log('⚙️ 💾 isDirty:', this.isDirty);
+  console.log('⚙️ 💾 storage exists:', !!this.storage);
+  console.log('⚙️ 💾 currentSettings:', JSON.stringify(this.currentSettings, null, 2));
 
-    try {
-      console.log('⚙️ 💾 Saving settings to database...');
-      await this.storage.saveSettings(this.currentSettings);
-      this.isDirty = false;
-      console.log('⚙️ ✅ Settings saved successfully');
-      return true;
-      
-    } catch (error) {
-      console.error('⚙️ ❌ Failed to save settings:', error);
-      return false;
-    }
+  if (!this.isDirty) {
+    console.log('⚙️ 💾 No changes to save');
+    return true;
   }
+
+  if (!this.storage) {
+    console.error('⚙️ 💾 No storage available');
+    return false;
+  }
+
+  try {
+    console.log('⚙️ 💾 Calling storage.saveSettings...');
+    await this.storage.saveSettings(this.currentSettings);
+    this.isDirty = false;
+    console.log('⚙️ ✅ Settings saved successfully to storage');
+    return true;
+    
+  } catch (error) {
+    console.error('⚙️ ❌ Failed to save settings to storage:', error);
+    return false;
+  }
+}
 
   // Auto-save with debouncing
   scheduleAutoSave() {
