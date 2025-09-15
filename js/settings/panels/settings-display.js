@@ -175,20 +175,29 @@ updateFocusableElements() {
     this.focusableElements.map(el => `${el.tagName}[${el.type || 'select'}]`));
 }
 
-  // Handle D-pad navigation within the panel
- handleNavigation(direction) {
-  if (!this.element || this.focusableElements.length === 0) return false;
+// Fix for js/settings/panels/settings-display.js
+// Use the project's standard navigation keys: 'up', 'down', 'left', 'right'
+
+handleNavigation(direction) {
+  if (!this.element || this.focusableElements.length === 0) {
+    console.log(`🎨 Navigation blocked: element=${!!this.element}, focusableCount=${this.focusableElements.length}`);
+    return false;
+  }
 
   let handled = false;
+  const oldFocus = this.currentFocus;
   
-  console.log(`🎨 Display panel navigation: ${direction}, current focus: ${this.currentFocus}`);
+  console.log(`🎨 Display panel navigation: "${direction}", current focus: ${this.currentFocus}/${this.focusableElements.length - 1}`);
   
+  // Use project standard: 'up', 'down', 'left', 'right', 'enter'
   switch (direction) {
     case 'up':
       if (this.currentFocus > 0) {
         this.currentFocus--;
         handled = true;
-        console.log(`🎨 Moved up to focus: ${this.currentFocus}`);
+        console.log(`🎨 ✅ Moved up from ${oldFocus} to ${this.currentFocus}`);
+      } else {
+        console.log(`🎨 ❌ Already at top (${this.currentFocus})`);
       }
       break;
       
@@ -196,7 +205,9 @@ updateFocusableElements() {
       if (this.currentFocus < this.focusableElements.length - 1) {
         this.currentFocus++;
         handled = true;
-        console.log(`🎨 Moved down to focus: ${this.currentFocus}`);
+        console.log(`🎨 ✅ Moved down from ${oldFocus} to ${this.currentFocus}`);
+      } else {
+        console.log(`🎨 ❌ Already at bottom (${this.currentFocus}/${this.focusableElements.length - 1})`);
       }
       break;
       
@@ -208,9 +219,13 @@ updateFocusableElements() {
         if (currentElement.type === 'select-one') {
           this.adjustSelectValue(currentElement, direction);
           handled = true;
+          console.log(`🎨 ✅ Adjusted select value for element ${this.currentFocus}`);
         } else if (currentElement.type === 'number') {
           this.adjustNumberValue(currentElement, direction);
           handled = true;
+          console.log(`🎨 ✅ Adjusted number value for element ${this.currentFocus}`);
+        } else {
+          console.log(`🎨 ❌ Element ${this.currentFocus} (${currentElement.type}) doesn't handle left/right`);
         }
       }
       break;
@@ -220,18 +235,26 @@ updateFocusableElements() {
       if (element) {
         element.click();
         handled = true;
+        console.log(`🎨 ✅ Clicked element ${this.currentFocus}`);
       }
+      break;
+      
+    default:
+      console.log(`🎨 ❌ UNMATCHED direction: "${direction}"`);
+      console.log(`🎨 Available cases: up, down, left, right, enter`);
       break;
   }
   
   if (handled) {
     this.updateFocus();
     this.updateFocusStyles();
+    console.log(`🎨 ✅ Navigation handled successfully, new focus: ${this.currentFocus}`);
+  } else {
+    console.log(`🎨 ❌ Navigation not handled for: "${direction}"`);
   }
   
   return handled;
 }
-
   // Adjust select value with left/right
   adjustSelectValue(selectElement, direction) {
     const options = Array.from(selectElement.options);
