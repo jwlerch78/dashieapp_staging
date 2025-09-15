@@ -103,12 +103,7 @@ getGoogleAccessToken() {
       const config = window.currentDbConfig;
       const baseUrl = config.supabaseUrl;
       
-      // Different function names for different environments
-      if (config.environment === 'development') {
-        return `${baseUrl}/functions/v1/bright-service`;
-      } else {
-        return `${baseUrl}/functions/v1/hyper-responder`;
-      }
+      return `${baseUrl}/functions/v1/hyper-responder`;
     };
 
     const edgeFunctionUrl = getEdgeFunctionUrl();
