@@ -344,23 +344,38 @@ export class DisplaySettingsPanel {
   }
 
   // Show the panel
-  show() {
-    if (this.element) {
-      this.element.style.display = 'block';
-      this.updateFocusableElements();
-      
-      // Focus first element
-      this.currentFocus = 0;
-      this.updateFocus();
-    }
+show() {
+  if (this.element) {
+    this.element.style.display = 'block';
+    // CRITICAL: Add the 'active' class that CSS expects
+    this.element.classList.add('active');
+    
+    this.updateFocusableElements();
+    
+    // Focus first element
+    this.currentFocus = 0;
+    this.updateFocus();
+    
+    console.log('🎨 Display panel shown');
   }
+}
 
   // Hide the panel
-  hide() {
-    if (this.element) {
-      this.element.style.display = 'none';
-    }
+hide() {
+  if (this.element) {
+    // Remove the active class to trigger CSS transition
+    this.element.classList.remove('active');
+    
+    // Hide after transition completes
+    setTimeout(() => {
+      if (this.element) {
+        this.element.style.display = 'none';
+      }
+    }, 300); // Match CSS transition duration
+    
+    console.log('🎨 Display panel hidden');
   }
+}
 
   // Cleanup
   destroy() {
