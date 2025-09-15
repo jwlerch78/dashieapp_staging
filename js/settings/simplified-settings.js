@@ -319,39 +319,57 @@ export class SimplifiedSettings {
     console.log(`Setting changed: ${path} = ${value}`);
   }
 
-  async handleSave() {
-    if (!this.controller) {
-      console.error('No settings controller available');
-      return;
-    }
-
-    try {
-      console.log('💾 Saving settings:', this.pendingChanges);
-      
-      // Apply all pending changes
-      for (const [path, value] of Object.entries(this.pendingChanges)) {
-        this.controller.setSetting(path, value);
-      }
-      
-      // Save to database/local storage
-      await this.controller.saveSettings();
-      
-      // Apply theme to main dashboard if changed
-      if (this.pendingChanges['display.theme']) {
-        await this.applyThemeToMainDashboard(this.pendingChanges['display.theme']);
-      }
-      
-      // Notify other parts of the app
-      this.notifySettingsChanged();
-      
-      console.log('✅ Settings saved successfully');
-      this.hide();
-      
-    } catch (error) {
-      console.error('❌ Failed to save settings:', error);
-      alert('Failed to save settings. Please try again.');
-    }
+async handleSave() {
+  if (!this.controller) {
+    console.error('No settings controller available');
+    return;
   }
+
+  try {
+    console.log('💾 Saving settings:', this.pendingChanges);
+    
+    // Method 1: Apply all pending changes to the controller
+    for (const [path, value] of Object.entries(this.pendingChanges)) {
+      const success = this.controller.setSetting(path, value);
+      if (!success) {
+        console.warn(`Failed to set ${path} = ${value}`);
+      }
+    }
+    
+    // Method 2: Force save the current settings object
+    const currentSettings = this.controller.getSettings();
+    console.log('💾 Current settings after updates:', currentSettings);
+    
+    // CRITICAL FIX: Pass the current settings to saveSettings
+    const success = await this.controller.saveSettings();
+    
+    if (!success) {
+      throw new Error('Save operation returned false');
+    }
+    
+    // Apply theme to main dashboard if changed
+    if (this.pendingChanges['display.theme']) {
+      await this.applyThemeToMainDashboard(this.pendingChanges['display.theme']);
+    }
+    
+    // Notify other parts of the app
+    this.notifySettingsChanged();
+    
+    console.log('✅ Settings saved successfully');
+    this.hide();
+    
+  } catch (error) {
+    console.error('❌ Failed to save settings:', error);
+    console.error('❌ Error details:', {
+      message: error.message,
+      stack: error.stack,
+      pendingChanges: this.pendingChanges,
+      controllerExists: !!this.controller,
+      controllerInitialized: this.controller?.isInitialized
+    });
+    alert('Failed to save settings. Please try again.');
+  }
+}
 
   handleCancel() {
     // Revert theme preview if it was changed
