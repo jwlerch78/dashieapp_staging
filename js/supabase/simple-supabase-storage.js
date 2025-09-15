@@ -101,9 +101,9 @@ getGoogleAccessToken() {
     // Dynamically determine Edge Function URL based on environment
     const getEdgeFunctionUrl = () => {
       const config = window.currentDbConfig;
-      const baseUrl = config.supabaseUrl;
+      const edgeUrl = config.supabaseEdgeUrl;
       
-      return `${baseUrl}/functions/v1/hyper-responder`;
+      return edgeUrl;
     };
 
     const edgeFunctionUrl = getEdgeFunctionUrl();
