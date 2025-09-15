@@ -287,9 +287,6 @@ export class SimplifiedSettings {
     // Add event listener with capture=true to get events before main navigation
     document.addEventListener('keydown', this.keydownHandler, true);
 
-    // Also add to the overlay itself as backup
-    this.overlay.addEventListener('keydown', this.keydownHandler, true);
-
     // Listen for form changes to track pending changes
     this.overlay.querySelectorAll('.form-control[data-setting]').forEach(control => {
       control.addEventListener('change', (e) => {
@@ -300,10 +297,11 @@ export class SimplifiedSettings {
       });
     });
 
-    // Prevent clicks from bubbling to main dashboard
+    // Prevent clicks from bubbling to main dashboard - but allow interaction within modal
     this.overlay.addEventListener('click', (e) => {
       e.stopPropagation();
-    }, true);
+      // Don't prevent default - allow normal click behavior within modal
+    });
   }
 
   handleThemeChange(theme) {
@@ -465,6 +463,7 @@ class SimplifiedNavigation {
   }
 
   updateFocusableElements() {
+    // SEPARATE navigation zones - don't mix tabs with content
     const tabs = Array.from(this.overlay.querySelectorAll('.tab-button:not(.disabled)'));
     const activePanel = this.overlay.querySelector('.tab-panel.active');
     const groupTitles = Array.from(activePanel.querySelectorAll('.group-title'));
@@ -481,7 +480,10 @@ class SimplifiedNavigation {
     });
     
     const buttons = Array.from(this.overlay.querySelectorAll('.settings-footer .btn'));
-    this.focusableElements = [...tabs, ...groupTitles, ...expandedControls, ...buttons];
+    
+    // Only include content elements, not tabs (tabs are handled separately)
+    this.focusableElements = [...groupTitles, ...expandedControls, ...buttons];
+    console.log(`⚙️ Updated focusable elements: ${this.focusableElements.length} (${groupTitles.length} titles, ${expandedControls.length} controls, ${buttons.length} buttons)`);
   }
 
   setupEventListeners() {
@@ -489,7 +491,8 @@ class SimplifiedNavigation {
     this.overlay.querySelectorAll('.tab-button:not(.disabled)').forEach(tab => {
       tab.addEventListener('click', (e) => {
         e.stopPropagation();
-        this.switchTab(e.target.dataset.tab);
+        console.log('🖱️ Tab clicked:', tab.dataset.tab);
+        this.switchTab(tab.dataset.tab);
       });
     });
 
@@ -497,6 +500,7 @@ class SimplifiedNavigation {
     this.overlay.querySelectorAll('.group-title').forEach(title => {
       title.addEventListener('click', (e) => {
         e.stopPropagation();
+        console.log('🖱️ Group title clicked:', title.dataset.group);
         this.toggleGroup(title.dataset.group);
       });
     });
@@ -504,6 +508,7 @@ class SimplifiedNavigation {
     // Form changes
     this.overlay.querySelectorAll('.form-control').forEach(control => {
       control.addEventListener('change', (e) => {
+        console.log('🖱️ Form control changed:', control.id, control.value);
         if (control.id === 'theme-select') {
           this.callbacks.onThemeChange(e.target.value);
         } else if (control.dataset.setting) {
@@ -513,16 +518,27 @@ class SimplifiedNavigation {
       });
     });
 
-    // Button clicks
-    this.overlay.querySelector('#save-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.callbacks.onSave();
-    });
+    // Button clicks - FIXED
+    const saveBtn = this.overlay.querySelector('#save-btn');
+    const cancelBtn = this.overlay.querySelector('#cancel-btn');
+    
+    if (saveBtn) {
+      saveBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        console.log('🖱️ Save button clicked');
+        this.callbacks.onSave();
+      });
+    }
 
-    this.overlay.querySelector('#cancel-btn').addEventListener('click', (e) => {
-      e.stopPropagation();
-      this.callbacks.onCancel();
-    });
+    if (cancelBtn) {
+      cancelBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        console.log('🖱️ Cancel button clicked');
+        this.callbacks.onCancel();
+      });
+    }
 
     // NOTE: Keyboard navigation is now handled by the parent SimplifiedSettings class
   }
@@ -533,30 +549,62 @@ class SimplifiedNavigation {
 
     console.log(`⚙️ 🎹 Settings navigation handling key: ${key}`);
 
-    switch (key) {
-      case 'ArrowUp':
-        this.moveFocus(-1);
-        handled = true;
-        break;
-      case 'ArrowDown':
-        this.moveFocus(1);
-        handled = true;
-        break;
-      case 'ArrowLeft':
-      case 'ArrowRight':
-        if (this.isOnTabs()) {
+    // Check if we're on tabs (special handling)
+    if (this.isOnTabs()) {
+      switch (key) {
+        case 'ArrowLeft':
+        case 'ArrowRight':
           this.moveTabFocus(key === 'ArrowLeft' ? -1 : 1);
           handled = true;
-        }
-        break;
-      case 'Enter':
-        this.activateCurrentElement();
-        handled = true;
-        break;
-      case 'Escape':
-        this.callbacks.onCancel();
-        handled = true;
-        break;
+          break;
+        case 'ArrowDown':
+          // Move from tabs to content
+          this.focusIndex = 0; // First content element
+          this.updateFocus();
+          handled = true;
+          break;
+        case 'Enter':
+          // Switch to selected tab
+          const currentTab = this.overlay.querySelector('.tab-button.focused');
+          if (currentTab && !currentTab.classList.contains('disabled')) {
+            this.switchTab(currentTab.dataset.tab);
+          }
+          handled = true;
+          break;
+        case 'Escape':
+          this.callbacks.onCancel();
+          handled = true;
+          break;
+      }
+    } else {
+      // Regular content navigation
+      switch (key) {
+        case 'ArrowUp':
+          if (this.focusIndex === 0) {
+            // Move to tabs
+            this.focusOnTabs();
+          } else {
+            this.moveFocus(-1);
+          }
+          handled = true;
+          break;
+        case 'ArrowDown':
+          this.moveFocus(1);
+          handled = true;
+          break;
+        case 'ArrowLeft':
+        case 'ArrowRight':
+          // Only handle if we're on tabs
+          break;
+        case 'Enter':
+          this.activateCurrentElement();
+          handled = true;
+          break;
+        case 'Escape':
+          this.callbacks.onCancel();
+          handled = true;
+          break;
+      }
     }
 
     if (handled) {
@@ -609,6 +657,7 @@ class SimplifiedNavigation {
   switchTab(tabId) {
     this.overlay.querySelectorAll('.tab-button').forEach(tab => {
       tab.classList.toggle('active', tab.dataset.tab === tabId);
+      tab.classList.remove('focused'); // Clear focus when switching
     });
 
     this.overlay.querySelectorAll('.tab-panel').forEach(panel => {
@@ -619,32 +668,52 @@ class SimplifiedNavigation {
     this.updateFocusableElements();
     this.focusIndex = 0;
     this.updateFocus();
+    
+    console.log(`⚙️ 📑 Switched to tab: ${tabId}`);
   }
 
   updateFocus() {
+    // Clear all focus styles from content elements
     this.focusableElements.forEach(el => {
       el.classList.remove('focused', 'selected');
     });
 
+    // Clear tab focus (unless we're specifically on tabs)
+    if (!this.isOnTabs()) {
+      this.overlay.querySelectorAll('.tab-button').forEach(tab => tab.classList.remove('focused'));
+    }
+
     const current = this.focusableElements[this.focusIndex];
     if (current) {
       current.classList.add('focused');
-      if (!current.classList.contains('tab-button') && !current.classList.contains('group-title')) {
+      if (!current.classList.contains('group-title')) {
         current.classList.add('selected');
       }
+      console.log(`⚙️ 🎯 Focused on: ${current.tagName}${current.id ? '#' + current.id : ''}${current.dataset.group ? '[' + current.dataset.group + ']' : ''}`);
     }
   }
 
   activateCurrentElement() {
+    // Handle tab activation separately
+    if (this.isOnTabs()) {
+      const currentTab = this.overlay.querySelector('.tab-button.focused');
+      if (currentTab && !currentTab.classList.contains('disabled')) {
+        this.switchTab(currentTab.dataset.tab);
+      }
+      return;
+    }
+
     const current = this.focusableElements[this.focusIndex];
     if (current) {
-      if (current.classList.contains('tab-button')) {
-        this.switchTab(current.dataset.tab);
-      } else if (current.classList.contains('group-title')) {
+      if (current.classList.contains('group-title')) {
         this.toggleGroup(current.dataset.group);
-      } else {
+      } else if (current.classList.contains('btn')) {
+        // Handle buttons
         current.click();
+      } else {
+        // For form controls, focus them so user can interact
         current.focus();
+        console.log(`⚙️ 🖱️ Focused form control: ${current.id}`);
       }
     }
   }
