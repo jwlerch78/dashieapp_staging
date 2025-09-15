@@ -7,6 +7,7 @@ export class DisplaySettingsPanel {
     this.element = null;
     this.focusableElements = [];
     this.currentFocus = 0;
+    this.hideTimeout = null; // Track hide timeout
     
     // Setting paths for easy reference
     this.settings = {
@@ -343,39 +344,53 @@ export class DisplaySettingsPanel {
     );
   }
 
-  // Show the panel
-show() {
-  if (this.element) {
-    this.element.style.display = 'block';
-    // CRITICAL: Add the 'active' class that CSS expects
-    this.element.classList.add('active');
-    
-    this.updateFocusableElements();
-    
-    // Focus first element
-    this.currentFocus = 0;
-    this.updateFocus();
-    
-    console.log('🎨 Display panel shown');
-  }
-}
-
-  // Hide the panel
-hide() {
-  if (this.element) {
-    // Remove the active class to trigger CSS transition
-    this.element.classList.remove('active');
-    
-    // Hide after transition completes
-    setTimeout(() => {
-      if (this.element) {
-        this.element.style.display = 'none';
+ // Show the panel
+  show() {
+    if (this.element) {
+      // Cancel any pending hide timeout
+      if (this.hideTimeout) {
+        clearTimeout(this.hideTimeout);
+        this.hideTimeout = null;
+        console.log('🎨 Cancelled pending hide timeout');
       }
-    }, 300); // Match CSS transition duration
-    
-    console.log('🎨 Display panel hidden');
+      
+      this.element.style.display = 'block';
+      // Add the 'active' class that CSS expects
+      this.element.classList.add('active');
+      
+      this.updateFocusableElements();
+      
+      // Focus first element
+      this.currentFocus = 0;
+      this.updateFocus();
+      
+      console.log('🎨 Display panel shown');
+    }
   }
-}
+
+ // Hide the panel
+  hide() {
+    if (this.element) {
+      // Cancel any existing hide timeout
+      if (this.hideTimeout) {
+        clearTimeout(this.hideTimeout);
+        this.hideTimeout = null;
+      }
+      
+      // Remove the active class to trigger CSS transition
+      this.element.classList.remove('active');
+      
+      // Hide after transition completes
+      this.hideTimeout = setTimeout(() => {
+        if (this.element) {
+          this.element.style.display = 'none';
+        }
+        this.hideTimeout = null;
+      }, 300); // Match CSS transition duration
+      
+      console.log('🎨 Display panel hidden');
+    }
+  }
 
   // Cleanup
   destroy() {
