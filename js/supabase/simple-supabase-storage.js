@@ -81,6 +81,8 @@ getGoogleAccessToken() {
 
 // Get Supabase auth token from Google OAuth via Edge Function
 // Updated to use dev or prod edge server dynamically
+// Get Supabase auth token from Google OAuth via Edge Function
+// Updated to use dev or prod edge server dynamically
 async ensureSupabaseAuth() {
   if (this.supabaseAuthToken) {
     return this.supabaseAuthToken; // Already authenticated
@@ -165,14 +167,36 @@ async ensureSupabaseAuth() {
     this.userId = supabaseUserId;
     console.log('🔐 Updated userId for database operations:', this.userId);
     
-    // Set the session in Supabase client
-    const { error } = await supabase.auth.setSession({
-      access_token: this.supabaseAuthToken,
-      refresh_token: null
-    });
+    // Try to set session with improved approach
+    try {
+      // Try to set session with proper format
+      const { data, error } = await supabase.auth.setSession({
+        access_token: this.supabaseAuthToken,
+        refresh_token: null,
+        token_type: 'bearer',
+        expires_in: 3600
+      });
 
-    if (error) {
-      console.warn('Session set warning:', error);
+      if (error) {
+        console.warn('⚠️ setSession failed, trying manual auth header:', error.message);
+        
+        // Fallback: Set auth header manually on the client
+        if (supabase.rest && supabase.rest.headers) {
+          supabase.rest.headers['Authorization'] = `Bearer ${this.supabaseAuthToken}`;
+          console.log('✅ Set manual Authorization header');
+        }
+        
+        // Also try setting it globally on the client
+        if (supabase.auth.setAuth) {
+          supabase.auth.setAuth(this.supabaseAuthToken);
+          console.log('✅ Set auth token directly');
+        }
+      } else {
+        console.log('✅ Session set successfully');
+      }
+    } catch (authSetupError) {
+      console.warn('⚠️ Auth setup failed completely:', authSetupError.message);
+      console.log('🔄 Proceeding without session - RLS may not work properly');
     }
 
     this.isRLSEnabled = true;
