@@ -163,66 +163,74 @@ render() {
     });
   }
 
-  // Update the list of focusable elements
-  updateFocusableElements() {
-    if (!this.element) return;
-    
-    this.focusableElements = Array.from(
-      this.element.querySelectorAll('.focusable')
-    ).filter(el => !el.disabled);
-  }
+// Make sure updateFocusableElements finds all the elements
+updateFocusableElements() {
+  if (!this.element) return;
+  
+  this.focusableElements = Array.from(
+    this.element.querySelectorAll('.focusable')
+  ).filter(el => !el.disabled);
+  
+  console.log(`🎨 Found ${this.focusableElements.length} focusable elements:`, 
+    this.focusableElements.map(el => `${el.tagName}[${el.type || 'select'}]`));
+}
 
   // Handle D-pad navigation within the panel
-  handleNavigation(direction) {
-    if (!this.element || this.focusableElements.length === 0) return false;
+ handleNavigation(direction) {
+  if (!this.element || this.focusableElements.length === 0) return false;
 
-    let handled = false;
-    
-    switch (direction) {
-      case 'up':
-        if (this.currentFocus > 0) {
-          this.currentFocus--;
+  let handled = false;
+  
+  console.log(`🎨 Display panel navigation: ${direction}, current focus: ${this.currentFocus}`);
+  
+  switch (direction) {
+    case 'up':
+      if (this.currentFocus > 0) {
+        this.currentFocus--;
+        handled = true;
+        console.log(`🎨 Moved up to focus: ${this.currentFocus}`);
+      }
+      break;
+      
+    case 'down':
+      if (this.currentFocus < this.focusableElements.length - 1) {
+        this.currentFocus++;
+        handled = true;
+        console.log(`🎨 Moved down to focus: ${this.currentFocus}`);
+      }
+      break;
+      
+    case 'left':
+    case 'right':
+      // Handle left/right for select elements and number inputs
+      const currentElement = this.focusableElements[this.currentFocus];
+      if (currentElement) {
+        if (currentElement.type === 'select-one') {
+          this.adjustSelectValue(currentElement, direction);
+          handled = true;
+        } else if (currentElement.type === 'number') {
+          this.adjustNumberValue(currentElement, direction);
           handled = true;
         }
-        break;
-        
-      case 'down':
-        if (this.currentFocus < this.focusableElements.length - 1) {
-          this.currentFocus++;
-          handled = true;
-        }
-        break;
-        
-      case 'left':
-      case 'right':
-        // Handle left/right for select elements and number inputs
-        const currentElement = this.focusableElements[this.currentFocus];
-        if (currentElement) {
-          if (currentElement.type === 'select-one') {
-            this.adjustSelectValue(currentElement, direction);
-            handled = true;
-          } else if (currentElement.type === 'number') {
-            this.adjustNumberValue(currentElement, direction);
-            handled = true;
-          }
-        }
-        break;
-        
-      case 'enter':
-        const element = this.focusableElements[this.currentFocus];
-        if (element) {
-          element.click();
-          handled = true;
-        }
-        break;
-    }
-    
-    if (handled) {
-      this.updateFocus();
-    }
-    
-    return handled;
+      }
+      break;
+      
+    case 'enter':
+      const element = this.focusableElements[this.currentFocus];
+      if (element) {
+        element.click();
+        handled = true;
+      }
+      break;
   }
+  
+  if (handled) {
+    this.updateFocus();
+    this.updateFocusStyles();
+  }
+  
+  return handled;
+}
 
   // Adjust select value with left/right
   adjustSelectValue(selectElement, direction) {
@@ -262,12 +270,14 @@ render() {
     numberElement.dispatchEvent(new Event('input'));
   }
 
-  // Update focus to current element
-  updateFocus() {
-    if (this.focusableElements[this.currentFocus]) {
-      this.focusableElements[this.currentFocus].focus();
-    }
+// Enhanced focus update with better logging
+updateFocus() {
+  if (this.focusableElements[this.currentFocus]) {
+    const element = this.focusableElements[this.currentFocus];
+    element.focus();
+    console.log(`🎨 Focused element: ${element.tagName}[${element.type || 'select'}] - ${element.dataset.setting}`);
   }
+}
 
   // Update focus styles
   updateFocusStyles() {
@@ -346,30 +356,33 @@ render() {
     );
   }
 
- // Show the panel
-  show() {
-    if (this.element) {
-      // Cancel any pending hide timeout
-      if (this.hideTimeout) {
-        clearTimeout(this.hideTimeout);
-        this.hideTimeout = null;
-        console.log('🎨 Cancelled pending hide timeout');
-      }
-      
-      this.element.style.display = 'block';
-      // Add the 'active' class that CSS expects
-      this.element.classList.add('active');
-      
-      this.updateFocusableElements();
-      
-      // Focus first element
-      this.currentFocus = 0;
-      this.updateFocus();
-      
-      console.log('🎨 Display panel shown');
+// Show the panel with proper focus setup
+show() {
+  if (this.element) {
+    // Cancel any pending hide timeout
+    if (this.hideTimeout) {
+      clearTimeout(this.hideTimeout);
+      this.hideTimeout = null;
+      console.log('🎨 Cancelled pending hide timeout');
     }
+    
+    this.element.style.display = 'block';
+    this.element.classList.add('active');
+    
+    // Update focusable elements and set initial focus
+    this.updateFocusableElements();
+    this.currentFocus = 0;
+    
+    // Small delay to ensure element is visible before focusing
+    setTimeout(() => {
+      this.updateFocus();
+      this.updateFocusStyles();
+    }, 50);
+    
+    console.log('🎨 Display panel shown with focus setup');
   }
-
+}
+  
  // Hide the panel
   hide() {
     if (this.element) {
