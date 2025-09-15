@@ -257,25 +257,53 @@ export class SimplifiedSettings {
     console.log('📝 Form fields populated with current settings');
   }
 
-  setupEventHandlers() {
-    // Initialize navigation
-    this.navigation = new SimplifiedNavigation(this.overlay, {
-      onThemeChange: (theme) => this.handleThemeChange(theme),
-      onSettingChange: (path, value) => this.handleSettingChange(path, value),
-      onSave: () => this.handleSave(),
-      onCancel: () => this.handleCancel()
-    });
+ setupEventHandlers() {
+  // Initialize navigation
+  this.navigation = new SimplifiedNavigation(this.overlay, {
+    onThemeChange: (theme) => this.handleThemeChange(theme),
+    onSettingChange: (path, value) => this.handleSettingChange(path, value),
+    onSave: () => this.handleSave(),
+    onCancel: () => this.handleCancel()
+  });
 
-    // Listen for form changes to track pending changes
-    this.overlay.querySelectorAll('.form-control[data-setting]').forEach(control => {
-      control.addEventListener('change', (e) => {
-        const path = e.target.dataset.setting;
-        const value = e.target.type === 'number' ? parseInt(e.target.value) : e.target.value;
-        this.pendingChanges[path] = value;
-        console.log(`Setting queued: ${path} = ${value}`);
-      });
+  // CRITICAL: Add global keyboard event capture with high priority
+  this.keydownHandler = (event) => {
+    // Only handle if settings modal is visible and active
+    if (!this.isVisible || !this.overlay.classList.contains('active')) {
+      return;
+    }
+
+    console.log('🎮 Settings captured key:', event.key);
+    
+    // Let the navigation handle it
+    if (this.navigation.handleKeyPress(event)) {
+      event.preventDefault();
+      event.stopPropagation();
+      event.stopImmediatePropagation();
+    }
+  };
+
+  // Add event listener with capture=true to get events before main navigation
+  document.addEventListener('keydown', this.keydownHandler, true);
+
+  // Also add to the overlay itself as backup
+  this.overlay.addEventListener('keydown', this.keydownHandler, true);
+
+  // Listen for form changes to track pending changes
+  this.overlay.querySelectorAll('.form-control[data-setting]').forEach(control => {
+    control.addEventListener('change', (e) => {
+      const path = e.target.dataset.setting;
+      const value = e.target.type === 'number' ? parseInt(e.target.value) : e.target.value;
+      this.pendingChanges[path] = value;
+      console.log(`Setting queued: ${path} = ${value}`);
     });
-  }
+  });
+
+  // Prevent clicks from bubbling to main dashboard
+  this.overlay.addEventListener('click', (e) => {
+    e.stopPropagation();
+  }, true);
+}
 
   handleThemeChange(theme) {
     // Apply theme immediately for preview
@@ -395,19 +423,24 @@ export class SimplifiedSettings {
     this.isVisible = false;
   }
 
-  cleanup() {
-    if (this.navigation) {
-      this.navigation.destroy();
-      this.navigation = null;
-    }
-    
-    if (this.overlay) {
-      this.overlay.remove();
-      this.overlay = null;
-    }
-    
-    this.pendingChanges = {};
+cleanup() {
+  if (this.navigation) {
+    this.navigation.destroy();
+    this.navigation = null;
   }
+  
+  // Remove the global keyboard event listener
+  if (this.keydownHandler) {
+    document.removeEventListener('keydown', this.keydownHandler, true);
+    this.keydownHandler = null;
+  }
+  
+  if (this.overlay) {
+    this.overlay.remove();
+    this.overlay = null;
+  }
+  
+  this.pendingChanges = {};
 }
 
 // Simplified Navigation Class
