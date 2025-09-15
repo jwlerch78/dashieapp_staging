@@ -182,41 +182,46 @@ export class SettingsController {
   }
 
   // Set a specific setting value with dot notation
-  setSetting(path, value) {
-    if (!this.isInitialized) {
-      console.warn('⚙️ Settings not initialized, cannot set:', path);
-      return false;
-    }
+setSetting(path, value) {
+  if (!this.isInitialized) {
+    console.warn('⚙️ Settings not initialized, cannot set:', path);
+    return false;
+  }
 
-    const keys = path.split('.');
-    let current = this.currentSettings;
-    
-    // Navigate to the parent object
-    for (let i = 0; i < keys.length - 1; i++) {
-      const key = keys[i];
-      if (!(key in current) || typeof current[key] !== 'object') {
-        current[key] = {};
-      }
-      current = current[key];
+  console.log(`⚙️ 🔧 Setting ${path} = ${value}`);
+
+  const keys = path.split('.');
+  let current = this.currentSettings;
+  
+  // Navigate to the parent object, creating nested objects as needed
+  for (let i = 0; i < keys.length - 1; i++) {
+    const key = keys[i];
+    if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
+      current[key] = {};
     }
+    current = current[key];
+  }
+  
+  // Set the final value
+  const finalKey = keys[keys.length - 1];
+  const oldValue = current[finalKey];
+  current[finalKey] = value;
+  
+  // Mark as dirty if value changed
+  if (oldValue !== value) {
+    this.isDirty = true;
+    this.currentSettings.lastModified = Date.now();
+    console.log(`⚙️ ✅ Setting updated: ${path} = ${value} (was: ${oldValue})`);
     
-    // Set the final value
-    const finalKey = keys[keys.length - 1];
-    const oldValue = current[finalKey];
-    current[finalKey] = value;
-    
-    // Mark as dirty if value changed
-    if (oldValue !== value) {
-      this.isDirty = true;
-      this.currentSettings.lastModified = Date.now();
-      console.log(`⚙️ Setting updated: ${path} = ${value}`);
-      
-      // Auto-save after a short delay (debounced)
-      this.scheduleAutoSave();
-    }
+    // Auto-save after a short delay (debounced)
+    this.scheduleAutoSave();
     
     return true;
+  } else {
+    console.log(`⚙️ ℹ️ Setting unchanged: ${path} = ${value}`);
+    return true;
   }
+}
 
   // Get all settings for a category
   getCategorySettings(categoryId) {
