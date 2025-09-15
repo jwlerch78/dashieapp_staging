@@ -1,4 +1,4 @@
-/* js/ui/settings/settings-layout.css */
+/* js/ui/settings/settings-layout.css - UPDATED */
 /* Two-panel settings layout with category sidebar and settings panel */
 
 /* Main Settings Container - Takes up most of the screen */
@@ -31,17 +31,17 @@
   background: var(--bg-primary);
   border-radius: var(--border-radius);
   display: flex;
-  flex-direction: row; /* Explicitly set to row to ensure side-by-side layout */
+  flex-direction: row;
   overflow: hidden;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-/* Left Panel - Categories */
+/* Left Panel - Categories (THEMED LIKE MAIN SIDEBAR) */
 .settings-sidebar {
   width: 350px;
-  min-width: 350px; /* Prevent shrinking */
-  background: var(--bg-secondary);
+  min-width: 350px;
+  background: var(--bg-primary); /* Use same bg as main sidebar */
   border-right: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   flex-direction: column;
@@ -86,10 +86,12 @@
   background: rgba(255, 255, 255, 0.1);
 }
 
+/* FIXED: Use theme variables for selection highlight */
 .settings-sidebar-header .close-btn.selected {
   outline: 2px solid var(--outline-selected);
   outline-offset: 2px;
-  color: var(--accent-orange);
+  color: var(--text-primary);
+  background: var(--bg-active);
 }
 
 /* Categories List */
@@ -99,27 +101,30 @@
   overflow-y: auto;
 }
 
+/* FIXED: Style category items like main sidebar menu items */
 .category-item {
   display: flex;
   align-items: center;
-  padding: 20px 25px;
+  padding: 12px 25px; /* Reduced from 20px for more compact look */
   cursor: pointer;
   transition: all var(--transition-fast);
   color: var(--text-primary);
-  font-size: 18px;
+  font-size: 16px; /* Reduced from 18px */
   font-weight: 500;
   user-select: none;
-  margin: 5px 15px;
+  margin: 2px 15px; /* Reduced from 5px */
   border-radius: var(--border-radius-small);
+  position: relative;
 }
 
 .category-item:hover:not(.disabled) {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-active);
 }
 
+/* FIXED: Use theme variables for selection highlighting */
 .category-item.selected {
-  background: rgba(255, 255, 255, 0.15);
-  outline: 2px solid var(--accent-orange);
+  background: var(--bg-active);
+  outline: 2px solid var(--outline-focused); /* Use blue for focused, not selected */
   outline-offset: 2px;
 }
 
@@ -136,15 +141,15 @@
 
 .category-label {
   flex: 1;
-  font-size: 18px;
+  font-size: 16px; /* Reduced from 18px */
   font-weight: 600;
 }
 
 /* Right Panel - Settings Content */
 .settings-main {
   flex: 1;
-  min-width: 0; /* Allow content to shrink if needed */
-  background: var(--bg-primary);
+  min-width: 0;
+  background: var(--bg-secondary); /* Different from sidebar for visual separation */
   position: relative;
   overflow: hidden;
 }
@@ -169,7 +174,7 @@
   align-items: center;
   justify-content: center;
   padding: 40px;
-  background: var(--bg-primary);
+  background: var(--bg-secondary);
 }
 
 .coming-soon-content {
@@ -247,11 +252,11 @@
   border: 1px solid var(--text-muted);
 }
 
-/* Footer (for future save/cancel buttons) */
+/* FIXED: Footer with proper save/cancel buttons */
 .settings-footer {
-  background: var(--bg-secondary);
+  background: var(--bg-primary); /* Match sidebar background */
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  padding: 20px 30px;
+  padding: 15px 30px; /* Reduced from 20px for more compact look */
   display: flex;
   justify-content: flex-end;
   gap: 15px;
@@ -262,17 +267,19 @@
   display: none;
 }
 
+/* FIXED: Use theme variables for button styling */
 .settings-btn {
   background: var(--bg-button);
   color: var(--text-primary);
-  border: none;
+  border: 2px solid transparent;
   border-radius: var(--border-radius-small);
-  padding: 12px 24px;
+  padding: 10px 20px; /* Slightly reduced for compactness */
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px; /* Reduced from 16px */
   font-weight: 500;
   transition: all var(--transition-fast);
-  min-width: 100px;
+  min-width: 80px; /* Reduced from 100px */
+  position: relative;
 }
 
 .settings-btn.primary {
@@ -283,12 +290,19 @@
 .settings-btn:hover:not(.selected) {
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  background: var(--bg-active);
 }
 
+/* FIXED: Proper focus styling for buttons */
 .settings-btn.selected {
-  outline: 2px solid var(--outline-selected);
-  outline-offset: 2px;
+  border-color: var(--outline-focused);
+  box-shadow: 0 0 0 2px rgba(0, 170, 255, 0.3);
   transform: translateY(-1px);
+}
+
+.settings-btn.primary.selected {
+  border-color: var(--outline-focused);
+  box-shadow: 0 0 0 2px rgba(0, 170, 255, 0.5);
 }
 
 /* Responsive Design */
@@ -304,12 +318,12 @@
   }
   
   .category-item {
-    padding: 15px 20px;
-    font-size: 15px;
+    padding: 10px 20px; /* Further reduced for smaller screens */
+    font-size: 14px;
   }
 }
 
-/* FIXED: Only switch to column layout on very small screens */
+/* Only switch to column layout on very small screens */
 @media (max-width: 600px) {
   .settings-container {
     flex-direction: column;
@@ -320,26 +334,27 @@
   .settings-sidebar {
     width: 100%;
     min-width: unset;
-    height: 200px;
+    height: 150px; /* Reduced from 200px */
     border-right: none;
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   }
   
   .settings-categories {
     display: flex;
-    gap: 10px;
-    padding: 10px 20px;
+    gap: 8px; /* Reduced gap */
+    padding: 8px 15px; /* Reduced padding */
     overflow-x: auto;
     overflow-y: hidden;
   }
   
   .category-item {
     flex-shrink: 0;
-    min-width: 120px;
+    min-width: 100px; /* Reduced from 120px */
     text-align: center;
     flex-direction: column;
-    gap: 5px;
-    padding: 15px 10px;
+    gap: 3px; /* Reduced gap */
+    padding: 10px 8px; /* Reduced padding */
+    font-size: 12px; /* Smaller font */
   }
   
   .settings-main {
@@ -348,7 +363,7 @@
   }
   
   .settings-overlay {
-    padding: 10px;
+    padding: 5px; /* Reduced padding */
   }
   
   .settings-container {
@@ -358,11 +373,15 @@
   }
   
   .settings-sidebar-header {
-    padding: 20px;
+    padding: 15px; /* Reduced padding */
   }
   
   .settings-sidebar-header h1 {
-    font-size: 20px;
+    font-size: 18px; /* Reduced font size */
+  }
+  
+  .settings-footer {
+    padding: 10px 15px; /* Reduced padding */
   }
 }
 
@@ -387,18 +406,8 @@
   }
   
   .category-item.selected {
-    border-color: var(--accent-orange);
+    border-color: var(--outline-focused);
   }
-}
-
-/* Dark mode overrides (if needed) */
-[data-theme="dark"] .settings-container {
-  background: #1a1a1a;
-  border-color: #444;
-}
-
-[data-theme="dark"] .settings-sidebar {
-  background: #222;
 }
 
 /* Focus visible for keyboard navigation */
