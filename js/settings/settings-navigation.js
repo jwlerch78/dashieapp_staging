@@ -159,28 +159,31 @@ export class SettingsNavigation {
     }
   }, true);
 }
-  // Load panel instances
-  async loadPanels() {
-    try {
-      // Load display panel (the only one we have for now)
-      const { DisplaySettingsPanel } = await import('./panels/settings-display.js');
-      const displayPanel = new DisplaySettingsPanel(this.controller);
-      const displayElement = displayPanel.render();
-      
-      // Add to container
-      const container = this.element.querySelector('.settings-panel-container');
-      container.appendChild(displayElement);
-      
-      // Store panel instance
-      this.panels.set('display', displayPanel);
-      this.panels.set('widgets', displayPanel); // Use display panel for widgets too since it has photos
-      
-      console.log('⚙️ 🎨 Display panel loaded');
-      
-    } catch (error) {
-      console.error('⚙️ ❌ Failed to load settings panels:', error);
-    }
+
+  // Fix for js/settings/settings-navigation.js
+// Update the loadPanels method to avoid duplicate references:
+
+async loadPanels() {
+  try {
+    // Load display panel (the only one we have for now)
+    const { DisplaySettingsPanel } = await import('./panels/settings-display.js');
+    const displayPanel = new DisplaySettingsPanel(this.controller);
+    const displayElement = displayPanel.render();
+    
+    // Add to container
+    const container = this.element.querySelector('.settings-panel-container');
+    container.appendChild(displayElement);
+    
+    // Store panel instance - ONLY ONCE to avoid duplicate hiding
+    this.panels.set('display', displayPanel);
+    // Don't map widgets to the same panel - create a separate one or handle differently
+    
+    console.log('⚙️ 🎨 Display panel loaded');
+    
+  } catch (error) {
+    console.error('⚙️ ❌ Failed to load settings panels:', error);
   }
+}
 
   // Handle keyboard navigation
   handleKeyPress(event) {
@@ -335,12 +338,15 @@ selectCategory(categoryId) {
     container.appendChild(comingSoon);
   }
 
-  // Hide all panels
+// Update hideAllPanels to use Set to avoid duplicates:
 hideAllPanels() {
   console.log('⚙️ 👁️ Hiding all panels');
   
-  this.panels.forEach((panel, panelId) => {
-    console.log(`⚙️ 👁️ Hiding panel: ${panelId}`);
+  // Use Set to avoid calling hide() on the same panel multiple times
+  const uniquePanels = new Set(this.panels.values());
+  
+  uniquePanels.forEach((panel, index) => {
+    console.log(`⚙️ 👁️ Hiding unique panel: ${index}`);
     if (panel.hide) {
       panel.hide();
     }
