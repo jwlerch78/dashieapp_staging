@@ -1,34 +1,19 @@
-// widgets/calendar/calendar.js - Calendar Widget Logic with Preserved Event Colors
+// widgets/calendar/calendar.js - Calendar Widget Logic with Google Calendar events
 
 class CalendarWidget {
   constructor() {
+    // ============== CONFIG VARIABLES ==============
+    this.MONTHS_TO_PULL = 3;
+    this.GOOGLE_CALENDARS = [
+      { summary: 'jwlerch@gmail.com', color: '#1976d2', textColor: '#ffffff' },
+      { summary: 'Veeva', color: '#388e3c', textColor: '#ffffff' }
+    ];
+
     this.calendar = null;
     this.currentView = 'week';
     this.currentDate = new Date();
     this.viewCycle = ['week', 'month', 'daily'];
-    
-    // Calendar configuration with distinct colors that won't be overridden
-    this.calendars = [
-      {
-        id: 'calendar1',
-        name: 'Main Calendar',
-        url: 'https://calendar.playmetrics.com/calendars/c1334/t398340/p0/t2BDEDC4E/f/calendar.ics',
-        // Use strong, distinct colors for better visibility
-        color: '#ffffff', // White text on colored background
-        backgroundColor: '#1976d2', // Material Blue
-        borderColor: '#1976d2'
-      },
-      {
-        id: 'calendar2', 
-        name: 'Secondary Calendar',
-        url: 'https://calendar.playmetrics.com/calendars/c379/t346952/p0/tEB6F077C/f/calendar.ics',
-        // Use contrasting color
-        color: '#ffffff', // White text on colored background
-        backgroundColor: '#388e3c', // Material Green
-        borderColor: '#388e3c'
-      }
-    ];
-    
+
     this.init();
   }
 
@@ -38,17 +23,15 @@ class CalendarWidget {
   }
 
   setupEventListeners() {
-    // D-pad Navigation
     window.addEventListener('message', (event) => {
       if (event.data && event.data.action) {
         this.handleCommand(event.data.action);
       }
     });
 
-    // PC testing keys
     document.addEventListener('keydown', (e) => {
       if (document.hasFocus()) {
-        switch(e.key) {
+        switch (e.key) {
           case ',':
             e.preventDefault();
             this.cycleView('forward');
@@ -61,12 +44,11 @@ class CalendarWidget {
       }
     });
 
-    // Send ready signal
     window.addEventListener('load', () => {
       if (window.parent !== window) {
-        window.parent.postMessage({ 
-          type: 'widget-ready', 
-          widget: 'calendar' 
+        window.parent.postMessage({
+          type: 'widget-ready',
+          widget: 'calendar'
         }, '*');
       }
     });
@@ -76,12 +58,21 @@ class CalendarWidget {
     try {
       const monday = this.getStartOfWeek(this.currentDate);
       this.currentDate = monday;
-      
+
+      // Build TUI calendars array from GOOGLE_CALENDARS
+      this.tuiCalendars = this.GOOGLE_CALENDARS.map((cal, idx) => ({
+        id: `google-${idx}`,
+        name: cal.summary,
+        color: cal.textColor,
+        backgroundColor: cal.color,
+        borderColor: cal.color
+      }));
+
       this.calendar = new tui.Calendar('#calendar', {
         defaultView: this.currentView,
         useCreationPopup: false,
         useDetailPopup: false,
-        calendars: this.calendars,
+        calendars: this.tuiCalendars,
         week: {
           startDayOfWeek: 1,
           dayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
@@ -90,8 +81,8 @@ class CalendarWidget {
           hourStart: 6,
           hourEnd: 24,
           showNowIndicator: true,
-          eventView: ['time'],    // Only show time panel, hide allday panel
-          taskView: false         // Hide milestone and task panels
+          eventView: ['time'],
+          taskView: false
         },
         month: {
           startDayOfWeek: 1,
@@ -101,12 +92,9 @@ class CalendarWidget {
           workweek: false
         },
         template: {
-          // Custom template to ensure colors are preserved
           time: (schedule) => {
-            const calendar = this.calendars.find(cal => cal.id === schedule.calendarId);
-            const bgColor = calendar ? calendar.backgroundColor : '#1976d2';
+            const calendar = this.tuiCalendars.find(cal => cal.id === schedule.calendarId);
             const textColor = calendar ? calendar.color : '#ffffff';
-            
             return `<span style="color: ${textColor}; font-weight: 500;">${schedule.title}</span>`;
           }
         }
@@ -115,12 +103,12 @@ class CalendarWidget {
       this.calendar.setDate(this.currentDate);
       this.showCalendar();
       this.updateCalendarHeader();
-      this.loadCalendarData();
-      
+
+      this.loadGoogleCalendarData();
+
       setTimeout(() => this.scrollToTime(8), 200);
-      
+
       console.log('📅 Calendar initialized in', this.currentView, 'view');
-      
     } catch (error) {
       console.error('📅 Failed to initialize calendar:', error);
       document.getElementById('loading').textContent = 'Failed to load calendar';
@@ -143,73 +131,44 @@ class CalendarWidget {
   updateCalendarHeader() {
     const titleEl = document.getElementById('calendarTitle');
     const modeEl = document.getElementById('calendarMode');
-    
-    const options = { 
-      year: 'numeric', 
+
+    const options = {
+      year: 'numeric',
       month: 'long',
       ...(this.currentView === 'daily' ? { day: 'numeric' } : {})
     };
-    
+
     titleEl.textContent = this.currentDate.toLocaleDateString('en-US', options);
     modeEl.textContent = this.currentView.charAt(0).toUpperCase() + this.currentView.slice(1);
   }
 
   handleCommand(action) {
     console.log('📅 Calendar widget received command:', action);
-    
-    switch(action) {
-      case 'right':
-        this.navigateCalendar('next');
-        break;
-      case 'left':
-        this.navigateCalendar('previous');
-        break;
-      case 'up':
-        this.scrollCalendar('up');
-        break;
-      case 'down':
-        this.scrollCalendar('down');
-        break;
-      case 'enter':
-        console.log('📅 Enter pressed on calendar widget');
-        break;
-      case 'fastforward':
-      case 'ff':
-      case ',':
-        this.cycleView('forward');
-        break;
-      case 'rewind':
-      case 'rw':
-      case '.':
-        this.cycleView('backward');
-        break;
-      default:
-        console.log('📅 Calendar widget ignoring command:', action);
-        break;
+    switch (action) {
+      case 'right': this.navigateCalendar('next'); break;
+      case 'left': this.navigateCalendar('previous'); break;
+      case 'up': this.scrollCalendar('up'); break;
+      case 'down': this.scrollCalendar('down'); break;
+      case 'enter': console.log('📅 Enter pressed on calendar widget'); break;
+      case 'fastforward': case 'ff': case ',': this.cycleView('forward'); break;
+      case 'rewind': case 'rw': case '.': this.cycleView('backward'); break;
+      default: console.log('📅 Calendar widget ignoring command:', action); break;
     }
   }
 
   navigateCalendar(direction) {
     const currentDateObj = this.calendar.getDate();
     let newDate = new Date(currentDateObj);
-    
-    switch(this.currentView) {
-      case 'daily':
-        newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1));
-        break;
-      case 'week':
-        newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7));
-        break;
-      case 'month':
-        newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
-        break;
+
+    switch (this.currentView) {
+      case 'daily': newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1)); break;
+      case 'week': newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7)); break;
+      case 'month': newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1)); break;
     }
-    
+
     this.currentDate = newDate;
     this.calendar.setDate(newDate);
     this.updateCalendarHeader();
-    
-    console.log('📅 Navigated', direction, 'to', newDate.toDateString());
   }
 
   scrollToTime(hour) {
@@ -219,32 +178,18 @@ class CalendarWidget {
         const hourText = el.textContent || el.innerText;
         return hourText.includes(hour + ':00') || hourText.includes((hour % 12 || 12) + ':00');
       });
-      
-      if (targetElement) {
-        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        console.log('📅 Scrolled to', hour + ':00');
-      }
+      if (targetElement) targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   }
 
   scrollCalendar(direction) {
     if (this.currentView === 'week' || this.currentView === 'daily') {
-      const scrollContainer = document.querySelector('.toastui-calendar-time-scroll-wrapper') 
-                           || document.querySelector('.toastui-calendar-time');
-      
+      const scrollContainer = document.querySelector('.toastui-calendar-time-scroll-wrapper')
+        || document.querySelector('.toastui-calendar-time');
       if (scrollContainer) {
         const scrollAmount = 60;
-        
-        if (direction === 'up') {
-          scrollContainer.scrollTop -= scrollAmount;
-        } else if (direction === 'down') {
-          scrollContainer.scrollTop += scrollAmount;
-        }
-        
-        console.log('📅 Scrolled calendar', direction, 'by', scrollAmount, 'pixels');
+        scrollContainer.scrollTop += (direction === 'up' ? -scrollAmount : scrollAmount);
       }
-    } else {
-      console.log('📅 Scrolling only available in week/daily view');
     }
   }
 
@@ -253,9 +198,6 @@ class CalendarWidget {
       this.currentView = newView;
       this.calendar.changeView(newView);
       this.updateCalendarHeader();
-      
-      console.log('📅 Changed to', newView, 'view');
-      
       if (newView === 'week' || newView === 'daily') {
         setTimeout(() => this.scrollToTime(8), 100);
       }
@@ -264,64 +206,57 @@ class CalendarWidget {
 
   cycleView(direction) {
     const currentIndex = this.viewCycle.indexOf(this.currentView);
-    let newIndex;
-    
-    if (direction === 'forward') {
-      newIndex = (currentIndex + 1) % this.viewCycle.length;
-    } else {
-      newIndex = (currentIndex - 1 + this.viewCycle.length) % this.viewCycle.length;
-    }
-    
+    const newIndex = direction === 'forward'
+      ? (currentIndex + 1) % this.viewCycle.length
+      : (currentIndex - 1 + this.viewCycle.length) % this.viewCycle.length;
     this.changeView(this.viewCycle[newIndex]);
   }
 
-  async loadCalendarData() {
-    console.log('📅 Loading calendar data...');
-    
-    for (const cal of this.calendars) {
+  async loadGoogleCalendarData() {
+    console.log('📅 Loading Google Calendar data...');
+    const authManager = window.authManager; // you already have this globally
+    const api = new GoogleAPIClient(authManager);
+
+    // Compute timeMin and timeMax
+    const timeMin = new Date().toISOString();
+    const timeMax = (() => {
+      const d = new Date();
+      d.setMonth(d.getMonth() + this.MONTHS_TO_PULL);
+      return d.toISOString();
+    })();
+
+    for (let i = 0; i < this.GOOGLE_CALENDARS.length; i++) {
+      const cal = this.GOOGLE_CALENDARS[i];
       try {
-        const sampleEvents = this.createSampleEvents(cal);
-        this.calendar.createEvents(sampleEvents);
-        console.log('📅 Loaded events for', cal.name);
-      } catch (error) {
-        console.error('📅 Failed to load calendar', cal.name, error);
+        // getCalendarList then find ID by summary
+        const allCals = await api.getCalendarList();
+        const matching = allCals.find(c => c.summary === cal.summary);
+        if (!matching) {
+          console.warn(`Calendar ${cal.summary} not found in user’s account`);
+          continue;
+        }
+
+        const events = await api.getCalendarEvents(matching.id, timeMin, timeMax);
+
+        // Map to TUI events
+        const tuiEvents = events.map((e, idx) => ({
+          id: `${matching.id}-${idx}`,
+          calendarId: this.tuiCalendars[i].id,
+          title: e.summary || '(No title)',
+          start: new Date(e.startDateTime),
+          end: new Date(e.endDateTime),
+          category: e.isAllDay ? 'allday' : 'time',
+          backgroundColor: this.tuiCalendars[i].backgroundColor,
+          borderColor: this.tuiCalendars[i].borderColor,
+          color: this.tuiCalendars[i].color
+        }));
+
+        this.calendar.createEvents(tuiEvents);
+        console.log(`📅 Loaded ${tuiEvents.length} events for ${cal.summary}`);
+      } catch (err) {
+        console.error(`📅 Failed to load Google events for ${cal.summary}:`, err);
       }
     }
-  }
-
-  createSampleEvents(cal) {
-    const events = [];
-    const today = new Date();
-    
-    for (let i = 0; i < 10; i++) {
-      const eventDate = new Date(today);
-      eventDate.setDate(today.getDate() + (i % 7));
-      eventDate.setHours(8 + (i % 12), 0, 0, 0);
-      
-      const endDate = new Date(eventDate);
-      endDate.setHours(eventDate.getHours() + 1);
-      
-      events.push({
-        id: `${cal.id}-event-${i}`,
-        calendarId: cal.id,
-        title: `${cal.name.split(' ')[0]} Event ${i + 1}`,
-        start: eventDate,
-        end: endDate,
-        category: 'time',
-        // Use calendar-specific colors that won't be overridden
-        backgroundColor: cal.backgroundColor,
-        borderColor: cal.borderColor,
-        color: cal.color,
-        // Add custom styling to ensure colors persist
-        customStyle: {
-          backgroundColor: cal.backgroundColor,
-          borderColor: cal.borderColor,
-          color: cal.color
-        }
-      });
-    }
-    
-    return events;
   }
 }
 
