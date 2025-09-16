@@ -981,51 +981,6 @@ class SimplifiedNavigation {
     // Cleanup if needed
     console.log(`⚙️ Navigation destroyed`);
   }
-}Tab(tabId) {
-    this.overlay.querySelectorAll('.tab-button').forEach(tab => {
-      tab.classList.toggle('active', tab.dataset.tab === tabId);
-    });
-
-    this.overlay.querySelectorAll('.tab-panel').forEach(panel => {
-      panel.classList.toggle('active', panel.id === `${tabId}-panel`);
-    });
-
-    this.currentTab = tabId;
-    this.updateFocusableElements();
-    this.focusIndex = 0;
-    this.updateFocus();
-  }
-
-  updateFocus() {
-    this.focusableElements.forEach(el => {
-      el.classList.remove('focused', 'selected');
-    });
-
-    const current = this.focusableElements[this.focusIndex];
-    if (current) {
-      current.classList.add('focused');
-      if (!current.classList.contains('group-title')) {
-        current.classList.add('selected');
-      }
-    }
-  }
-
-  activateCurrentElement() {
-    const current = this.focusableElements[this.focusIndex];
-    if (current) {
-      if (current.classList.contains('group-title')) {
-        this.toggleGroup(current.dataset.group);
-      } else if (current.classList.contains('btn')) {
-        current.click();
-      } else {
-        current.focus();
-      }
-    }
-  }
-
-  destroy() {
-    // Navigation cleanup if needed
-  }
 }
 
 // Export for integration
