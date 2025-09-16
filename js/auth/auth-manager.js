@@ -1,5 +1,5 @@
-// js/auth/auth-manager.js - Fixed to send postMessage to calendar widgets instead of window events
-// FIXED: Added postMessage communication to calendar widgets for google-apis-ready event
+// js/auth/auth-manager.js - Fixed to broadcast postMessage to ALL widgets with enhanced debugging
+// FIXED: Broadcasts google-apis-ready to all widgets, not just calendar + enhanced debugging
 
 import { NativeAuth } from './native-auth.js';
 import { WebAuth } from './web-auth.js';
@@ -164,15 +164,15 @@ export class AuthManager {
           // Store API capabilities
           this.apiCapabilities = testResults;
           
-          // FIXED: Send postMessage to calendar widgets instead of window event
-          this.notifyCalendarWidgets(testResults);
+          // FIXED: Send postMessage to ALL widgets instead of window event
+          this.notifyAllWidgets(testResults);
           
           console.log('🔧 📡 Google APIs ready notifications sent to widgets');
           
         } catch (error) {
           console.warn('🧪 ❌ Google API access test failed:', error);
           // Send failure notification to widgets
-          this.notifyCalendarWidgets({ 
+          this.notifyAllWidgets({ 
             calendar: false, 
             photos: false, 
             errors: [error.message],
@@ -186,74 +186,132 @@ export class AuthManager {
     }
   }
 
-  // NEW: Send postMessage to calendar widgets
-  notifyCalendarWidgets(testResults) {
-    // Find all calendar widget iframes
-    const calendarIframes = document.querySelectorAll('iframe[src*="calendar.html"]');
+  // NEW: Send postMessage to ALL widget iframes
+  notifyAllWidgets(testResults) {
+    // Find ALL widget iframes, not just calendar
+    const allWidgetIframes = document.querySelectorAll('.widget iframe, .widget-iframe');
     
-    console.log(`📡 📅 Found ${calendarIframes.length} calendar widget(s) to notify`);
+    console.log(`📡 🖼️ Found ${allWidgetIframes.length} widget iframe(s) to notify`);
     
-    if (calendarIframes.length === 0) {
-      console.warn('📡 ⚠️ No calendar widgets found - they may not be loaded yet');
+    // Also log specific widget types for debugging
+    const calendarWidgets = document.querySelectorAll('iframe[src*="calendar.html"]');
+    const photoWidgets = document.querySelectorAll('iframe[src*="photos.html"]');
+    const clockWidgets = document.querySelectorAll('iframe[src*="clock.html"]');
+    const headerWidgets = document.querySelectorAll('iframe[src*="header.html"]');
+    const agendaWidgets = document.querySelectorAll('iframe[src*="agenda.html"]');
+    
+    console.log(`📡 📊 Widget breakdown:`, {
+      total: allWidgetIframes.length,
+      calendar: calendarWidgets.length,
+      photos: photoWidgets.length,
+      clock: clockWidgets.length,
+      header: headerWidgets.length,
+      agenda: agendaWidgets.length
+    });
+    
+    if (allWidgetIframes.length === 0) {
+      console.warn('📡 ⚠️ No widget iframes found - they may not be loaded yet');
       // Retry notification after a delay in case widgets are still loading
       setTimeout(() => {
-        const retryIframes = document.querySelectorAll('iframe[src*="calendar.html"]');
+        const retryIframes = document.querySelectorAll('.widget iframe, .widget-iframe');
         if (retryIframes.length > 0) {
-          console.log(`📡 🔄 Retry found ${retryIframes.length} calendar widget(s)`);
+          console.log(`📡 🔄 Retry found ${retryIframes.length} widget iframe(s)`);
           this.sendGoogleAPIReadyMessage(retryIframes, testResults);
         } else {
-          console.warn('📡 ⚠️ Still no calendar widgets found after retry');
+          console.warn('📡 ⚠️ Still no widget iframes found after retry');
         }
       }, 2000);
     } else {
-      this.sendGoogleAPIReadyMessage(calendarIframes, testResults);
+      this.sendGoogleAPIReadyMessage(allWidgetIframes, testResults);
     }
   }
 
-  // NEW: Helper method to send the actual postMessage
+  // NEW: Helper method to send the actual postMessage with enhanced debugging
   sendGoogleAPIReadyMessage(iframes, testResults) {
     iframes.forEach((iframe, index) => {
+      // Enhanced debugging for each iframe
+      console.log(`📡 🔍 Widget ${index + 1} debug:`, {
+        src: iframe.src,
+        hasContentWindow: !!iframe.contentWindow,
+        readyState: iframe.readyState,
+        loaded: iframe.complete,
+        className: iframe.className,
+        id: iframe.id
+      });
+      
       if (iframe.contentWindow) {
         try {
           const message = {
             type: 'google-apis-ready',
             apiCapabilities: testResults,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            debugInfo: {
+              sentAt: new Date().toISOString(),
+              widgetSrc: iframe.src,
+              widgetIndex: index + 1
+            }
           };
+          
+          // Log the exact message being sent
+          console.log(`📡 📤 Sending to widget ${index + 1}:`, message);
           
           iframe.contentWindow.postMessage(message, '*');
           
-          console.log(`📡 ✅ Sent google-apis-ready to calendar widget ${index + 1}:`, {
+          console.log(`📡 ✅ Message sent to widget ${index + 1} (${iframe.src}):`, {
             calendar: testResults.calendar,
             tokenStatus: testResults.tokenStatus,
             errorCount: testResults.errors?.length || 0
           });
           
         } catch (error) {
-          console.error(`📡 ❌ Failed to send message to calendar widget ${index + 1}:`, error);
+          console.error(`📡 ❌ Failed to send message to widget ${index + 1}:`, error);
         }
       } else {
-        console.warn(`📡 ⚠️ Calendar widget ${index + 1} contentWindow not available`);
+        console.warn(`📡 ⚠️ Widget ${index + 1} contentWindow not available, setting up load listener`);
         
         // Retry after iframe loads
         iframe.addEventListener('load', () => {
-          console.log(`📡 🔄 Calendar widget ${index + 1} loaded, retrying message...`);
+          console.log(`📡 🔄 Widget ${index + 1} loaded, retrying message...`);
           if (iframe.contentWindow) {
             try {
               const message = {
                 type: 'google-apis-ready',
                 apiCapabilities: testResults,
-                timestamp: Date.now()
+                timestamp: Date.now(),
+                debugInfo: {
+                  sentAt: new Date().toISOString(),
+                  widgetSrc: iframe.src,
+                  widgetIndex: index + 1,
+                  isRetry: true
+                }
               };
+              
+              console.log(`📡 📤 Retry sending to widget ${index + 1}:`, message);
               iframe.contentWindow.postMessage(message, '*');
-              console.log(`📡 ✅ Retry message sent to calendar widget ${index + 1}`);
+              console.log(`📡 ✅ Retry message sent to widget ${index + 1}`);
             } catch (retryError) {
-              console.error(`📡 ❌ Retry failed for calendar widget ${index + 1}:`, retryError);
+              console.error(`📡 ❌ Retry failed for widget ${index + 1}:`, retryError);
             }
+          } else {
+            console.error(`📡 ❌ Widget ${index + 1} still has no contentWindow after load event`);
           }
         }, { once: true });
       }
     });
+    
+    // DEBUGGING: Also set up a global message listener to see what's actually being received
+    if (!window.debugMessageListener) {
+      console.log('📡 🐛 Setting up debug message listener to monitor postMessage traffic');
+      window.debugMessageListener = (event) => {
+        console.log('📡 🐛 DEBUG: Message received in main window:', {
+          type: event.data?.type,
+          origin: event.origin,
+          source: event.source,
+          data: event.data
+        });
+      };
+      window.addEventListener('message', window.debugMessageListener);
+    }
   }
 
   checkNativeUser() {
