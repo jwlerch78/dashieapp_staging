@@ -54,66 +54,65 @@ class CalendarWidget {
     });
   }
 
-  initializeCalendar() {
-    try {
-      const monday = this.getStartOfWeek(this.currentDate);
-      this.currentDate = monday;
+  async initializeCalendar() {
+  try {
+    const monday = this.getStartOfWeek(this.currentDate);
+    this.currentDate = monday;
 
-      // Build TUI calendars array from GOOGLE_CALENDARS
-      this.tuiCalendars = this.GOOGLE_CALENDARS.map((cal, idx) => ({
-        id: `google-${idx}`,
-        name: cal.summary,
-        color: cal.textColor,
-        backgroundColor: cal.color,
-        borderColor: cal.color
-      }));
-
-      this.calendar = new tui.Calendar('#calendar', {
-        defaultView: this.currentView,
-        useCreationPopup: false,
-        useDetailPopup: false,
-        calendars: this.tuiCalendars,
-        week: {
-          startDayOfWeek: 1,
-          dayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-          narrowWeekend: false,
-          workweek: false,
-          hourStart: 6,
-          hourEnd: 24,
-          showNowIndicator: true,
-          eventView: ['time'],
-          taskView: false
-        },
-        month: {
-          startDayOfWeek: 1,
-          dayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-          visibleWeeksCount: 6,
-          isAlways6Week: false,
-          workweek: false
-        },
-        template: {
-          time: (schedule) => {
-            const calendar = this.tuiCalendars.find(cal => cal.id === schedule.calendarId);
-            const textColor = calendar ? calendar.color : '#ffffff';
-            return `<span style="color: ${textColor}; font-weight: 500;">${schedule.title}</span>`;
-          }
+    // Initialize TUI Calendar
+    this.calendar = new tui.Calendar('#calendar', {
+      defaultView: this.currentView,
+      useCreationPopup: false,
+      useDetailPopup: false,
+      calendars: this.tuiCalendars, // make sure this.tuiCalendars is defined
+      week: {
+        startDayOfWeek: 1,
+        dayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+        narrowWeekend: false,
+        workweek: false,
+        hourStart: 6,
+        hourEnd: 24,
+        showNowIndicator: true,
+        eventView: ['time'],
+        taskView: false
+      },
+      month: {
+        startDayOfWeek: 1,
+        dayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+        visibleWeeksCount: 6,
+        isAlways6Week: false,
+        workweek: false
+      },
+      template: {
+        time: (schedule) => {
+          const calendar = this.tuiCalendars.find(cal => cal.id === schedule.calendarId);
+          const bgColor = calendar ? calendar.backgroundColor : '#1976d2';
+          const textColor = calendar ? calendar.color : '#ffffff';
+          return `<span style="color: ${textColor}; font-weight: 500;">${schedule.title}</span>`;
         }
-      });
+      }
+    });
 
-      this.calendar.setDate(this.currentDate);
-      this.showCalendar();
-      this.updateCalendarHeader();
+    this.calendar.setDate(this.currentDate);
+    this.showCalendar();
+    this.updateCalendarHeader();
 
-      this.loadGoogleCalendarData();
-
-      setTimeout(() => this.scrollToTime(8), 200);
-
-      console.log('📅 Calendar initialized in', this.currentView, 'view');
-    } catch (error) {
-      console.error('📅 Failed to initialize calendar:', error);
-      document.getElementById('loading').textContent = 'Failed to load calendar';
+    // ✅ Load Google Calendar events **after calendar is ready**
+    if (typeof this.loadGoogleCalendarData === 'function') {
+      console.log('📅 Fetching Google Calendar events...');
+      await this.loadGoogleCalendarData();
     }
+
+    // Optional: scroll to 8am
+    setTimeout(() => this.scrollToTime(8), 200);
+
+    console.log('📅 Calendar initialized in', this.currentView, 'view');
+
+  } catch (error) {
+    console.error('📅 Failed to initialize calendar:', error);
+    document.getElementById('loading').textContent = 'Failed to load calendar';
   }
+}
 
   showCalendar() {
     document.getElementById('loading').style.display = 'none';
