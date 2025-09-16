@@ -245,6 +245,8 @@ export class AuthManager {
             type: 'google-apis-ready',
             apiCapabilities: testResults,
             timestamp: Date.now(),
+            authManager: this, // Pass the auth manager reference
+            googleAccessToken: this.googleAccessToken, // Pass the access token directly
             debugInfo: {
               sentAt: new Date().toISOString(),
               widgetSrc: iframe.src,
@@ -278,6 +280,8 @@ export class AuthManager {
                 type: 'google-apis-ready',
                 apiCapabilities: testResults,
                 timestamp: Date.now(),
+                authManager: this, // Pass the auth manager reference
+                googleAccessToken: this.googleAccessToken, // Pass the access token directly
                 debugInfo: {
                   sentAt: new Date().toISOString(),
                   widgetSrc: iframe.src,
