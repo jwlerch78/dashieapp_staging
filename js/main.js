@@ -24,6 +24,13 @@ async function preApplyTheme() {
 // Check if auth is already initialized by simple-auth.js
 function checkAuthReady() {
   return new Promise((resolve) => {
+    // Check immediately first
+    if (window.dashieAuth) {
+      console.log('🔐 Auth system already ready');
+      resolve(true);
+      return;
+    }
+    
     const checkInterval = setInterval(() => {
       if (window.dashieAuth) {
         clearInterval(checkInterval);
@@ -32,12 +39,17 @@ function checkAuthReady() {
       }
     }, 100);
     
-    // Timeout after 5 seconds
+    // Increased timeout to 10 seconds to account for auth initialization
     setTimeout(() => {
       clearInterval(checkInterval);
-      console.warn('🔐 Auth system not found within timeout');
-      resolve(false);
-    }, 5000);
+      if (window.dashieAuth) {
+        console.log('🔐 Auth system found just before timeout');
+        resolve(true);
+      } else {
+        console.log('🔐 Auth system not found within timeout, continuing anyway');
+        resolve(false);
+      }
+    }, 10000);
   });
 }
 
