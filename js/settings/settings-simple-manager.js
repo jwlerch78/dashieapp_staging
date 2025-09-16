@@ -478,3 +478,70 @@ export class SimplifiedSettings {
 
   // Fallback method to send family name from localStorage or default
   sendFallbackFamilyName(widgetWindow) {
+    let fallbackName = 'Dashie'; // Default fallback
+    
+    try {
+      // Try localStorage first
+      const savedSettings = localStorage.getItem('dashie-settings');
+      if (savedSettings) {
+        const settings = JSON.parse(savedSettings);
+        const storedName = settings?.family?.familyName;
+        if (storedName) {
+          fallbackName = storedName;
+          console.log('👨‍👩‍👧‍👦 💾 Using family name from localStorage:', fallbackName);
+        }
+      }
+    } catch (error) {
+      console.warn('👨‍👩‍👧‍👦 ⚠️ localStorage fallback failed:', error);
+    }
+    
+    try {
+      console.log('👨‍👩‍👧‍👦 🏠 Sending fallback family name:', fallbackName);
+      
+      widgetWindow.postMessage({
+        type: 'family-name-response',
+        familyName: fallbackName
+      }, '*');
+      
+      console.log('👨‍👩‍👧‍👦 ✅ Fallback family name sent');
+      
+    } catch (fallbackError) {
+      console.error('👨‍👩‍👧‍👦 ❌ Failed to send fallback family name:', fallbackError);
+    }
+  }
+
+  hide() {
+    if (!this.isVisible) return;
+    
+    this.hideOverlay();
+    this.cleanup();
+    
+    console.log('⚙️ 👁️ Simplified settings hidden');
+  }
+
+  showOverlay() {
+    this.overlay.classList.add('active');
+    this.isVisible = true;
+  }
+
+  hideOverlay() {
+    this.overlay.classList.remove('active');
+    this.isVisible = false;
+  }
+
+  cleanup() {
+    if (this.navigation) {
+      this.navigation.destroy();
+      this.navigation = null;
+    }
+    
+    if (this.overlay) {
+      this.overlay.remove();
+      this.overlay = null;
+    }
+    
+    this.pendingChanges = {};
+  }
+}
+
+export { SimplifiedSettings as default };
