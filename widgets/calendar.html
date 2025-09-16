@@ -1,103 +1,167 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Calendar Widget</title>
-  
-  <!-- Apply theme immediately to prevent flash -->
-  <script>
-    (function() {
-      try {
-        const savedTheme = localStorage.getItem('dashie-theme') || 'dark';
-        document.documentElement.className = `theme-${savedTheme}`;
-        if (document.body) {
-          document.body.className = `theme-${savedTheme}`;
-        } else {
-          document.addEventListener('DOMContentLoaded', function() {
-            document.body.className = `theme-${savedTheme}`;
-          });
-        }
-      } catch (e) {
-        document.documentElement.className = 'theme-dark';
-        if (document.body) document.body.className = 'theme-dark';
-      }
-    })();
-  </script>
-  
-  <!-- Import theme variables from parent -->
-  <link rel="stylesheet" href="../css/core/variables.css">
-  
-  <!-- Toast UI Calendar CSS -->
-  <link rel="stylesheet" href="https://uicdn.toast.com/calendar/latest/toastui-calendar.min.css" />
-  
-  <!-- Calendar Widget Styles -->
-  <link rel="stylesheet" href="calendar/calendar.css">
-</head>
-<body class="theme-dark">
-  <div id="calendar-container">
-    <div class="loading" id="loading">Loading calendar...</div>
-    
-    <div class="calendar-header" id="calendarHeader" style="display: none;">
-      <div class="calendar-title" id="calendarTitle">Loading...</div>
-      <div class="calendar-mode" id="calendarMode">Week</div>
-    </div>
-    
-    <div id="calendar" style="display: none;"></div>
-    
-    <div class="controls-info">
-      ←→: Navigate | ↑↓: Scroll Time | ,.: Change View
-    </div>
-  </div>
+// widgets/calendar.html - Fixed to listen for postMessage instead of window event
+// FIXED: Updated waitForGoogleAPI to listen for postMessage from auth manager
 
-  <!-- Toast UI Calendar JS -->
-  <script src="https://uicdn.toast.com/calendar/latest/toastui-calendar.min.js"></script>
-  
-  <!-- Calendar Widget Logic -->
-<script type="module" src="calendar/calendar.js"></script>
-  
-  <script>
-    // Enhanced theme management
-    function applyTheme(theme) {
-      const themeClass = `theme-${theme}`;
-      
-      // Remove existing theme classes
-      document.documentElement.classList.remove('theme-dark', 'theme-light');
-      document.body.classList.remove('theme-dark', 'theme-light');
-      
-      // Add new theme class
-      document.documentElement.classList.add(themeClass);
-      document.body.classList.add(themeClass);
-      
-      console.log(`📅 Calendar widget applied ${theme} theme`);
-    }
+import { GoogleAPIClient } from '../../js/google-apis/google-api-client.js';
 
-    // Listen for theme changes from parent
+class CalendarWidget {
+  constructor() {
+    // ================= CONFIG =================
+    this.MONTHS_TO_PULL = 3;
+    this.GOOGLE_CALENDARS = [
+      { summary: 'jwlerch@gmail.com', color: '#1976d2', textColor: '#ffffff', id: 'calendar1', backgroundColor: '#1976d2', borderColor: '#1976d2' },
+      { summary: 'Veeva', color: '#388e3c', textColor: '#ffffff', id: 'calendar2', backgroundColor: '#388e3c', borderColor: '#388e3c' }
+    ];
+    this.tuiCalendars = this.GOOGLE_CALENDARS.map(cal => ({
+      id: cal.id,
+      name: cal.summary,
+      color: cal.textColor,
+      backgroundColor: cal.backgroundColor,
+      borderColor: cal.borderColor
+    }));
+    this.calendar = null;
+    this.currentView = 'week';
+    this.currentDate = new Date();
+    this.viewCycle = ['week', 'month', 'daily'];
+    // ================= INIT =================
+    this.setupEventListeners();
+    this.initializeCalendar();
+    this.waitForGoogleAPI();
+  }
+
+  setupEventListeners() {
     window.addEventListener('message', (event) => {
-      if (event.data && event.data.type === 'theme-change') {
-        const newTheme = event.data.theme;
-        applyTheme(newTheme);
+      // FIXED: Handle both navigation commands AND google-apis-ready
+      if (event.data && event.data.action) {
+        this.handleCommand(event.data.action);
+      } else if (event.data && event.data.type === 'google-apis-ready') {
+        // FIXED: Handle google-apis-ready via postMessage
+        this.handleGoogleAPIReady(event.data);
       }
     });
 
-    // Request current theme from parent and send ready signal
+    document.addEventListener('keydown', (e) => {
+      if (document.hasFocus()) {
+        switch (e.key) {
+          case ',':
+            e.preventDefault();
+            this.cycleView('forward');
+            break;
+          case '.':
+            e.preventDefault();
+            this.cycleView('backward');
+            break;
+        }
+      }
+    });
+
     window.addEventListener('load', () => {
       if (window.parent !== window) {
-        // Request theme first
-        window.parent.postMessage({ 
-          type: 'widget-request-theme',
-          widget: 'calendar' 
-        }, '*');
-        
-        // Then signal ready
-        setTimeout(() => {
-          window.parent.postMessage({ 
-            type: 'widget-ready', 
-            widget: 'calendar' 
-          }, '*');
-        }, 100);
+        window.parent.postMessage({ type: 'widget-ready', widget: 'calendar' }, '*');
       }
     });
-  </script>
-</body>
-</html>
+  }
+
+  // FIXED: Replace waitForGoogleAPI with direct postMessage handler
+  waitForGoogleAPI() {
+    console.log('📅 Calendar widget waiting for Google APIs ready signal...');
+    // The actual handling is now in setupEventListeners() -> 'google-apis-ready' case
+  }
+
+  // NEW: Handle the google-apis-ready postMessage
+  async handleGoogleAPIReady(messageData) {
+    console.log('📅 🎉 Received google-apis-ready postMessage:', messageData);
+    console.log('📅 API Capabilities:', messageData.apiCapabilities);
+    
+    // Store the auth manager and access token from the message
+    this.authManager = messageData.authManager;
+    this.googleAccessToken = messageData.googleAccessToken;
+    
+    console.log('📅 🔐 Auth data received:', {
+      hasAuthManager: !!this.authManager,
+      hasAccessToken: !!this.googleAccessToken,
+      tokenLength: this.googleAccessToken?.length,
+      tokenPreview: this.googleAccessToken?.substring(0, 20) + '...'
+    });
+    
+    // Check if calendar API is available
+    if (messageData.apiCapabilities && messageData.apiCapabilities.calendar) {
+      console.log('📅 ✅ Calendar API is ready, loading Google calendar data...');
+      
+      if (typeof this.loadGoogleCalendarData === 'function') {
+        try {
+          await this.loadGoogleCalendarData();
+          console.log('📅 ✅ Google calendar data loaded successfully');
+        } catch (error) {
+          console.error('📅 ❌ Failed to load Google calendar data:', error);
+        }
+      } else {
+        console.warn('📅 ⚠️ loadGoogleCalendarData method not found');
+      }
+    } else {
+      console.warn('📅 ⚠️ Calendar API not available:', {
+        hasApiCapabilities: !!messageData.apiCapabilities,
+        calendarStatus: messageData.apiCapabilities?.calendar,
+        tokenStatus: messageData.apiCapabilities?.tokenStatus,
+        errors: messageData.apiCapabilities?.errors
+      });
+      
+      // Show error message to user
+      this.showCalendarError('Google Calendar API is not available. Please check your authentication.');
+    }
+  }
+
+  // NEW: Show error message in calendar widget
+  showCalendarError(message) {
+    const calendarContainer = document.getElementById('calendar');
+    if (calendarContainer) {
+      calendarContainer.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #666; text-align: center; padding: 20px;">
+          <div>
+            <div style="font-size: 48px; margin-bottom: 16px;">📅</div>
+            <div style="font-size: 16px; font-weight: 500; margin-bottom: 8px;">Calendar Unavailable</div>
+            <div style="font-size: 14px;">${message}</div>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  // UPDATED: Use auth manager from widget instead of window.authManager
+  async loadGoogleCalendarData() {
+    // Use the auth manager passed via postMessage instead of window.authManager
+    if (!this.authManager) {
+      console.warn('📅 Auth manager not available in widget, skipping event load');
+      return;
+    }
+    
+    console.log('📅 Loading Google Calendar data...');
+    const api = new GoogleAPIClient(this.authManager);
+    const timeMin = new Date().toISOString();
+    const timeMax = (() => { const d = new Date(); d.setMonth(d.getMonth() + this.MONTHS_TO_PULL); return d.toISOString(); })();
+    
+    for (let i = 0; i < this.GOOGLE_CALENDARS.length; i++) {
+      const cal = this.GOOGLE_CALENDARS[i];
+      try {
+        const allCals = await api.getCalendarList();
+        const matching = allCals.find(c => c.summary === cal.summary);
+        if (!matching) { 
+          console.warn(`📅 Calendar ${cal.summary} not found`); 
+          continue; 
+        }
+        
+        // Continue with rest of calendar loading logic...
+        console.log(`📅 Found calendar: ${matching.summary} (${matching.id})`);
+        
+        // Load events for this calendar
+        const events = await api.getCalendarEvents(matching.id, timeMin, timeMax);
+        console.log(`📅 Loaded ${events.length} events from ${cal.summary}`);
+        
+        // Add events to the calendar widget
+        // (You'll need to implement the rest of this based on your calendar widget setup)
+        
+      } catch (error) {
+        console.error(`📅 ❌ Failed to load calendar ${cal.summary}:`, error);
+      }
+    }
+  }
+}
