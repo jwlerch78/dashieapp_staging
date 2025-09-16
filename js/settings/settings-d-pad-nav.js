@@ -7,7 +7,7 @@ export class SimplifiedNavigation {
     this.callbacks = callbacks;
     this.focusIndex = 0;
     this.focusableElements = [];
-    this.collapsedGroups = new Set(['theme', 'sleep', 'photos', 'widget-config']);
+    this.collapsedGroups = new Set(['theme', 'sleep', 'photos', 'widget-config', 'family-info', 'family-members']);
     this.currentTab = 'display';
     
     this.init();
