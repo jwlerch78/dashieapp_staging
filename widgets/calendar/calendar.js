@@ -1,7 +1,7 @@
 // widgets/calendar/calendar.js - Calendar Widget Logic with Google Calendar events
 // Updated to pull in Google Calendar events
 
-import { GoogleAPIClient } from '../../google-apis/google-api-client.js';
+import { GoogleAPIClient } from '../../js/google-apis/google-api-client.js';
 
 class CalendarWidget {
   constructor() {
