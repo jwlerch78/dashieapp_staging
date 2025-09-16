@@ -9,7 +9,7 @@ export function buildSettingsUI() {
         <h1 class="settings-title">Settings</h1>
         <div class="settings-tabs">
           <button class="tab-button active" data-tab="display">Display</button>
-          <button class="tab-button disabled" data-tab="family">Family</button>
+          <button class="tab-button" data-tab="family">Family</button>
           <button class="tab-button" data-tab="widgets">Widgets</button>
           <button class="tab-button disabled" data-tab="system">System</button>
           <button class="tab-button disabled" data-tab="about">About</button>
@@ -120,11 +120,37 @@ export function buildSettingsUI() {
           </div>
         </div>
 
-        <!-- Other tabs with coming soon messages -->
+        <!-- Family Tab -->
         <div class="tab-panel" id="family-panel">
-          <div class="coming-soon">
-            <h3>Family Settings</h3>
-            <p>Coming soon! This will include family member profiles and settings.</p>
+          <div class="settings-group">
+            <h3 class="group-title" data-group="family-info">
+              <span>Family Information</span>
+              <span class="expand-arrow">▶</span>
+            </h3>
+            <div class="group-content collapsed" id="family-info-content">
+              <div class="setting-row">
+                <div class="setting-label">
+                  Family Name
+                  <div class="setting-description">Your family name (used in header)</div>
+                </div>
+                <div class="setting-control">
+                  <input type="text" class="form-control" id="family-name" data-setting="family.familyName" placeholder="The Smith Family">
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="settings-group">
+            <h3 class="group-title" data-group="family-members">
+              <span>Family Members</span>
+              <span class="expand-arrow">▶</span>
+            </h3>
+            <div class="group-content collapsed" id="family-members-content">
+              <div class="coming-soon">
+                <p>Family member management coming soon!</p>
+                <p>This will include adding/editing family member profiles.</p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -186,6 +212,13 @@ export function populateFormFields(overlay, settings) {
   if (photoTransition && settings.photos?.transitionTime) {
     photoTransition.value = settings.photos.transitionTime;
     console.log('⚙️ Set photo transition to:', settings.photos.transitionTime);
+  }
+
+  // Family settings
+  const familyName = overlay.querySelector('#family-name');
+  if (familyName && settings.family?.familyName) {
+    familyName.value = settings.family.familyName;
+    console.log('⚙️ Set family name to:', settings.family.familyName);
   }
 
   console.log('⚙️ ✅ Form fields populated successfully');
