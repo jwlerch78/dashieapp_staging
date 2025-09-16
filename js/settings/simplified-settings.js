@@ -14,17 +14,23 @@ export class SimplifiedSettings {
     this.initializeController();
   }
 
-  async initializeController() {
-    try {
-      // Use existing settings controller for data persistence
-      const { SettingsController } = await import('./settings-controller.js');
-      this.controller = new SettingsController();
-      await this.controller.init();
-      console.log('📊 Settings controller initialized');
-    } catch (error) {
-      console.error('Failed to initialize settings controller:', error);
+async initializeController() {
+  try {
+    // WAIT for auth to be ready
+    if (!window.dashieAuth?.isAuthenticated()) {
+      console.log('📊 Waiting for authentication...');
+      // Wait for auth event or check periodically
+      return;
     }
+    
+    const { SettingsController } = await import('./settings-controller.js');
+    this.controller = new SettingsController();
+    await this.controller.init();
+    console.log('📊 Settings controller initialized');
+  } catch (error) {
+    console.error('Failed to initialize settings controller:', error);
   }
+}
 
   // Main entry point - called from existing code
   async show() {
