@@ -60,12 +60,14 @@ class CalendarWidget {
     });
   }
 
-  waitForGoogleAPI() {
-    window.addEventListener('google-apis-ready', async () => {
-      console.log('📅 Google APIs ready, now loading Google events...');
+ waitForGoogleAPI() {
+  window.addEventListener('google-apis-ready', async () => {
+    console.log('📅 Google APIs ready, now loading Google events...');
+    if (typeof this.loadGoogleCalendarData === 'function') {
       await this.loadGoogleCalendarData();
-    });
-  }
+    }
+  });
+}
 
   async initializeCalendar() {
     try {
