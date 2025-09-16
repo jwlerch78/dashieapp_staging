@@ -305,21 +305,23 @@ export class SimplifiedNavigation {
   activateFormControl(control) {
     console.log(`⚙️ Activating form control: ${control.id}, type: ${control.type}`);
     
-    if (control.type === 'time' || control.type === 'number') {
-      // For time and number inputs, focus and select the content
+    if (control.type === 'time' || control.type === 'number' || control.type === 'text') {
+      // For inputs, focus and select content, then disable D-pad navigation
       control.focus();
-      control.select();
+      if (control.type !== 'time') {
+        // Don't select time inputs as it interferes with the picker
+        control.select();
+      }
       console.log(`⚙️ Focused and selected ${control.type} input`);
       
-      // FIXED: Remove D-pad navigation while editing
-      this.temporarilyDisableNavigation();
+      // FIXED: Properly disable D-pad navigation for text editing
+      this.temporarilyDisableNavigation(control);
       
     } else if (control.tagName.toLowerCase() === 'select') {
-      // FIXED: For select elements, focus first then simulate space bar or click
+      // For select elements, focus first then simulate space bar or click
       control.focus();
       
       setTimeout(() => {
-        // Try multiple methods to open the dropdown
         try {
           // Method 1: Simulate space key (works on many browsers)
           const spaceEvent = new KeyboardEvent('keydown', {
@@ -344,36 +346,69 @@ export class SimplifiedNavigation {
         } catch (error) {
           console.log(`⚙️ Select activation failed:`, error);
         }
-      }, 100); // Small delay to ensure focus is set
+      }, 100);
       
     } else {
       // For other inputs, just focus
       control.focus();
       console.log(`⚙️ Focused input`);
       
-      // FIXED: Remove D-pad navigation while editing
-      this.temporarilyDisableNavigation();
+      this.temporarilyDisableNavigation(control);
     }
   }
 
-  // FIXED: Temporarily disable navigation when editing form controls
-  temporarilyDisableNavigation() {
-    // Add blur listener to re-enable navigation when user finishes editing
-    const activeElement = document.activeElement;
-    if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT')) {
+  // FIXED: Better navigation disabling for form controls
+  temporarilyDisableNavigation(control) {
+    // Store reference to this navigation instance
+    const navigation = this;
+    let isNavigationDisabled = true;
+    
+    // Override handleKeyPress while editing
+    const originalHandleKeyPress = this.handleKeyPress;
+    this.handleKeyPress = function(event) {
+      if (isNavigationDisabled && document.activeElement === control) {
+        // Allow normal text editing keys, block D-pad navigation
+        const editingKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End', ' '];
+        if (editingKeys.includes(event.key) || event.key.length === 1) {
+          console.log(`⚙️ Allowing editing key: ${event.key}`);
+          return false; // Don't handle, let browser handle normally
+        }
+        
+        // Block D-pad navigation keys
+        if (['ArrowUp', 'ArrowDown', 'Enter'].includes(event.key)) {
+          console.log(`⚙️ Blocking navigation key while editing: ${event.key}`);
+          return true; // Block the key
+        }
+      }
       
-      const enableNavigation = () => {
-        console.log(`⚙️ Re-enabling navigation after form edit`);
-        activeElement.removeEventListener('blur', enableNavigation);
-        activeElement.removeEventListener('change', enableNavigation);
-        // Navigation will resume automatically
-      };
+      // For all other cases, use original handler
+      return originalHandleKeyPress.call(this, event);
+    };
+    
+    // Re-enable navigation when done editing
+    const enableNavigation = () => {
+      console.log(`⚙️ Re-enabling navigation after form edit`);
+      isNavigationDisabled = false;
+      navigation.handleKeyPress = originalHandleKeyPress;
       
-      activeElement.addEventListener('blur', enableNavigation);
-      activeElement.addEventListener('change', enableNavigation);
-      
-      console.log(`⚙️ Navigation temporarily disabled for form editing`);
-    }
+      control.removeEventListener('blur', enableNavigation);
+      control.removeEventListener('change', enableNavigation);
+      control.removeEventListener('keydown', escapeHandler);
+    };
+    
+    // Allow Escape to exit editing mode
+    const escapeHandler = (e) => {
+      if (e.key === 'Escape') {
+        control.blur();
+        enableNavigation();
+      }
+    };
+    
+    control.addEventListener('blur', enableNavigation);
+    control.addEventListener('change', enableNavigation);
+    control.addEventListener('keydown', escapeHandler);
+    
+    console.log(`⚙️ Navigation disabled for form editing - press Escape or blur to re-enable`);
   }
 
   destroy() {
