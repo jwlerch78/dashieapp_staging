@@ -20,29 +20,34 @@ export class SimplifiedNavigation {
   }
 
   updateFocusableElements() {
-    // Get all focusable elements including tabs
+    // Get all focusable elements in the correct order
     const tabs = Array.from(this.overlay.querySelectorAll('.tab-button:not(.disabled)'));
     const activePanel = this.overlay.querySelector('.tab-panel.active');
     const groupTitles = Array.from(activePanel.querySelectorAll('.group-title'));
     
-    // Get expanded form controls
-    const expandedControls = [];
+    // FIXED: Build proper navigation order - groups and their controls together
+    const contentElements = [];
     groupTitles.forEach(title => {
+      // Always add the group title
+      contentElements.push(title);
+      
+      // Add form controls if this group is expanded
       const groupId = title.dataset.group;
       if (!this.collapsedGroups.has(groupId)) {
         const content = this.overlay.querySelector(`#${groupId}-content`);
         if (content) {
-          expandedControls.push(...content.querySelectorAll('.form-control'));
+          const controls = Array.from(content.querySelectorAll('.form-control'));
+          contentElements.push(...controls);
         }
       }
     });
     
     const buttons = Array.from(this.overlay.querySelectorAll('.settings-footer .btn'));
     
-    // Create complete navigation hierarchy: tabs -> groups -> controls -> buttons
-    this.focusableElements = [...tabs, ...groupTitles, ...expandedControls, ...buttons];
+    // Create proper navigation hierarchy: tabs -> content (groups+controls) -> buttons
+    this.focusableElements = [...tabs, ...contentElements, ...buttons];
     
-    console.log(`⚙️ Updated focusable elements: ${this.focusableElements.length} (${tabs.length} tabs, ${groupTitles.length} titles, ${expandedControls.length} controls, ${buttons.length} buttons)`);
+    console.log(`⚙️ Updated focusable elements: ${this.focusableElements.length} (${tabs.length} tabs, ${contentElements.length} content, ${buttons.length} buttons)`);
     
     // Adjust focus index if it's out of bounds
     if (this.focusIndex >= this.focusableElements.length) {
@@ -112,6 +117,7 @@ export class SimplifiedNavigation {
         handled = true;
         break;
       case 'ArrowDown':
+        // FIXED: Always move down, even on tabs
         this.moveFocus(1);
         handled = true;
         break;
@@ -304,27 +310,69 @@ export class SimplifiedNavigation {
       control.focus();
       control.select();
       console.log(`⚙️ Focused and selected ${control.type} input`);
+      
+      // FIXED: Remove D-pad navigation while editing
+      this.temporarilyDisableNavigation();
+      
     } else if (control.tagName.toLowerCase() === 'select') {
-      // For select elements, focus and simulate opening
+      // FIXED: For select elements, focus first then simulate space bar or click
       control.focus();
       
-      // Try to open the select dropdown
-      try {
-        // Create a synthetic click event to open dropdown
-        const clickEvent = new MouseEvent('click', {
-          bubbles: true,
-          cancelable: true,
-          view: window
-        });
-        control.dispatchEvent(clickEvent);
-        console.log(`⚙️ Focused and opened select dropdown`);
-      } catch (error) {
-        console.log(`⚙️ Focused select (dropdown opening not supported)`);
-      }
+      setTimeout(() => {
+        // Try multiple methods to open the dropdown
+        try {
+          // Method 1: Simulate space key (works on many browsers)
+          const spaceEvent = new KeyboardEvent('keydown', {
+            key: ' ',
+            code: 'Space',
+            keyCode: 32,
+            bubbles: true,
+            cancelable: true
+          });
+          control.dispatchEvent(spaceEvent);
+          console.log(`⚙️ Sent space key to open select`);
+          
+          // Method 2: Also try click as fallback
+          const clickEvent = new MouseEvent('click', {
+            bubbles: true,
+            cancelable: true,
+            view: window
+          });
+          control.dispatchEvent(clickEvent);
+          console.log(`⚙️ Sent click event to select`);
+          
+        } catch (error) {
+          console.log(`⚙️ Select activation failed:`, error);
+        }
+      }, 100); // Small delay to ensure focus is set
+      
     } else {
       // For other inputs, just focus
       control.focus();
       console.log(`⚙️ Focused input`);
+      
+      // FIXED: Remove D-pad navigation while editing
+      this.temporarilyDisableNavigation();
+    }
+  }
+
+  // FIXED: Temporarily disable navigation when editing form controls
+  temporarilyDisableNavigation() {
+    // Add blur listener to re-enable navigation when user finishes editing
+    const activeElement = document.activeElement;
+    if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'SELECT')) {
+      
+      const enableNavigation = () => {
+        console.log(`⚙️ Re-enabling navigation after form edit`);
+        activeElement.removeEventListener('blur', enableNavigation);
+        activeElement.removeEventListener('change', enableNavigation);
+        // Navigation will resume automatically
+      };
+      
+      activeElement.addEventListener('blur', enableNavigation);
+      activeElement.addEventListener('change', enableNavigation);
+      
+      console.log(`⚙️ Navigation temporarily disabled for form editing`);
     }
   }
 
