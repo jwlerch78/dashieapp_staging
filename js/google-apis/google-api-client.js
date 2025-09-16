@@ -350,7 +350,9 @@ export class GoogleAPIClient {
       calendar: false,
       errors: []
     };
-    
+
+/******************************************************************
+* Commenting out photos retrieval for now
     try {
       await this.getPhotoAlbums();
       results.photos = true;
@@ -359,7 +361,8 @@ export class GoogleAPIClient {
       results.errors.push(`Photos API: ${error.message}`);
       console.error('❌ Google Photos API access failed:', error);
     }
-    
+
+******************************************************************/    
     try {
       await this.getCalendarList();
       results.calendar = true;
