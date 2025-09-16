@@ -318,6 +318,7 @@ export class SimplifiedSettings {
       detail: this.pendingChanges
     }));
     
+    // Update photo widgets
     if (this.pendingChanges['photos.transitionTime']) {
       const photoWidgets = document.querySelectorAll('iframe[src*="photos.html"]');
       photoWidgets.forEach(iframe => {
@@ -329,6 +330,39 @@ export class SimplifiedSettings {
             }, '*');
           } catch (error) {
             console.warn('⚙️ ⚠️ Failed to update photo widget:', error);
+          }
+        }
+      });
+    }
+    
+    // NEW: Update header widget with family name
+    if (this.pendingChanges['family.familyName']) {
+      const headerWidgets = document.querySelectorAll('iframe[src*="header.html"]');
+      headerWidgets.forEach(iframe => {
+        if (iframe.contentWindow) {
+          try {
+            iframe.contentWindow.postMessage({
+              type: 'family-name-update',
+              familyName: this.pendingChanges['family.familyName']
+            }, '*');
+            console.log('👨‍👩‍👧‍👦 Sent family name update to header:', this.pendingChanges['family.familyName']);
+          } catch (error) {
+            console.warn('⚙️ ⚠️ Failed to update header widget:', error);
+          }
+        }
+      });
+      
+      // Also send global event for widgets that listen to it
+      const headerFrames = document.querySelectorAll('iframe[src*="header.html"]');
+      headerFrames.forEach(iframe => {
+        if (iframe.contentWindow) {
+          try {
+            iframe.contentWindow.postMessage({
+              type: 'dashie-settings-changed',
+              detail: this.pendingChanges
+            }, '*');
+          } catch (error) {
+            console.warn('⚙️ ⚠️ Failed to send settings change to header:', error);
           }
         }
       });
