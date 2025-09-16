@@ -173,7 +173,7 @@ export class SimplifiedSettings {
         pinEnabled: false
       },
       family: {
-        familyName: '',
+        familyName: 'The Dashie Family',
         members: []
       },
       system: {
