@@ -1,3 +1,5 @@
+<!-- header.html: Header Widget -->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -27,7 +29,6 @@
   
   <!-- Import theme variables from parent -->
   <link rel="stylesheet" href="../css/core/variables.css">
-
   <style>
     html, body {
       margin: 0;
@@ -69,7 +70,7 @@
   </style>
 </head>
 <body class="theme-dark">
-  <div id="family-name">The Lerch Family</div>
+  <div id="family-name">The Dashie Family</div>
   
   <script>
     // Enhanced theme management
@@ -87,16 +88,70 @@
       console.log(`👨‍👩‍👧‍👦 Family header applied ${theme} theme`);
     }
 
-    // Listen for theme changes from parent
+    // NEW: Family name management
+    function updateFamilyName(familyName) {
+      const element = document.getElementById('family-name');
+      if (element && familyName) {
+        element.textContent = familyName;
+        console.log(`👨‍👩‍👧‍👦 Updated family name to: ${familyName}`);
+      }
+    }
+
+    function loadFamilyName() {
+      try {
+        // Try to get from localStorage settings
+        const saved = localStorage.getItem('dashie-settings');
+        if (saved) {
+          const settings = JSON.parse(saved);
+          const familyName = settings.family?.familyName;
+          if (familyName && familyName.trim()) {
+            updateFamilyName(familyName);
+            return;
+          }
+        }
+        
+        // Fallback: keep default "The Dashie Family"
+        console.log('👨‍👩‍👧‍👦 Using default family name');
+        
+      } catch (error) {
+        console.warn('👨‍👩‍👧‍👦 Failed to load family name from settings:', error);
+      }
+    }
+    
+    // Listen for messages from parent
     window.addEventListener('message', (event) => {
       if (event.data && event.data.type === 'theme-change') {
         const newTheme = event.data.theme;
         applyTheme(newTheme);
       }
+      
+      // NEW: Listen for family name updates
+      if (event.data && event.data.type === 'family-name-update') {
+        updateFamilyName(event.data.familyName);
+      }
+      
+      // NEW: Listen for settings changes
+      if (event.data && event.data.type === 'dashie-settings-changed') {
+        const changes = event.data.detail;
+        if (changes && changes['family.familyName']) {
+          updateFamilyName(changes['family.familyName']);
+        }
+      }
+    });
+
+    // Listen for global settings changes
+    window.addEventListener('dashie-settings-changed', (event) => {
+      const changes = event.detail;
+      if (changes && changes['family.familyName']) {
+        updateFamilyName(changes['family.familyName']);
+      }
     });
 
     // Request current theme from parent and send ready signal
     window.addEventListener('load', () => {
+      // Load family name from settings
+      loadFamilyName();
+      
       if (window.parent !== window) {
         // Request theme first
         window.parent.postMessage({ 
