@@ -1,29 +1,34 @@
 // widgets/calendar/calendar.js - Calendar Widget Logic with Google Calendar events
-// Updated to pull in Google Calendar events
+// Option 2: Initialize calendar UI immediately, load Google events after API ready
 
 import { GoogleAPIClient } from '../../js/google-apis/google-api-client.js';
 
 class CalendarWidget {
   constructor() {
-    // ============== CONFIG VARIABLES ==============
+    // ================= CONFIG =================
     this.MONTHS_TO_PULL = 3;
     this.GOOGLE_CALENDARS = [
-      { summary: 'jwlerch@gmail.com', color: '#1976d2', textColor: '#ffffff' },
-      { summary: 'Veeva', color: '#388e3c', textColor: '#ffffff' }
+      { summary: 'jwlerch@gmail.com', color: '#1976d2', textColor: '#ffffff', id: 'calendar1', backgroundColor: '#1976d2', borderColor: '#1976d2' },
+      { summary: 'Veeva', color: '#388e3c', textColor: '#ffffff', id: 'calendar2', backgroundColor: '#388e3c', borderColor: '#388e3c' }
     ];
+
+    this.tuiCalendars = this.GOOGLE_CALENDARS.map(cal => ({
+      id: cal.id,
+      name: cal.summary,
+      color: cal.textColor,
+      backgroundColor: cal.backgroundColor,
+      borderColor: cal.borderColor
+    }));
 
     this.calendar = null;
     this.currentView = 'week';
     this.currentDate = new Date();
     this.viewCycle = ['week', 'month', 'daily'];
 
-    this.init();
-    this.waitForGoogleAPI();
-  }
-
-  init() {
+    // ================= INIT =================
     this.setupEventListeners();
-    setTimeout(() => this.initializeCalendar(), 100);
+    this.initializeCalendar();
+    this.waitForGoogleAPI();
   }
 
   setupEventListeners() {
@@ -50,81 +55,66 @@ class CalendarWidget {
 
     window.addEventListener('load', () => {
       if (window.parent !== window) {
-        window.parent.postMessage({
-          type: 'widget-ready',
-          widget: 'calendar'
-        }, '*');
+        window.parent.postMessage({ type: 'widget-ready', widget: 'calendar' }, '*');
       }
     });
   }
 
-waitForGoogleAPI() {
-  window.addEventListener('google-apis-ready', async () => {
-    console.log('📅 Google APIs ready, now loading calendar data...');
-    await this.loadGoogleCalendarData();
-  });
-}
-  
+  waitForGoogleAPI() {
+    window.addEventListener('google-apis-ready', async () => {
+      console.log('📅 Google APIs ready, now loading Google events...');
+      await this.loadGoogleCalendarData();
+    });
+  }
 
   async initializeCalendar() {
-  try {
-    const monday = this.getStartOfWeek(this.currentDate);
-    this.currentDate = monday;
+    try {
+      const monday = this.getStartOfWeek(this.currentDate);
+      this.currentDate = monday;
 
-    // Initialize TUI Calendar
-    this.calendar = new tui.Calendar('#calendar', {
-      defaultView: this.currentView,
-      useCreationPopup: false,
-      useDetailPopup: false,
-      calendars: this.tuiCalendars, // make sure this.tuiCalendars is defined
-      week: {
-        startDayOfWeek: 1,
-        dayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-        narrowWeekend: false,
-        workweek: false,
-        hourStart: 6,
-        hourEnd: 24,
-        showNowIndicator: true,
-        eventView: ['time'],
-        taskView: false
-      },
-      month: {
-        startDayOfWeek: 1,
-        dayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-        visibleWeeksCount: 6,
-        isAlways6Week: false,
-        workweek: false
-      },
-      template: {
-        time: (schedule) => {
-          const calendar = this.tuiCalendars.find(cal => cal.id === schedule.calendarId);
-          const bgColor = calendar ? calendar.backgroundColor : '#1976d2';
-          const textColor = calendar ? calendar.color : '#ffffff';
-          return `<span style="color: ${textColor}; font-weight: 500;">${schedule.title}</span>`;
+      this.calendar = new tui.Calendar('#calendar', {
+        defaultView: this.currentView,
+        useCreationPopup: false,
+        useDetailPopup: false,
+        calendars: this.tuiCalendars,
+        week: {
+          startDayOfWeek: 1,
+          dayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+          narrowWeekend: false,
+          workweek: false,
+          hourStart: 6,
+          hourEnd: 24,
+          showNowIndicator: true,
+          eventView: ['time'],
+          taskView: false
+        },
+        month: {
+          startDayOfWeek: 1,
+          dayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+          visibleWeeksCount: 6,
+          isAlways6Week: false,
+          workweek: false
+        },
+        template: {
+          time: (schedule) => {
+            const calendar = this.tuiCalendars.find(cal => cal.id === schedule.calendarId);
+            const textColor = calendar ? calendar.color : '#ffffff';
+            return `<span style="color: ${textColor}; font-weight: 500;">${schedule.title}</span>`;
+          }
         }
-      }
-    });
+      });
 
-    this.calendar.setDate(this.currentDate);
-    this.showCalendar();
-    this.updateCalendarHeader();
+      this.calendar.setDate(this.currentDate);
+      this.showCalendar();
+      this.updateCalendarHeader();
+      setTimeout(() => this.scrollToTime(8), 200);
 
-    // ✅ Load Google Calendar events **after calendar is ready**
-    if (typeof this.loadGoogleCalendarData === 'function') {
-      console.log('📅 Fetching Google Calendar events...');
-      await this.loadGoogleCalendarData();
+      console.log('📅 Calendar initialized in', this.currentView, 'view');
+    } catch (error) {
+      console.error('📅 Failed to initialize calendar:', error);
+      document.getElementById('loading').textContent = 'Failed to load calendar';
     }
-
-    // Optional: scroll to 8am
-    setTimeout(() => this.scrollToTime(8), 200);
-
-    console.log('📅 Calendar initialized in', this.currentView, 'view');
-
-  } catch (error) {
-    console.error('📅 Failed to initialize calendar:', error);
-    document.getElementById('loading').textContent = 'Failed to load calendar';
   }
-}
 
   showCalendar() {
     document.getElementById('loading').style.display = 'none';
@@ -142,41 +132,31 @@ waitForGoogleAPI() {
   updateCalendarHeader() {
     const titleEl = document.getElementById('calendarTitle');
     const modeEl = document.getElementById('calendarMode');
-
-    const options = {
-      year: 'numeric',
-      month: 'long',
-      ...(this.currentView === 'daily' ? { day: 'numeric' } : {})
-    };
-
+    const options = { year: 'numeric', month: 'long', ...(this.currentView === 'daily' ? { day: 'numeric' } : {}) };
     titleEl.textContent = this.currentDate.toLocaleDateString('en-US', options);
     modeEl.textContent = this.currentView.charAt(0).toUpperCase() + this.currentView.slice(1);
   }
 
   handleCommand(action) {
-    console.log('📅 Calendar widget received command:', action);
     switch (action) {
       case 'right': this.navigateCalendar('next'); break;
       case 'left': this.navigateCalendar('previous'); break;
       case 'up': this.scrollCalendar('up'); break;
       case 'down': this.scrollCalendar('down'); break;
-      case 'enter': console.log('📅 Enter pressed on calendar widget'); break;
+      case 'enter': break;
       case 'fastforward': case 'ff': case ',': this.cycleView('forward'); break;
       case 'rewind': case 'rw': case '.': this.cycleView('backward'); break;
-      default: console.log('📅 Calendar widget ignoring command:', action); break;
     }
   }
 
   navigateCalendar(direction) {
     const currentDateObj = this.calendar.getDate();
     let newDate = new Date(currentDateObj);
-
     switch (this.currentView) {
       case 'daily': newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1)); break;
       case 'week': newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7)); break;
       case 'month': newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1)); break;
     }
-
     this.currentDate = newDate;
     this.calendar.setDate(newDate);
     this.updateCalendarHeader();
@@ -195,8 +175,7 @@ waitForGoogleAPI() {
 
   scrollCalendar(direction) {
     if (this.currentView === 'week' || this.currentView === 'daily') {
-      const scrollContainer = document.querySelector('.toastui-calendar-time-scroll-wrapper')
-        || document.querySelector('.toastui-calendar-time');
+      const scrollContainer = document.querySelector('.toastui-calendar-time-scroll-wrapper') || document.querySelector('.toastui-calendar-time');
       if (scrollContainer) {
         const scrollAmount = 60;
         scrollContainer.scrollTop += (direction === 'up' ? -scrollAmount : scrollAmount);
@@ -209,9 +188,7 @@ waitForGoogleAPI() {
       this.currentView = newView;
       this.calendar.changeView(newView);
       this.updateCalendarHeader();
-      if (newView === 'week' || newView === 'daily') {
-        setTimeout(() => this.scrollToTime(8), 100);
-      }
+      if (newView === 'week' || newView === 'daily') setTimeout(() => this.scrollToTime(8), 100);
     }
   }
 
@@ -224,32 +201,24 @@ waitForGoogleAPI() {
   }
 
   async loadGoogleCalendarData() {
-    console.log('📅 Loading Google Calendar data...');
-    const authManager = window.authManager; // you already have this globally
-    const api = new GoogleAPIClient(authManager);
+    if (!window.authManager) {
+      console.warn('📅 Google authManager not ready, skipping event load');
+      return;
+    }
 
-    // Compute timeMin and timeMax
+    console.log('📅 Loading Google Calendar data...');
+    const api = new GoogleAPIClient(window.authManager);
     const timeMin = new Date().toISOString();
-    const timeMax = (() => {
-      const d = new Date();
-      d.setMonth(d.getMonth() + this.MONTHS_TO_PULL);
-      return d.toISOString();
-    })();
+    const timeMax = (() => { const d = new Date(); d.setMonth(d.getMonth() + this.MONTHS_TO_PULL); return d.toISOString(); })();
 
     for (let i = 0; i < this.GOOGLE_CALENDARS.length; i++) {
       const cal = this.GOOGLE_CALENDARS[i];
       try {
-        // getCalendarList then find ID by summary
         const allCals = await api.getCalendarList();
         const matching = allCals.find(c => c.summary === cal.summary);
-        if (!matching) {
-          console.warn(`Calendar ${cal.summary} not found in user’s account`);
-          continue;
-        }
+        if (!matching) { console.warn(`Calendar ${cal.summary} not found`); continue; }
 
         const events = await api.getCalendarEvents(matching.id, timeMin, timeMax);
-
-        // Map to TUI events
         const tuiEvents = events.map((e, idx) => ({
           id: `${matching.id}-${idx}`,
           calendarId: this.tuiCalendars[i].id,
@@ -272,6 +241,4 @@ waitForGoogleAPI() {
 }
 
 // Initialize when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-  new CalendarWidget();
-});
+document.addEventListener('DOMContentLoaded', () => new CalendarWidget());
