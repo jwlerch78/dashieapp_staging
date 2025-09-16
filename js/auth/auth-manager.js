@@ -1,4 +1,5 @@
-// js/auth/auth-manager.js - Fixed to initialize Google APIs on saved auth restore
+// js/auth/auth-manager.js - Fixed to send postMessage to calendar widgets instead of window events
+// FIXED: Added postMessage communication to calendar widgets for google-apis-ready event
 
 import { NativeAuth } from './native-auth.js';
 import { WebAuth } from './web-auth.js';
@@ -163,21 +164,96 @@ export class AuthManager {
           // Store API capabilities
           this.apiCapabilities = testResults;
           
-          // Notify widgets that APIs are ready
-          window.dispatchEvent(new CustomEvent('google-apis-ready', {
-            detail: testResults
-          }));
+          // FIXED: Send postMessage to calendar widgets instead of window event
+          this.notifyCalendarWidgets(testResults);
           
-          console.log('🔧 📡 Google APIs ready event dispatched');
+          console.log('🔧 📡 Google APIs ready notifications sent to widgets');
           
         } catch (error) {
           console.warn('🧪 ❌ Google API access test failed:', error);
+          // Send failure notification to widgets
+          this.notifyCalendarWidgets({ 
+            calendar: false, 
+            photos: false, 
+            errors: [error.message],
+            tokenStatus: 'error'
+          });
         }
       }, 3000); // Longer delay for restored users
       
     } catch (error) {
       console.error('🔧 ❌ Failed to initialize Google API client:', error);
     }
+  }
+
+  // NEW: Send postMessage to calendar widgets
+  notifyCalendarWidgets(testResults) {
+    // Find all calendar widget iframes
+    const calendarIframes = document.querySelectorAll('iframe[src*="calendar.html"]');
+    
+    console.log(`📡 📅 Found ${calendarIframes.length} calendar widget(s) to notify`);
+    
+    if (calendarIframes.length === 0) {
+      console.warn('📡 ⚠️ No calendar widgets found - they may not be loaded yet');
+      // Retry notification after a delay in case widgets are still loading
+      setTimeout(() => {
+        const retryIframes = document.querySelectorAll('iframe[src*="calendar.html"]');
+        if (retryIframes.length > 0) {
+          console.log(`📡 🔄 Retry found ${retryIframes.length} calendar widget(s)`);
+          this.sendGoogleAPIReadyMessage(retryIframes, testResults);
+        } else {
+          console.warn('📡 ⚠️ Still no calendar widgets found after retry');
+        }
+      }, 2000);
+    } else {
+      this.sendGoogleAPIReadyMessage(calendarIframes, testResults);
+    }
+  }
+
+  // NEW: Helper method to send the actual postMessage
+  sendGoogleAPIReadyMessage(iframes, testResults) {
+    iframes.forEach((iframe, index) => {
+      if (iframe.contentWindow) {
+        try {
+          const message = {
+            type: 'google-apis-ready',
+            apiCapabilities: testResults,
+            timestamp: Date.now()
+          };
+          
+          iframe.contentWindow.postMessage(message, '*');
+          
+          console.log(`📡 ✅ Sent google-apis-ready to calendar widget ${index + 1}:`, {
+            calendar: testResults.calendar,
+            tokenStatus: testResults.tokenStatus,
+            errorCount: testResults.errors?.length || 0
+          });
+          
+        } catch (error) {
+          console.error(`📡 ❌ Failed to send message to calendar widget ${index + 1}:`, error);
+        }
+      } else {
+        console.warn(`📡 ⚠️ Calendar widget ${index + 1} contentWindow not available`);
+        
+        // Retry after iframe loads
+        iframe.addEventListener('load', () => {
+          console.log(`📡 🔄 Calendar widget ${index + 1} loaded, retrying message...`);
+          if (iframe.contentWindow) {
+            try {
+              const message = {
+                type: 'google-apis-ready',
+                apiCapabilities: testResults,
+                timestamp: Date.now()
+              };
+              iframe.contentWindow.postMessage(message, '*');
+              console.log(`📡 ✅ Retry message sent to calendar widget ${index + 1}`);
+            } catch (retryError) {
+              console.error(`📡 ❌ Retry failed for calendar widget ${index + 1}:`, retryError);
+            }
+          }
+        }, { once: true });
+      }
+    });
   }
 
   checkNativeUser() {
