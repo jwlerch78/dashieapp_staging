@@ -18,6 +18,7 @@ class CalendarWidget {
     this.viewCycle = ['week', 'month', 'daily'];
 
     this.init();
+    this.waitForGoogleAPI();
   }
 
   init() {
@@ -56,6 +57,14 @@ class CalendarWidget {
       }
     });
   }
+
+waitForGoogleAPI() {
+  window.addEventListener('google-apis-ready', async () => {
+    console.log('📅 Google APIs ready, now loading calendar data...');
+    await this.loadGoogleCalendarData();
+  });
+}
+  
 
   async initializeCalendar() {
   try {
