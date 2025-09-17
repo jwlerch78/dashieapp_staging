@@ -26,7 +26,9 @@ export const COGNITO_CONFIG = {
     //scope: ['email', 'openid', 'phone'],
     
     // After this works, we can add back the Google API scopes:
-     scope: ['openid', 'email', 'profile', 'https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/photoslibrary.readonly'],
+   //  scope: ['openid', 'email', 'profile', 'https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/photoslibrary.readonly'],
+
+     scope: ['openid', 'email', 'profile', 'https://www.googleapis.com/auth/calendar.readonly'],
     
     redirectSignIn: environment === 'production' 
       ? 'https://dashieapp.com/oauth2/idpresponse'
