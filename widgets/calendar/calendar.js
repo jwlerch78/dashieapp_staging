@@ -324,8 +324,7 @@ class CalendarWidget {
         this.scrollCalendar('up'); 
         break;
       case 'down': 
-        // NEW: Down key refreshes calendar data
-        this.requestCalendarData();
+        this.scrollCalendar('down'); 
         break;
       case 'enter': 
         console.log('📅 Enter pressed on calendar widget'); 
