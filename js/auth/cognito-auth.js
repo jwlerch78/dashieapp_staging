@@ -1,57 +1,62 @@
 // js/auth/cognito-auth.js
-// updated per chatgpt input 
+// UPDATED for AWS Amplify v6 modular ESM (no Auth object, use named exports)
 
-// Amplify core
 import { Amplify } from 'https://cdn.jsdelivr.net/npm/aws-amplify@6.0.21/+esm';
+import {
+  signIn,
+  signOut,
+  currentAuthenticatedUser,
+  currentSession,
+  federatedSignIn,
+  currentCredentials
+} from 'https://cdn.jsdelivr.net/npm/@aws-amplify/auth@6.0.21/+esm';
 
-// Cognito Auth explicitly
-import { Auth } from 'https://cdn.jsdelivr.net/npm/@aws-amplify/auth@6.0.21/+esm';
-
-// Your config
 import { AMPLIFY_CONFIG, COGNITO_CONFIG } from './cognito-config.js';
 
-// Configure Amplify at startup
+// Configure Amplify once
 Amplify.configure(AMPLIFY_CONFIG);
 
 export class CognitoAuth {
   constructor() {
     this.currentUser = null;
+    this.isInitialized = false;
     this.googleAccessToken = null;
     this.cognitoTokens = null;
   }
 
   async init() {
     console.log('🔐 Initializing AWS Cognito authentication...');
-
     try {
-      // Check for existing session
       const existingUser = await this.getCurrentSession();
       if (existingUser) {
         console.log('🔐 ✅ Found existing Cognito session:', existingUser.username);
         this.currentUser = existingUser;
+        this.isInitialized = true;
         return { success: true, user: existingUser };
       }
 
-      // Handle OAuth callback if we’re on the callback URL
       const callbackResult = await this.handleOAuthCallback();
       if (callbackResult.success) {
         console.log('🔐 ✅ OAuth callback handled successfully');
+        this.isInitialized = true;
         return callbackResult;
       }
 
       console.log('🔐 No existing authentication found');
+      this.isInitialized = true;
       return { success: false, reason: 'no_existing_auth' };
     } catch (error) {
       console.error('🔐 ❌ Cognito initialization failed:', error);
+      this.isInitialized = true;
       return { success: false, error: error.message };
     }
   }
 
   async getCurrentSession() {
     try {
-      const user = await Auth.currentAuthenticatedUser();
+      const user = await currentAuthenticatedUser();
       if (user) {
-        const session = await Auth.currentSession();
+        const session = await currentSession();
         this.cognitoTokens = {
           idToken: session.getIdToken().getJwtToken(),
           accessToken: session.getAccessToken().getJwtToken(),
@@ -79,16 +84,13 @@ export class CognitoAuth {
       const urlParams = new URLSearchParams(window.location.search);
       const authCode = urlParams.get('code');
 
-      if (!authCode) {
-        return { success: false, reason: 'no_callback' };
-      }
+      if (!authCode) return { success: false, reason: 'no_callback' };
 
       console.log('🔐 Processing OAuth callback...');
+      const user = await currentAuthenticatedUser();
 
-      // After redirect, Amplify automatically processes the code → tokens
-      const user = await Auth.currentAuthenticatedUser();
       if (user) {
-        const session = await Auth.currentSession();
+        const session = await currentSession();
         this.cognitoTokens = {
           idToken: session.getIdToken().getJwtToken(),
           accessToken: session.getAccessToken().getJwtToken(),
@@ -116,17 +118,18 @@ export class CognitoAuth {
 
   async extractGoogleAccessToken(session) {
     try {
-      const credentials = await Auth.currentCredentials();
-      if (credentials && credentials.params && credentials.params.google_access_token) {
+      const credentials = await currentCredentials();
+
+      if (credentials?.params?.google_access_token) {
         this.googleAccessToken = credentials.params.google_access_token;
         console.log('🔐 ✅ Google access token extracted from Cognito');
       } else {
         console.warn('🔐 ⚠️ Google access token not available in credentials');
         const idToken = session.getIdToken();
         const payload = idToken.payload;
-        if (payload && payload.identities) {
+        if (payload?.identities) {
           const googleIdentity = payload.identities.find(id => id.providerName === 'Google');
-          if (googleIdentity && googleIdentity.access_token) {
+          if (googleIdentity?.access_token) {
             this.googleAccessToken = googleIdentity.access_token;
             console.log('🔐 ✅ Google access token extracted from ID token');
           }
@@ -139,6 +142,7 @@ export class CognitoAuth {
 
   formatUserData(cognitoUser) {
     const attributes = cognitoUser.attributes || {};
+
     return {
       id: cognitoUser.username,
       email: attributes.email,
@@ -146,12 +150,15 @@ export class CognitoAuth {
       picture: attributes.picture,
       given_name: attributes.given_name,
       family_name: attributes.family_name,
+
       username: cognitoUser.username,
       sub: attributes.sub,
+
       authMethod: 'cognito',
       provider: 'google',
       googleAccessToken: this.googleAccessToken,
       cognitoTokens: this.cognitoTokens,
+
       savedAt: Date.now(),
       lastSignIn: Date.now()
     };
@@ -171,7 +178,7 @@ export class CognitoAuth {
       const saved = localStorage.getItem(COGNITO_CONFIG.storage.userDataKey);
       if (saved) {
         const userData = JSON.parse(saved);
-        if (userData.savedAt && (Date.now() - userData.savedAt < 30 * 24 * 60 * 60 * 1000)) {
+        if (userData.savedAt && Date.now() - userData.savedAt < 30 * 24 * 60 * 60 * 1000) {
           return userData;
         }
       }
@@ -189,7 +196,7 @@ export class CognitoAuth {
   async signIn() {
     try {
       console.log('🔐 Starting Cognito sign-in...');
-      await Auth.federatedSignIn({ provider: 'Google' });
+      await federatedSignIn({ provider: 'Google' });
     } catch (error) {
       console.error('🔐 ❌ Sign-in failed:', error);
       throw error;
@@ -199,15 +206,12 @@ export class CognitoAuth {
   async signOut() {
     try {
       console.log('🔐 Signing out from Cognito...');
-      await Auth.signOut({ global: true });
-
+      await signOut({ global: true });
       this.currentUser = null;
       this.googleAccessToken = null;
       this.cognitoTokens = null;
-
       localStorage.removeItem(COGNITO_CONFIG.storage.userDataKey);
       localStorage.removeItem(COGNITO_CONFIG.storage.sessionKey);
-
       console.log('🔐 ✅ Sign-out completed');
     } catch (error) {
       console.error('🔐 ❌ Sign-out failed:', error);
@@ -227,26 +231,20 @@ export class CognitoAuth {
     return this.googleAccessToken;
   }
 
-  getCognitoTokens() {
-    return this.cognitoTokens;
-  }
-
   async refreshSession() {
     try {
-      const session = await Auth.currentSession();
+      const session = await currentSession();
       this.cognitoTokens = {
         idToken: session.getIdToken().getJwtToken(),
         accessToken: session.getAccessToken().getJwtToken(),
         refreshToken: session.getRefreshToken().getToken()
       };
       await this.extractGoogleAccessToken(session);
-
       if (this.currentUser) {
         this.currentUser.cognitoTokens = this.cognitoTokens;
         this.currentUser.googleAccessToken = this.googleAccessToken;
         this.saveUserToStorage(this.currentUser);
       }
-
       console.log('🔐 ✅ Session refreshed successfully');
       return true;
     } catch (error) {
