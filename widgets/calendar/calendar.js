@@ -169,6 +169,8 @@ class CalendarWidget {
       // New logic: same hour, different day → mark as all-day
       if (!isAllDay && start.getHours() === end.getHours() && start.toDateString() !== end.toDateString()) {
         isAllDay = true;
+        // Adjust end date for TUI Calendar
+        end = new Date(end.getTime() - 24 * 60 * 60 * 1000);
       }
 
       const tuiEvent = {
