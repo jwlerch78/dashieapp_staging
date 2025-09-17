@@ -234,7 +234,7 @@ class CalendarWidget {
           hourStart: 6,
           hourEnd: 24,
           showNowIndicator: true,
-          eventView: ['time'],
+          eventView: ['time', 'allday'],
           taskView: false
         },
         month: {
