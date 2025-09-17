@@ -347,75 +347,152 @@ export class SettingsController {
   // NEW: Merge local-only settings from localStorage
   mergeLocalOnlySettings() {
     try {
-      console.log('💾 🔄 Loading local-only settings from localStorage...');
+      console.log('💾 🔄 === STARTING mergeLocalOnlySettings() ===');
+      console.log('💾 🔍 LOCAL_ONLY_SETTINGS array:', this.LOCAL_ONLY_SETTINGS);
+      console.log('💾 🔍 currentSettings BEFORE merge:', JSON.stringify(this.currentSettings, null, 2));
       
       const localSettingsJson = localStorage.getItem('dashie-local-settings');
+      console.log('💾 📄 Raw localStorage content:', localSettingsJson);
+      
       if (!localSettingsJson) {
-        console.log('💾 ⚠️ No local settings found, using defaults');
+        console.log('💾 ⚠️ No local settings found in localStorage, using defaults');
         this.ensureLocalOnlyDefaults();
+        console.log('💾 🔍 currentSettings AFTER defaults:', JSON.stringify(this.currentSettings, null, 2));
         return;
       }
       
       const localSettings = JSON.parse(localSettingsJson);
-      console.log('💾 📄 Loaded local settings:', localSettings);
+      console.log('💾 📄 Parsed local settings object:', JSON.stringify(localSettings, null, 2));
       
       // Merge each local-only setting
-      this.LOCAL_ONLY_SETTINGS.forEach(settingPath => {
+      this.LOCAL_ONLY_SETTINGS.forEach((settingPath, index) => {
+        console.log(`💾 🔄 Processing setting ${index + 1}/${this.LOCAL_ONLY_SETTINGS.length}: "${settingPath}"`);
+        
         const value = this.getNestedValue(localSettings, settingPath);
+        console.log(`💾 🔍 getNestedValue("${settingPath}") returned:`, value, '(type:', typeof value, ')');
+        
         if (value !== undefined) {
-          console.log(`💾 ✅ Merging local setting: ${settingPath} = ${value}`);
+          console.log(`💾 ✅ About to merge: ${settingPath} = ${value}`);
+          
+          // Check current value before setting
+          const beforeValue = this.getNestedValue(this.currentSettings, settingPath);
+          console.log(`💾 🔍 Current value before merge:`, beforeValue);
+          
           this.setNestedValue(this.currentSettings, settingPath, value);
+          
+          // Check current value after setting
+          const afterValue = this.getNestedValue(this.currentSettings, settingPath);
+          console.log(`💾 ✅ Current value after merge:`, afterValue);
+          console.log(`💾 ✅ Merge successful for ${settingPath}:`, beforeValue, '→', afterValue);
         } else {
-          console.log(`💾 ⚠️ Local setting not found: ${settingPath}, will use default`);
+          console.log(`💾 ⚠️ Local setting not found in localStorage: ${settingPath}, will use default`);
         }
       });
       
       // Ensure any missing local-only settings have defaults
+      console.log('💾 🔧 Ensuring defaults for missing settings...');
       this.ensureLocalOnlyDefaults();
+      
+      console.log('💾 🔍 currentSettings AFTER complete merge:', JSON.stringify(this.currentSettings, null, 2));
+      console.log('💾 ✅ === COMPLETED mergeLocalOnlySettings() ===');
       
     } catch (error) {
       console.error('💾 ❌ Failed to load local-only settings:', error);
+      console.error('💾 ❌ Error stack:', error.stack);
       this.ensureLocalOnlyDefaults();
     }
   }
 
   // NEW: Ensure local-only settings have default values
   ensureLocalOnlyDefaults() {
+    console.log('💾 🔧 === STARTING ensureLocalOnlyDefaults() ===');
+    
     const defaults = {
       'system.autoRedirect': true,
       'system.debugMode': false
     };
     
-    this.LOCAL_ONLY_SETTINGS.forEach(settingPath => {
+    console.log('💾 🔧 Default values defined:', defaults);
+    
+    this.LOCAL_ONLY_SETTINGS.forEach((settingPath, index) => {
+      console.log(`💾 🔧 Checking default ${index + 1}/${this.LOCAL_ONLY_SETTINGS.length}: "${settingPath}"`);
+      
       const currentValue = this.getNestedValue(this.currentSettings, settingPath);
+      console.log(`💾 🔍 Current value for ${settingPath}:`, currentValue, '(type:', typeof currentValue, ')');
+      
       if (currentValue === undefined) {
         const defaultValue = defaults[settingPath];
+        console.log(`💾 🔧 Setting default for ${settingPath}: ${defaultValue}`);
+        
         if (defaultValue !== undefined) {
-          console.log(`💾 🔧 Setting default for ${settingPath}: ${defaultValue}`);
           this.setNestedValue(this.currentSettings, settingPath, defaultValue);
+          
+          // Verify it was set
+          const verifyValue = this.getNestedValue(this.currentSettings, settingPath);
+          console.log(`💾 ✅ Default set verification for ${settingPath}:`, verifyValue);
+        } else {
+          console.log(`💾 ⚠️ No default defined for ${settingPath}`);
         }
+      } else {
+        console.log(`💾 ✅ ${settingPath} already has value:`, currentValue);
       }
     });
+    
+    console.log('💾 🔧 === COMPLETED ensureLocalOnlyDefaults() ===');
   }
 
   // NEW: Helper to get nested object values using dot notation
   getNestedValue(obj, path) {
-    return path.split('.').reduce((current, key) => {
-      return current && current[key] !== undefined ? current[key] : undefined;
-    }, obj);
+    console.log(`💾 🔍 getNestedValue called with path: "${path}"`);
+    console.log(`💾 🔍 Input object:`, obj);
+    
+    const keys = path.split('.');
+    console.log(`💾 🔍 Path split into keys:`, keys);
+    
+    let current = obj;
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      console.log(`💾 🔍 Step ${i + 1}: Looking for key "${key}" in:`, current);
+      
+      if (current && current[key] !== undefined) {
+        current = current[key];
+        console.log(`💾 ✅ Found "${key}":`, current);
+      } else {
+        console.log(`💾 ❌ Key "${key}" not found or undefined`);
+        return undefined;
+      }
+    }
+    
+    console.log(`💾 ✅ Final result for "${path}":`, current);
+    return current;
   }
 
   // NEW: Helper to set nested object values using dot notation
   setNestedValue(obj, path, value) {
+    console.log(`💾 🔧 setNestedValue called with path: "${path}", value:`, value);
+    console.log(`💾 🔧 Target object before:`, JSON.stringify(obj, null, 2));
+    
     const keys = path.split('.');
     const lastKey = keys.pop();
-    const target = keys.reduce((current, key) => {
-      if (!current[key] || typeof current[key] !== 'object') {
-        current[key] = {};
+    console.log(`💾 🔧 Path keys:`, keys, 'Last key:', lastKey);
+    
+    let target = obj;
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      console.log(`💾 🔧 Processing key ${i + 1}/${keys.length}: "${key}"`);
+      
+      if (!target[key] || typeof target[key] !== 'object') {
+        console.log(`💾 🔧 Creating object for key "${key}"`);
+        target[key] = {};
       }
-      return current[key];
-    }, obj);
+      target = target[key];
+      console.log(`💾 🔧 Now at:`, target);
+    }
+    
+    console.log(`💾 🔧 Setting "${lastKey}" to:`, value);
     target[lastKey] = value;
+    
+    console.log(`💾 ✅ setNestedValue completed. Final object:`, JSON.stringify(obj, null, 2));
   }
   async waitForAuth(timeoutMs = 5000) {
     const startTime = Date.now();
