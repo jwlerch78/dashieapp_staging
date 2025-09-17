@@ -20,41 +20,59 @@
     <link rel="stylesheet" href="css/components/settings.css">
     
 <!-- Use the main Amplify bundle -->
-<script src="https://unpkg.com/aws-amplify@5.3.12/dist/aws-amplify.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/aws-amplify@5.3.12/dist/aws-amplify.min.js"></script>
 <script>
-    // Simple setup - wait a moment for the script to fully load
+    console.log('🔍 Loaded script, checking available objects...');
+    
+    // Check what's actually available
+    const amplifyKeys = Object.keys(window).filter(key => 
+        key.toLowerCase().includes('amplify') || 
+        key.toLowerCase().includes('aws')
+    );
+    console.log('Available Amplify/AWS objects:', amplifyKeys);
+    
+    // Wait for everything to load
     setTimeout(() => {
-        console.log('Checking what Amplify objects are available:');
-        console.log('window.aws_amplify:', !!window.aws_amplify);
-        console.log('window.Amplify:', !!window.Amplify);
-        console.log('window.Auth:', !!window.Auth);
+        let configured = false;
         
-        // Set up the expected structure
-        if (window.aws_amplify) {
+        // Try multiple possible locations
+        if (window.aws_amplify && window.aws_amplify.Amplify && window.aws_amplify.Auth) {
             window.aws = {
                 amplifyAuth: {
                     Amplify: window.aws_amplify.Amplify,
                     Auth: window.aws_amplify.Auth
                 }
             };
-            console.log('🔐 AWS Amplify configured from aws_amplify');
-        } else if (window.Amplify && window.Auth) {
+            configured = true;
+            console.log('🔐 ✅ Configured from aws_amplify');
+        } 
+        else if (window.AmplifyCore && window.AmplifyAuth) {
+            window.aws = {
+                amplifyAuth: {
+                    Amplify: window.AmplifyCore,
+                    Auth: window.AmplifyAuth
+                }
+            };
+            configured = true;
+            console.log('🔐 ✅ Configured from AmplifyCore/AmplifyAuth');
+        }
+        else if (window.Amplify && window.Auth) {
             window.aws = {
                 amplifyAuth: {
                     Amplify: window.Amplify,
                     Auth: window.Auth
                 }
             };
-            console.log('🔐 AWS Amplify configured from global objects');
-        } else {
-            console.error('🔐 ❌ Amplify objects not found');
+            configured = true;
+            console.log('🔐 ✅ Configured from global Amplify/Auth');
         }
-    }, 200);
-</script>;
-    }
-    
-    console.log('🔐 AWS Amplify loaded and configured');
+        
+        if (!configured) {
+            console.error('🔐 ❌ No Amplify objects found. Available keys:', amplifyKeys);
+        }
+    }, 500);
 </script>
+    
 </head>
 <body class="theme-dark">
     <!-- Main app container (simplified for Cognito redirect flow) -->
