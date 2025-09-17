@@ -140,9 +140,11 @@ html, body {
   display: block !important;
   visibility: visible !important;
   height: auto !important;
-  min-height: 32px !important;
+  min-height: 0 !important;      /* allow it to shrink if no events */
+  max-height: none !important;    /* no artificial cap */
   background: var(--bg-tertiary, #444) !important;
   color: var(--text-primary, #fff) !important;
+  overflow: visible !important;   /* allow all events to show */
 }
 
 /* Ensure the header of the all-day section is visible */
