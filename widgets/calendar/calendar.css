@@ -1,7 +1,5 @@
 /* widgets/calendar/calendar.css - Calendar Widget Styles with proper theme inheritance and height */
 
-/* widgets/calendar/calendar.css - Calendar Widget Styles with proper theme inheritance and height */
-
 html, body {
   height: 100%;
   margin: 0;
@@ -137,8 +135,14 @@ html, body {
   display: block !important;
   visibility: visible !important;
   height: auto !important;
-  min-height: 24px !important;
-  overflow: visible !important;
+  min-height: 32px !important;
+  background: var(--bg-tertiary, #444) !important;
+}
+
+/* Give all-day events a little padding */
+.toastui-calendar-allday-events,
+.toastui-calendar-weekday-allday-events {
+  padding: 4px !important;
 }
 
 /* Time view adjustments */
@@ -173,8 +177,13 @@ html, body {
 /* === Hide the time labels on the left but keep grid alignment === */
 .toastui-calendar-time-hour,
 .toastui-calendar-timegrid-timezone {
-  color: transparent !important;
-  background: var(--bg-primary, #222) !important;
+  color: transparent !important;   /* hides the numbers */
+  background: var(--bg-secondary, #333) !important; /* match background so no red/blue shows */
+  text-shadow: none !important;
+}
+
+.toastui-calendar-timegrid-hour {
+  background-color: var(--bg-secondary, #333) !important;
 }
 
 /* Grid lines and borders */
@@ -198,6 +207,8 @@ html, body {
   word-wrap: break-word !important;
   overflow: visible !important;
   text-overflow: clip !important;
+  display: block !important;            /* ensures wrapping actually happens */
+  line-height: 1.2em !important;
   font-weight: 500;
 }
 
