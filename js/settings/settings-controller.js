@@ -17,8 +17,6 @@ export class SettingsController extends SettingsControllerCore {
     featureMethods.forEach(methodName => {
       this[methodName] = SettingsControllerFeatures.prototype[methodName].bind(this);
     });
-    
-    console.log('⚙️ 🔧 SettingsController created with core + features');
   }
 }
 
