@@ -1,5 +1,5 @@
 // js/auth/token-manager.js - Automatic Token Refresh Management
-// CHANGE SUMMARY: New token manager to handle automatic refresh of Google OAuth tokens
+// CHANGE SUMMARY: Token manager without widget notifications (centralized data architecture)
 
 export class TokenManager {
   constructor(authManager) {
@@ -140,9 +140,6 @@ export class TokenManager {
       // Schedule next refresh
       this.scheduleNextRefresh(updatedUser.tokenExpiry);
 
-      // Notify widgets of token update
-      this.notifyWidgetsTokenRefresh(newTokens.access_token);
-
       console.log('🔄 🎉 Token refresh completed successfully');
       return {
         success: true,
@@ -202,25 +199,6 @@ export class TokenManager {
       console.log('🔄 🔄 Reloading page for re-authentication');
       window.location.reload();
     }
-  }
-
-  // Notify widgets that tokens have been refreshed
-  notifyWidgetsTokenRefresh(newAccessToken) {
-    console.log('🔄 📢 Notifying widgets of token refresh');
-    
-    // Send message to all widget iframes
-    const widgets = document.querySelectorAll('.widget-container iframe');
-    widgets.forEach(iframe => {
-      try {
-        iframe.contentWindow.postMessage({
-          type: 'token-refreshed',
-          googleAccessToken: newAccessToken,
-          timestamp: Date.now()
-        }, '*');
-      } catch (error) {
-        console.warn('🔄 ⚠️ Failed to notify widget of token refresh:', error);
-      }
-    });
   }
 
   // Check if current token is expired or about to expire
