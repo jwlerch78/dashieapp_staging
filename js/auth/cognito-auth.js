@@ -1,10 +1,16 @@
 // js/auth/cognito-auth.js
 // updated per chatgpt input 
 
-import { Amplify, Auth } from 'https://cdn.jsdelivr.net/npm/aws-amplify@6.0.21/+esm';
+// Amplify core
+import { Amplify } from 'https://cdn.jsdelivr.net/npm/aws-amplify@6.0.21/+esm';
+
+// Cognito Auth explicitly
+import { Auth } from 'https://cdn.jsdelivr.net/npm/@aws-amplify/auth@6.0.21/+esm';
+
+// Your config
 import { AMPLIFY_CONFIG, COGNITO_CONFIG } from './cognito-config.js';
 
-// Configure Amplify once at import time
+// Configure Amplify at startup
 Amplify.configure(AMPLIFY_CONFIG);
 
 export class CognitoAuth {
