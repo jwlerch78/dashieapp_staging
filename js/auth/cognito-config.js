@@ -23,7 +23,8 @@ export const COGNITO_CONFIG = {
   
   // OAuth Configuration
   oauth: {
-    scope: ['openid', 'email', 'profile', 'https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/photoslibrary.readonly'],
+    //scope: ['openid', 'email', 'profile', 'https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/photoslibrary.readonly'],
+    scope: ['openid', 'email', 'profile'],
     redirectSignIn: environment === 'production' 
       ? 'https://dashieapp.com/auth/callback'
       : 'https://dev.dashieapp.com/auth/callback',
