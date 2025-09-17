@@ -133,14 +133,32 @@ html, body {
   display: none !important;
 }
 
-/* === All-day section: ensure visible (overrides old hiding rules) === */
+/* === All-day section: ensure visible and styled === */
+.toastui-calendar-week-view .toastui-calendar-allday-container,
 .toastui-calendar-week-view .toastui-calendar-weekday-allday-container,
-.toastui-calendar-week-view .toastui-calendar-allday-container {
+.toastui-calendar-daily-view .toastui-calendar-allday-container {
   display: block !important;
   visibility: visible !important;
   height: auto !important;
   min-height: 32px !important;
   background: var(--bg-tertiary, #444) !important;
+  color: var(--text-primary, #fff) !important;
+}
+
+/* Ensure the header of the all-day section is visible */
+.toastui-calendar-allday-header {
+  display: block !important;
+  visibility: visible !important;
+  background: var(--bg-secondary, #333) !important;
+  color: var(--text-secondary, #fff) !important;
+  font-weight: 500;
+}
+
+/* Event text wrapping for all-day and timed events */
+.toastui-calendar-event .toastui-calendar-content {
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
 }
 
 /* Hide left-hand exact time column */
