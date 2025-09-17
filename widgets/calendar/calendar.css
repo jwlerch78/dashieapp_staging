@@ -124,28 +124,6 @@ html, body {
 }
 
 
-.toastui-calendar-layout > .toastui-calendar-week-view-layout > .toastui-calendar-panel > .toastui-calendar-panel-header,
-.toastui-calendar-layout > .toastui-calendar-month-view-layout > .toastui-calendar-panel > .toastui-calendar-panel-header,
-.toastui-calendar-layout > .toastui-calendar-daily-view-layout > .toastui-calendar-panel > .toastui-calendar-panel-header {
-   display: none !important;
-}
-
-
-/* === All-day section: ensure visible (overrides old hiding rules) === */
-.toastui-calendar-week-view .toastui-calendar-weekday-allday-container,
-.toastui-calendar-week-view .toastui-calendar-allday-container {
-  display: block !important;
-  visibility: visible !important;
-  height: auto !important;
-  min-height: 32px !important;
-  background: var(--bg-tertiary, #444) !important;
-}
-
-/* Give all-day events a little padding */
-.toastui-calendar-allday-events,
-.toastui-calendar-weekday-allday-events {
-  padding: 4px !important;
-}
 
 /* Time view adjustments */
 .toastui-calendar-week-view .toastui-calendar-time,
@@ -214,37 +192,7 @@ html, body {
   font-weight: 500;
 }
 
-/* Current time indicator */
-.toastui-calendar-timegrid-current-time {
-  background: #ff4444 !important;
-}
 
-.toastui-calendar-current-time {
-  background: var(--accent-orange, #ffaa00) !important;
-  color: var(--text-primary, #fff) !important;
-  border-radius: 3px !important;
-  padding: 2px 4px !important;
-  font-size: 10px !important;
-  font-weight: bold !important;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3) !important;
-}
-
-.toastui-calendar-timegrid-current-time-marker {
-  background: var(--accent-orange, #ffaa00) !important;
-  height: 2px !important;
-}
-
-.toastui-calendar-current-time-text,
-.toastui-calendar-timegrid-current-time-text {
-  background: var(--accent-orange, #ffaa00) !important;
-  color: var(--text-primary, #fff) !important;
-  border: none !important;
-  border-radius: 3px !important;
-  padding: 2px 6px !important;
-  font-size: 10px !important;
-  font-weight: 600 !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
-}
 
 /* Scrollable areas */
 .toastui-calendar-week-view .toastui-calendar-time-scroll-wrapper,
