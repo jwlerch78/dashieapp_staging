@@ -9,7 +9,7 @@ export class SettingsControllerCore {
     this.isInitialized = false;
     this.realtimeSubscription = null;
     
-    // NEW: Define which settings should be stored locally only (device-specific)
+    // Define which settings should be stored locally only (device-specific)
     this.LOCAL_ONLY_SETTINGS = [
       'system.autoRedirect',
       'system.debugMode'
@@ -35,25 +35,20 @@ export class SettingsControllerCore {
     this.handleBeforeUnload = this.handleBeforeUnload.bind(this);
   }
 
-  // Initialize with better auth detection and error handling
+  // Initialize with auth detection and error handling
   async init() {
     try {
-      console.log('⚙️ 🔄 Settings Controller init() called');
+      console.log('⚙️ Initializing Settings Controller...');
       
       // Wait for auth to be ready with timeout
       const currentUser = await this.waitForAuth(5000);
       
       if (!currentUser) {
-        console.warn('⚙️ ⚠️ No authenticated user, using localStorage only');
+        console.warn('⚙️ No authenticated user, using localStorage only');
         this.currentSettings = this.getDefaultSettings();
         this.isInitialized = true;
         
-        console.log('⚙️ 💾 About to call mergeLocalOnlySettings() - fallback path');
         this.mergeLocalOnlySettings();
-        
-        console.log('⚙️ 📋 Current settings after fallback init + local merge:', this.currentSettings);
-        
-        console.log('⚙️ 🌐 About to call applyLoadedSettings() - fallback path');
         await this.applyLoadedSettings();
         
         return true;
@@ -69,12 +64,7 @@ export class SettingsControllerCore {
       const loadedSettings = await this.storage.loadSettings();
       this.currentSettings = loadedSettings || this.getDefaultSettings(currentUser.email);
       
-      console.log('⚙️ 💾 About to call mergeLocalOnlySettings() - authenticated path');
       this.mergeLocalOnlySettings();
-      
-      console.log('⚙️ 📋 Current settings after database load + local merge:', this.currentSettings);
-      
-      console.log('⚙️ 🌐 About to call applyLoadedSettings() - authenticated path');
       await this.applyLoadedSettings();
       
       // Set up real-time sync
@@ -94,12 +84,7 @@ export class SettingsControllerCore {
       this.currentSettings = this.getDefaultSettings();
       this.isInitialized = true;
       
-      console.log('⚙️ 💾 About to call mergeLocalOnlySettings() - error fallback path');
       this.mergeLocalOnlySettings();
-      
-      console.log('⚙️ 📋 Current settings after error fallback + local merge:', this.currentSettings);
-      
-      console.log('⚙️ 🌐 About to call applyLoadedSettings() - error fallback path');
       await this.applyLoadedSettings();
       
       return false;
@@ -113,14 +98,12 @@ export class SettingsControllerCore {
     while (Date.now() - startTime < timeoutMs) {
       const user = this.getCurrentUser();
       if (user) {
-        console.log('⚙️ 🔐 Auth ready, found user:', user.email);
         return user;
       }
       
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     
-    console.log('⚙️ ⚠️ Auth timeout after', timeoutMs, 'ms');
     return null;
   }
 
@@ -211,8 +194,6 @@ export class SettingsControllerCore {
       return false;
     }
 
-    console.log(`⚙️ 🔧 Setting ${path} = ${value}`);
-
     const keys = path.split('.');
     let current = this.currentSettings;
     
@@ -234,7 +215,6 @@ export class SettingsControllerCore {
     if (oldValue !== value) {
       this.isDirty = true;
       this.currentSettings.lastModified = Date.now();
-      console.log(`⚙️ ✅ Setting updated: ${path} = ${value} (was: ${oldValue})`);
       
       // Apply immediate changes for specific settings
       if (path === 'display.theme') {
@@ -254,7 +234,6 @@ export class SettingsControllerCore {
       
       return true;
     } else {
-      console.log(`⚙️ ℹ️ Setting unchanged: ${path} = ${value}`);
       return true;
     }
   }
@@ -275,7 +254,6 @@ export class SettingsControllerCore {
     this.isDirty = true;
     this.currentSettings.lastModified = Date.now();
     
-    console.log(`⚙️ Category settings updated: ${categoryId}`, settings);
     this.scheduleAutoSave();
     
     return true;
@@ -298,29 +276,25 @@ export class SettingsControllerCore {
 
     try {
       this.realtimeSubscription = this.storage.subscribeToChanges(this.handleRealtimeUpdate);
-      console.log('⚙️ 🔄 Real-time sync enabled');
+      console.log('⚙️ Real-time sync enabled');
     } catch (error) {
-      console.warn('⚙️ ⚠️ Real-time sync setup failed:', error);
+      console.warn('⚙️ Real-time sync setup failed:', error);
     }
   }
 
   // Handle real-time updates from other devices
   handleRealtimeUpdate(newSettings) {
-    console.log('⚙️ 🔄 Received settings update from another device');
-    
     const localTime = this.currentSettings.lastModified || 0;
     const remoteTime = newSettings.lastModified || 0;
     
     if (remoteTime > localTime) {
-      console.log('⚙️ 🔄 Applying remote settings (newer)');
+      console.log('⚙️ Applying remote settings update');
       this.currentSettings = newSettings;
       this.isDirty = false;
       
       this.applyLoadedSettings();
       this.checkSiteRedirectSync();
       this.notifyUIUpdate();
-    } else {
-      console.log('⚙️ 🔄 Ignoring remote settings (older than local)');
     }
   }
 
@@ -380,7 +354,7 @@ export class SettingsControllerCore {
 
   // Cleanup
   async cleanup() {
-    console.log('⚙️ 🧹 Cleaning up Settings Controller...');
+    console.log('⚙️ Cleaning up Settings Controller...');
     
     if (this.isDirty) {
       await this.saveSettings();
@@ -396,7 +370,7 @@ export class SettingsControllerCore {
     
     window.removeEventListener('beforeunload', this.handleBeforeUnload);
     
-    console.log('⚙️ ✅ Settings Controller cleaned up');
+    console.log('⚙️ Settings Controller cleaned up');
   }
 
   // Placeholder methods that will be implemented in features file
