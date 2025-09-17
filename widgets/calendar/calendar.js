@@ -162,7 +162,7 @@ class CalendarWidget {
 
       // Determine if the event should be all-day
       const start = new Date(event.startDateTime);
-      const end = new Date(event.endDateTime);
+      let end = new Date(event.endDateTime);
 
       let isAllDay = event.isAllDay || false;
 
