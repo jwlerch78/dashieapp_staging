@@ -30,7 +30,7 @@ export const COGNITO_CONFIG = {
     
     redirectSignIn: environment === 'production' 
       ? 'https://dashieapp.com/auth/callback'
-      : 'https://dev.dashieapp.com/', // Use root for now, change after adding callback to Cognito
+      : 'https://dev.dashieapp.com/auth/callback'
     redirectSignOut: environment === 'production'
       ? 'https://dashieapp.com/'
       : 'https://dev.dashieapp.com/',
