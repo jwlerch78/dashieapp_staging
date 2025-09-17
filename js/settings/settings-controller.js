@@ -85,20 +85,20 @@ export class SettingsController {
       this.isInitialized = true;
       
       // Still check site redirect on fallback
-      await this.checkSiteRedirect();
+      await this.checkSiteRedirectSync();
       
       return false;
     }
   }
 
-  // NEW: Site redirect functionality
-  async checkSiteRedirect() {
+  // FIXED: Synchronous site redirect check that returns whether redirect happened
+  async checkSiteRedirectSync() {
     try {
       const autoRedirect = this.currentSettings.system?.autoRedirect;
       const targetSite = this.currentSettings.system?.activeSite || 'prod';
       const currentSite = this.detectCurrentSite();
       
-      console.log('🌐 Site redirect check:', {
+      console.log('🌐 Site redirect check (startup):', {
         autoRedirect,
         targetSite,
         currentSite,
@@ -106,14 +106,22 @@ export class SettingsController {
       });
       
       if (autoRedirect && targetSite !== currentSite) {
-        console.log(`🌐 Auto-redirecting from ${currentSite} to ${targetSite}`);
+        console.log(`🌐 🔄 Auto-redirecting from ${currentSite} to ${targetSite} (startup)`);
         this.performSiteRedirect(targetSite, false); // false = no confirmation on startup
+        return true; // Redirect happening
       } else {
-        console.log('🌐 No redirect needed');
+        console.log('🌐 ✅ No redirect needed');
+        return false; // No redirect
       }
     } catch (error) {
       console.error('🌐 ❌ Site redirect check failed:', error);
+      return false; // No redirect on error
     }
+  }
+
+  // NEW: Site redirect functionality (kept for backwards compatibility)
+  async checkSiteRedirect() {
+    return await this.checkSiteRedirectSync();
   }
 
   // NEW: Detect current site
@@ -353,11 +361,19 @@ export class SettingsController {
     return null;
   }
 
-  // Apply loaded settings to the dashboard (theme AND family name)
+  // FIXED: Apply loaded settings with site redirect check FIRST
   async applyLoadedSettings() {
     if (!this.currentSettings) return;
     
-    // Apply theme if it exists
+    // FIRST: Check site redirect before applying anything else
+    // No point in setting up the site if we're redirecting away
+    const redirected = await this.checkSiteRedirectSync();
+    if (redirected) {
+      console.log('🌐 🔄 Redirecting to different site, skipping other settings application');
+      return; // Don't apply other settings if we're redirecting
+    }
+    
+    // Apply theme if it exists (only if not redirecting)
     const theme = this.currentSettings.display?.theme;
     if (theme) {
       console.log('⚙️ 🎨 Applying loaded theme:', theme);
@@ -371,7 +387,7 @@ export class SettingsController {
       }
     }
     
-    // Apply family name to header widgets (same pattern as theme)
+    // Apply family name to header widgets (only if not redirecting)
     const familyName = this.currentSettings.family?.familyName;
     if (familyName) {
       console.log('⚙️ 👨‍👩‍👧‍👦 Applying loaded family name:', familyName);
@@ -676,7 +692,7 @@ export class SettingsController {
       this.applyLoadedSettings();
       
       // Check if site redirect is needed
-      this.checkSiteRedirect();
+      this.checkSiteRedirectSync();
       
       // Notify UI to refresh if settings panel is open
       this.notifyUIUpdate();
