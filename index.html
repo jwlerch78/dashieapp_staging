@@ -1,7 +1,9 @@
+<!-- index.html for Dashie -->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- UPDATED: Added AWS Amplify for Cognito integration -->
+    <!-- FIXED: Corrected AWS Amplify CDN and setup for Cognito integration -->
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashie - Family Dashboard</title>
@@ -17,13 +19,14 @@
     <link rel="stylesheet" href="css/components/navigation.css">
     <link rel="stylesheet" href="css/components/settings.css">
     
-    <!-- AWS Amplify SDK - NEW -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/aws-amplify/5.3.14/aws-amplify.min.js"></script>
+    <!-- AWS Amplify SDK - FIXED with correct CDN -->
+    <script src="https://unpkg.com/@aws-amplify/core@5.8.5/dist/umd/aws-amplify-core.min.js"></script>
+    <script src="https://unpkg.com/@aws-amplify/auth@5.8.5/dist/umd/aws-amplify-auth.min.js"></script>
     <script>
         // Make Amplify available globally for Cognito auth
         window.aws = {
             amplifyAuth: {
-                Amplify: window.Amplify,
+                Amplify: window.AmplifyCore,
                 Auth: window.AmplifyAuth
             }
         };
@@ -44,9 +47,16 @@
 
     <!-- JavaScript modules -->
     <script type="module">
-        // Import and initialize the app
-        import('./js/main.js').then(({ initializeApp }) => {
-            initializeApp();
+        // FIXED: Import and initialize the app with correct function name
+        import('./js/main.js').then((module) => {
+            // Try multiple possible export names
+            const initFn = module.initializeApp || module.default || module.init;
+            if (initFn && typeof initFn === 'function') {
+                initFn();
+            } else {
+                console.error('No valid initialization function found in main.js');
+                console.log('Available exports:', Object.keys(module));
+            }
         }).catch(error => {
             console.error('Failed to load main application:', error);
         });
