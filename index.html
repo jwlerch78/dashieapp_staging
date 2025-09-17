@@ -19,19 +19,38 @@
     <link rel="stylesheet" href="css/components/navigation.css">
     <link rel="stylesheet" href="css/components/settings.css">
     
-    <!-- AWS Amplify SDK - FIXED with correct CDN -->
-    <script src="https://unpkg.com/@aws-amplify/core@5.8.5/dist/umd/aws-amplify-core.min.js"></script>
-    <script src="https://unpkg.com/@aws-amplify/auth@5.8.5/dist/umd/aws-amplify-auth.min.js"></script>
-    <script>
-        // Make Amplify available globally for Cognito auth
+<!-- AWS Amplify SDK - Using the main bundle -->
+<script src="https://unpkg.com/aws-amplify@5.3.12/dist/aws-amplify.min.js"></script>
+<script>
+    // Debug what was loaded
+    console.log('🔍 After loading Amplify:', {
+        'window.aws_amplify': !!window.aws_amplify,
+        'window.Amplify': !!window.Amplify,
+        'window.Auth': !!window.Auth,
+        'Available on window': Object.keys(window).filter(key => 
+            key.toLowerCase().includes('amplify') || key.toLowerCase().includes('auth')
+        )
+    });
+
+    // Make Amplify available in your expected format
+    if (window.aws_amplify) {
         window.aws = {
             amplifyAuth: {
-                Amplify: window.AmplifyCore,
-                Auth: window.AmplifyAuth
+                Amplify: window.aws_amplify.Amplify,
+                Auth: window.aws_amplify.Auth
             }
         };
-        console.log('🔐 AWS Amplify loaded and configured');
-    </script>
+    } else if (window.Amplify && window.Auth) {
+        window.aws = {
+            amplifyAuth: {
+                Amplify: window.Amplify,
+                Auth: window.Auth
+            }
+        };
+    }
+    
+    console.log('🔐 AWS Amplify loaded and configured');
+</script>
 </head>
 <body class="theme-dark">
     <!-- Main app container (simplified for Cognito redirect flow) -->
