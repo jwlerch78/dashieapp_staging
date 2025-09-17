@@ -123,12 +123,13 @@ html, body {
   height: 100% !important;
 }
 
-.toastui-calendar-layout > .toastui-calendar-week-view-layout > .toastui-calendar-panel > .toastui-calendar-panel-header .toastui-calendar-panel-title,
+/*
+.toastui-calendar-layout > .toastui-calendar-week-view-layout > .toastui-calendar-panel > .toastui-calendar-panel-header,
 .toastui-calendar-layout > .toastui-calendar-month-view-layout > .toastui-calendar-panel > .toastui-calendar-panel-header,
-.toastui-calendar-layout > .toastui-calendar-daily-view-layout > .toastui-calendar-panel > .toastui-calendar-panel-header .toastui-calendar-panel-title  {
-  display: none !important;
+.toastui-calendar-layout > .toastui-calendar-daily-view-layout > .toastui-calendar-panel > .toastui-calendar-panel-header {
+   display: none !important;
 }
-
+*/
 
 
 /* === All-day section: ensure visible (overrides old hiding rules) === */
