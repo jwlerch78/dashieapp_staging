@@ -19,34 +19,38 @@
     <link rel="stylesheet" href="css/components/navigation.css">
     <link rel="stylesheet" href="css/components/settings.css">
     
-<!-- AWS Amplify SDK - Using the main bundle -->
+<!-- Use the main Amplify bundle -->
 <script src="https://unpkg.com/aws-amplify@5.3.12/dist/aws-amplify.min.js"></script>
 <script>
-    // Debug what was loaded
-    console.log('🔍 After loading Amplify:', {
-        'window.aws_amplify': !!window.aws_amplify,
-        'window.Amplify': !!window.Amplify,
-        'window.Auth': !!window.Auth,
-        'Available on window': Object.keys(window).filter(key => 
-            key.toLowerCase().includes('amplify') || key.toLowerCase().includes('auth')
-        )
-    });
-
-    // Make Amplify available in your expected format
-    if (window.aws_amplify) {
-        window.aws = {
-            amplifyAuth: {
-                Amplify: window.aws_amplify.Amplify,
-                Auth: window.aws_amplify.Auth
-            }
-        };
-    } else if (window.Amplify && window.Auth) {
-        window.aws = {
-            amplifyAuth: {
-                Amplify: window.Amplify,
-                Auth: window.Auth
-            }
-        };
+    // Simple setup - wait a moment for the script to fully load
+    setTimeout(() => {
+        console.log('Checking what Amplify objects are available:');
+        console.log('window.aws_amplify:', !!window.aws_amplify);
+        console.log('window.Amplify:', !!window.Amplify);
+        console.log('window.Auth:', !!window.Auth);
+        
+        // Set up the expected structure
+        if (window.aws_amplify) {
+            window.aws = {
+                amplifyAuth: {
+                    Amplify: window.aws_amplify.Amplify,
+                    Auth: window.aws_amplify.Auth
+                }
+            };
+            console.log('🔐 AWS Amplify configured from aws_amplify');
+        } else if (window.Amplify && window.Auth) {
+            window.aws = {
+                amplifyAuth: {
+                    Amplify: window.Amplify,
+                    Auth: window.Auth
+                }
+            };
+            console.log('🔐 AWS Amplify configured from global objects');
+        } else {
+            console.error('🔐 ❌ Amplify objects not found');
+        }
+    }, 200);
+</script>;
     }
     
     console.log('🔐 AWS Amplify loaded and configured');
