@@ -29,8 +29,8 @@ export const COGNITO_CONFIG = {
     // scope: ['openid', 'email', 'profile', 'https://www.googleapis.com/auth/calendar.readonly', 'https://www.googleapis.com/auth/photoslibrary.readonly'],
     
     redirectSignIn: environment === 'production' 
-      ? 'https://dashieapp.com/auth/callback'
-      : 'https://dev.dashieapp.com/auth/callback',
+      ? 'https://dashieapp.com/oauth2/idpresponse'
+      : 'https://dev.dashieapp.com/oauth2/idpresponse', // Try the standard Cognito callback format
     redirectSignOut: environment === 'production'
       ? 'https://dashieapp.com/'
       : 'https://dev.dashieapp.com/',
