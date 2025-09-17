@@ -12,54 +12,124 @@ export class CognitoAuth {
     this.cognitoTokens = null;
   }
 
-  async init() {
-    console.log('🔐 Initializing AWS Cognito authentication...');
+ async init() {
+  console.log('🔐 Initializing AWS Cognito authentication...');
+  
+  try {
+    // Wait for Amplify to be loaded
+    await this.waitForAmplify();
     
-    try {
-      // Wait for Amplify to be loaded
-      await this.waitForAmplify();
-      
-      // Configure Amplify
+    // Debug what we have access to
+    console.log('🔍 Available Amplify objects:', {
+      'this.amplify': !!this.amplify,
+      'this.amplify.Amplify': !!this.amplify.Amplify,
+      'this.amplify.Auth': !!this.amplify.Auth,
+      'Amplify methods': this.amplify.Amplify ? Object.keys(this.amplify.Amplify) : 'N/A'
+    });
+    
+    // Try different ways to configure Amplify
+    let configResult = false;
+    
+    // Method 1: Direct configure call
+    if (this.amplify.Amplify && typeof this.amplify.Amplify.configure === 'function') {
       this.amplify.Amplify.configure(AMPLIFY_CONFIG);
-      console.log('🔐 ✅ Amplify configured successfully');
-      
-      // Check for existing session
-      const existingUser = await this.getCurrentSession();
-      if (existingUser) {
-        console.log('🔐 ✅ Found existing Cognito session:', existingUser.username);
-        this.currentUser = existingUser;
-        return { success: true, user: existingUser };
-      }
-      
-      // Check for OAuth callback
-      const callbackResult = await this.handleOAuthCallback();
-      if (callbackResult.success) {
-        console.log('🔐 ✅ OAuth callback handled successfully');
-        return callbackResult;
-      }
-      
-      console.log('🔐 No existing authentication found');
-      this.isInitialized = true;
-      return { success: false, reason: 'no_existing_auth' };
-      
-    } catch (error) {
-      console.error('🔐 ❌ Cognito initialization failed:', error);
-      this.isInitialized = true;
-      return { success: false, error: error.message };
+      configResult = true;
+      console.log('🔐 ✅ Amplify configured successfully (Method 1)');
     }
+    // Method 2: Configure might be on the core object
+    else if (this.amplify.Amplify && this.amplify.Amplify.Amplify && typeof this.amplify.Amplify.Amplify.configure === 'function') {
+      this.amplify.Amplify.Amplify.configure(AMPLIFY_CONFIG);
+      configResult = true;
+      console.log('🔐 ✅ Amplify configured successfully (Method 2)');
+    }
+    // Method 3: Try window.AmplifyCore directly
+    else if (window.AmplifyCore && typeof window.AmplifyCore.configure === 'function') {
+      window.AmplifyCore.configure(AMPLIFY_CONFIG);
+      configResult = true;
+      console.log('🔐 ✅ Amplify configured successfully (Method 3 - direct)');
+    }
+    // Method 4: Try window.AmplifyCore.Amplify
+    else if (window.AmplifyCore && window.AmplifyCore.Amplify && typeof window.AmplifyCore.Amplify.configure === 'function') {
+      window.AmplifyCore.Amplify.configure(AMPLIFY_CONFIG);
+      configResult = true;
+      console.log('🔐 ✅ Amplify configured successfully (Method 4)');
+    }
+    else {
+      // Log what's actually available to help debug
+      console.error('🔐 ❌ No configure method found. Available:', {
+        'window.AmplifyCore': window.AmplifyCore ? Object.keys(window.AmplifyCore) : 'undefined',
+        'this.amplify.Amplify': this.amplify.Amplify ? Object.keys(this.amplify.Amplify) : 'undefined'
+      });
+      throw new Error('Amplify configure method not found');
+    }
+    
+    if (!configResult) {
+      throw new Error('Failed to configure Amplify');
+    }
+    
+    // Check for existing session
+    const existingUser = await this.getCurrentSession();
+    if (existingUser) {
+      console.log('🔐 ✅ Found existing Cognito session:', existingUser.username);
+      this.currentUser = existingUser;
+      return { success: true, user: existingUser };
+    }
+    
+    // Check for OAuth callback
+    const callbackResult = await this.handleOAuthCallback();
+    if (callbackResult.success) {
+      console.log('🔐 ✅ OAuth callback handled successfully');
+      return callbackResult;
+    }
+    
+    console.log('🔐 No existing authentication found');
+    this.isInitialized = true;
+    return { success: false, reason: 'no_existing_auth' };
+    
+  } catch (error) {
+    console.error('🔐 ❌ Cognito initialization failed:', error);
+    this.isInitialized = true;
+    return { success: false, error: error.message };
   }
+}
 
-  async waitForAmplify(maxAttempts = 50) {
-    for (let i = 0; i < maxAttempts; i++) {
-      if (window.aws && window.aws.amplifyAuth) {
-        this.amplify = window.aws.amplifyAuth;
-        console.log('🔐 ✅ Amplify loaded successfully');
-        return;
-      }
-      await new Promise(resolve => setTimeout(resolve, 100));
+async waitForAmplify(maxAttempts = 50) {
+  for (let i = 0; i < maxAttempts; i++) {
+    // Debug what's available
+    if (i === 0) { // Only log on first attempt to avoid spam
+      console.log('🔍 Checking for Amplify libraries...', {
+        'window.AmplifyCore': !!window.AmplifyCore,
+        'window.AmplifyAuth': !!window.AmplifyAuth,
+        'window.aws': !!window.aws,
+        'window.aws.amplifyAuth': !!(window.aws && window.aws.amplifyAuth)
+      });
     }
-    throw new Error('AWS Amplify failed to load');
+    
+    // Check if your setup is ready
+    if (window.aws && window.aws.amplifyAuth && window.AmplifyCore && window.AmplifyAuth) {
+      this.amplify = window.aws.amplifyAuth;
+      console.log('🔐 ✅ Amplify loaded successfully');
+      console.log('🔍 Amplify object structure:', {
+        'Amplify': !!this.amplify.Amplify,
+        'Auth': !!this.amplify.Auth,
+        'Amplify properties': this.amplify.Amplify ? Object.keys(this.amplify.Amplify) : 'N/A'
+      });
+      return;
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 100));
   }
+  
+  // Provide detailed error information
+  const availableObjects = {
+    'window.AmplifyCore': !!window.AmplifyCore,
+    'window.AmplifyAuth': !!window.AmplifyAuth,
+    'window.aws': !!window.aws,
+    'window.aws.amplifyAuth': !!(window.aws && window.aws.amplifyAuth)
+  };
+  
+  throw new Error(`AWS Amplify failed to load after ${maxAttempts} attempts. Available objects: ${JSON.stringify(availableObjects)}`);
+}
 
   async getCurrentSession() {
     try {
