@@ -1,7 +1,7 @@
 // js/auth/cognito-auth.js
 // updated per chatgpt input 
 
-import { Amplify, Auth } from 'aws-amplify';
+import { Amplify, Auth } from 'https://cdn.jsdelivr.net/npm/aws-amplify@6.0.21/+esm';
 import { AMPLIFY_CONFIG, COGNITO_CONFIG } from './cognito-config.js';
 
 // Configure Amplify once at import time
