@@ -1,399 +1,410 @@
-// js/google-apis/google-api-client.js - Updated with Cognito Integration
-// CHANGE SUMMARY: Simplified token management - Cognito handles refresh automatically
+// js/auth/auth-manager.js
+// CHANGE SUMMARY: Dramatically simplified for Cognito - removed platform detection, custom OAuth flows, and complex token management
 
-// ==================== CONFIG VARIABLES ====================
+import { CognitoAuth } from './cognito-auth.js';
+import { AuthUI } from './auth-ui.js';
+import { AuthStorage } from './auth-storage.js';
+import { GoogleAPIClient } from '../google-apis/google-api-client.js';
 
-// How many months ahead to pull events
-const MONTHS_TO_PULL = 3;
-
-// Calendars to include by summary (name/email as shown in calendar list)
-const CALENDARS_TO_INCLUDE = [
-  "jwlerch@gmail.com",
-  "Veeva"
-];
-
-// ==================== GOOGLE API CLIENT ====================
-
-export class GoogleAPIClient {
-  constructor(authManager) {
-    this.authManager = authManager;
-    this.baseUrl = 'https://www.googleapis.com';
+export class AuthManager {
+  constructor() {
+    this.currentUser = null;
+    this.isSignedIn = false;
+    this.googleAccessToken = null;
+    this.googleAPI = null;
     
-    // Request retry configuration
-    this.retryConfig = {
-      maxRetries: 3,
-      baseDelay: 1000, // 1 second
-      maxDelay: 10000  // 10 seconds
+    // Initialize auth modules - much simpler now!
+    this.cognitoAuth = new CognitoAuth();
+    this.ui = new AuthUI();
+    this.storage = new AuthStorage(); // Keep for compatibility
+    
+    // Centralized data cache (unchanged)
+    this.dataCache = {
+      calendar: {
+        events: [],
+        calendars: [],
+        lastUpdated: null,
+        refreshInterval: 5 * 60 * 1000, // 5 minutes
+        isLoading: false
+      },
+      photos: {
+        albums: [],
+        recentPhotos: [],
+        lastUpdated: null,
+        refreshInterval: 30 * 60 * 1000, // 30 minutes
+        isLoading: false
+      }
     };
     
-    // Rate limiting
-    this.lastRequestTime = 0;
-    this.minRequestInterval = 100; // 100ms between requests
+    this.refreshTimers = {};
+    this.pendingWidgetRequests = [];
+    
+    this.init();
   }
 
-  // UPDATED: Get current access token with Cognito integration
-  async getAccessToken() {
+  async init() {
+    console.log('🔐 Initializing simplified AuthManager with Cognito...');
+    
+    // Set up widget request handler (unchanged)
+    this.setupWidgetRequestHandler();
+    
     try {
-      // Get Google access token from Cognito auth
-      if (this.authManager?.cognitoAuth?.getGoogleAccessToken) {
-        const token = this.authManager.cognitoAuth.getGoogleAccessToken();
-        if (token) {
-          return token;
-        }
+      // Initialize Cognito
+      const result = await this.cognitoAuth.init();
+      
+      if (result.success && result.user) {
+        console.log('🔐 ✅ Cognito authentication successful');
+        this.setUserFromCognito(result.user);
+        this.isSignedIn = true;
+        this.ui.showSignedInState();
+        await this.initializeGoogleAPIs();
+        return;
       }
       
-      // Fallback: get from current user data
-      const user = this.authManager?.getUser();
-      if (user?.googleAccessToken) {
-        return user.googleAccessToken;
-      }
+      // No existing auth found - show sign-in prompt
+      console.log('🔐 No existing authentication, showing sign-in prompt');
+      this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
       
-      throw new Error('No Google access token available');
     } catch (error) {
-      console.error('📡 ❌ Failed to get valid access token:', error);
-      throw new Error('Unable to get valid access token');
+      console.error('🔐 ❌ Auth initialization failed:', error);
+      this.handleAuthFailure(error);
     }
   }
 
-  // Rate-limited request wrapper
-  async waitForRateLimit() {
-    const now = Date.now();
-    const timeSinceLastRequest = now - this.lastRequestTime;
+  setUserFromCognito(userData) {
+    this.currentUser = userData;
+    this.googleAccessToken = userData.googleAccessToken;
     
-    if (timeSinceLastRequest < this.minRequestInterval) {
-      const waitTime = this.minRequestInterval - timeSinceLastRequest;
-      console.log(`⏱️ Rate limiting: waiting ${waitTime}ms`);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-    }
+    console.log('🔐 ✅ User set from Cognito:', {
+      name: userData.name,
+      email: userData.email,
+      hasGoogleToken: !!this.googleAccessToken
+    });
     
-    this.lastRequestTime = Date.now();
+    // Save to legacy storage for compatibility
+    this.storage.saveUser(userData);
   }
 
-  // SIMPLIFIED: Request method with basic retry (Cognito handles token refresh)
-  async makeRequest(endpoint, options = {}) {
-    let url;
-    if (endpoint.startsWith('http')) {
-      url = endpoint;
-    } else if (endpoint.startsWith('/v1/')) {
-      // Photos API endpoints use photoslibrary domain
-      url = `https://photoslibrary.googleapis.com${endpoint}`;
-    } else {
-      // Other APIs use standard domain
-      url = `${this.baseUrl}${endpoint}`;
+  async signIn() {
+    try {
+      console.log('🔐 Starting Cognito sign-in...');
+      this.ui.hideSignInPrompt();
+      
+      // This will redirect to Cognito Hosted UI
+      await this.cognitoAuth.signIn();
+      
+    } catch (error) {
+      console.error('🔐 ❌ Sign-in failed:', error);
+      this.ui.showAuthError('Sign-in failed. Please try again.');
     }
-
-    // Retry logic with exponential backoff
-    let lastError;
-    for (let attempt = 0; attempt <= this.retryConfig.maxRetries; attempt++) {
-      try {
-        // Get fresh token for each attempt
-        const token = await this.getAccessToken();
-        
-        if (!token) {
-          throw new Error('No Google access token available');
-        }
-
-        const requestOptions = {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-            ...options.headers
-          },
-          ...options
-        };
-
-        // Apply rate limiting
-        await this.waitForRateLimit();
-        
-        console.log(`📡 Google API request (attempt ${attempt + 1}/${this.retryConfig.maxRetries + 1}): ${url}`);
-        
-        const response = await fetch(url, requestOptions);
-        
-        if (response.ok) {
-          const data = await response.json();
-          console.log(`✅ Google API request successful on attempt ${attempt + 1}`);
-          return data;
-        }
-        
-        // Handle specific error codes
-        const errorText = await response.text();
-        const error = new Error(`Google API request failed: ${response.status} - ${errorText}`);
-        error.status = response.status;
-        error.response = response;
-        
-        // Handle 401 Unauthorized - let Cognito handle token refresh
-        if (response.status === 401) {
-          console.warn(`🔄 Google API 401 error on attempt ${attempt + 1} - token may be expired`);
-          
-          // Try to refresh Cognito session if this is not the last attempt
-          if (attempt < this.retryConfig.maxRetries) {
-            try {
-              console.log('🔄 Attempting to refresh Cognito session...');
-              if (this.authManager?.cognitoAuth?.refreshSession) {
-                await this.authManager.cognitoAuth.refreshSession();
-                console.log('🔄 ✅ Cognito session refreshed, retrying API request...');
-                
-                // Wait a bit before retry
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                continue; // Retry with refreshed token
-              }
-            } catch (refreshError) {
-              console.error('🔄 ❌ Cognito session refresh failed:', refreshError);
-              // If refresh fails, don't retry further - let the error bubble up
-              throw error;
-            }
-          } else {
-            console.error('❌ Google API 401 error on final attempt - authentication failed');
-            throw error;
-          }
-        }
-        
-        // Handle 403 Forbidden - insufficient permissions or quota
-        if (response.status === 403) {
-          console.error(`❌ Google API 403 error (forbidden):`, errorText);
-          throw error; // Don't retry on 403
-        }
-        
-        // For 5xx errors or rate limits, we'll retry
-        if (response.status >= 500 || response.status === 429) {
-          lastError = error;
-          console.warn(`⚠️ Google API error ${response.status} on attempt ${attempt + 1}, will retry:`, errorText);
-          
-          if (attempt < this.retryConfig.maxRetries) {
-            const delay = Math.min(
-              this.retryConfig.baseDelay * Math.pow(2, attempt),
-              this.retryConfig.maxDelay
-            );
-            console.log(`⏳ Waiting ${delay}ms before retry...`);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            continue;
-          }
-        }
-        
-        // For other errors, don't retry
-        throw error;
-        
-      } catch (error) {
-        lastError = error;
-        
-        // If it's a network error, retry if we have attempts left
-        if (!error.status && attempt < this.retryConfig.maxRetries) {
-          console.warn(`⚠️ Network error on attempt ${attempt + 1}, will retry:`, error.message);
-          const delay = Math.min(
-            this.retryConfig.baseDelay * Math.pow(2, attempt),
-            this.retryConfig.maxDelay
-          );
-          await new Promise(resolve => setTimeout(resolve, delay));
-          continue;
-        }
-        
-        // If it's not a retryable error or we're out of attempts
-        throw error;
-      }
-    }
-    
-    // If we get here, all retries failed
-    throw lastError || new Error('All API request attempts failed');
   }
 
-  // EXISTING CALENDAR API METHODS (unchanged)
-
-  // Get list of calendars
-  async getCalendarList() {
-    console.log('📅 Fetching calendar list...');
+  async signOut() {
+    console.log('🔐 Signing out...');
     
     try {
-      const data = await this.makeRequest('/calendar/v3/users/me/calendarList');
+      // Clear refresh timers
+      Object.values(this.refreshTimers).forEach(timer => clearTimeout(timer));
+      this.refreshTimers = {};
       
-      const calendars = data.items || [];
-      console.log(`📅 Found ${calendars.length} calendars`);
+      // Clear data cache
+      this.dataCache = {
+        calendar: { events: [], calendars: [], lastUpdated: null, refreshInterval: 5 * 60 * 1000, isLoading: false },
+        photos: { albums: [], recentPhotos: [], lastUpdated: null, refreshInterval: 30 * 60 * 1000, isLoading: false }
+      };
       
-      return calendars.map(cal => ({
-        id: cal.id,
-        summary: cal.summary,
-        description: cal.description || '',
-        primary: cal.primary || false,
-        accessRole: cal.accessRole,
-        backgroundColor: cal.backgroundColor,
-        foregroundColor: cal.foregroundColor
-      }));
+      // Sign out from Cognito
+      await this.cognitoAuth.signOut();
       
+      // Clear local state
+      this.currentUser = null;
+      this.isSignedIn = false;
+      this.googleAccessToken = null;
+      this.googleAPI = null;
+      
+      // Clear legacy storage
+      this.storage.clearSavedUser();
+      
+      // Show sign-in prompt
+      this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
+      
+    } catch (error) {
+      console.error('🔐 ❌ Sign-out failed:', error);
+      // Still clear local state even if remote sign-out fails
+      this.currentUser = null;
+      this.isSignedIn = false;
+      this.googleAccessToken = null;
+      this.googleAPI = null;
+      this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
+    }
+  }
+
+  exitApp() {
+    console.log('🚪 Exiting Dashie...');
+    
+    // Try platform-specific exit methods (legacy compatibility)
+    if (window.DashieNative?.exitApp) {
+      window.DashieNative.exitApp();
+    } else if (window.close) {
+      window.close();
+    } else {
+      window.location.href = 'about:blank';
+    }
+  }
+
+  handleAuthFailure(error) {
+    console.error('🔐 Auth initialization failed:', error);
+    
+    // Try to get saved user as fallback
+    const savedUser = this.cognitoAuth.getSavedUser();
+    if (savedUser) {
+      console.log('🔐 Using saved user data as fallback');
+      this.setUserFromCognito(savedUser);
+      this.isSignedIn = true;
+      this.ui.showSignedInState();
+    } else {
+      this.ui.showAuthError('Authentication service is currently unavailable. Please try again.');
+    }
+  }
+
+  // API compatibility methods (unchanged from original)
+  getUser() {
+    return this.currentUser;
+  }
+
+  isAuthenticated() {
+    return this.isSignedIn && !!this.currentUser;
+  }
+
+  getGoogleAccessToken() {
+    return this.googleAccessToken;
+  }
+
+  // NEW: Method for token refresh (uses Cognito's built-in refresh)
+  async refreshGoogleAccessToken() {
+    try {
+      console.log('🔄 Refreshing Google access token via Cognito...');
+      const success = await this.cognitoAuth.refreshSession();
+      
+      if (success && this.cognitoAuth.getGoogleAccessToken()) {
+        this.googleAccessToken = this.cognitoAuth.getGoogleAccessToken();
+        
+        // Update current user object
+        if (this.currentUser) {
+          this.currentUser.googleAccessToken = this.googleAccessToken;
+          this.storage.saveUser(this.currentUser);
+        }
+        
+        console.log('🔄 ✅ Google access token refreshed successfully');
+        return this.googleAccessToken;
+      } else {
+        throw new Error('Cognito session refresh failed');
+      }
+    } catch (error) {
+      console.error('🔄 ❌ Google access token refresh failed:', error);
+      throw error;
+    }
+  }
+
+  // Google APIs initialization (updated for Cognito)
+  async initializeGoogleAPIs() {
+    if (!this.googleAccessToken) {
+      console.warn('🔐 ⚠️ No Google access token available for API initialization');
+      return;
+    }
+
+    try {
+      // Pass 'this' as the auth manager so GoogleAPIClient can call refreshGoogleAccessToken
+      this.googleAPI = new GoogleAPIClient(this);
+      const testResults = await this.googleAPI.testAccess();
+      console.log('🌐 ✅ Google APIs initialized:', testResults);
+      
+      // Notify widgets (unchanged)
+      this.notifyWidgetsOfAPIReadiness(testResults);
+      
+    } catch (error) {
+      console.error('🌐 ❌ Google APIs initialization failed:', error);
+      this.notifyWidgetsOfAPIReadiness({ calendar: false, photos: false });
+    }
+  }
+
+  // Widget communication methods (unchanged from original)
+  setupWidgetRequestHandler() {
+    window.addEventListener('message', (event) => {
+      if (event.data.type === 'widget-data-request') {
+        this.handleWidgetDataRequest(event.data, event.source);
+      }
+    });
+  }
+
+  notifyWidgetsOfAPIReadiness(testResults) {
+    setTimeout(() => {
+      const allWidgetIframes = document.querySelectorAll('.widget-iframe, .widget iframe, .widget-iframe');
+      
+      if (allWidgetIframes.length === 0) {
+        console.log('📡 🔄 No widget iframes found initially, retrying...');
+        setTimeout(() => {
+          const retryIframes = document.querySelectorAll('.widget-iframe, .widget iframe, .widget-iframe');
+          if (retryIframes.length > 0) {
+            console.log(`📡 🔄 Retry found ${retryIframes.length} widget iframe(s)`);
+            this.sendGoogleAPIReadyMessage(retryIframes, testResults);
+          }
+        }, 2000);
+      } else {
+        this.sendGoogleAPIReadyMessage(allWidgetIframes, testResults);
+      }
+    }, 1000);
+  }
+
+  sendGoogleAPIReadyMessage(iframes, testResults) {
+    iframes.forEach((iframe, index) => {
+      if (iframe.contentWindow) {
+        try {
+          const message = {
+            type: 'google-apis-ready',
+            apiCapabilities: testResults,
+            timestamp: Date.now(),
+            authManager: this,
+            googleAccessToken: this.googleAccessToken,
+            debugInfo: {
+              sentAt: new Date().toISOString(),
+              widgetSrc: iframe.src,
+              widgetIndex: index + 1
+            }
+          };
+          
+          iframe.contentWindow.postMessage(message, '*');
+          console.log(`📡 ✅ Message sent to widget ${index + 1} (${iframe.src})`);
+          
+        } catch (error) {
+          console.error(`📡 ❌ Failed to send message to widget ${index + 1}:`, error);
+        }
+      }
+    });
+  }
+
+  // Data request handling (unchanged from original)
+  async handleWidgetDataRequest(request, source) {
+    console.log('📡 📨 Widget data request received:', request);
+    
+    try {
+      let data;
+      
+      switch (request.dataType) {
+        case 'calendar-events':
+          data = await this.getCalendarData(request.params);
+          break;
+        case 'calendar-list':
+          data = await this.getCalendarList();
+          break;
+        case 'photos-albums':
+          data = await this.getPhotosData(request.params);
+          break;
+        default:
+          throw new Error(`Unknown data type: ${request.dataType}`);
+      }
+      
+      source.postMessage({
+        type: 'widget-data-response',
+        requestId: request.requestId,
+        success: true,
+        data: data
+      }, '*');
+      
+    } catch (error) {
+      console.error('📡 ❌ Widget data request failed:', error);
+      source.postMessage({
+        type: 'widget-data-response',
+        requestId: request.requestId,
+        success: false,
+        error: error.message
+      }, '*');
+    }
+  }
+
+  // Data fetching methods (unchanged from original implementation)
+  async getCalendarData(params = {}) {
+    const cacheKey = 'calendar';
+    const cache = this.dataCache[cacheKey];
+    
+    if (!this.googleAPI) {
+      throw new Error('Google APIs not initialized');
+    }
+    
+    const now = Date.now();
+    const cacheValid = cache.lastUpdated && (now - cache.lastUpdated) < cache.refreshInterval;
+    
+    if (cacheValid && cache.events.length > 0) {
+      console.log('📅 📋 Using cached calendar data');
+      return cache.events;
+    }
+    
+    if (cache.isLoading) {
+      console.log('📅 ⏳ Calendar data already loading, waiting...');
+      return new Promise((resolve) => {
+        const checkCache = () => {
+          if (!cache.isLoading) {
+            resolve(cache.events);
+          } else {
+            setTimeout(checkCache, 100);
+          }
+        };
+        checkCache();
+      });
+    }
+    
+    try {
+      cache.isLoading = true;
+      console.log('📅 🔄 Fetching fresh calendar data...');
+      
+      const events = await this.googleAPI.getAllCalendarEvents();
+      
+      cache.events = events;
+      cache.lastUpdated = now;
+      cache.isLoading = false;
+      
+      this.scheduleDataRefresh(cacheKey);
+      
+      console.log(`📅 ✅ Calendar data updated: ${events.length} events`);
+      return events;
+      
+    } catch (error) {
+      cache.isLoading = false;
+      console.error('📅 ❌ Failed to fetch calendar data:', error);
+      throw error;
+    }
+  }
+
+  async getCalendarList() {
+    if (!this.googleAPI) {
+      throw new Error('Google APIs not initialized');
+    }
+    
+    try {
+      const calendars = await this.googleAPI.getCalendarList();
+      console.log(`📅 ✅ Calendar list fetched: ${calendars.length} calendars`);
+      return calendars;
     } catch (error) {
       console.error('📅 ❌ Failed to fetch calendar list:', error);
-      throw new Error(`Calendar list fetch failed: ${error.message}`);
+      throw error;
     }
   }
 
-  // Get events from a specific calendar
-  async getCalendarEvents(calendarId, timeMin = null, timeMax = null) {
-    console.log(`📅 Fetching events from calendar: ${calendarId}`);
-    
-    const now = new Date();
-    const defaultTimeMin = timeMin || now.toISOString();
-    const defaultTimeMax = timeMax || new Date(now.getTime() + (MONTHS_TO_PULL * 30 * 24 * 60 * 60 * 1000)).toISOString();
-    
-    const params = new URLSearchParams({
-      timeMin: defaultTimeMin,
-      timeMax: defaultTimeMax,
-      singleEvents: 'true',
-      orderBy: 'startTime',
-      maxResults: '100'
-    });
-    
-    try {
-      const data = await this.makeRequest(`/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`);
-      
-      const events = data.items || [];
-      console.log(`📅 Found ${events.length} events in calendar ${calendarId}`);
-      
-      return events.map(event => ({
-        id: event.id,
-        summary: event.summary || 'No title',
-        description: event.description || '',
-        start: event.start,
-        end: event.end,
-        location: event.location || '',
-        attendees: event.attendees || [],
-        calendarId: calendarId
-      }));
-      
-    } catch (error) {
-      console.error(`📅 ❌ Failed to fetch events from calendar ${calendarId}:`, error);
-      throw new Error(`Calendar events fetch failed: ${error.message}`);
-    }
+  async getPhotosData(params = {}) {
+    // Implementation would be similar to calendar data
+    // Placeholder for now
+    throw new Error('Photos data not yet implemented');
   }
 
-  // Get events from all configured calendars
-  async getAllCalendarEvents() {
-    console.log('📅 🔄 Fetching events from all configured calendars...');
-    
-    try {
-      // Get calendar list first
-      const calendars = await this.getCalendarList();
-      
-      // Filter to configured calendars
-      const targetCalendars = calendars.filter(cal => 
-        CALENDARS_TO_INCLUDE.some(target => 
-          cal.summary.includes(target) || cal.id.includes(target)
-        )
-      );
-      
-      console.log(`📅 Fetching from ${targetCalendars.length} configured calendars:`, 
-        targetCalendars.map(cal => cal.summary));
-      
-      // Fetch events from each calendar
-      const allEvents = [];
-      for (const calendar of targetCalendars) {
-        try {
-          const events = await this.getCalendarEvents(calendar.id);
-          allEvents.push(...events);
-        } catch (error) {
-          console.error(`📅 ⚠️ Failed to fetch from calendar ${calendar.summary}:`, error);
-          // Continue with other calendars
-        }
-      }
-      
-      // Sort all events by start time
-      allEvents.sort((a, b) => {
-        const aStart = new Date(a.start.dateTime || a.start.date);
-        const bStart = new Date(b.start.dateTime || b.start.date);
-        return aStart - bStart;
-      });
-      
-      console.log(`📅 ✅ Total events fetched: ${allEvents.length}`);
-      return allEvents;
-      
-    } catch (error) {
-      console.error('📅 ❌ Failed to fetch all calendar events:', error);
-      throw new Error(`All calendar events fetch failed: ${error.message}`);
-    }
-  }
-
-  // Test API access with Cognito token handling
-  async testAccess() {
-    console.log('🧪 Testing Google API access...');
-    
-    const results = {
-      calendar: false,
-      photos: false,
-      tokenStatus: 'unknown',
-      errors: [],
-      details: {}
-    };
-    
-    // Test Calendar API access
-    try {
-      console.log('🧪 Testing Calendar API access...');
-      const calendarStart = Date.now();
-      const calendars = await this.getCalendarList();
-      const calendarTime = Date.now() - calendarStart;
-      
-      results.calendar = true;
-      results.tokenStatus = 'valid';
-      results.details.calendar = {
-        calendarsFound: calendars.length,
-        responseTime: calendarTime,
-        configuredCalendars: calendars.filter(cal => 
-          CALENDARS_TO_INCLUDE.some(target => 
-            cal.summary.includes(target) || cal.id.includes(target)
-          )
-        ).length
-      };
-      console.log('✅ Google Calendar API access confirmed');
-      console.log(`✅ Found ${calendars.length} calendars (${results.details.calendar.configuredCalendars} configured)`);
-      
-    } catch (error) {
-      results.calendar = false;
-      results.errors.push(`Calendar API: ${error.message}`);
-      
-      if (error.status === 401) {
-        results.tokenStatus = 'expired';
-        console.error('❌ Google Calendar API: Token expired or invalid');
-      } else {
-        results.tokenStatus = 'error';
-        console.error('❌ Google Calendar API access failed:', error);
-      }
+  scheduleDataRefresh(cacheKey) {
+    if (this.refreshTimers[cacheKey]) {
+      clearTimeout(this.refreshTimers[cacheKey]);
     }
     
-    // Log final results
-    console.log('🧪 ✅ API test complete:', {
-      calendar: results.calendar,
-      photos: results.photos,
-      tokenStatus: results.tokenStatus,
-      errorCount: results.errors.length,
-      details: results.details
-    });
-    
-    return results;
-  }
-
-  // Health check for monitoring API status
-  async healthCheck() {
-    const start = Date.now();
-    
-    try {
-      const testResults = await this.testAccess();
-      const responseTime = Date.now() - start;
-      
-      return {
-        status: testResults.calendar ? 'healthy' : 'degraded',
-        responseTime,
-        apis: {
-          calendar: testResults.calendar,
-          photos: testResults.photos
-        },
-        tokenStatus: testResults.tokenStatus,
-        lastChecked: new Date().toISOString()
-      };
-      
-    } catch (error) {
-      return {
-        status: 'unhealthy',
-        responseTime: Date.now() - start,
-        error: error.message,
-        lastChecked: new Date().toISOString()
-      };
-    }
+    const cache = this.dataCache[cacheKey];
+    this.refreshTimers[cacheKey] = setTimeout(() => {
+      cache.lastUpdated = null; // Force refresh on next request
+      console.log(`🔄 Scheduled refresh triggered for ${cacheKey}`);
+    }, cache.refreshInterval);
   }
 }
