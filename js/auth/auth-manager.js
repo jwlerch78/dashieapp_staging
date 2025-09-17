@@ -1,161 +1,519 @@
-// js/auth/auth-manager.js - UPDATED: Centralized data service that fetches and distributes actual data to widgets
-// Added centralized data fetching, caching, and distribution system
+// js/auth/auth-manager.js - Updated with Token Manager Integration
+// CHANGE SUMMARY: Added Token Manager integration for automatic refresh token handling
 
-import { NativeAuth } from './native-auth.js';
-import { WebAuth } from './web-auth.js';
-import { AuthUI } from './auth-ui.js';
 import { AuthStorage } from './auth-storage.js';
+import { WebAuth } from './web-auth.js';
 import { DeviceFlowAuth } from './device-flow-auth.js';
+import { NativeAuth } from './native-auth.js';
 import { GoogleAPIClient } from '../google-apis/google-api-client.js';
+import { TokenManager } from './token-manager.js'; // NEW: Import Token Manager
 
 export class AuthManager {
   constructor() {
-    this.currentUser = null;
-    this.isSignedIn = false;
-    this.isWebView = this.detectWebView();
-    this.hasNativeAuth = this.detectNativeAuth();
-    this.isFireTV = this.detectFireTV();
-    
-    // Initialize auth modules
     this.storage = new AuthStorage();
-    this.ui = new AuthUI();
-    this.nativeAuth = this.hasNativeAuth ? new NativeAuth() : null;
-    this.webAuth = new WebAuth();
-    this.deviceFlowAuth = new DeviceFlowAuth();
-    
-    this.nativeAuthFailed = false;
-
+    this.user = null;
+    this.isSignedIn = false;
+    this.platform = null;
+    this.authMethod = null;
     this.googleAccessToken = null;
     this.googleAPI = null;
     
-    // NEW: Centralized data cache and refresh system
+    // NEW: Token Manager for automatic refresh
+    this.tokenManager = new TokenManager(this);
+    
+    // Auth method instances
+    this.webAuth = null;
+    this.deviceFlowAuth = null;
+    this.nativeAuth = null;
+    
+    // Widget communication
+    this.pendingWidgetRequests = [];
     this.dataCache = {
       calendar: {
+        data: null,
         events: [],
         calendars: [],
+        lastFetch: null,
         lastUpdated: null,
-        refreshInterval: 5 * 60 * 1000, // 5 minutes
+        refreshInterval: 15 * 60 * 1000, // 15 minutes
         isLoading: false
       },
       photos: {
+        data: null,
         albums: [],
         recentPhotos: [],
+        lastFetch: null,
         lastUpdated: null,
         refreshInterval: 30 * 60 * 1000, // 30 minutes
         isLoading: false
       }
     };
-    
     this.refreshTimers = {};
-    this.pendingWidgetRequests = [];
     
-    this.init();
-  }
-
-  detectWebView() {
-    const userAgent = navigator.userAgent;
-    const isAndroidWebView = /wv/.test(userAgent) || 
-                           /Android.*AppleWebKit(?!.*Chrome)/.test(userAgent) ||
-                           userAgent.includes('DashieApp');
-    const isIOSWebView = /(iPhone|iPod|iPad).*AppleWebKit(?!.*Safari)/.test(userAgent);
+    console.log('🔧 Auth Manager initialized with Token Manager');
     
-    console.log('🔐 Environment detection:', {
-      userAgent: userAgent,
-      isAndroidWebView: isAndroidWebView,
-      isIOSWebView: isIOSWebView,
-      isWebView: isAndroidWebView || isIOSWebView
-    });
-    
-    return isAndroidWebView || isIOSWebView;
-  }
-
-  detectNativeAuth() {
-    const hasNative = window.DashieNative && 
-                     typeof window.DashieNative.signIn === 'function';
-    console.log('🔐 Native auth available:', hasNative);
-    return !!hasNative;
-  }
-
-  detectFireTV() {
-    const userAgent = navigator.userAgent;
-    const isFireTV = userAgent.includes('AFTS') || userAgent.includes('FireTV') || 
-                    userAgent.includes('AFT') || userAgent.includes('AFTMM') ||
-                    userAgent.includes('AFTRS') || userAgent.includes('AFTSS');
-    console.log('🔥 Fire TV detected:', isFireTV);
-    return isFireTV;
-  }
-
-  async init() {
-    console.log('🔐 Initializing AuthManager...');
-    console.log('🔐 Environment:', {
-      isWebView: this.isWebView,
-      hasNativeAuth: this.hasNativeAuth,
-      isFireTV: this.isFireTV
-    });
-
-    // Set up auth result handlers
-    window.handleNativeAuth = (result) => this.handleNativeAuthResult(result);
-    window.handleWebAuth = (result) => this.handleWebAuthResult(result);
-    
-    // NEW: Set up widget request handler
+    // Set up widget request handler
     this.setupWidgetRequestHandler();
-    
-    // Check for existing authentication first
-    this.checkExistingAuth();
-    
-    // If already signed in, we're done
-    if (this.isSignedIn) {
-      console.log('🔐 ✅ Already authenticated, initializing data services');
+  }
+
+  // UPDATED: Enhanced user setting with token manager integration
+  async setUserFromAuth(userData, tokens = null) {
+    try {
+      console.log('🔧 Setting user from auth:', {
+        userId: userData.id,
+        authMethod: userData.authMethod,
+        hasGoogleToken: !!userData.googleAccessToken,
+        hasRefreshToken: !!userData.googleRefreshToken, // NEW: Check for refresh token
+        hasTokenExpiry: !!userData.tokenExpiry // NEW: Check for expiry
+      });
+
+      // Enhanced user object with token details
+      const enhancedUser = {
+        ...userData,
+        // Ensure we have the access token
+        googleAccessToken: userData.googleAccessToken || tokens?.access_token,
+        // NEW: Store refresh token if available
+        googleRefreshToken: userData.googleRefreshToken || tokens?.refresh_token,
+        // NEW: Calculate and store token expiry
+        tokenExpiry: userData.tokenExpiry || (tokens?.expires_in ? Date.now() + (tokens.expires_in * 1000) : null)
+      };
+
+      this.user = enhancedUser;
+      this.isSignedIn = true;
+      this.googleAccessToken = enhancedUser.googleAccessToken;
+
+      // Save user to storage
+      await this.storage.saveUser(enhancedUser);
+
+      // NEW: Start automatic token refresh if we have a refresh token
+      if (enhancedUser.googleRefreshToken && enhancedUser.tokenExpiry) {
+        console.log('🔄 Starting automatic token refresh...');
+        this.tokenManager.startTokenRefresh(enhancedUser);
+      } else {
+        console.warn('🔄 ⚠️ No refresh token or expiry time - automatic refresh not available');
+      }
+
+      // Initialize Google APIs
       await this.initializeGoogleAPIs();
+
+      // Notify app of successful sign-in
+      this.notifySignInComplete(enhancedUser);
+
+      console.log('🔧 ✅ User authentication complete with token management');
+
+    } catch (error) {
+      console.error('🔧 ❌ Failed to set user from auth:', error);
+      throw error;
+    }
+  }
+
+  // NEW: Update user tokens after refresh
+  async updateUserTokens(updatedUser) {
+    try {
+      console.log('🔄 Updating user tokens');
+      
+      this.user = updatedUser;
+      this.googleAccessToken = updatedUser.googleAccessToken;
+      
+      // Save updated user to storage
+      await this.storage.saveUser(updatedUser);
+      
+      // Update Google API client with new token
+      if (this.googleAPI) {
+        console.log('🔄 📡 Google API client will use refreshed token');
+      }
+      
+      console.log('🔄 ✅ User tokens updated successfully');
+      
+    } catch (error) {
+      console.error('🔄 ❌ Failed to update user tokens:', error);
+      throw error;
+    }
+  }
+
+  // UPDATED: Enhanced existing auth check with token validation
+  async checkExistingAuth() {
+    try {
+      console.log('🔧 Checking for existing authentication...');
+
+      const savedUser = await this.storage.getUser();
+      if (!savedUser) {
+        console.log('🔧 No saved user found');
+        return false;
+      }
+
+      console.log('🔧 Found saved user:', {
+        userId: savedUser.id,
+        authMethod: savedUser.authMethod,
+        hasAccessToken: !!savedUser.googleAccessToken,
+        hasRefreshToken: !!savedUser.googleRefreshToken, // NEW: Check refresh token
+        tokenExpiry: savedUser.tokenExpiry ? new Date(savedUser.tokenExpiry).toISOString() : 'unknown'
+      });
+
+      // NEW: Check if access token is expired
+      if (savedUser.tokenExpiry && Date.now() >= savedUser.tokenExpiry) {
+        console.log('🔧 ⏰ Saved access token is expired');
+        
+        if (savedUser.googleRefreshToken) {
+          console.log('🔧 🔄 Attempting to refresh expired token...');
+          try {
+            // Use token manager to refresh
+            this.user = savedUser; // Set user temporarily for token manager
+            const refreshResult = await this.tokenManager.refreshToken();
+            
+            if (refreshResult.success) {
+              console.log('🔧 ✅ Token refreshed successfully during startup');
+              savedUser.googleAccessToken = refreshResult.tokens.access_token;
+              savedUser.tokenExpiry = Date.now() + (refreshResult.tokens.expires_in * 1000);
+              
+              if (refreshResult.tokens.refresh_token) {
+                savedUser.googleRefreshToken = refreshResult.tokens.refresh_token;
+              }
+            }
+          } catch (refreshError) {
+            console.error('🔧 ❌ Failed to refresh token during startup:', refreshError);
+            // Token refresh failed, user will need to re-authenticate
+            await this.storage.clearUser();
+            return false;
+          }
+        } else {
+          console.log('🔧 🚪 No refresh token available, user must re-authenticate');
+          await this.storage.clearUser();
+          return false;
+        }
+      }
+
+      // Set the user (this will start token manager)
+      await this.setUserFromAuth(savedUser);
+      
+      console.log('🔧 ✅ Existing authentication restored');
+      return true;
+
+    } catch (error) {
+      console.error('🔧 ❌ Error checking existing auth:', error);
+      return false;
+    }
+  }
+
+  // UPDATED: Get valid access token (with automatic refresh)
+  async getGoogleAccessToken() {
+    try {
+      // Use token manager to get a valid token (refreshes if needed)
+      return await this.tokenManager.getValidAccessToken();
+    } catch (error) {
+      console.error('🔧 ❌ Failed to get valid access token:', error);
+      // Fallback to current token
+      return this.googleAccessToken;
+    }
+  }
+
+  // UPDATED: Enhanced sign out with token manager cleanup
+  async signOut() {
+    try {
+      console.log('🔧 🚪 Signing out...');
+
+      // NEW: Stop token refresh
+      this.tokenManager.stopTokenRefresh();
+
+      // Clear data refresh timers
+      Object.values(this.refreshTimers).forEach(timer => clearTimeout(timer));
+      this.refreshTimers = {};
+
+      // Clear user data
+      this.user = null;
+      this.isSignedIn = false;
+      this.googleAccessToken = null;
+      this.googleAPI = null;
+
+      // Clear cached data
+      this.dataCache.calendar.data = null;
+      this.dataCache.calendar.events = [];
+      this.dataCache.calendar.calendars = [];
+      this.dataCache.photos.data = null;
+      this.dataCache.photos.albums = [];
+      this.dataCache.photos.recentPhotos = [];
+
+      // Clear storage
+      await this.storage.clearUser();
+
+      // Sign out from auth methods
+      if (this.webAuth) {
+        this.webAuth.signOut();
+      }
+      if (this.nativeAuth) {
+        this.nativeAuth.signOut();
+      }
+
+      // Notify app
+      this.notifySignOut();
+
+      console.log('🔧 ✅ Sign out complete');
+
+    } catch (error) {
+      console.error('🔧 ❌ Error during sign out:', error);
+    }
+  }
+
+  // NEW: Get token refresh status for debugging
+  getTokenRefreshStatus() {
+    return this.tokenManager.getRefreshStatus();
+  }
+
+  // NEW: Force token refresh for testing
+  async forceTokenRefresh() {
+    try {
+      console.log('🔧 🔄 Forcing token refresh...');
+      const result = await this.tokenManager.refreshToken();
+      console.log('🔧 ✅ Forced token refresh completed:', result);
+      return result;
+    } catch (error) {
+      console.error('🔧 ❌ Forced token refresh failed:', error);
+      throw error;
+    }
+  }
+
+  // Detect platform and initialize appropriate auth method
+  async detectPlatformAndInitialize() {
+    console.log('🔧 Detecting platform...');
+    
+    // Platform detection logic
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isAndroidTV = userAgent.includes('android') && (userAgent.includes('tv') || userAgent.includes('gtv'));
+    const isFireTV = userAgent.includes('silk') || userAgent.includes('kfapwi');
+    const isMobile = /android|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+    
+    if (isFireTV) {
+      this.platform = 'firetv';
+      this.authMethod = 'device-flow';
+      console.log('🔧 Platform: Fire TV - using device flow');
+    } else if (isAndroidTV) {
+      this.platform = 'androidtv';
+      this.authMethod = 'native';
+      console.log('🔧 Platform: Android TV - using native auth');
+    } else {
+      this.platform = 'web';
+      this.authMethod = 'web';
+      console.log('🔧 Platform: Web Browser - using web auth');
+    }
+
+    // Initialize the appropriate auth method
+    await this.initializeAuthMethod();
+  }
+
+  // Initialize the detected auth method
+  async initializeAuthMethod() {
+    try {
+      console.log(`🔧 Initializing ${this.authMethod} auth method...`);
+
+      switch (this.authMethod) {
+        case 'web':
+          this.webAuth = new WebAuth();
+          await this.webAuth.init();
+          // Set up callback handler
+          window.handleWebAuth = (result) => this.handleAuthResult(result);
+          break;
+
+        case 'device-flow':
+          this.deviceFlowAuth = new DeviceFlowAuth();
+          break;
+
+        case 'native':
+          this.nativeAuth = new NativeAuth();
+          await this.nativeAuth.init();
+          break;
+
+        default:
+          throw new Error(`Unknown auth method: ${this.authMethod}`);
+      }
+
+      console.log(`🔧 ✅ ${this.authMethod} auth method initialized`);
+
+    } catch (error) {
+      console.error(`🔧 ❌ Failed to initialize ${this.authMethod} auth:`, error);
+      throw error;
+    }
+  }
+
+  // Handle authentication result from any auth method
+  async handleAuthResult(result) {
+    try {
+      if (result.success) {
+        console.log('🔧 ✅ Authentication successful via', result.user.authMethod);
+        await this.setUserFromAuth(result.user, result.tokens);
+      } else {
+        console.error('🔧 ❌ Authentication failed:', result.error);
+        this.handleAuthError(result.error);
+      }
+    } catch (error) {
+      console.error('🔧 ❌ Error handling auth result:', error);
+      this.handleAuthError(error.message);
+    }
+  }
+
+  // Start sign-in process
+  async signIn() {
+    try {
+      console.log(`🔧 Starting ${this.authMethod} sign-in...`);
+
+      switch (this.authMethod) {
+        case 'web':
+          await this.webAuth.signIn();
+          break;
+
+        case 'device-flow':
+          const deviceResult = await this.deviceFlowAuth.startDeviceFlow();
+          await this.handleAuthResult(deviceResult);
+          break;
+
+        case 'native':
+          const nativeResult = await this.nativeAuth.signIn();
+          await this.handleAuthResult(nativeResult);
+          break;
+
+        default:
+          throw new Error(`No sign-in method available for ${this.authMethod}`);
+      }
+
+    } catch (error) {
+      console.error('🔧 ❌ Sign-in failed:', error);
+      this.handleAuthError(error.message);
+    }
+  }
+
+  // Handle authentication errors
+  handleAuthError(errorMessage) {
+    console.error('🔧 🚨 Authentication error:', errorMessage);
+    
+    // Notify the app of auth failure
+    if (window.dashieApp && window.dashieApp.handleAuthError) {
+      window.dashieApp.handleAuthError(errorMessage);
+    }
+  }
+
+  // Notify app of successful sign-in
+  notifySignInComplete(user) {
+    console.log('🔧 📢 Notifying app of sign-in completion');
+    
+    if (window.dashieApp && window.dashieApp.handleSignInComplete) {
+      window.dashieApp.handleSignInComplete(user);
+    }
+    
+    // Dispatch custom event
+    window.dispatchEvent(new CustomEvent('dashie-auth-signin', {
+      detail: { user: user }
+    }));
+  }
+
+  // Notify app of sign-out
+  notifySignOut() {
+    console.log('🔧 📢 Notifying app of sign-out');
+    
+    if (window.dashieApp && window.dashieApp.handleSignOut) {
+      window.dashieApp.handleSignOut();
+    }
+    
+    // Dispatch custom event
+    window.dispatchEvent(new CustomEvent('dashie-auth-signout'));
+  }
+
+  // Get current user
+  getUser() {
+    return this.user;
+  }
+
+  // Check if user is signed in
+  isUserSignedIn() {
+    return this.isSignedIn && this.user && this.googleAccessToken;
+  }
+
+  // Initialize Google APIs
+  async initializeGoogleAPIs() {
+    if (!this.googleAccessToken) {
+      console.warn('🔧 ⚠️ No Google access token available for API initialization');
       return;
     }
 
-    // Initialize appropriate auth method based on platform
-    if (this.hasNativeAuth) {
-      console.log('🔐 Using native Android authentication');
-      await this.nativeAuth.init();
-      this.checkNativeUser();
+    try {
+      console.log('🔧 Initializing Google API client...');
+      this.googleAPI = new GoogleAPIClient(this);
+      console.log('🔧 ✅ Google API client initialized');
       
-    } else if (this.isWebView) {
-      console.log('🔐 WebView without native auth - showing WebView prompt');
-      this.ui.showWebViewAuthPrompt(() => this.createWebViewUser(), () => this.exitApp());
-      
-    } else {
-      console.log('🔐 Browser environment - initializing web auth');
-      try {
-        await this.webAuth.init();
-        
-        if (this.isSignedIn) {
-          console.log('🔐 ✅ OAuth callback handled during init, user is now signed in');
-          return;
+      // Test API access first
+      setTimeout(async () => {
+        try {
+          console.log('🧪 Testing Google API access...');
+          const testResults = await this.googleAPI.testAccess();
+          console.log('🧪 ✅ Google API access test results:', testResults);
+          
+          // If calendar access is available, start fetching data
+          if (testResults.calendar) {
+            console.log('📅 🚀 Starting initial calendar data fetch...');
+            await this.refreshCalendarData();
+          }
+          
+          // If photos access is available, start fetching data
+          if (testResults.photos) {
+            console.log('📸 🚀 Starting initial photos data fetch...');
+            await this.refreshPhotosData();
+          }
+          
+          // Send capabilities to widgets (for backward compatibility)
+          this.notifyAllWidgets(testResults);
+          
+        } catch (error) {
+          console.warn('🧪 ❌ Google API access test failed:', error);
+          this.notifyAllWidgets({ 
+            calendar: false, 
+            photos: false, 
+            errors: [error.message],
+            tokenStatus: 'error'
+          });
         }
-        
-        console.log('🔐 No existing auth found, showing sign-in prompt');
-        this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
-        
-      } catch (error) {
-        console.error('🔐 Web auth initialization failed:', error);
-        this.handleAuthFailure(error);
-      }
+      }, 1000);
+      
+    } catch (error) {
+      console.error('🔧 ❌ Failed to initialize Google APIs:', error);
     }
   }
 
-  checkExistingAuth() {
-    const savedUser = this.storage.getSavedUser();
-    if (savedUser) {
-      console.log('🔐 Found saved user:', savedUser.name);
-      this.currentUser = savedUser;
-      this.isSignedIn = true;
-      
-      if (savedUser.googleAccessToken) {
-        this.googleAccessToken = savedUser.googleAccessToken;
-        console.log('🔐 ✅ Restored Google access token from saved user');
-      } else {
-        console.warn('🔐 ⚠️ No Google access token in saved user data');
-      }
-      
-      this.ui.showSignedInState();
+  // Send postMessage to ALL widget iframes
+  notifyAllWidgets(testResults) {
+    const allWidgetIframes = document.querySelectorAll('.widget iframe, .widget-iframe');
+    
+    console.log(`📡 🖼️ Found ${allWidgetIframes.length} widget iframe(s) to notify`);
+    
+    if (allWidgetIframes.length === 0) {
+      console.warn('📡 ⚠️ No widget iframes found - they may not be loaded yet');
+      setTimeout(() => {
+        const retryIframes = document.querySelectorAll('.widget iframe, .widget-iframe');
+        if (retryIframes.length > 0) {
+          console.log(`📡 🔄 Retry found ${retryIframes.length} widget iframe(s)`);
+          this.notifyAllWidgets(testResults);
+        }
+      }, 2000);
+      return;
     }
+
+    const message = {
+      type: 'google-apis-ready',
+      apiCapabilities: {
+        calendar: testResults.calendar,
+        photos: testResults.photos,
+        tokenStatus: testResults.tokenStatus
+      },
+      googleAccessToken: this.googleAccessToken,
+      user: this.user,
+      timestamp: Date.now()
+    };
+
+    allWidgetIframes.forEach((iframe, index) => {
+      try {
+        iframe.contentWindow.postMessage(message, '*');
+        console.log(`📡 ✅ Message sent to widget iframe ${index + 1}`);
+      } catch (error) {
+        console.error(`📡 ❌ Failed to send message to widget iframe ${index + 1}:`, error);
+      }
+    });
   }
 
   // NEW: Widget request handler for centralized data
@@ -261,12 +619,12 @@ export class AuthManager {
       const calendarData = await this.googleAPI.getAllCalendarEvents();
       
       // Update cache
-      cacheData.events = calendarData.events || [];
-      cacheData.calendars = calendarData.calendars || [];
+      cacheData.events = calendarData || [];
+      cacheData.calendars = []; // This would be populated if needed
       cacheData.lastUpdated = Date.now();
       cacheData.isLoading = false;
       
-      console.log(`📅 ✅ Calendar data refreshed: ${cacheData.events.length} events, ${cacheData.calendars.length} calendars`);
+      console.log(`📅 ✅ Calendar data refreshed: ${cacheData.events.length} events`);
       
       // Send data to pending widgets
       this.processPendingRequests('calendar');
@@ -443,357 +801,7 @@ export class AuthManager {
     console.log(`⏰ Scheduled ${dataType} refresh in ${Math.round(refreshInterval / 1000 / 60)} minutes`);
   }
 
-  // UPDATED: Initialize Google APIs with immediate data fetching
-  async initializeGoogleAPIs() {
-    if (!this.googleAccessToken) {
-      console.warn('🔧 ⚠️ No Google access token available for API initialization');
-      return;
-    }
-
-    try {
-      console.log('🔧 Initializing Google API client...');
-      this.googleAPI = new GoogleAPIClient(this);
-      console.log('🔧 ✅ Google API client initialized');
-      
-      // Test API access first
-      setTimeout(async () => {
-        try {
-          console.log('🧪 Testing Google API access...');
-          const testResults = await this.googleAPI.testAccess();
-          console.log('🧪 ✅ Google API access test results:', testResults);
-          
-          // If calendar access is available, start fetching data
-          if (testResults.calendar) {
-            console.log('📅 🚀 Starting initial calendar data fetch...');
-            await this.refreshCalendarData();
-          }
-          
-          // If photos access is available, start fetching data
-          if (testResults.photos) {
-            console.log('📸 🚀 Starting initial photos data fetch...');
-            await this.refreshPhotosData();
-          }
-          
-          // Send capabilities to widgets (for backward compatibility)
-          this.notifyAllWidgets(testResults);
-          
-        } catch (error) {
-          console.warn('🧪 ❌ Google API access test failed:', error);
-          this.notifyAllWidgets({ 
-            calendar: false, 
-            photos: false, 
-            errors: [error.message],
-            tokenStatus: 'error'
-          });
-        }
-      }, 1000);
-      
-    } catch (error) {
-      console.error('🔧 ❌ Failed to initialize Google API client:', error);
-    }
-  }
-
-  // Send postMessage to ALL widget iframes (existing method - kept for compatibility)
-  notifyAllWidgets(testResults) {
-    const allWidgetIframes = document.querySelectorAll('.widget iframe, .widget-iframe');
-    
-    console.log(`📡 🖼️ Found ${allWidgetIframes.length} widget iframe(s) to notify`);
-    
-    if (allWidgetIframes.length === 0) {
-      console.warn('📡 ⚠️ No widget iframes found - they may not be loaded yet');
-      setTimeout(() => {
-        const retryIframes = document.querySelectorAll('.widget iframe, .widget-iframe');
-        if (retryIframes.length > 0) {
-          console.log(`📡 🔄 Retry found ${retryIframes.length} widget iframe(s)`);
-          this.sendGoogleAPIReadyMessage(retryIframes, testResults);
-        }
-      }, 2000);
-    } else {
-      this.sendGoogleAPIReadyMessage(allWidgetIframes, testResults);
-    }
-  }
-
-  // Helper method to send the actual postMessage (existing method - kept for compatibility)
-  sendGoogleAPIReadyMessage(iframes, testResults) {
-    iframes.forEach((iframe, index) => {
-      if (iframe.contentWindow) {
-        try {
-          const message = {
-            type: 'google-apis-ready',
-            apiCapabilities: testResults,
-            timestamp: Date.now(),
-            authManager: this,
-            googleAccessToken: this.googleAccessToken,
-            debugInfo: {
-              sentAt: new Date().toISOString(),
-              widgetSrc: iframe.src,
-              widgetIndex: index + 1
-            }
-          };
-          
-          iframe.contentWindow.postMessage(message, '*');
-          console.log(`📡 ✅ Message sent to widget ${index + 1} (${iframe.src})`);
-          
-        } catch (error) {
-          console.error(`📡 ❌ Failed to send message to widget ${index + 1}:`, error);
-        }
-      }
-    });
-  }
-
-  // Existing auth methods continue unchanged...
-  checkNativeUser() {
-    if (this.nativeAuth) {
-      const userData = this.nativeAuth.getCurrentUser();
-      if (userData) {
-        this.setUserFromAuth(userData, 'native');
-        this.ui.showSignedInState();
-        console.log('🔐 Found native user:', this.currentUser.name);
-        return;
-      }
-    }
-    
-    this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
-  }
-
-  handleNativeAuthResult(result) {
-    console.log('🔐 Native auth result received:', result);
-    
-    if (result.success && result.user) {
-      this.setUserFromAuth(result.user, 'native', result.tokens);
-      this.isSignedIn = true;
-      this.storage.saveUser(this.currentUser);
-      this.ui.showSignedInState();
-      console.log('🔐 ✅ Native auth successful:', this.currentUser.name);
-    } else {
-      console.error('🔐 ❌ Native auth failed:', result.error);
-      this.nativeAuthFailed = true;
-      
-      if (this.isFireTV) {
-        console.log('🔥 Native auth failed on Fire TV, switching to Device Flow...');
-        this.startDeviceFlow();
-      } else if (result.error && result.error !== 'Sign-in was cancelled') {
-        this.ui.showAuthError(result.error || 'Native authentication failed');
-      }
-    }
-  }
-
-  async startDeviceFlow() {
-    try {
-      console.log('🔥 Starting Device Flow authentication...');
-      
-      this.ui.hideSignInPrompt();
-      
-      const result = await this.deviceFlowAuth.startDeviceFlow();
-      
-      if (result.success && result.user) {
-        this.setUserFromAuth(result.user, 'device_flow', result.tokens);
-        this.isSignedIn = true;
-        this.storage.saveUser(this.currentUser);
-        this.ui.showSignedInState();
-        console.log('🔥 ✅ Device Flow successful:', this.currentUser.name);
-      } else {
-        throw new Error('Device Flow was cancelled or failed');
-      }
-      
-    } catch (error) {
-      console.error('🔥 Device Flow failed:', error);
-      this.ui.showAuthError(`Authentication failed: ${error.message}. Please try again.`);
-    }
-  }
-
-  handleWebAuthResult(result) {
-    console.log('🔐 Web auth result received:', result);
-    
-    if (result.success && result.user) {
-      this.setUserFromAuth(result.user, 'web', result.tokens);
-      this.isSignedIn = true;
-      this.storage.saveUser(this.currentUser);
-      
-      console.log('🔐 🎯 Hiding sign-in UI and showing dashboard...');
-      this.ui.hideSignInPrompt();
-      this.ui.showSignedInState();
-      
-      console.log('🔐 ✅ Web auth successful:', this.currentUser.name);
-    } else {
-      console.error('🔐 ❌ Web auth failed:', result.error);
-      this.ui.showAuthError(result.error || 'Web authentication failed');
-    }
-  }
-  
-  async setUserFromAuth(userData, authMethod, tokens = null) {
-    let googleAccessToken = null;
-    
-    if (tokens && tokens.access_token) {
-      googleAccessToken = tokens.access_token;
-      console.log('🔐 ✅ Found Google access token from tokens object (', authMethod, ')');
-    } else if (userData.googleAccessToken) {
-      googleAccessToken = userData.googleAccessToken;
-      console.log('🔐 ✅ Found Google access token from user data (', authMethod, ')');
-    } else if (authMethod === 'web' && this.webAuth?.accessToken) {
-      googleAccessToken = this.webAuth.accessToken;
-      console.log('🔐 ✅ Found Google access token from web auth (', authMethod, ')');
-    } else {
-      console.warn('🔐 ⚠️ No Google access token found for', authMethod);
-    }
-
-    this.currentUser = {
-      id: userData.id,
-      name: userData.name,
-      email: userData.email,
-      picture: userData.picture,
-      signedInAt: Date.now(),
-      authMethod: authMethod,
-      googleAccessToken: googleAccessToken
-    };
-
-    this.googleAccessToken = googleAccessToken;
-
-    if (this.googleAccessToken) {
-      await this.initializeGoogleAPIs();
-    }
-
-    document.dispatchEvent(new CustomEvent('dashie-auth-ready'));
-  }
-  
-  createWebViewUser() {
-    console.log('🔐 Creating WebView user');
-    
-    this.currentUser = {
-      id: 'webview-user-' + Date.now(),
-      name: 'Dashie User',
-      email: 'user@dashie.app',
-      picture: 'icons/icon-profile-round.svg',
-      signedInAt: Date.now(),
-      authMethod: 'webview'
-    };
-    
-    this.isSignedIn = true;
-    this.storage.saveUser(this.currentUser);
-    this.ui.showSignedInState();
-    
-    console.log('🔐 WebView user created:', this.currentUser.name);
-  }
-
-  async signIn() {
-    console.log('🔐 Starting sign-in process...');
-    
-    if (this.isFireTV) {
-      if (this.hasNativeAuth && !this.nativeAuthFailed) {
-        console.log('🔥 Fire TV: Trying native auth first...');
-        this.nativeAuth.signIn();
-        
-        setTimeout(() => {
-          if (!this.isSignedIn && !this.nativeAuthFailed) {
-            console.log('🔥 Native auth timeout, switching to Device Flow...');
-            this.nativeAuthFailed = true;
-            this.startDeviceFlow();
-          }
-        }, 3000);
-      } else {
-        console.log('🔥 Fire TV: Using Device Flow directly...');
-        this.startDeviceFlow();
-      }
-      
-    } else if (this.hasNativeAuth && this.nativeAuth) {
-      console.log('🔐 Using native sign-in');
-      this.nativeAuth.signIn();
-      
-    } else if (this.webAuth) {
-      console.log('🔐 Using web sign-in');
-      try {
-        await this.webAuth.signIn();
-      } catch (error) {
-        console.error('🔐 Web sign-in failed:', error);
-        this.ui.showAuthError('Sign-in failed. Please try again.');
-      }
-    } else {
-      this.ui.showAuthError('No authentication method available.');
-    }
-  }
-
-  getGoogleAccessToken() {
-    return this.googleAccessToken;
-  }
-
-  signOut() {
-    console.log('🔐 Signing out...');
-    
-    // Clear refresh timers
-    Object.values(this.refreshTimers).forEach(timer => clearTimeout(timer));
-    this.refreshTimers = {};
-    
-    // Clear data cache
-    this.dataCache = {
-      calendar: { events: [], calendars: [], lastUpdated: null, refreshInterval: 5 * 60 * 1000, isLoading: false },
-      photos: { albums: [], recentPhotos: [], lastUpdated: null, refreshInterval: 30 * 60 * 1000, isLoading: false }
-    };
-    
-    if (this.hasNativeAuth && this.nativeAuth) {
-      this.nativeAuth.signOut();
-    }
-    
-    if (this.webAuth) {
-      this.webAuth.signOut();
-    }
-    
-    this.currentUser = null;
-    this.isSignedIn = false;
-    this.nativeAuthFailed = false;
-    this.googleAccessToken = null;
-    this.googleAPI = null;
-    this.storage.clearSavedUser();
-    
-    if (this.isWebView && !this.hasNativeAuth) {
-      this.ui.showWebViewAuthPrompt(() => this.createWebViewUser(), () => this.exitApp());
-    } else {
-      this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
-    }
-  }
-
-  exitApp() {
-    console.log('🚪 Exiting Dashie...');
-    
-    if (this.hasNativeAuth && window.DashieNative?.exitApp) {
-      window.DashieNative.exitApp();
-    } else if (window.close) {
-      window.close();
-    } else {
-      window.location.href = 'about:blank';
-    }
-  }
-
-  handleAuthFailure(error) {
-    console.error('🔐 Auth initialization failed:', error);
-    
-    const savedUser = this.storage.getSavedUser();
-    if (savedUser) {
-      console.log('🔐 Using saved authentication as fallback');
-      this.currentUser = savedUser;
-      this.isSignedIn = true;
-      this.ui.showSignedInState();
-    } else {
-      if (this.isFireTV) {
-        console.log('🔥 Auth failure on Fire TV, trying Device Flow...');
-        this.startDeviceFlow();
-      } else if (this.isWebView) {
-        this.ui.showWebViewAuthPrompt(() => this.createWebViewUser(), () => this.exitApp());
-      } else {
-        this.ui.showAuthError('Authentication service is currently unavailable.', true);
-      }
-    }
-  }
-  
-  // Public API
-  getUser() {
-    return this.currentUser;
-  }
-
-  isAuthenticated() {
-    return this.isSignedIn && this.currentUser !== null;
-  }
-
-  // NEW: Public methods for manual data refresh
+  // Public methods for manual data refresh
   async refreshData(dataType = 'all') {
     if (dataType === 'all' || dataType === 'calendar') {
       await this.refreshCalendarData(true);
@@ -803,7 +811,7 @@ export class AuthManager {
     }
   }
 
-  // NEW: Get cached data
+  // Get cached data
   getCachedData(dataType) {
     if (dataType === 'calendar') {
       return {
@@ -819,7 +827,7 @@ export class AuthManager {
     return null;
   }
 
-  // NEW: Check if data is stale
+  // Check if data is stale
   isDataStale(dataType) {
     const cacheData = this.dataCache[dataType];
     if (!cacheData.lastUpdated) return true;
