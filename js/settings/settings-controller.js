@@ -9,6 +9,12 @@ export class SettingsController {
     this.isInitialized = false;
     this.realtimeSubscription = null;
     
+    // NEW: Define which settings should be stored locally only (device-specific)
+    this.LOCAL_ONLY_SETTINGS = [
+      'system.autoRedirect',
+      'system.debugMode'
+    ];
+    
     // Navigation state for two-panel UI
     this.navigationState = {
       currentPanel: 'categories',
@@ -137,40 +143,57 @@ export class SettingsController {
   detectCurrentSite() {
     const hostname = window.location.hostname;
     
+    console.log('🌐 🔍 detectCurrentSite() called:');
+    console.log('🌐   - hostname:', hostname);
+    
+    let result;
     if (hostname === 'dashieapp.com' || hostname === 'www.dashieapp.com') {
-      return 'prod';
+      result = 'prod';
     } else if (hostname === 'dev.dashieapp.com') {
-      return 'dev';
+      result = 'dev';
     } else {
-      return 'other';
+      result = 'other';
     }
+    
+    console.log('🌐   - detected site:', result);
+    return result;
   }
 
   // NEW: Perform site redirect
   performSiteRedirect(targetSite, showConfirmation = true) {
+    console.log('🌐 🔄 performSiteRedirect() called:');
+    console.log('🌐   - targetSite:', targetSite);
+    console.log('🌐   - showConfirmation:', showConfirmation);
+    
     const urls = {
       prod: 'https://dashieapp.com',
       dev: 'https://dev.dashieapp.com'
     };
     
     const targetUrl = urls[targetSite];
+    console.log('🌐   - targetUrl:', targetUrl);
+    
     if (!targetUrl) {
       console.error('🌐 ❌ Invalid target site:', targetSite);
       return;
     }
     
     const currentSite = this.detectCurrentSite();
+    console.log('🌐   - currentSite (double-check):', currentSite);
+    
     if (currentSite === targetSite) {
-      console.log('🌐 Already on target site, no redirect needed');
+      console.log('🌐 ✅ Already on target site, no redirect needed');
       return;
     }
     
     if (showConfirmation) {
+      console.log('🌐 📋 Showing confirmation modal...');
       // Show confirmation modal
       this.showSiteChangeConfirmation(targetSite, targetUrl);
     } else {
       // Direct redirect (startup)
-      console.log(`🌐 🔄 Redirecting to ${targetUrl}`);
+      console.log(`🌐 🔄 REDIRECTING NOW to ${targetUrl}`);
+      console.log('🌐 🔄 Calling window.location.href =', targetUrl);
       window.location.href = targetUrl;
     }
   }
@@ -321,7 +344,79 @@ export class SettingsController {
     }
   }
 
-  // Wait for auth system to be ready
+  // NEW: Merge local-only settings from localStorage
+  mergeLocalOnlySettings() {
+    try {
+      console.log('💾 🔄 Loading local-only settings from localStorage...');
+      
+      const localSettingsJson = localStorage.getItem('dashie-local-settings');
+      if (!localSettingsJson) {
+        console.log('💾 ⚠️ No local settings found, using defaults');
+        this.ensureLocalOnlyDefaults();
+        return;
+      }
+      
+      const localSettings = JSON.parse(localSettingsJson);
+      console.log('💾 📄 Loaded local settings:', localSettings);
+      
+      // Merge each local-only setting
+      this.LOCAL_ONLY_SETTINGS.forEach(settingPath => {
+        const value = this.getNestedValue(localSettings, settingPath);
+        if (value !== undefined) {
+          console.log(`💾 ✅ Merging local setting: ${settingPath} = ${value}`);
+          this.setNestedValue(this.currentSettings, settingPath, value);
+        } else {
+          console.log(`💾 ⚠️ Local setting not found: ${settingPath}, will use default`);
+        }
+      });
+      
+      // Ensure any missing local-only settings have defaults
+      this.ensureLocalOnlyDefaults();
+      
+    } catch (error) {
+      console.error('💾 ❌ Failed to load local-only settings:', error);
+      this.ensureLocalOnlyDefaults();
+    }
+  }
+
+  // NEW: Ensure local-only settings have default values
+  ensureLocalOnlyDefaults() {
+    const defaults = {
+      'system.autoRedirect': true,
+      'system.debugMode': false
+    };
+    
+    this.LOCAL_ONLY_SETTINGS.forEach(settingPath => {
+      const currentValue = this.getNestedValue(this.currentSettings, settingPath);
+      if (currentValue === undefined) {
+        const defaultValue = defaults[settingPath];
+        if (defaultValue !== undefined) {
+          console.log(`💾 🔧 Setting default for ${settingPath}: ${defaultValue}`);
+          this.setNestedValue(this.currentSettings, settingPath, defaultValue);
+        }
+      }
+    });
+  }
+
+  // NEW: Helper to get nested object values using dot notation
+  getNestedValue(obj, path) {
+    return path.split('.').reduce((current, key) => {
+      return current && current[key] !== undefined ? current[key] : undefined;
+    }, obj);
+  }
+
+  // NEW: Helper to set nested object values using dot notation
+  setNestedValue(obj, path, value) {
+    const keys = path.split('.');
+    const lastKey = keys.pop();
+    const target = keys.reduce((current, key) => {
+      if (!current[key] || typeof current[key] !== 'object') {
+        current[key] = {};
+      }
+      return current[key];
+    }, obj);
+    target[lastKey] = value;
+  }
   async waitForAuth(timeoutMs = 5000) {
     const startTime = Date.now();
     
@@ -647,6 +742,9 @@ export class SettingsController {
       return true;
     }
 
+    // NEW: Save local-only settings to localStorage first
+    await this.saveLocalOnlySettings();
+
     if (!this.storage) {
       console.warn('⚙️ 💾 No storage available, saving to localStorage only');
       try {
@@ -662,7 +760,12 @@ export class SettingsController {
 
     try {
       console.log('⚙️ 💾 Calling storage.saveSettings...');
-      await this.storage.saveSettings(this.currentSettings);
+      
+      // NEW: Filter out local-only settings before saving to database
+      const databaseSettings = this.filterOutLocalOnlySettings(this.currentSettings);
+      console.log('⚙️ 💾 Database settings (filtered):', databaseSettings);
+      
+      await this.storage.saveSettings(databaseSettings);
       this.isDirty = false;
       console.log('⚙️ ✅ Settings saved successfully to storage');
       return true;
@@ -670,6 +773,52 @@ export class SettingsController {
     } catch (error) {
       console.error('⚙️ ❌ Failed to save settings to storage:', error);
       return false;
+    }
+  }
+
+  // NEW: Save local-only settings to localStorage
+  async saveLocalOnlySettings() {
+    try {
+      const localSettings = {};
+      
+      // Extract local-only settings
+      this.LOCAL_ONLY_SETTINGS.forEach(settingPath => {
+        const value = this.getNestedValue(this.currentSettings, settingPath);
+        if (value !== undefined) {
+          this.setNestedValue(localSettings, settingPath, value);
+        }
+      });
+      
+      console.log('💾 💾 Saving local-only settings:', localSettings);
+      localStorage.setItem('dashie-local-settings', JSON.stringify(localSettings));
+      console.log('💾 ✅ Local-only settings saved to localStorage');
+      
+    } catch (error) {
+      console.error('💾 ❌ Failed to save local-only settings:', error);
+    }
+  }
+
+  // NEW: Filter out local-only settings from an object
+  filterOutLocalOnlySettings(settings) {
+    const filtered = JSON.parse(JSON.stringify(settings)); // Deep clone
+    
+    this.LOCAL_ONLY_SETTINGS.forEach(settingPath => {
+      this.deleteNestedValue(filtered, settingPath);
+    });
+    
+    return filtered;
+  }
+
+  // NEW: Helper to delete nested values using dot notation
+  deleteNestedValue(obj, path) {
+    const keys = path.split('.');
+    const lastKey = keys.pop();
+    const target = keys.reduce((current, key) => {
+      return current && current[key] ? current[key] : null;
+    }, obj);
+    
+    if (target && lastKey in target) {
+      delete target[lastKey];
     }
   }
 
