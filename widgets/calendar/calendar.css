@@ -1,5 +1,3 @@
-/* widgets/calendar/calendar.css - Calendar Widget Styles with proper theme inheritance and height */
-
 html, body {
   height: 100%;
   margin: 0;
@@ -90,3 +88,12 @@ html, body {
 /* Force text color overrides */
 .toastui-calendar-time-event-title,
 .toastui-calendar-event-time .toastui-calendar-event-title,
+.toastui-calendar-time-hour,
+.toastui-calendar-time-hour * {
+  color: var(--text-primary, #fff) !important;
+}
+
+/* Current time indicator fix */
+.toastui-calendar-timegrid-current-time {
+  background: var(--accent-orange, #ffaa00) !important;
+}
