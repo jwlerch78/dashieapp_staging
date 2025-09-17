@@ -93,28 +93,37 @@ export class SettingsController {
 
   // FIXED: Synchronous site redirect check that returns whether redirect happened
   async checkSiteRedirectSync() {
+    console.log('🌐 🔍 checkSiteRedirectSync() called');
+    
     try {
       const autoRedirect = this.currentSettings.system?.autoRedirect;
       const targetSite = this.currentSettings.system?.activeSite || 'prod';
       const currentSite = this.detectCurrentSite();
       
-      console.log('🌐 Site redirect check (startup):', {
-        autoRedirect,
-        targetSite,
-        currentSite,
-        shouldRedirect: autoRedirect && targetSite !== currentSite
-      });
+      console.log('🌐 📊 Site redirect check (startup) - detailed info:');
+      console.log('🌐   - autoRedirect:', autoRedirect, '(type:', typeof autoRedirect, ')');
+      console.log('🌐   - targetSite:', targetSite, '(type:', typeof targetSite, ')');
+      console.log('🌐   - currentSite:', currentSite, '(type:', typeof currentSite, ')');
+      console.log('🌐   - window.location.hostname:', window.location.hostname);
+      console.log('🌐   - window.location.href:', window.location.href);
+      console.log('🌐   - shouldRedirect calculation:', autoRedirect && targetSite !== currentSite);
+      console.log('🌐   - system settings:', this.currentSettings.system);
       
       if (autoRedirect && targetSite !== currentSite) {
-        console.log(`🌐 🔄 Auto-redirecting from ${currentSite} to ${targetSite} (startup)`);
+        console.log(`🌐 🔄 REDIRECT DECISION: Auto-redirecting from ${currentSite} to ${targetSite} (startup)`);
+        console.log('🌐 🔄 About to call performSiteRedirect...');
         this.performSiteRedirect(targetSite, false); // false = no confirmation on startup
+        console.log('🌐 🔄 performSiteRedirect called, returning true');
         return true; // Redirect happening
       } else {
-        console.log('🌐 ✅ No redirect needed');
+        console.log('🌐 ✅ NO REDIRECT: One of the conditions failed:');
+        console.log('🌐   - autoRedirect is falsy:', !autoRedirect);
+        console.log('🌐   - sites are the same:', targetSite === currentSite);
         return false; // No redirect
       }
     } catch (error) {
-      console.error('🌐 ❌ Site redirect check failed:', error);
+      console.error('🌐 ❌ Site redirect check failed with error:', error);
+      console.error('🌐 ❌ Error stack:', error.stack);
       return false; // No redirect on error
     }
   }
@@ -363,15 +372,27 @@ export class SettingsController {
 
   // FIXED: Apply loaded settings with site redirect check FIRST
   async applyLoadedSettings() {
-    if (!this.currentSettings) return;
+    console.log('⚙️ 🌐 applyLoadedSettings() called');
+    
+    if (!this.currentSettings) {
+      console.log('⚙️ 🌐 No currentSettings, exiting applyLoadedSettings');
+      return;
+    }
+    
+    console.log('⚙️ 🌐 Current settings in applyLoadedSettings:', this.currentSettings);
     
     // FIRST: Check site redirect before applying anything else
     // No point in setting up the site if we're redirecting away
+    console.log('⚙️ 🌐 About to call checkSiteRedirectSync()');
     const redirected = await this.checkSiteRedirectSync();
+    console.log('⚙️ 🌐 checkSiteRedirectSync() returned:', redirected);
+    
     if (redirected) {
       console.log('🌐 🔄 Redirecting to different site, skipping other settings application');
       return; // Don't apply other settings if we're redirecting
     }
+    
+    console.log('⚙️ 🌐 No redirect, continuing with theme and family name...');
     
     // Apply theme if it exists (only if not redirecting)
     const theme = this.currentSettings.display?.theme;
