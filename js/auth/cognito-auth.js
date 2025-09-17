@@ -93,67 +93,7 @@ export class CognitoAuth {
   }
 }
 
-async waitForAmplify(maxAttempts = 50) {
-  for (let i = 0; i < maxAttempts; i++) {
-    // Debug what's available (only on first few attempts to avoid spam)
-    if (i < 3) {
-      console.log(`🔍 Attempt ${i + 1}: Checking for Amplify libraries...`, {
-        'window.aws_amplify': !!window.aws_amplify,
-        'window.Amplify': !!window.Amplify,
-        'window.Auth': !!window.Auth,
-        'window.AmplifyCore': !!window.AmplifyCore,
-        'window.AmplifyAuth': !!window.AmplifyAuth,
-        'window.aws': !!window.aws,
-        'window.aws.amplifyAuth': !!(window.aws && window.aws.amplifyAuth),
-        'aws.amplifyAuth.Amplify': !!(window.aws && window.aws.amplifyAuth && window.aws.amplifyAuth.Amplify),
-        'aws.amplifyAuth.Auth': !!(window.aws && window.aws.amplifyAuth && window.aws.amplifyAuth.Auth)
-      });
-    }
-    
-    // Check if AWS Amplify is loaded and properly configured
-    if (window.aws && 
-        window.aws.amplifyAuth && 
-        window.aws.amplifyAuth.Amplify && 
-        window.aws.amplifyAuth.Auth &&
-        typeof window.aws.amplifyAuth.Amplify === 'object' &&
-        typeof window.aws.amplifyAuth.Auth === 'object') {
-      
-      this.amplify = window.aws.amplifyAuth;
-      console.log('🔐 ✅ Amplify loaded successfully');
-      
-      // Debug the structure
-      console.log('🔍 Amplify object structure:', {
-        'Amplify type': typeof this.amplify.Amplify,
-        'Auth type': typeof this.amplify.Auth,
-        'Amplify keys': Object.keys(this.amplify.Amplify),
-        'Auth keys': Object.keys(this.amplify.Auth),
-        'Has configure': 'configure' in this.amplify.Amplify
-      });
-      
-      return;
-    }
-    
-    await new Promise(resolve => setTimeout(resolve, 100));
-  }
-  
-  // Detailed error information
-  const debugInfo = {
-    'window.aws_amplify': !!window.aws_amplify,
-    'window.Amplify': !!window.Amplify,
-    'window.Auth': !!window.Auth,
-    'window.AmplifyCore': !!window.AmplifyCore,
-    'window.AmplifyAuth': !!window.AmplifyAuth,
-    'window.aws exists': !!window.aws,
-    'window.aws.amplifyAuth exists': !!(window.aws && window.aws.amplifyAuth),
-  };
-  
-  if (window.aws && window.aws.amplifyAuth) {
-    debugInfo['aws.amplifyAuth.Amplify'] = typeof window.aws.amplifyAuth.Amplify;
-    debugInfo['aws.amplifyAuth.Auth'] = typeof window.aws.amplifyAuth.Auth;
-  }
-  
-  throw new Error(`AWS Amplify failed to load properly after ${maxAttempts} attempts. Debug info: ${JSON.stringify(debugInfo, null, 2)}`);
-}
+Uncaught SyntaxError: Unexpected identifier 'availableObjects' (at cognito-auth.js:159:9)
   
   // Provide detailed error information
   const availableObjects = {
