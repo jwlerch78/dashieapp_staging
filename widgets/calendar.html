@@ -1,3 +1,8 @@
+
+<!-- widgets/calendar.html -->
+<!-- TUI Calendar Widget - UPDATED: Uses centralized data service while preserving all original functionality -->
+<!-- Maintains all TUI Calendar features, theme support, and keyboard navigation -->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -36,7 +41,10 @@
 </head>
 <body class="theme-dark">
   <div id="calendar-container">
-    <div class="loading" id="loading">Loading calendar...</div>
+    <div class="loading" id="loading">
+      Loading calendar...
+      <div class="status" id="status">○</div>
+    </div>
     
     <div class="calendar-header" id="calendarHeader" style="display: none;">
       <div class="calendar-title" id="calendarTitle">Loading...</div>
@@ -46,15 +54,15 @@
     <div id="calendar" style="display: none;"></div>
     
     <div class="controls-info">
-      ←→: Navigate | ↑↓: Scroll Time | ,.: Change View
+      ←→: Navigate | ↑↓: Scroll/Refresh | ,.: Change View
     </div>
   </div>
-
+  
   <!-- Toast UI Calendar JS -->
   <script src="https://uicdn.toast.com/calendar/latest/toastui-calendar.min.js"></script>
   
-  <!-- Calendar Widget Logic -->
-  <script src="calendar/calendar.js"></script>
+  <!-- Calendar Widget Logic - UPDATED for centralized data service -->
+  <script type="module" src="calendar/calendar.js"></script>
   
   <script>
     // Enhanced theme management
@@ -71,7 +79,7 @@
       
       console.log(`📅 Calendar widget applied ${theme} theme`);
     }
-
+    
     // Listen for theme changes from parent
     window.addEventListener('message', (event) => {
       if (event.data && event.data.type === 'theme-change') {
@@ -79,7 +87,7 @@
         applyTheme(newTheme);
       }
     });
-
+    
     // Request current theme from parent and send ready signal
     window.addEventListener('load', () => {
       if (window.parent !== window) {
