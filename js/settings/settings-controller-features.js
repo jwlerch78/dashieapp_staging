@@ -34,7 +34,7 @@ export class SettingsControllerFeatures {
   // Ensure local-only settings have default values
   ensureLocalOnlyDefaults() {
     const defaults = {
-      'system.autoRedirect': true,
+      'system.autoRedirect': false,
       'system.debugMode': false
     };
     
