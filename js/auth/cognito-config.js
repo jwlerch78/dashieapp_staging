@@ -14,7 +14,7 @@ const environment = getEnvironment();
 export const COGNITO_CONFIG = {
   // AWS Cognito Settings - USE THE CORRECT CLIENT ID
   region: 'us-east-2',
-  userPoolId: 'us-east-2_nbo8y8lm',
+  userPoolId: 'us-east-2_wNbo8Y8LM',
   userPoolWebClientId: '6is70fls6vp2i511k93ltgs66h', // Fixed to match your actual URL
   
   // NEW: Identity Pool ID for Google token pass-through
