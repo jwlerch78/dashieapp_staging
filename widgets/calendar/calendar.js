@@ -102,7 +102,7 @@ requestCalendarData() {
     window.parent.postMessage({
       type: 'widget-data-request',
       dataType: 'calendar',        // Changed from 'widget: calendar'
-      requestType: 'getEvents',    // What specific calendar action
+      requestType: 'Events',    // What specific calendar action
       requestId: Date.now(),       // Add requestId for response matching
       params: {}                   // Any additional parameters
     }, '*');
