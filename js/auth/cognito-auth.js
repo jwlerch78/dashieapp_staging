@@ -73,7 +73,7 @@ export class CognitoAuth {
         }
       } else if (urlParams.get('code')) {
         console.log('🔐 📨 Found Google OAuth callback with code');
-        const result = await this.handleGoogleCallback(urlParams.get('code'));
+        const result = await this.handleGoogleCodeCallback(urlParams.get('code'));
         if (result.success) {
           console.log('🔐 ✅ Google OAuth callback processed successfully');
           this.isInitialized = true;
@@ -142,6 +142,67 @@ export class CognitoAuth {
       
     } catch (error) {
       console.error('🔐 📨 ❌ Google fragment callback processing failed:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async handleGoogleCodeCallback(authCode) {
+    console.log('🔐 📨 Processing Google OAuth code callback...');
+    
+    try {
+      // Exchange the authorization code for Google tokens
+      const googleClientId = '221142210647-58t8hr48rk7nlgl56j969himso1qjjoo.apps.googleusercontent.com';
+      const redirectUri = window.location.origin;
+      
+      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: new URLSearchParams({
+          client_id: googleClientId,
+          code: authCode,
+          grant_type: 'authorization_code',
+          redirect_uri: redirectUri,
+        }),
+      });
+      
+      if (!tokenResponse.ok) {
+        throw new Error(`Token exchange failed: ${tokenResponse.status}`);
+      }
+      
+      const tokens = await tokenResponse.json();
+      console.log('🔐 📨 ✅ Google tokens received');
+      console.log('🔐 📨 📋 Access token length:', tokens.access_token?.length || 0);
+      console.log('🔐 📨 📋 ID token length:', tokens.id_token?.length || 0);
+      
+      // Now federate with Cognito Identity Pool using the Google ID token
+      const federatedUser = await this.amplify.Auth.federatedSignIn(
+        'google', // provider
+        { 
+          token: tokens.id_token,
+          expires_at: Date.now() + (tokens.expires_in * 1000) // Use actual expiration
+        }
+      );
+      
+      console.log('🔐 📨 ✅ Successfully federated with Cognito Identity Pool');
+      
+      // Get the AWS credentials
+      const credentials = await this.amplify.Auth.currentCredentials();
+      console.log('🔐 📨 ✅ AWS credentials obtained');
+      
+      // Build user data using the Google access token
+      const userData = await this.buildUserDataFromGoogleToken(tokens.access_token, credentials);
+      this.currentUser = userData;
+      this.saveUserToStorage(userData);
+      
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      return { success: true, user: userData };
+      
+    } catch (error) {
+      console.error('🔐 📨 ❌ Google code callback processing failed:', error);
       return { success: false, error: error.message };
     }
   }
