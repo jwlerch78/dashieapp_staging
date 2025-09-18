@@ -230,13 +230,18 @@ async function handleSleepToggle() {
 // Browser keyboard events
 export function initializeKeyboardEvents() {
   document.removeEventListener("keydown", handleKeyDown);
-  document.addEventListener("keydown", async e => {
-    const { action, originalEvent } = normalizeInput('keyboard', e);
-    if (action) {
-      await handleUnifiedInput(action, originalEvent);
-    }
-  });
+  document.addEventListener("keydown", handleKeyDown);
 }
+
+async function handleKeyDown(e) {
+  const { action, originalEvent } = normalizeInput('keyboard', e);
+  if (!action) return;
+  if (originalEvent) originalEvent.preventDefault();
+  if (e.repeat) return;
+
+  await handleUnifiedInput(action, originalEvent);
+}
+
 
 // Android WebView remote input (called by Android app)
 window.handleRemoteInput = async function(keyCode) {
