@@ -245,58 +245,116 @@ export class CognitoAuth {
     try {
       console.log('🔐 🔄 Checking for existing Google session...');
       
-      // Try to get credentials - this will fail if not authenticated
-      const credentials = await this.amplify.Auth.currentCredentials();
-      
-      console.log('🔐 📋 Credentials check:', {
-        authenticated: credentials.authenticated,
-        identityId: credentials.identityId,
-        hasParams: !!credentials.params,
-        hasLogins: !!(credentials.params && credentials.params.Logins),
-        paramsKeys: credentials.params ? Object.keys(credentials.params) : [],
-        loginKeys: credentials.params?.Logins ? Object.keys(credentials.params.Logins) : []
-      });
-      
-      if (credentials.authenticated && credentials.params && credentials.params.Logins) {
-        const loginProviders = Object.keys(credentials.params.Logins);
-        console.log('🔐 📋 Available login providers:', loginProviders);
-        
-        const googleToken = credentials.params.Logins['accounts.google.com'];
-        
-        if (googleToken) {
-          console.log('🔐 ✅ Found existing Google token!');
-          console.log('🔐 📋 Token length:', googleToken.length);
+      // First, check if we have saved user data with Google token
+      const savedUserData = localStorage.getItem(COGNITO_CONFIG.storage.userDataKey);
+      if (savedUserData) {
+        try {
+          const userData = JSON.parse(savedUserData);
+          console.log('🔐 📋 Found saved user data:', {
+            email: userData.email,
+            hasGoogleToken: !!userData.googleAccessToken,
+            authMethod: userData.authMethod,
+            savedAt: new Date(userData.savedAt).toLocaleString()
+          });
           
-          // Create user data from Google token
-          const userData = await this.buildUserDataFromGoogleToken(googleToken, credentials);
-          this.currentUser = userData;
-          this.saveUserToStorage(userData);
-          
-          return userData;
-        } else {
-          console.log('🔐 ❌ No Google token found in login providers');
+          if (userData.googleAccessToken && userData.authMethod === 'cognito_identity_pool') {
+            console.log('🔐 🔄 Attempting to restore Identity Pool session with saved Google token...');
+            
+            // Try to restore the federated session using saved Google token
+            // We need the ID token for federation, but we might only have access token
+            // Let's try to get fresh credentials first
+            try {
+              const credentials = await this.amplify.Auth.currentCredentials();
+              if (credentials.authenticated) {
+                console.log('🔐 ✅ Found existing Identity Pool session!');
+                
+                // Update the saved user data with current credentials
+                userData.awsCredentials = {
+                  accessKeyId: credentials.accessKeyId,
+                  secretAccessKey: credentials.secretAccessKey,
+                  sessionToken: credentials.sessionToken,
+                  identityId: credentials.identityId
+                };
+                
+                this.currentUser = userData;
+                this.googleAccessToken = userData.googleAccessToken;
+                this.identityPoolCredentials = credentials;
+                
+                // Update storage with fresh AWS credentials
+                this.saveUserToStorage(userData);
+                
+                return userData;
+              }
+            } catch (credentialsError) {
+              console.log('🔐 ⚠️ No existing Identity Pool session, saved data exists but session expired');
+              
+              // If we have saved user data but no active session, 
+              // we could try to re-authenticate with the saved Google token
+              // But for security, it's better to require re-authentication
+              console.log('🔐 ℹ️ Will require re-authentication for security');
+            }
+          }
+        } catch (parseError) {
+          console.log('🔐 ⚠️ Failed to parse saved user data:', parseError.message);
+          localStorage.removeItem(COGNITO_CONFIG.storage.userDataKey);
         }
-      } else {
-        console.log('🔐 ❌ Missing authentication data:', {
+      }
+      
+      // If no saved data or session restoration failed, try fresh credentials
+      try {
+        const credentials = await this.amplify.Auth.currentCredentials();
+        
+        console.log('🔐 📋 Credentials check:', {
           authenticated: credentials.authenticated,
+          identityId: credentials.identityId,
           hasParams: !!credentials.params,
-          hasLogins: !!(credentials.params && credentials.params.Logins)
+          hasLogins: !!(credentials.params && credentials.params.Logins),
+          paramsKeys: credentials.params ? Object.keys(credentials.params) : [],
+          loginKeys: credentials.params?.Logins ? Object.keys(credentials.params.Logins) : []
         });
+        
+        if (credentials.authenticated && credentials.params && credentials.params.Logins) {
+          const loginProviders = Object.keys(credentials.params.Logins);
+          console.log('🔐 📋 Available login providers:', loginProviders);
+          
+          const googleToken = credentials.params.Logins['accounts.google.com'];
+          
+          if (googleToken) {
+            console.log('🔐 ✅ Found existing Google token in active session!');
+            console.log('🔐 📋 Token length:', googleToken.length);
+            
+            // Create user data from active Google token
+            const userData = await this.buildUserDataFromGoogleToken(googleToken, credentials);
+            this.currentUser = userData;
+            this.saveUserToStorage(userData);
+            
+            return userData;
+          } else {
+            console.log('🔐 ❌ No Google token found in login providers');
+          }
+        } else {
+          console.log('🔐 ❌ Missing authentication data:', {
+            authenticated: credentials.authenticated,
+            hasParams: !!credentials.params,
+            hasLogins: !!(credentials.params && credentials.params.Logins)
+          });
+        }
+      } catch (credentialsError) {
+        // This error is expected if user is not authenticated
+        if (credentialsError.message.includes('Unauthenticated access is not supported') || 
+            credentialsError.message.includes('NotAuthorizedException')) {
+          console.log('🔐 ℹ️ No active Identity Pool session - user needs to authenticate with Google');
+        } else {
+          console.log('🔐 ⚠️ Credentials check error:', credentialsError.message);
+        }
       }
       
       console.log('🔐 ⚠️ No existing Google session found');
       return null;
       
     } catch (error) {
-      // This error is expected if user is not authenticated
-      if (error.message.includes('Unauthenticated access is not supported') || 
-          error.message.includes('NotAuthorizedException')) {
-        console.log('🔐 ℹ️ No existing session - user needs to authenticate with Google');
-        return null;
-      } else {
-        console.log('🔐 ⚠️ Session check error:', error.message);
-        return null;
-      }
+      console.log('🔐 ⚠️ Session check error:', error.message);
+      return null;
     }
   }
 
