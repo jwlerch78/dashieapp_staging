@@ -71,14 +71,6 @@ export class CognitoAuth {
           this.isInitialized = true;
           return result;
         }
-      } else if (urlParams.get('code')) {
-        console.log('🔐 📨 Found Google OAuth callback with code');
-        const result = await this.handleGoogleCodeCallback(urlParams.get('code'));
-        if (result.success) {
-          console.log('🔐 ✅ Google OAuth callback processed successfully');
-          this.isInitialized = true;
-          return result;
-        }
       }
 
       // Check for existing session
@@ -422,10 +414,10 @@ export class CognitoAuth {
       const googleOAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
         `client_id=${googleClientId}&` +
         `redirect_uri=${redirectUri}&` +
-        `response_type=code&` +  // Use authorization code flow instead
+        `response_type=id_token token&` +  // Back to implicit flow - no client secret needed
         `scope=${scopes}&` +
         `prompt=consent&` +
-        `state=${Date.now()}`;  // Add state parameter for security
+        `nonce=${Date.now()}`;  // Add nonce for security
       
       console.log('🔐 🔄 Redirecting to Google OAuth for Identity Pool federation...');
       console.log('🔐 📋 OAuth URL:', googleOAuthUrl);
