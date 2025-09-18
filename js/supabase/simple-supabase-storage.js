@@ -27,39 +27,102 @@ export class SimpleSupabaseStorage {
     const currentUser = this.getCurrentUser();
     
     if (cognitoToken && currentUser) {
-      try {
-        // Create a new Supabase client instance with the JWT token
-        const { createClient } = await import('https://cdn.skypack.dev/@supabase/supabase-js@2');
-        this.authenticatedSupabase = createClient(
-          this.supabase.supabaseUrl, 
-          this.supabase.supabaseKey,
-          {
-            global: {
-              headers: {
-                Authorization: `Bearer ${cognitoToken}`
+      console.log('📊 Found Cognito token, testing RLS configuration...');
+      
+      // First test if RLS is enabled by trying an unauthenticated request
+      const rlsStatus = await this.testRLSStatus();
+      
+      if (rlsStatus.enabled) {
+        try {
+          // Create authenticated Supabase client for RLS
+          const { createClient } = await import('https://cdn.skypack.dev/@supabase/supabase-js@2');
+          this.authenticatedSupabase = createClient(
+            this.supabase.supabaseUrl, 
+            this.supabase.supabaseKey,
+            {
+              global: {
+                headers: {
+                  Authorization: `Bearer ${cognitoToken}`
+                }
               }
             }
-          }
-        );
-        
-        this.isRLSMode = true;
-        this.currentUser = currentUser;
-        
-        console.log('📊 ✅ Supabase RLS mode enabled with Cognito JWT');
-        
-        // Test RLS access
-        await this.testRLSAccess();
-        
-        // Setup realtime subscription with auth
-        this.setupRealtimeSubscription();
-        
-      } catch (error) {
-        console.warn('📊 ⚠️ RLS setup failed, falling back to non-RLS mode:', error);
+          );
+          
+          this.isRLSMode = true;
+          this.currentUser = currentUser;
+          
+          console.log('📊 ✅ Supabase RLS mode enabled with Cognito JWT');
+          
+          // Test RLS access with authentication
+          await this.testAuthenticatedAccess();
+          
+          // Setup realtime subscription with auth
+          this.setupRealtimeSubscription();
+          
+        } catch (error) {
+          console.warn('📊 ⚠️ RLS authentication failed, falling back to non-RLS mode:', error);
+          this.isRLSMode = false;
+        }
+      } else {
+        console.warn('📊 ⚠️ RLS is disabled on user_settings table - using non-RLS mode');
+        console.warn('📊 💡 To enable RLS: Run "ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;" in Supabase SQL editor');
         this.isRLSMode = false;
       }
     } else {
       console.log('📊 No Cognito auth available, using non-RLS mode');
       this.isRLSMode = false;
+    }
+  }
+
+  // NEW: Test if RLS is enabled on the table
+  async testRLSStatus() {
+    try {
+      // Try an unauthenticated request to see what happens
+      const { data, error } = await this.supabase
+        .from('user_settings')
+        .select('count')
+        .limit(1);
+      
+      if (error) {
+        if (error.code === 'PGRST301' || error.message.includes('policy')) {
+          // RLS is enabled but we don't have permission (expected)
+          console.log('📊 ✅ RLS is enabled on user_settings table');
+          return { enabled: true };
+        } else {
+          // Some other error - might be RLS related
+          console.warn('📊 ⚠️ Unexpected error testing RLS status:', error);
+          return { enabled: false, error };
+        }
+      } else {
+        // Request succeeded without authentication - RLS is disabled
+        console.log('📊 ⚠️ RLS is disabled on user_settings table (unauthenticated access succeeded)');
+        return { enabled: false };
+      }
+    } catch (error) {
+      console.error('📊 ❌ Failed to test RLS status:', error);
+      return { enabled: false, error };
+    }
+  }
+
+  // Test authenticated access (only called when RLS is enabled)
+  async testAuthenticatedAccess() {
+    try {
+      const client = this.authenticatedSupabase || this.supabase;
+      const { data, error } = await client
+        .from('user_settings')
+        .select('count')
+        .limit(1);
+      
+      if (error) {
+        console.warn('📊 RLS authenticated test failed:', error);
+        throw error;
+      }
+      
+      console.log('📊 ✅ RLS authenticated access test successful');
+      return true;
+    } catch (error) {
+      console.error('📊 ❌ RLS authenticated access test failed:', error);
+      throw error;
     }
   }
 
@@ -113,26 +176,9 @@ export class SimpleSupabaseStorage {
     return null;
   }
 
-  // Test RLS access to verify authentication works
+  // Test RLS access to verify authentication works (legacy method, kept for compatibility)
   async testRLSAccess() {
-    try {
-      const client = this.isRLSMode ? this.authenticatedSupabase : this.supabase;
-      const { data, error } = await client
-        .from('user_settings')
-        .select('count')
-        .limit(1);
-      
-      if (error) {
-        console.warn('📊 RLS test failed:', error);
-        throw error;
-      }
-      
-      console.log('📊 ✅ RLS access test successful');
-      return true;
-    } catch (error) {
-      console.error('📊 ❌ RLS access test failed:', error);
-      throw error;
-    }
+    return this.testAuthenticatedAccess();
   }
 
   // Load settings from Supabase or localStorage fallback
