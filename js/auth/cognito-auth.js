@@ -360,10 +360,10 @@ export class CognitoAuth {
       const googleOAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
         `client_id=${googleClientId}&` +
         `redirect_uri=${redirectUri}&` +
-        `response_type=id_token token&` +  // Get both ID token and access token
+        `response_type=code&` +  // Use authorization code flow instead
         `scope=${scopes}&` +
         `prompt=consent&` +
-        `nonce=${Date.now()}`;  // Add nonce for security
+        `state=${Date.now()}`;  // Add state parameter for security
       
       console.log('🔐 🔄 Redirecting to Google OAuth for Identity Pool federation...');
       console.log('🔐 📋 OAuth URL:', googleOAuthUrl);
