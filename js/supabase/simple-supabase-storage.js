@@ -84,23 +84,29 @@ export class SimpleSupabaseStorage {
         .limit(1);
       
       if (error) {
-        if (error.code === 'PGRST301' || error.message.includes('policy')) {
-          // RLS is enabled but we don't have permission (expected)
-          console.log('📊 ✅ RLS is enabled on user_settings table');
-          return { enabled: true };
+        // Check for RLS-related error codes and messages
+        if (error.code === 'PGRST301' || 
+            error.code === 'PGRST116' ||
+            error.message.includes('policy') ||
+            error.message.includes('permission') ||
+            error.message.includes('access denied')) {
+          // RLS is enabled - requests are being blocked
+          console.log('📊 ✅ RLS is enabled on user_settings table (detected via error:', error.code, ')');
+          return { enabled: true, detectedVia: error.code };
         } else {
-          // Some other error - might be RLS related
+          // Some other error - unclear RLS status
           console.warn('📊 ⚠️ Unexpected error testing RLS status:', error);
-          return { enabled: false, error };
+          return { enabled: false, error, uncertain: true };
         }
       } else {
-        // Request succeeded without authentication - RLS is disabled
+        // Request succeeded without authentication - RLS is definitely disabled
         console.log('📊 ⚠️ RLS is disabled on user_settings table (unauthenticated access succeeded)');
         return { enabled: false };
       }
     } catch (error) {
       console.error('📊 ❌ Failed to test RLS status:', error);
-      return { enabled: false, error };
+      // Assume RLS is enabled to be safe
+      return { enabled: true, error, assumedEnabled: true };
     }
   }
 
@@ -250,6 +256,11 @@ export class SimpleSupabaseStorage {
           // No data found - this is OK for new users
           console.log('📊 No settings found for user (new user)');
           return null;
+        }
+        if (error.code === 'PGRST301') {
+          // Permission denied - RLS is working but we don't have proper policies
+          console.warn('📊 ⚠️ RLS permission denied - need to add RLS policies for user access');
+          throw error;
         }
         throw error;
       }
