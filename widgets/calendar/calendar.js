@@ -164,6 +164,10 @@ requestCalendarData() {
 
     const tuiEvents = [];
 
+    console.log('📅 🔍 DEBUG: First few events:', this.calendarData.events.slice(0, 3));
+    console.log('📅 🔍 DEBUG: Event structure sample:', JSON.stringify(this.calendarData.events[0], null, 2));
+
+
     this.calendarData.events.forEach((event, eventIndex) => {
       // Find matching calendar configuration
       let calendarConfig = null;
@@ -280,9 +284,6 @@ requestCalendarData() {
       this.calendar.setDate(this.currentDate);
       this.showCalendar();
       this.updateCalendarHeader();
-
-      console.log('📅 Requesting calendar data from centralized service...');
-      this.requestCalendarData();
 
       setTimeout(() => this.scrollToTime(8), 200);
 
