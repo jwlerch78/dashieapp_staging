@@ -95,34 +95,26 @@ class CalendarWidget {
     }
   }
 
-  requestCalendarData() {
-    console.log('📅 📤 Requesting calendar data from centralized service...');
-    console.log('📅 🔄 Sending postMessage:', {
+requestCalendarData() {
+  console.log('📅 📤 Requesting calendar data from centralized service...');
+  
+  try {
+    window.parent.postMessage({
       type: 'widget-data-request',
-      widget: 'calendar',
-      timestamp: Date.now(),
-      parentExists: !!window.parent,
-      isInIframe: window !== window.parent
-    });
-
-    try {
-      window.parent.postMessage({
-        type: 'widget-data-request',
-        widget: 'calendar',
-        timestamp: Date.now()
-      }, '*');
-      this.updateConnectionStatus('connecting');
-
-      window.parent.postMessage({
-        type: 'widget-data-request'
-      }, '*');
-      console.log('📅 ✅ PostMessage sent successfully');
-      
-    } catch (error) {
-      console.error('📅 ❌ Failed to request calendar data:', error);
-      this.updateConnectionStatus('error');
-    }
+      dataType: 'calendar',        // Changed from 'widget: calendar'
+      requestType: 'getEvents',    // What specific calendar action
+      requestId: Date.now(),       // Add requestId for response matching
+      params: {}                   // Any additional parameters
+    }, '*');
+    
+    this.updateConnectionStatus('connecting');
+    console.log('📅 ✅ PostMessage sent successfully');
+    
+  } catch (error) {
+    console.error('📅 ❌ Failed to request calendar data:', error);
+    this.updateConnectionStatus('error');
   }
+}
 
   handleCalendarData(data) {
     if (data.status === 'error') {
