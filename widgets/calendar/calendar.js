@@ -82,6 +82,22 @@ class CalendarWidget {
         console.log('📅 📨 Received calendar data from centralized service');
         this.handleCalendarData(data.data);
         break;
+ 
+      case 'widget-data-response':
+      console.log('📅 📨 Received widget data response:', data);
+      if (data.success && data.data) {
+        // Convert the response to the expected format
+        this.handleCalendarData({
+          events: data.data,  // The events array from getAllCalendarEvents()
+          calendars: [],      // We can populate this later if needed
+          lastUpdated: data.timestamp
+        });
+      } else {
+        console.error('📅 ❌ Widget data response error:', data.error);
+        this.updateConnectionStatus('error');
+      }
+      break;
+        
         
       case 'theme-change':
         console.log('📅 🎨 Received theme change:', data.theme);
