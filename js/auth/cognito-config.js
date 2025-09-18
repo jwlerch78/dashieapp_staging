@@ -27,8 +27,8 @@ export const COGNITO_CONFIG = {
   oauth: {
     // Start with basic scopes that work, then add Google API scopes later
     //scope: ['openid', 'email', 'profile'],
-    scope: ['openid', 'profile', 'email', 'https://www.googleapis.com/auth/calendar.calendarlist.readonly']
-    //scope: ['profile', 'email', 'https://www.googleapis.com/auth/photoslibrary.readonly', 'https://www.googleapis.com/auth/calendar.readonly']
+    scope: ['openid', 'profile', 'email', 'https://www.googleapis.com/auth/calendar.calendarlist.readonly'],
+    //scope: ['profile', 'email', 'https://www.googleapis.com/auth/photoslibrary.readonly', 'https://www.googleapis.com/auth/calendar.readonly'],
     
     
     // FIXED: Use the standard Cognito callback URL
