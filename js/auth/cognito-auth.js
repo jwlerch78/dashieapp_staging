@@ -83,17 +83,22 @@ export class CognitoAuth {
     try {
       console.log('🔐 🔄 Checking for existing Google session...');
       
-      // Check if user is authenticated with Google via Identity Pool
+      // Try to get credentials - this will fail if not authenticated
       const credentials = await this.amplify.Auth.currentCredentials();
       
       console.log('🔐 📋 Credentials check:', {
         authenticated: credentials.authenticated,
         identityId: credentials.identityId,
         hasParams: !!credentials.params,
-        hasLogins: !!(credentials.params && credentials.params.Logins)
+        hasLogins: !!(credentials.params && credentials.params.Logins),
+        paramsKeys: credentials.params ? Object.keys(credentials.params) : [],
+        loginKeys: credentials.params?.Logins ? Object.keys(credentials.params.Logins) : []
       });
       
       if (credentials.authenticated && credentials.params && credentials.params.Logins) {
+        const loginProviders = Object.keys(credentials.params.Logins);
+        console.log('🔐 📋 Available login providers:', loginProviders);
+        
         const googleToken = credentials.params.Logins['accounts.google.com'];
         
         if (googleToken) {
@@ -106,15 +111,29 @@ export class CognitoAuth {
           this.saveUserToStorage(userData);
           
           return userData;
+        } else {
+          console.log('🔐 ❌ No Google token found in login providers');
         }
+      } else {
+        console.log('🔐 ❌ Missing authentication data:', {
+          authenticated: credentials.authenticated,
+          hasParams: !!credentials.params,
+          hasLogins: !!(credentials.params && credentials.params.Logins)
+        });
       }
       
       console.log('🔐 ⚠️ No existing Google session found');
       return null;
       
     } catch (error) {
-      console.log('🔐 ⚠️ No existing session:', error.message);
-      return null;
+      // This error is expected if user is not authenticated
+      if (error.message.includes('Unauthenticated access is not supported')) {
+        console.log('🔐 ℹ️ No existing session - user needs to authenticate');
+        return null;
+      } else {
+        console.log('🔐 ⚠️ Session check error:', error.message);
+        return null;
+      }
     }
   }
 
