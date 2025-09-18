@@ -20,6 +20,20 @@ export class CognitoAuth {
       await this.waitForAmplify();
       this.configureAmplify();
 
+      // Check if we're coming back from Google OAuth
+      const urlParams = new URLSearchParams(window.location.search);
+      const authCode = urlParams.get('code');
+      
+      if (authCode) {
+        console.log('🔐 📨 Found Google OAuth callback with code');
+        const result = await this.handleGoogleCallback(authCode);
+        if (result.success) {
+          console.log('🔐 ✅ Google OAuth callback processed successfully');
+          this.isInitialized = true;
+          return result;
+        }
+      }
+
       // Check for existing session
       const existingUser = await this.getCurrentSession();
       if (existingUser) {
@@ -33,6 +47,101 @@ export class CognitoAuth {
     } catch (error) {
       console.error('🔐 ❌ Cognito initialization failed:', error);
       this.isInitialized = true;
+      return { success: false, error: error.message };
+    }
+  }
+
+  async init() {
+    console.log('🔐 Initializing Direct Google Federation via Identity Pool...');
+    console.log('🔐 🆔 Identity Pool ID:', COGNITO_CONFIG.identityPoolId);
+    
+    try {
+      await this.waitForAmplify();
+      this.configureAmplify();
+
+      // Check if we're coming back from Google OAuth (URL fragment method)
+      const urlFragment = window.location.hash;
+      const urlParams = new URLSearchParams(window.location.search);
+      
+      if (urlFragment && urlFragment.includes('access_token')) {
+        console.log('🔐 📨 Found Google OAuth callback in URL fragment');
+        const result = await this.handleGoogleFragmentCallback(urlFragment);
+        if (result.success) {
+          console.log('🔐 ✅ Google OAuth fragment callback processed successfully');
+          this.isInitialized = true;
+          return result;
+        }
+      } else if (urlParams.get('code')) {
+        console.log('🔐 📨 Found Google OAuth callback with code');
+        const result = await this.handleGoogleCallback(urlParams.get('code'));
+        if (result.success) {
+          console.log('🔐 ✅ Google OAuth callback processed successfully');
+          this.isInitialized = true;
+          return result;
+        }
+      }
+
+      // Check for existing session
+      const existingUser = await this.getCurrentSession();
+      if (existingUser) {
+        console.log('🔐 ✅ Found existing Google session:', existingUser.email);
+        this.isInitialized = true;
+        return { success: true, user: existingUser };
+      }
+
+      this.isInitialized = true;
+      return { success: false, reason: 'no_existing_auth' };
+    } catch (error) {
+      console.error('🔐 ❌ Cognito initialization failed:', error);
+      this.isInitialized = true;
+      return { success: false, error: error.message };
+    }
+  }
+
+  async handleGoogleFragmentCallback(fragment) {
+    console.log('🔐 📨 Processing Google OAuth fragment callback...');
+    
+    try {
+      // Parse the fragment for tokens
+      const params = new URLSearchParams(fragment.substring(1)); // Remove the #
+      const accessToken = params.get('access_token');
+      const idToken = params.get('id_token');
+      
+      if (!accessToken || !idToken) {
+        throw new Error('Missing tokens in Google OAuth callback');
+      }
+      
+      console.log('🔐 📨 ✅ Google tokens found in fragment');
+      console.log('🔐 📨 📋 Access token length:', accessToken.length);
+      console.log('🔐 📨 📋 ID token length:', idToken.length);
+      
+      // Now federate with Cognito Identity Pool using the Google ID token
+      const federatedUser = await this.amplify.Auth.federatedSignIn(
+        'google', // provider
+        { 
+          token: idToken,
+          expires_at: Date.now() + (3600 * 1000) // 1 hour from now
+        }
+      );
+      
+      console.log('🔐 📨 ✅ Successfully federated with Cognito Identity Pool');
+      
+      // Get the AWS credentials
+      const credentials = await this.amplify.Auth.currentCredentials();
+      console.log('🔐 📨 ✅ AWS credentials obtained');
+      
+      // Build user data using the Google access token
+      const userData = await this.buildUserDataFromGoogleToken(accessToken, credentials);
+      this.currentUser = userData;
+      this.saveUserToStorage(userData);
+      
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+      
+      return { success: true, user: userData };
+      
+    } catch (error) {
+      console.error('🔐 📨 ❌ Google fragment callback processing failed:', error);
       return { success: false, error: error.message };
     }
   }
@@ -127,8 +236,9 @@ export class CognitoAuth {
       
     } catch (error) {
       // This error is expected if user is not authenticated
-      if (error.message.includes('Unauthenticated access is not supported')) {
-        console.log('🔐 ℹ️ No existing session - user needs to authenticate');
+      if (error.message.includes('Unauthenticated access is not supported') || 
+          error.message.includes('NotAuthorizedException')) {
+        console.log('🔐 ℹ️ No existing session - user needs to authenticate with Google');
         return null;
       } else {
         console.log('🔐 ⚠️ Session check error:', error.message);
@@ -239,15 +349,31 @@ export class CognitoAuth {
   }
 
   async signIn() {
-    console.log('🔐 🔄 Starting Google sign-in via Identity Pool...');
+    console.log('🔐 🔄 Starting Google sign-in for Identity Pool federation...');
     
     try {
-      // Sign in directly with Google via Identity Pool
-      await this.amplify.Auth.federatedSignIn({ 
-        provider: 'Google'
-      });
+      // Step 1: Get Google OAuth token manually
+      const googleClientId = '221142210647-58t8hr48rk7nlgl56j969himso1qjjoo.apps.googleusercontent.com';
+      const redirectUri = encodeURIComponent(window.location.origin);
+      const scopes = encodeURIComponent('openid email profile https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/photoslibrary.readonly');
       
-      console.log('🔐 ✅ Google sign-in initiated - user will be redirected');
+      const googleOAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+        `client_id=${googleClientId}&` +
+        `redirect_uri=${redirectUri}&` +
+        `response_type=id_token token&` +  // Get both ID token and access token
+        `scope=${scopes}&` +
+        `access_type=offline&` +
+        `prompt=consent&` +
+        `nonce=${Date.now()}`;  // Add nonce for security
+      
+      console.log('🔐 🔄 Redirecting to Google OAuth for Identity Pool federation...');
+      console.log('🔐 📋 OAuth URL:', googleOAuthUrl);
+      
+      // Store that we're doing Identity Pool auth
+      localStorage.setItem('dashie_auth_method', 'identity_pool');
+      
+      // Redirect to Google
+      window.location.href = googleOAuthUrl;
       
     } catch (error) {
       console.error('🔐 ❌ Google sign-in failed:', error);
