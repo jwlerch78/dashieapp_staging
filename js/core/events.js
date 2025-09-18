@@ -229,6 +229,7 @@ async function handleSleepToggle() {
 
 // Browser keyboard events
 export function initializeKeyboardEvents() {
+  document.removeEventListener("keydown", handleKeyDown);
   document.addEventListener("keydown", async e => {
     const { action, originalEvent } = normalizeInput('keyboard', e);
     if (action) {
