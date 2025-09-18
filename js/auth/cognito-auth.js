@@ -1,5 +1,5 @@
 // js/auth/cognito-auth.js
-// CHANGE SUMMARY: Implemented Identity Pool integration with Auth.currentCredentials() to extract Google tokens for API access
+// CHANGE SUMMARY: Added detailed token debugging to diagnose Identity Pool authentication provider mismatch
 
 import { COGNITO_CONFIG, AMPLIFY_CONFIG } from './cognito-config.js';
 
@@ -15,6 +15,9 @@ export class CognitoAuth {
 
   async init() {
     console.log('🔐 Initializing Cognito authentication with Identity Pool...');
+    console.log('🔐 🆔 Identity Pool ID:', COGNITO_CONFIG.identityPoolId);
+    console.log('🔐 🆔 User Pool ID:', COGNITO_CONFIG.userPoolId);
+    
     try {
       await this.waitForAmplify();
       this.configureAmplify();
@@ -59,6 +62,16 @@ export class CognitoAuth {
 
   configureAmplify() {
     if (this.amplify.Amplify && typeof this.amplify.Amplify.configure === 'function') {
+      console.log('🔐 🆔 Configuring Amplify with Identity Pool...');
+      
+      // Log the exact configuration being used
+      console.log('🔐 🆔 📋 Amplify configuration:', {
+        region: AMPLIFY_CONFIG.Auth.region,
+        userPoolId: AMPLIFY_CONFIG.Auth.userPoolId,
+        userPoolWebClientId: AMPLIFY_CONFIG.Auth.userPoolWebClientId,
+        identityPoolId: AMPLIFY_CONFIG.Auth.identityPoolId
+      });
+      
       this.amplify.Amplify.configure(AMPLIFY_CONFIG);
       console.log('🔐 ✅ Amplify configured');
     } else {
@@ -117,100 +130,156 @@ export class CognitoAuth {
     }
   }
 
-  // NEW: Get Identity Pool credentials to extract Google token
+  // ENHANCED: Debug what tokens we're sending to Identity Pool
   async getIdentityPoolCredentials() {
-    console.log('🔐 🆔 Getting Identity Pool credentials...');
+    console.log('🔐 🆔 Getting Identity Pool credentials with detailed debugging...');
     
     try {
-      // Get credentials from Identity Pool
-      const credentials = await this.amplify.Auth.currentCredentials();
-      
-      console.log('🔐 🆔 ✅ Identity Pool credentials retrieved');
-      console.log('🔐 🆔 📋 Credentials object keys:', Object.keys(credentials || {}));
-      
-      // Debug: Log the full credentials structure (safely)
-      if (credentials) {
-        console.log('🔐 🆔 📋 Credentials.authenticated:', credentials.authenticated);
-        console.log('🔐 🆔 📋 Credentials.identityId:', credentials.identityId);
-        
-        // Check for Google token in params.Logins
-        if (credentials.params && credentials.params.Logins) {
-          console.log('🔐 🆔 📋 Available login providers:', Object.keys(credentials.params.Logins));
-          
-          const googleToken = credentials.params.Logins['accounts.google.com'];
-          if (googleToken) {
-            console.log('🔐 🆔 ✅ Google token found in Identity Pool credentials!');
-            console.log('🔐 🆔 📋 Google token length:', googleToken.length);
-            console.log('🔐 🆔 📋 Google token preview:', googleToken.substring(0, 20) + '...');
-            return { success: true, googleToken, credentials };
-          } else {
-            console.log('🔐 🆔 ❌ No Google token found in accounts.google.com login');
-          }
-        } else {
-          console.log('🔐 🆔 ❌ No params.Logins found in credentials');
-        }
-        
-        // Debug: Check other possible locations for the token
-        console.log('🔐 🆔 📋 Full credentials structure:');
-        console.log('🔐 🆔 📋 - accessKeyId present:', !!credentials.accessKeyId);
-        console.log('🔐 🆔 📋 - secretAccessKey present:', !!credentials.secretAccessKey);
-        console.log('🔐 🆔 📋 - sessionToken present:', !!credentials.sessionToken);
+      // First, verify our current authentication state
+      const user = await this.amplify.Auth.currentAuthenticatedUser();
+      if (!user) {
+        throw new Error('No authenticated user available');
       }
       
-      return { success: false, error: 'Google token not found in Identity Pool credentials' };
+      console.log('🔐 🆔 📋 Current user details:', {
+        username: user.username,
+        pool: user.pool?.userPoolId,
+        clientId: user.pool?.clientId
+      });
+      
+      // Get the current session and examine the tokens
+      const session = await this.amplify.Auth.currentSession();
+      if (!session || !session.isValid()) {
+        throw new Error('Invalid or expired session');
+      }
+      
+      const idToken = session.getIdToken();
+      const idPayload = idToken.payload;
+      
+      console.log('🔐 🆔 📋 ID Token details:', {
+        issuer: idPayload.iss,
+        audience: idPayload.aud,
+        tokenUse: idPayload.token_use,
+        identities: idPayload.identities?.length || 0,
+        hasGoogleIdentity: idPayload.identities?.some(i => i.providerName === 'Google') || false
+      });
+      
+      // Check if the issuer matches what Identity Pool expects
+      const expectedIssuer = `https://cognito-idp.${COGNITO_CONFIG.region}.amazonaws.com/${COGNITO_CONFIG.userPoolId}`;
+      console.log('🔐 🆔 📋 Expected issuer:', expectedIssuer);
+      console.log('🔐 🆔 📋 Actual issuer:', idPayload.iss);
+      console.log('🔐 🆔 📋 Issuer match:', idPayload.iss === expectedIssuer);
+      
+      // Log the exact configuration that will be used for the Identity Pool call
+      console.log('🔐 🆔 📋 About to call currentCredentials() with:');
+      console.log('🔐 🆔 📋 - Identity Pool ID:', COGNITO_CONFIG.identityPoolId);
+      console.log('🔐 🆔 📋 - User Pool ID:', COGNITO_CONFIG.userPoolId);
+      console.log('🔐 🆔 📋 - Client ID:', COGNITO_CONFIG.userPoolWebClientId);
+      
+      // Now try to get the credentials - this is where the error occurs
+      console.log('🔐 🆔 🔄 Calling Auth.currentCredentials()...');
+      const credentials = await this.amplify.Auth.currentCredentials();
+      
+      console.log('🔐 🆔 ✅ Credentials retrieved successfully!');
+      console.log('🔐 🆔 📋 Credentials details:', {
+        authenticated: credentials.authenticated,
+        identityId: credentials.identityId,
+        hasParams: !!credentials.params,
+        hasLogins: !!(credentials.params && credentials.params.Logins)
+      });
+      
+      // Check for Google token
+      if (credentials.params && credentials.params.Logins) {
+        const loginProviders = Object.keys(credentials.params.Logins);
+        console.log('🔐 🆔 📋 Login providers found:', loginProviders);
+        
+        const googleToken = credentials.params.Logins['accounts.google.com'];
+        if (googleToken) {
+          console.log('🔐 🆔 ✅ Google token found!');
+          console.log('🔐 🆔 📋 Token length:', googleToken.length);
+          console.log('🔐 🆔 📋 Token preview:', googleToken.substring(0, 30) + '...');
+          return { success: true, googleToken, credentials };
+        } else {
+          console.log('🔐 🆔 ❌ No Google token in login providers');
+        }
+      }
+      
+      return { success: false, error: 'No Google token found', credentials };
       
     } catch (error) {
-      console.error('🔐 🆔 ❌ Failed to get Identity Pool credentials:', error);
+      console.error('🔐 🆔 ❌ Identity Pool credentials failed:', error);
+      
+      // Enhanced error analysis
+      if (error.message.includes('Invalid login token')) {
+        console.error('🔐 🆔 💡 DIAGNOSIS: Token validation failed');
+        console.error('🔐 🆔 💡 Possible causes:');
+        console.error('🔐 🆔 💡 1. Identity Pool authentication provider misconfigured');
+        console.error('🔐 🆔 💡 2. User Pool ID mismatch in Identity Pool settings');
+        console.error('🔐 🆔 💡 3. App Client ID mismatch in Identity Pool settings');
+        console.error('🔐 🆔 💡 4. Token issuer not matching expected format');
+        console.error('🔐 🆔 💡 5. AWS configuration propagation delay');
+        
+        console.error('🔐 🆔 💡 RECOMMENDED ACTIONS:');
+        console.error('🔐 🆔 💡 1. Verify User Pool ID in Identity Pool: us-east-2_nbo8y8lm');
+        console.error('🔐 🆔 💡 2. Verify App Client ID in Identity Pool: 6is70fls6vp2i511k93ltgs66h');
+        console.error('🔐 🆔 💡 3. Wait 5-10 minutes for AWS propagation');
+        console.error('🔐 🆔 💡 4. Try clearing browser cache and re-authenticating');
+      }
+      
       return { success: false, error: error.message };
     }
   }
 
-  // ENHANCED: Format user data using both User Pool and Identity Pool
+  // Format user data with comprehensive debugging
   async formatUserDataWithIdentityPool(cognitoUser, session) {
     console.log('🔐 📝 Formatting user data with Identity Pool integration...');
     
     const idPayload = session.getIdToken().payload || {};
     let googleToken = null;
+    let tokenSource = 'none';
 
-    // Method 1: Try to get Google token from Identity Pool (preferred)
-    console.log('🔐 📝 🔄 Attempting to get Google token from Identity Pool...');
+    // Try Identity Pool method with detailed error handling
+    console.log('🔐 📝 🔄 Attempting Identity Pool token extraction...');
     const identityPoolResult = await this.getIdentityPoolCredentials();
     
     if (identityPoolResult.success) {
       googleToken = identityPoolResult.googleToken;
+      tokenSource = 'identity_pool';
       this.identityPoolCredentials = identityPoolResult.credentials;
-      console.log('🔐 📝 ✅ Using Google token from Identity Pool');
+      console.log('🔐 📝 ✅ Successfully extracted Google token from Identity Pool');
     } else {
-      console.log('🔐 📝 ⚠️ Identity Pool method failed, trying fallback...');
+      console.log('🔐 📝 ⚠️ Identity Pool failed:', identityPoolResult.error);
       
-      // Method 2: Fallback to ID token identities (existing method)
+      // Fallback to ID token method
+      console.log('🔐 📝 🔄 Trying ID token fallback...');
       try {
         if (idPayload.identities && Array.isArray(idPayload.identities)) {
-          console.log('🔐 📝 🔄 Checking ID token identities for Google token...');
           const googleIdentity = idPayload.identities.find(i => i.providerName === 'Google');
           if (googleIdentity && googleIdentity.access_token) {
             googleToken = googleIdentity.access_token;
-            console.log('🔐 📝 ✅ Using Google token from ID token identities (fallback)');
+            tokenSource = 'id_token_fallback';
+            console.log('🔐 📝 ✅ Using Google token from ID token (fallback method)');
           }
         }
       } catch (fallbackError) {
-        console.log('🔐 📝 ❌ Fallback method also failed:', fallbackError.message);
+        console.log('🔐 📝 ❌ ID token fallback also failed:', fallbackError.message);
       }
     }
 
     // Store the token
     this.googleAccessToken = googleToken;
 
-    // Log final token status
+    // Final status
     if (googleToken) {
-      console.log('🔐 📝 ✅ Google access token successfully retrieved!');
+      console.log('🔐 📝 ✅ Google access token available for API calls');
+      console.log('🔐 📝 📋 Token source:', tokenSource);
       console.log('🔐 📝 📋 Token length:', googleToken.length);
-      console.log('🔐 📝 📋 Token preview:', googleToken.substring(0, 20) + '...');
     } else {
-      console.log('🔐 📝 ❌ No Google access token available - API calls will fail');
+      console.log('🔐 📝 ❌ No Google access token - API calls will fail');
+      console.log('🔐 📝 💡 Identity Pool configuration needs to be fixed');
     }
 
-    // Build user data object
+    // Build user data
     const userData = {
       id: cognitoUser.username,
       email: idPayload.email || cognitoUser.attributes?.email,
@@ -223,6 +292,7 @@ export class CognitoAuth {
       authMethod: 'cognito',
       provider: 'google',
       googleAccessToken: googleToken,
+      tokenSource: tokenSource,
       cognitoTokens: {
         idToken: session.getIdToken().getJwtToken(),
         accessToken: session.getAccessToken().getJwtToken(),
@@ -233,23 +303,13 @@ export class CognitoAuth {
       lastSignIn: Date.now()
     };
 
-    console.log('🔐 📝 ✅ User data formatted:', {
-      email: userData.email,
-      name: userData.name,
-      hasGoogleToken: !!userData.googleAccessToken,
-      hasIdentityPoolId: !!userData.identityPoolId,
-      tokenSource: googleToken ? (identityPoolResult.success ? 'Identity Pool' : 'ID Token') : 'None'
-    });
-
     return userData;
   }
 
-  // NEW: Refresh session and get updated Google token
   async refreshSession() {
-    console.log('🔐 🔄 Refreshing Cognito session and Google token...');
+    console.log('🔐 🔄 Refreshing Cognito session...');
     
     try {
-      // Refresh the Cognito session
       const user = await this.amplify.Auth.currentAuthenticatedUser();
       const session = await this.amplify.Auth.currentSession();
       
@@ -257,7 +317,6 @@ export class CognitoAuth {
         throw new Error('No valid session to refresh');
       }
 
-      // Get updated user data with fresh tokens
       const userData = await this.formatUserDataWithIdentityPool(user, session);
       this.currentUser = userData;
       this.saveUserToStorage(userData);
