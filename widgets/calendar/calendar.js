@@ -169,36 +169,36 @@ requestCalendarData() {
 
 
     this.calendarData.events.forEach((event, eventIndex) => {
-      // Find matching calendar configuration
+      // find matching calendar by calendarId
       let calendarConfig = null;
       let tuiCalendar = null;
-
+    
       for (let i = 0; i < this.GOOGLE_CALENDARS.length; i++) {
-        if (event.calendarName === this.GOOGLE_CALENDARS[i].summary) {
+        if (event.calendarId === this.GOOGLE_CALENDARS[i].id) { // <-- use calendarId, not summary
           calendarConfig = this.GOOGLE_CALENDARS[i];
           tuiCalendar = this.tuiCalendars[i];
           break;
         }
       }
-
+    
       if (!calendarConfig) {
         calendarConfig = this.GOOGLE_CALENDARS[0];
         tuiCalendar = this.tuiCalendars[0];
       }
-
-      // Determine if the event should be all-day
-      const start = new Date(event.startDateTime);
-      let end = new Date(event.endDateTime);
-
-      let isAllDay = event.isAllDay || false;
-
-      // New logic: same hour, different day → mark as all-day
+    
+      // correctly pull start/end
+      const startString = event.start.dateTime || event.start.date;
+      const endString = event.end.dateTime || event.end.date;
+      const start = new Date(startString);
+      let end = new Date(endString);
+    
+      // determine all-day
+      let isAllDay = !!event.start.date; // Google uses date for all-day
       if (!isAllDay && start.getHours() === end.getHours() && start.toDateString() !== end.toDateString()) {
         isAllDay = true;
-        // Adjust end date for TUI Calendar
         end = new Date(end.getTime() - 24 * 60 * 60 * 1000);
       }
-
+    
       const tuiEvent = {
         id: `event-${eventIndex}`,
         calendarId: tuiCalendar.id,
@@ -211,9 +211,10 @@ requestCalendarData() {
         color: tuiCalendar.color,
         raw: event
       };
-
+    
       tuiEvents.push(tuiEvent);
     });
+
 
     if (tuiEvents.length > 0) {
       this.calendar.createEvents(tuiEvents);
