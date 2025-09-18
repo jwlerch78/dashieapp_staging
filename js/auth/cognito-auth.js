@@ -362,7 +362,6 @@ export class CognitoAuth {
         `redirect_uri=${redirectUri}&` +
         `response_type=id_token token&` +  // Get both ID token and access token
         `scope=${scopes}&` +
-        `access_type=offline&` +
         `prompt=consent&` +
         `nonce=${Date.now()}`;  // Add nonce for security
       
