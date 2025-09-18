@@ -1,5 +1,5 @@
 // js/supabase/simple-supabase-storage.js
-// CHANGE SUMMARY: Simplified to use Cognito JWT tokens directly for RLS, removed Edge Function complexity
+// CHANGE SUMMARY: Simplified to use Cognito JWT tokens directly for RLS, removed Edge Function complexity, added proper RLS detection
 
 import { supabase } from './supabase-config.js';
 
@@ -77,10 +77,11 @@ export class SimpleSupabaseStorage {
   // NEW: Test if RLS is enabled on the table
   async testRLSStatus() {
     try {
-      // Try an unauthenticated request to see what happens
+      // Try an unauthenticated request with a real column (not aggregate function)
+      // This will properly trigger RLS if it's enabled
       const { data, error } = await this.supabase
         .from('user_settings')
-        .select('count')
+        .select('user_email')
         .limit(1);
       
       if (error) {
@@ -89,7 +90,8 @@ export class SimpleSupabaseStorage {
             error.code === 'PGRST116' ||
             error.message.includes('policy') ||
             error.message.includes('permission') ||
-            error.message.includes('access denied')) {
+            error.message.includes('access denied') ||
+            error.message.includes('insufficient privilege')) {
           // RLS is enabled - requests are being blocked
           console.log('📊 ✅ RLS is enabled on user_settings table (detected via error:', error.code, ')');
           return { enabled: true, detectedVia: error.code };
@@ -98,15 +100,47 @@ export class SimpleSupabaseStorage {
           console.warn('📊 ⚠️ Unexpected error testing RLS status:', error);
           return { enabled: false, error, uncertain: true };
         }
-      } else {
-        // Request succeeded without authentication - RLS is definitely disabled
-        console.log('📊 ⚠️ RLS is disabled on user_settings table (unauthenticated access succeeded)');
+      } else if (data && data.length > 0) {
+        // Request succeeded and returned actual data - RLS is definitely disabled
+        console.log('📊 ⚠️ RLS is disabled on user_settings table (unauthenticated access returned data)');
         return { enabled: false };
+      } else {
+        // Request succeeded but returned empty array - could mean RLS is on but no data matches
+        // Let's try a more specific test
+        console.log('📊 🤔 Ambiguous result (empty data) - testing with specific query...');
+        return await this.testRLSWithSpecificQuery();
       }
     } catch (error) {
       console.error('📊 ❌ Failed to test RLS status:', error);
       // Assume RLS is enabled to be safe
       return { enabled: true, error, assumedEnabled: true };
+    }
+  }
+
+  // Additional test when initial test is ambiguous
+  async testRLSWithSpecificQuery() {
+    try {
+      // Try to access a record that should exist if RLS is off
+      const { data, error } = await this.supabase
+        .from('user_settings')
+        .select('*')
+        .limit(1);
+      
+      if (error) {
+        if (error.code === 'PGRST301' || error.message.includes('policy')) {
+          console.log('📊 ✅ RLS is enabled (confirmed with specific query)');
+          return { enabled: true, detectedVia: error.code };
+        }
+      } 
+      
+      // If we get here, RLS is likely disabled
+      console.log('📊 ⚠️ RLS appears to be disabled (specific query succeeded)');
+      return { enabled: false };
+      
+    } catch (error) {
+      // Any error suggests RLS is enabled
+      console.log('📊 ✅ RLS is enabled (specific query failed)');
+      return { enabled: true, detectedVia: 'query_failed' };
     }
   }
 
@@ -180,11 +214,6 @@ export class SimpleSupabaseStorage {
     }
     
     return null;
-  }
-
-  // Test RLS access to verify authentication works (legacy method, kept for compatibility)
-  async testRLSAccess() {
-    return this.testAuthenticatedAccess();
   }
 
   // Load settings from Supabase or localStorage fallback
@@ -640,6 +669,11 @@ export class SimpleSupabaseStorage {
       this.realtimeSubscription = null;
     }
     console.log('📊 🔄 Unsubscribed from all changes');
+  }
+
+  // Test RLS access to verify authentication works (legacy method, kept for compatibility)
+  async testRLSAccess() {
+    return this.testAuthenticatedAccess();
   }
 
   // Cleanup method
