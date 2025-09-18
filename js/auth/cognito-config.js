@@ -18,7 +18,6 @@ export const COGNITO_CONFIG = {
   userPoolWebClientId: '6is70fls6vp2i511k93ltgs66h', // Fixed to match your actual URL
   
   // NEW: Identity Pool ID for Google token pass-through
-  // TODO: Replace with actual Identity Pool ID after creation
   identityPoolId: 'us-east-2:02eb207e-f6ce-40c1-88c8-43de78118e79',
   
   // Cognito Domain
