@@ -28,8 +28,20 @@ export class SimpleSupabaseStorage {
     
     if (cognitoToken && currentUser) {
       try {
-        // Set the JWT token directly in Supabase client headers
-        this.supabase.auth.setAuth(cognitoToken);
+        // Create a new Supabase client instance with the JWT token
+        const { createClient } = await import('https://cdn.skypack.dev/@supabase/supabase-js@2');
+        this.authenticatedSupabase = createClient(
+          this.supabase.supabaseUrl, 
+          this.supabase.supabaseKey,
+          {
+            global: {
+              headers: {
+                Authorization: `Bearer ${cognitoToken}`
+              }
+            }
+          }
+        );
+        
         this.isRLSMode = true;
         this.currentUser = currentUser;
         
@@ -104,7 +116,8 @@ export class SimpleSupabaseStorage {
   // Test RLS access to verify authentication works
   async testRLSAccess() {
     try {
-      const { data, error } = await this.supabase
+      const client = this.isRLSMode ? this.authenticatedSupabase : this.supabase;
+      const { data, error } = await client
         .from('user_settings')
         .select('count')
         .limit(1);
@@ -179,7 +192,8 @@ export class SimpleSupabaseStorage {
       // Refresh auth token if needed
       await this.refreshAuthIfNeeded();
       
-      const { data, error } = await this.supabase
+      const client = this.authenticatedSupabase || this.supabase;
+      const { data, error } = await client
         .from('user_settings')
         .select('settings, updated_at')
         .eq('user_email', user.email)
@@ -284,18 +298,33 @@ export class SimpleSupabaseStorage {
       // Refresh auth token if needed
       await this.refreshAuthIfNeeded();
       
-      const { data, error } = await this.supabase
+      const client = this.authenticatedSupabase || this.supabase;
+      
+      // First try to update existing record
+      const { data: updateData, error: updateError } = await client
         .from('user_settings')
-        .upsert({
-          user_email: user.email,
-          user_id: user.id || user.sub,
+        .update({
           settings: settings,
           updated_at: new Date().toISOString()
-        }, { 
-          onConflict: 'user_email'
-        });
+        })
+        .eq('user_email', user.email);
 
-      if (error) throw error;
+      if (updateError && updateError.code === 'PGRST116') {
+        // No existing record, create new one
+        const { data: insertData, error: insertError } = await client
+          .from('user_settings')
+          .insert({
+            user_email: user.email,
+            user_id: user.id || user.sub,
+            settings: settings,
+            updated_at: new Date().toISOString()
+          });
+
+        if (insertError) throw insertError;
+      } else if (updateError) {
+        throw updateError;
+      }
+
       return true;
 
     } catch (error) {
@@ -306,18 +335,31 @@ export class SimpleSupabaseStorage {
 
   async saveSettingsWithoutRLS(user, settings) {
     try {
-      const { data, error } = await this.supabase
+      // First try to update existing record
+      const { data: updateData, error: updateError } = await this.supabase
         .from('user_settings')
-        .upsert({
-          user_email: user.email,
-          user_id: user.id || user.sub,
+        .update({
           settings: settings,
           updated_at: new Date().toISOString()
-        }, { 
-          onConflict: 'user_email'
-        });
+        })
+        .eq('user_email', user.email);
 
-      if (error) throw error;
+      if (updateError && updateError.code === 'PGRST116') {
+        // No existing record, create new one
+        const { data: insertData, error: insertError } = await this.supabase
+          .from('user_settings')
+          .insert({
+            user_email: user.email,
+            user_id: user.id || user.sub,
+            settings: settings,
+            updated_at: new Date().toISOString()
+          });
+
+        if (insertError) throw insertError;
+      } else if (updateError) {
+        throw updateError;
+      }
+
       return true;
 
     } catch (error) {
@@ -334,10 +376,21 @@ export class SimpleSupabaseStorage {
         // This should also refresh Cognito tokens
         await window.authManager.refreshGoogleAccessToken();
         
-        // Update our auth token
+        // Update our auth token and recreate authenticated client
         const newToken = this.getCognitoAuthToken();
-        if (newToken) {
-          this.supabase.auth.setAuth(newToken);
+        if (newToken && this.isRLSMode) {
+          const { createClient } = await import('https://cdn.skypack.dev/@supabase/supabase-js@2');
+          this.authenticatedSupabase = createClient(
+            this.supabase.supabaseUrl, 
+            this.supabase.supabaseKey,
+            {
+              global: {
+                headers: {
+                  Authorization: `Bearer ${newToken}`
+                }
+              }
+            }
+          );
           console.log('📊 ✅ Auth token refreshed');
         }
       }
@@ -471,7 +524,8 @@ export class SimpleSupabaseStorage {
       }
 
       // Subscribe to changes for this user's settings
-      this.realtimeSubscription = this.supabase
+      const client = this.authenticatedSupabase || this.supabase;
+      this.realtimeSubscription = client
         .channel('user_settings_changes')
         .on('postgres_changes', 
           { 
