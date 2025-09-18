@@ -98,7 +98,8 @@ class CalendarWidget {
   requestCalendarData() {
     console.log('📅 📤 Requesting calendar data from centralized service...');
     console.log('📅 🔄 Sending postMessage:', {
-      type: 'google-calendar-request',
+      type: 'widget-data-request',
+      widget: 'calendar',
       timestamp: Date.now(),
       parentExists: !!window.parent,
       isInIframe: window !== window.parent
@@ -106,14 +107,14 @@ class CalendarWidget {
 
     try {
       window.parent.postMessage({
-        type: 'request-calendar-data',
+        type: 'widget-data-request',
         widget: 'calendar',
         timestamp: Date.now()
       }, '*');
       this.updateConnectionStatus('connecting');
 
       window.parent.postMessage({
-        type: 'google-calendar-request'
+        type: 'widget-data-request'
       }, '*');
       console.log('📅 ✅ PostMessage sent successfully');
       
