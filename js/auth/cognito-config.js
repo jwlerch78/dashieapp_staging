@@ -26,7 +26,10 @@ export const COGNITO_CONFIG = {
   // OAuth Configuration - FIXED CALLBACK URL
   oauth: {
     // Start with basic scopes that work, then add Google API scopes later
-    scope: ['openid', 'email', 'profile'],
+    //scope: ['openid', 'email', 'profile'],
+    scope: ['profile', 'email', 'https://www.googleapis.com/auth/calendar.calendarlist.readonly']
+    //scope: ['profile', 'email', 'https://www.googleapis.com/auth/photoslibrary.readonly', 'https://www.googleapis.com/auth/calendar.readonly']
+    
     
     // FIXED: Use the standard Cognito callback URL
     redirectSignIn: environment === 'production' 
