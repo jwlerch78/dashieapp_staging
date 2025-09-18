@@ -1,5 +1,5 @@
 // js/auth/cognito-config.js
-// CHANGE SUMMARY: Fixed callback URL to use /oauth2/idpresponse instead of /auth/callback
+// CHANGE SUMMARY: Added Identity Pool ID configuration for Google token pass-through
 
 // Environment detection
 function getEnvironment() {
@@ -17,13 +17,16 @@ export const COGNITO_CONFIG = {
   userPoolId: 'us-east-2_nbo8y8lm',
   userPoolWebClientId: '6is70fls6vp2i511k93ltgs66h', // Fixed to match your actual URL
   
+  // NEW: Identity Pool ID for Google token pass-through
+  // TODO: Replace with actual Identity Pool ID after creation
+  identityPoolId: 'us-east-2:02eb207e-f6ce-40c1-88c8-43de78118e79',
+  
   // Cognito Domain
   domain: 'us-east-2wnbo8y8lm.auth.us-east-2.amazoncognito.com',
   
   // OAuth Configuration - FIXED CALLBACK URL
   oauth: {
     // Start with basic scopes that work, then add Google API scopes later
-    //scope: ['openid', 'email', 'profile', 'https://www.googleapis.com/auth/calendar.readonly'],
     scope: ['openid', 'email', 'profile'],
     
     // FIXED: Use the standard Cognito callback URL
@@ -43,12 +46,16 @@ export const COGNITO_CONFIG = {
   }
 };
 
-// Amplify Configuration Object
+// Amplify Configuration Object - ENHANCED with Identity Pool
 export const AMPLIFY_CONFIG = {
   Auth: {
     region: COGNITO_CONFIG.region,
     userPoolId: COGNITO_CONFIG.userPoolId,
     userPoolWebClientId: COGNITO_CONFIG.userPoolWebClientId,
+    
+    // NEW: Identity Pool configuration
+    identityPoolId: COGNITO_CONFIG.identityPoolId,
+    
     oauth: {
       domain: COGNITO_CONFIG.domain,
       scope: COGNITO_CONFIG.oauth.scope,
@@ -61,6 +68,7 @@ export const AMPLIFY_CONFIG = {
 
 console.log('🔐 Cognito config loaded for environment:', environment);
 console.log('🔐 Using client ID:', COGNITO_CONFIG.userPoolWebClientId);
+console.log('🔐 Using Identity Pool ID:', COGNITO_CONFIG.identityPoolId);
 console.log('🔐 Redirect URLs:', {
   signIn: COGNITO_CONFIG.oauth.redirectSignIn,
   signOut: COGNITO_CONFIG.oauth.redirectSignOut
