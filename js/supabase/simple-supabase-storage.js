@@ -107,7 +107,7 @@ export class SimpleSupabaseStorage {
       // Direct query approach - RLS policies should be based on user_email
       const { data, error } = await this.supabase
         .from('user_settings')
-        .select('settings_data, updated_at')
+        .select('settings, updated_at')
         .eq('user_email', user.email)
         .single();
 
@@ -120,10 +120,10 @@ export class SimpleSupabaseStorage {
         throw error;
       }
 
-      if (data?.settings_data) {
+      if (data?.settings) {
         console.log('📊 ✅ Settings loaded from database');
-        this.saveToLocalStorage(user.email, data.settings_data);
-        return data.settings_data;
+        this.saveToLocalStorage(user.email, data.settings);
+        return data.settings;
       }
 
     } catch (error) {
@@ -164,7 +164,7 @@ export class SimpleSupabaseStorage {
         .from('user_settings')
         .upsert({
           user_email: user.email,
-          settings_data: settings,
+          settings: settings,
           updated_at: new Date().toISOString()
         }, { 
           onConflict: 'user_email'
