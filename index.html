@@ -92,8 +92,8 @@
 
     <!-- JavaScript modules (FIXED: All paths now absolute) -->
     <script type="module">
-        // FIXED: Import and initialize the app with correct function name
-        import('./js/main.js').then((module) => {
+        // FIXED: Import and initialize the app with correct function name and absolute path
+        import('/js/main.js').then((module) => {
             // Try multiple possible export names
             const initFn = module.initializeApp || module.default || module.init;
             if (initFn && typeof initFn === 'function') {
