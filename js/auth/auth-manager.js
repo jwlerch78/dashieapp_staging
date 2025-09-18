@@ -81,6 +81,7 @@ export class AuthManager {
       picture: userData.picture,
       firstname: userData.given_name,
       lastname: userData.family_name,
+      id: userData.id,
       hasGoogleToken: !!this.googleAccessToken
     });
     
