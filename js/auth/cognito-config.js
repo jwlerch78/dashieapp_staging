@@ -15,7 +15,7 @@ export const COGNITO_CONFIG = {
   // AWS Cognito Settings - USE THE CORRECT CLIENT ID
   region: 'us-east-2',
   userPoolId: 'us-east-2_nbo8y8lm',
-  userPoolWebClientId: '35h8kpkr2j8agv1m1id7vfal6m', // Fixed to match your actual URL
+  userPoolWebClientId: '6is70fls6vp2i511k93ltgs66h', // Fixed to match your actual URL
   
   // Cognito Domain
   domain: 'us-east-2wnbo8y8lm.auth.us-east-2.amazoncognito.com',
