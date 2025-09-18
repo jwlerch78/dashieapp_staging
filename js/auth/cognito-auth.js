@@ -355,7 +355,8 @@ export class CognitoAuth {
       // Step 1: Get Google OAuth token manually
       const googleClientId = '221142210647-58t8hr48rk7nlgl56j969himso1qjjoo.apps.googleusercontent.com';
       const redirectUri = encodeURIComponent(window.location.origin);
-      const scopes = encodeURIComponent('openid email profile https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/photoslibrary.readonly');
+      // Start with minimal scopes to test
+      const scopes = encodeURIComponent('openid email profile');
       
       const googleOAuthUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
         `client_id=${googleClientId}&` +
