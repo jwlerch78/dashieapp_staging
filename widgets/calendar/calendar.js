@@ -394,11 +394,9 @@ updateAllDayHeight() {
     console.log('📅 Calendar widget received command:', action);
     switch (action) {
       case 'right': 
-      case 'next-view':
         this.navigateCalendar('next'); 
         break;
       case 'left': 
-      case 'prev-view':
         this.navigateCalendar('previous'); 
         break;
       case 'up': 
@@ -410,11 +408,13 @@ updateAllDayHeight() {
       case 'enter': 
         console.log('📅 Enter pressed on calendar widget'); 
         break;
+      case 'next-view':
       case 'fastforward': 
       case 'ff': 
       case ',': 
         this.cycleView('forward'); 
         break;
+      case 'prev-view':
       case 'rewind': 
       case 'rw': 
       case '.': 
