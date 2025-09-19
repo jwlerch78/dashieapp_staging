@@ -148,7 +148,7 @@ html, body {
 .toastui-calendar-allday-event {
   margin: 1px 4px;
   padding: 2px 4px;
-  border-radius: 3px;
+  border-radius: 8px !important;
   font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
@@ -170,6 +170,12 @@ html, body {
   white-space: normal;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+
+.toastui-calendar-event-time {
+  border-radius: 8px !important;
 }
 
 /* Hide left-hand exact time column */
