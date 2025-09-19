@@ -145,7 +145,10 @@ html, body {
   overflow: hidden;
 }
 
-.toastui-calendar-allday-event {
+/* All-day events */
+.toastui-calendar-allday-event,
+.toastui-calendar-allday-event .toastui-calendar-event,
+.toastui-calendar-allday-event .toastui-calendar-event-time-content {
   margin: 1px 4px;
   padding: 2px 4px;
   border-radius: 8px !important;
