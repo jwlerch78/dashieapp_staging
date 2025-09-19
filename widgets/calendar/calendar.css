@@ -94,15 +94,13 @@ html, body {
 
 /* ===== TOAST UI CALENDAR THEME OVERRIDES ===== */
 
-/* Main calendar container - force theme colors and full height */
 .toastui-calendar {
   background: var(--bg-secondary, #333) !important;
-  color: var(--text-primary, #fff) !important;
   height: 100% !important;
   width: 100% !important;
+  /* removed color override to allow event text colors */
 }
 
-/* Calendar layout and panels - ensure full height */
 .toastui-calendar-layout {
   height: 100% !important;
   background: var(--bg-secondary, #333) !important;
@@ -112,7 +110,6 @@ html, body {
   background: var(--bg-secondary, #333) !important;
 }
 
-/* View containers - ensure full height */
 .toastui-calendar-week-view,
 .toastui-calendar-month-view,
 .toastui-calendar-daily-view {
@@ -146,14 +143,18 @@ html, body {
   overflow: hidden !important;
 }
 
-.toastui-calendar-allday-event {
+/* Event styling - allow JS colors to be applied */
+.toastui-calendar-allday-event,
+.toastui-calendar-event {
   margin: 1px 4px !important;
   padding: 2px 4px !important;
   border-radius: 3px !important;
   font-size: 11px !important;
-  white-space: nowrap !important;  /* prevent wrapping if you want */
+  white-space: normal !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
+  background: unset !important;   /* allow inline color from JS */
+  color: unset !important;        /* allow inline text color from JS */
 }
 
 /* Ensure the header of the all-day section is visible */
