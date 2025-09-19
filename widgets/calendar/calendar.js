@@ -200,6 +200,7 @@ loadEventsIntoCalendar() {
 }
 
 
+
   updateConnectionStatus(status) {
     this.connectionStatus = status;
     const statusEl = document.querySelector('.status');
