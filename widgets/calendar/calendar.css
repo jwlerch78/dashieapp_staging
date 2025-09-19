@@ -170,11 +170,12 @@ html, body {
 
 /* Event text wrapping for all-day and timed events */
 .toastui-calendar-event .toastui-calendar-content {
-  white-space: normal;
+  white-space: normal !important;
   word-wrap: break-word;
   overflow-wrap: break-word;
   border-radius: 8px !important;
-  overflow: hidden;
+  overflow: visible !important;
+  line-height: 1.2em;              
 }
 
 .toastui-calendar-event-time {
