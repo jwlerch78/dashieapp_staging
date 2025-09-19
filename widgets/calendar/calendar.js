@@ -332,34 +332,39 @@ updateAllDayHeight() {
     endDate.setDate(endDate.getDate() + 6);
   }
 
-  // Count all-day events per day using already-loaded events
+  // Count all-day events per day
   const dayCounts = {};
 
   this.calendarData.events.forEach(ev => {
-    // Use the adjusted values we stored in loadEventsIntoCalendar
+    // Determine start/end
     let start = new Date(ev.start.dateTime || ev.start.date);
     let end = new Date(ev.end.dateTime || ev.end.date);
-    let isAllDay = !!ev.start.date; 
+
+    // Determine if all-day
+    let isAllDay = !!ev.start.date;
     if (!isAllDay && start.getHours() === end.getHours() && start.toDateString() !== end.toDateString()) {
       isAllDay = true;
-      end = new Date(end.getTime() - 24 * 60 * 60 * 1000);
     }
 
-    if (!isAllDay) return;
+    if (isAllDay) {
+      // Adjust end date for Google all-day events
+      end = new Date(end.getTime() - 24*60*60*1000);
 
-    let current = new Date(start);
-    while (current <= end) {
-      if (current >= startDate && current <= endDate) {
-        const dayKey = current.toDateString();
-        dayCounts[dayKey] = (dayCounts[dayKey] || 0) + 1;
+      // Iterate over each day of the event
+      let current = new Date(start);
+      while (current <= end) {
+        if (current >= startDate && current <= endDate) {
+          const dayKey = current.toDateString();
+          dayCounts[dayKey] = (dayCounts[dayKey] || 0) + 1;
+        }
+        current.setDate(current.getDate() + 1);
       }
-      current.setDate(current.getDate() + 1);
     }
   });
 
   const maxEvents = Math.max(0, ...Object.values(dayCounts));
 
-  const rowHeight = 20;
+  const rowHeight = 24;  // slightly taller to prevent clipping
   const padding = 8;
 
   if (maxEvents === 0) {
@@ -370,6 +375,7 @@ updateAllDayHeight() {
     allDayContainer.style.display = 'block';
   }
 }
+
 
   
 
