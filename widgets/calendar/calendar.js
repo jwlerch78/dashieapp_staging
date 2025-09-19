@@ -219,6 +219,7 @@ requestCalendarData() {
     if (tuiEvents.length > 0) {
       this.calendar.createEvents(tuiEvents);
       console.log(`📅 ✅ Loaded ${tuiEvents.length} events into TUI Calendar`);
+      this.updateAllDayHeight();
     } else {
       console.log('📅 ℹ️ No events to display');
     }
@@ -373,10 +374,16 @@ updateAllDayHeight() {
 
   const maxEvents = Math.max(0, ...Object.values(dayCounts));
 
-  const rowHeight = 16;
+  const rowHeight = 20;
   const padding = 8;
 
-  allDayContainer.style.height = `${maxEvents * rowHeight + padding}px`;
+  if (maxEvents === 0) {
+    allDayContainer.style.height = '0px';
+    allDayContainer.style.display = 'none';
+  } else {
+    allDayContainer.style.height = `${maxEvents * rowHeight + padding}px`;
+    allDayContainer.style.display = 'block';
+  }
 }
 
 
