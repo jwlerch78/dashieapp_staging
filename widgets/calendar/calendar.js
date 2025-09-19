@@ -338,7 +338,6 @@ updateAllDayHeight() {
   let endDate = new Date(this.currentDate);
 
   if (this.currentView === 'week') {
-    // start = Monday
     startDate = this.getStartOfWeek(this.currentDate);
     endDate = new Date(startDate);
     endDate.setDate(endDate.getDate() + 6);
@@ -346,7 +345,20 @@ updateAllDayHeight() {
 
   // Count all-day events per day
   const dayCounts = {};
-  this.calendar.getEvents().forEach(ev => {
+
+  // Iterate over TUI events we already created
+  const allTuiEvents = this.calendarData.events.map((ev, index) => {
+    const start = new Date(ev.start.dateTime || ev.start.date);
+    let end = new Date(ev.end.dateTime || ev.end.date);
+    let isAllDay = !!ev.start.date;
+    if (!isAllDay && start.getHours() === end.getHours() && start.toDateString() !== end.toDateString()) {
+      isAllDay = true;
+      end = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+    }
+    return { start, end, category: isAllDay ? 'allday' : 'time' };
+  });
+
+  allTuiEvents.forEach(ev => {
     if (ev.category !== 'allday') return;
     let current = new Date(ev.start);
     const end = new Date(ev.end);
@@ -361,12 +373,12 @@ updateAllDayHeight() {
 
   const maxEvents = Math.max(0, ...Object.values(dayCounts));
 
-  // Rough row height
   const rowHeight = 16;
   const padding = 8;
 
   allDayContainer.style.height = `${maxEvents * rowHeight + padding}px`;
 }
+
 
   
 
