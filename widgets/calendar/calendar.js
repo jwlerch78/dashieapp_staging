@@ -199,7 +199,7 @@ async initializeCalendar() {
         workweek: false,
         hourStart: 6,
         hourEnd: 24,
-        hourHeight: 24,
+        hourHeight: 15,
         showNowIndicator: true,
         eventView: ['time', 'allday'],
         taskView: false
