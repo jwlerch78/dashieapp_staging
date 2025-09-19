@@ -171,46 +171,103 @@ class CalendarWidget {
   }
 
 async initializeCalendar() {
-  console.log('📅 Initializing TUI Calendar');
+  try {
+    // ensure we start on the week's Monday
+    const monday = this.getStartOfWeek(this.currentDate);
+    this.currentDate = monday;
 
-  this.calendar = new tui.Calendar('#calendar', {
-    defaultView: this.currentView,
-    calendars: this.tuiCalendars, // Google IDs + colors
-    useDetailPopup: true,
-    useFormPopup: false,
-    isReadOnly: true,
-    timezone: {
-      zones: [
-        {
-          timezoneName: 'America/New_York',
-          displayLabel: 'ET'
-        }
-      ]
-    },
-    template: {
-      // optionally customize event template
-      time: (event) => {
-        // event.title already styled by TUI color settings
-        return `<span style="color: ${event.color || '#fff'}; font-weight:500;">${event.title}</span>`;
+    // Create TUI Calendar using the current this.tuiCalendars (IDs + colors)
+    this.calendar = new tui.Calendar('#calendar', {
+      defaultView: this.currentView,
+      useCreationPopup: false,
+      useDetailPopup: false,
+      disableKeyboard: true,
+      calendars: this.tuiCalendars,
+
+      // Disable unwanted sections
+      taskView: false,
+      scheduleView: true,
+      milestoneView: false,
+
+      week: {
+        startDayOfWeek: 1,
+        dayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+        narrowWeekend: false,
+        workweek: false,
+        hourStart: 6,
+        hourEnd: 24,
+        showNowIndicator: true,
+        eventView: ['time', 'allday'],
+        taskView: false
       },
-      allday: (event) => {
-        return `<span style="color: ${event.color || '#fff'}; font-weight:500;">${event.title}</span>`;
+
+      month: {
+        startDayOfWeek: 1,
+        dayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+        visibleWeeksCount: 6,
+        isAlways6Week: false,
+        workweek: false
+      },
+
+      template: {
+        // Use per-calendar text color if available
+        time: (schedule) => {
+          const calendar = this.tuiCalendars.find(cal => cal.id === schedule.calendarId);
+          const textColor = calendar ? calendar.color : '#ffffff';
+          // schedule.title is the event title
+          return `<span style="color: ${textColor}; font-weight: 500;">${schedule.title}</span>`;
+        },
+        allday: (schedule) => {
+          const calendar = this.tuiCalendars.find(cal => cal.id === schedule.calendarId);
+          const textColor = calendar ? calendar.color : '#ffffff';
+          return `<span style="color: ${textColor}; font-weight: 500;">${schedule.title}</span>`;
+        }
       }
+    });
+
+    // Set the initial date and show the UI
+    this.calendar.setDate(this.currentDate);
+    this.showCalendar();
+    this.updateCalendarHeader();
+
+    // When TUI finishes rendering the view, update the all-day height and header.
+    // afterRender runs when the view/layout finishes rendering.
+    this.calendar.on && this.calendar.on('afterRender', () => {
+      // Keep header in sync and recalc all-day size
+      this.updateCalendarHeader();
+      this.updateAllDayHeight();
+    });
+
+    // After schedules are rendered (new events added), recalc all-day height
+    if (this.calendar.on) {
+      this.calendar.on('afterRenderSchedule', () => {
+        this.updateAllDayHeight();
+      });
     }
-  });
 
-  // optional: automatically adjust the all-day section height after render
-  this.calendar.on('afterRender', () => {
-    this.updateAllDayHeight();
-  });
+    // If user clicks "more" or expands, recalc (covering click-more events)
+    if (this.calendar.on) {
+      this.calendar.on('clickMore', () => {
+        this.updateAllDayHeight();
+      });
+    }
 
-  // optional: auto-scroll to 8am each day
-  this.calendar.on('afterRenderSchedule', () => {
-    this.scrollToTime(8);
-  });
+    // Request centralized calendar data (keeps original behavior)
+    console.log('📅 Requesting calendar data from centralized service...');
+    this.requestCalendarData();
 
-  this.showCalendar();
+    // Optional: scroll to a friendly hour after render
+    setTimeout(() => this.scrollToTime(8), 200);
+
+    console.log('📅 TUI Calendar initialized in', this.currentView, 'view');
+
+  } catch (error) {
+    console.error('📅 Failed to initialize calendar:', error);
+    const loader = document.getElementById('loading');
+    if (loader) loader.textContent = 'Failed to load calendar';
+  }
 }
+
 
 
   showCalendar() {
