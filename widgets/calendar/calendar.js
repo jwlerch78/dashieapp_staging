@@ -4,8 +4,7 @@
 class CalendarWidget {
   constructor() {
     // ============== CONFIG VARIABLES ==============
-    this.MONTHS_TO_PULL = 3;
-
+    
     // Hard-coded Google calendar IDs you’re using
     this.GOOGLE_CALENDARS = [
       { id: 'jwlerch@gmail.com', summary: 'jwlerch@gmail.com', color: '#1976d2', textColor: '#ffffff' },
