@@ -255,6 +255,7 @@ requestCalendarData() {
         defaultView: this.currentView,
         useCreationPopup: false,
         useDetailPopup: false,
+        disableKeyboard: true,
         calendars: this.tuiCalendars,
         week: {
           startDayOfWeek: 1,
