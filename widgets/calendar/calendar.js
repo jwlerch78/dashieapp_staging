@@ -5,14 +5,16 @@ class CalendarWidget {
   constructor() {
     // ============== CONFIG VARIABLES ==============
     this.MONTHS_TO_PULL = 3;
+
+    // Hard-coded Google calendar IDs you’re using
     this.GOOGLE_CALENDARS = [
-      { summary: 'jwlerch@gmail.com', color: '#1976d2', textColor: '#ffffff' },
-      { summary: 'Veeva', color: '#388e3c', textColor: '#ffffff' }
+      { id: 'jwlerch@gmail.com', summary: 'jwlerch@gmail.com', color: '#1976d2', textColor: '#ffffff' },
+      { id: 'veeva.com_123456@group.calendar.google.com', summary: 'Veeva', color: '#388e3c', textColor: '#ffffff' }
     ];
 
-    // Create TUI Calendar configurations
-    this.tuiCalendars = this.GOOGLE_CALENDARS.map((cal, index) => ({
-      id: `google-cal-${index}`,
+    // Build TUI calendar definitions initially
+    this.tuiCalendars = this.GOOGLE_CALENDARS.map(cal => ({
+      id: cal.id, // real Google ID here
       name: cal.summary,
       backgroundColor: cal.color,
       borderColor: cal.color,
@@ -23,13 +25,8 @@ class CalendarWidget {
     this.currentView = 'week';
     this.currentDate = new Date();
     this.viewCycle = ['week', 'month', 'daily'];
-    
-    // NEW: Centralized data service state
-    this.calendarData = {
-      events: [],
-      calendars: [],
-      lastUpdated: null
-    };
+
+    this.calendarData = { events: [], calendars: [], lastUpdated: null };
     this.isDataLoaded = false;
     this.connectionStatus = 'connecting';
 
@@ -43,20 +40,13 @@ class CalendarWidget {
 
   setupEventListeners() {
     window.addEventListener('message', (event) => {
-      if (event.data && event.data.action) {
-        this.handleCommand(event.data.action);
-      }
-      if (event.data && event.data.type) {
-        this.handleDataServiceMessage(event.data);
-      }
+      if (event.data && event.data.action) this.handleCommand(event.data.action);
+      if (event.data && event.data.type) this.handleDataServiceMessage(event.data);
     });
 
     window.addEventListener('load', () => {
       if (window.parent !== window) {
-        window.parent.postMessage({
-          type: 'widget-ready',
-          widget: 'calendar'
-        }, '*');
+        window.parent.postMessage({ type: 'widget-ready', widget: 'calendar' }, '*');
       }
     });
   }
@@ -64,143 +54,101 @@ class CalendarWidget {
   handleDataServiceMessage(data) {
     switch (data.type) {
       case 'calendar-data-ready':
-        console.log('📅 📨 Received calendar data from centralized service');
         this.handleCalendarData(data.data);
         break;
- 
       case 'widget-data-response':
-      console.log('📅 📨 Received widget data response:', data);
-      if (data.success && data.data) {
-        // Convert the response to the expected format
-        this.handleCalendarData({
-          events: data.data,  // The events array from getAllCalendarEvents()
-          calendars: [],      // We can populate this later if needed
-          lastUpdated: data.timestamp
-        });
-      } else {
-        console.error('📅 ❌ Widget data response error:', data.error);
-        this.updateConnectionStatus('error');
-      }
-      break;
-        
-        
+        if (data.success && data.data) {
+          this.handleCalendarData({
+            events: data.data,
+            calendars: data.calendars || [],
+            lastUpdated: data.timestamp
+          });
+        } else {
+          console.error('📅 ❌ Widget data response error:', data.error);
+          this.updateConnectionStatus('error');
+        }
+        break;
       case 'theme-change':
-        console.log('📅 🎨 Received theme change:', data.theme);
         this.applyTheme(data.theme);
         break;
-        
       case 'google-apis-ready':
-        console.log('📅 🔗 Google APIs ready, requesting calendar data');
         setTimeout(() => this.requestCalendarData(), 1000);
         break;
     }
   }
 
-requestCalendarData() {
-  console.log('📅 📤 Requesting calendar data from centralized service...');
-  
-  try {
+  requestCalendarData() {
     window.parent.postMessage({
       type: 'widget-data-request',
-      dataType: 'calendar',        // Changed from 'widget: calendar'
-      requestType: 'events',    // What specific calendar action
-      requestId: Date.now(),       // Add requestId for response matching
-      params: {}                   // Any additional parameters
+      dataType: 'calendar',
+      requestType: 'events',
+      requestId: Date.now(),
+      params: {}
     }, '*');
-    
     this.updateConnectionStatus('connecting');
-    console.log('📅 ✅ PostMessage sent successfully');
-    
-  } catch (error) {
-    console.error('📅 ❌ Failed to request calendar data:', error);
-    this.updateConnectionStatus('error');
-  }
-}
-
- handleCalendarData(data) {
-  if (data.status === 'error') {
-    console.error('📅 ❌ Calendar data error:', data.error);
-    this.updateConnectionStatus('error');
-    return;
   }
 
-  // Save raw calendar data
-  this.calendarData = {
-    events: data.events || [],
-    calendars: data.calendars || [],
-    lastUpdated: data.lastUpdated
-  };
-
-  this.isDataLoaded = true;
-  this.updateConnectionStatus('connected');
-
-  console.log(`📅 ✅ Calendar data loaded: ${this.calendarData.events.length} events`);
-
-  // Update TUI calendar colors using Google calendar IDs
-  this.tuiCalendars = this.GOOGLE_CALENDARS.map((cal) => {
-    const remoteCal = this.calendarData.calendars.find(rc => rc.summary === cal.summary);
-    return {
-      id: cal.id, // keep Google calendar ID
-      name: cal.summary,
-      backgroundColor: remoteCal?.backgroundColor || cal.color,
-      borderColor: remoteCal?.backgroundColor || cal.color,
-      color: remoteCal?.foregroundColor || cal.textColor
-    };
-  });
-
-  this.loadEventsIntoCalendar();
-}
-
-loadEventsIntoCalendar() {
-  if (!this.calendar || !this.isDataLoaded) {
-    console.log('📅 ⏳ Calendar not ready or no data loaded yet');
-    return;
-  }
-
-  // Clear existing events
-  this.calendar.clear();
-
-  const tuiEvents = [];
-
-  this.calendarData.events.forEach((event, eventIndex) => {
-    // Find matching TUI calendar by Google ID
-    const tuiCalendar = this.tuiCalendars.find(cal => cal.id === event.calendarId) || this.tuiCalendars[0];
-
-    // Parse start/end
-    const start = new Date(event.start.dateTime || event.start.date);
-    let end = new Date(event.end.dateTime || event.end.date);
-
-    // Determine all-day
-    let isAllDay = !!event.start.date; // Google uses date for all-day
-    if (!isAllDay && start.getHours() === end.getHours() && start.toDateString() !== end.toDateString()) {
-      isAllDay = true;
-      end = new Date(end.getTime() - 24 * 60 * 60 * 1000); // adjust end for display
+  handleCalendarData(data) {
+    if (data.status === 'error') {
+      this.updateConnectionStatus('error');
+      return;
     }
 
-    tuiEvents.push({
-      id: `event-${eventIndex}`,
-      calendarId: tuiCalendar.id,
-      title: event.summary || '(No title)',
-      start,
-      end,
-      category: isAllDay ? 'allday' : 'time',
-      backgroundColor: tuiCalendar.backgroundColor,
-      borderColor: tuiCalendar.borderColor,
-      color: tuiCalendar.color,
-      raw: event
+    this.calendarData = {
+      events: data.events || [],
+      calendars: data.calendars || [],
+      lastUpdated: data.lastUpdated
+    };
+    this.isDataLoaded = true;
+    this.updateConnectionStatus('connected');
+
+    // Merge Google’s actual colors if provided by the centralized service
+    this.tuiCalendars = this.GOOGLE_CALENDARS.map((cal) => {
+      const remoteCal = this.calendarData.calendars.find(rc => rc.id === cal.id || rc.summary === cal.summary);
+      return {
+        id: cal.id,
+        name: cal.summary,
+        backgroundColor: remoteCal?.backgroundColor || cal.color,
+        borderColor: remoteCal?.backgroundColor || cal.color,
+        color: remoteCal?.foregroundColor || cal.textColor
+      };
     });
-  });
 
-  if (tuiEvents.length > 0) {
-    this.calendar.createEvents(tuiEvents);
-    console.log(`📅 ✅ Loaded ${tuiEvents.length} events into TUI Calendar`);
-  } else {
-    console.log('📅 ℹ️ No events to display');
+    this.loadEventsIntoCalendar();
   }
- this.updateCalendarHeader();
-}
 
+  loadEventsIntoCalendar() {
+    if (!this.calendar || !this.isDataLoaded) return;
+    this.calendar.clear();
 
+    const tuiEvents = this.calendarData.events.map((event, i) => {
+      const tuiCalendar = this.tuiCalendars.find(cal => cal.id === event.calendarId) || this.tuiCalendars[0];
+      const start = new Date(event.start.dateTime || event.start.date);
+      let end = new Date(event.end.dateTime || event.end.date);
+      let isAllDay = !!event.start.date;
+
+      if (!isAllDay && start.getHours() === end.getHours() && start.toDateString() !== end.toDateString()) {
+        isAllDay = true;
+        end = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+      }
+
+      return {
+        id: `event-${i}`,
+        calendarId: tuiCalendar.id,
+        title: event.summary || '(No title)',
+        start,
+        end,
+        category: isAllDay ? 'allday' : 'time',
+        backgroundColor: tuiCalendar.backgroundColor,
+        borderColor: tuiCalendar.borderColor,
+        color: tuiCalendar.color,
+        raw: event
+      };
+    });
+
+    if (tuiEvents.length) this.calendar.createEvents(tuiEvents);
+    this.updateCalendarHeader();
+  }
 
   updateConnectionStatus(status) {
     this.connectionStatus = status;
