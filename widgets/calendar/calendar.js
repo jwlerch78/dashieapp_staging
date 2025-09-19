@@ -365,7 +365,7 @@ updateAllDayHeight() {
   const maxEvents = Math.max(0, ...Object.values(dayCounts));
 
   const rowHeight = 24;  // slightly taller to prevent clipping
-  const padding = 4;
+  const padding = 1;
 
   if (maxEvents === 0) {
     allDayContainer.style.height = '0px';
