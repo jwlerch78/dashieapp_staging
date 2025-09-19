@@ -197,6 +197,7 @@ loadEventsIntoCalendar() {
   } else {
     console.log('📅 ℹ️ No events to display');
   }
+ this.updateCalendarHeader();
 }
 
 
