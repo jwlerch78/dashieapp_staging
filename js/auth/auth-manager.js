@@ -330,6 +330,9 @@ export class AuthManager {
     }
   }
 
+  // js/auth/auth-manager.js - UPDATED: Fixed calendar color handling
+// CHANGE SUMMARY: Updated handleCalendarRequest to fetch and return both events and calendar metadata for proper color application
+
   async handleCalendarRequest(requestType, params, response) {
     if (!this.googleAPI) {
       throw new Error('Google APIs not initialized');
@@ -337,9 +340,15 @@ export class AuthManager {
     
     switch (requestType) {
       case 'events':
-        const events = await this.googleAPI.getAllCalendarEvents(params?.timeRange);
+        // Fetch both events and calendar metadata for color information
+        const [events, calendars] = await Promise.all([
+          this.googleAPI.getAllCalendarEvents(params?.timeRange),
+          this.googleAPI.getCalendarList()
+        ]);
+        
         response.success = true;
         response.data = events;
+        response.calendars = calendars; // Include calendar metadata with colors
         break;
         
       case 'calendars':
@@ -354,7 +363,6 @@ export class AuthManager {
     
     return response;
   }
-
   async handlePhotosRequest(requestType, params, response) {
     if (!this.googleAPI) {
       throw new Error('Google APIs not initialized');
