@@ -8,7 +8,7 @@ class CalendarWidget {
     // Hard-coded Google calendar IDs you’re using
     this.GOOGLE_CALENDARS = [
       { id: 'jwlerch@gmail.com', summary: 'jwlerch@gmail.com', color: '#1976d2', textColor: '#ffffff' },
-      { id: 'veeva.com_123456@group.calendar.google.com', summary: 'Veeva', color: '#388e3c', textColor: '#ffffff' }
+      { id: 'fd5949d42a667f6ca3e88dcf1feb27818463bbdc19c5e56d2e0da62b87d881c5@group.calendar.google.com', summary: 'Veeva', color: '#388e3c', textColor: '#ffffff' }
     ];
 
     // Build TUI calendar definitions initially
@@ -170,57 +170,48 @@ class CalendarWidget {
     }
   }
 
-  async initializeCalendar() {
-    try {
-      const monday = this.getStartOfWeek(this.currentDate);
-      this.currentDate = monday;
+async initializeCalendar() {
+  console.log('📅 Initializing TUI Calendar');
 
-      this.calendar = new tui.Calendar('#calendar', {
-        defaultView: this.currentView,
-        useCreationPopup: false,
-        useDetailPopup: false,
-        disableKeyboard: true,
-        calendars: this.tuiCalendars,
-        week: {
-          startDayOfWeek: 1,
-          dayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-          narrowWeekend: false,
-          workweek: false,
-          hourStart: 6,
-          hourEnd: 24,
-          showNowIndicator: true,
-          eventView: ['time', 'allday'],
-          taskView: false
-        },
-        month: {
-          startDayOfWeek: 1,
-          dayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
-          visibleWeeksCount: 6,
-          isAlways6Week: false,
-          workweek: false
-        },
-        template: {
-          time: (schedule) => {
-            const calendar = this.tuiCalendars.find(cal => cal.id === schedule.calendarId);
-            const textColor = calendar ? calendar.color : '#ffffff';
-            return `<span style="color: ${textColor}; font-weight: 500;">${schedule.title}</span>`;
-          }
+  this.calendar = new tui.Calendar('#calendar', {
+    defaultView: this.currentView,
+    calendars: this.tuiCalendars, // Google IDs + colors
+    useDetailPopup: true,
+    useFormPopup: false,
+    isReadOnly: true,
+    timezone: {
+      zones: [
+        {
+          timezoneName: 'America/New_York',
+          displayLabel: 'ET'
         }
-      });
-
-      this.calendar.setDate(this.currentDate);
-      this.showCalendar();
-      this.updateCalendarHeader();
-
-      setTimeout(() => this.scrollToTime(8), 200);
-
-      console.log('📅 TUI Calendar initialized in', this.currentView, 'view');
-
-    } catch (error) {
-      console.error('📅 Failed to initialize calendar:', error);
-      document.getElementById('loading').textContent = 'Failed to load calendar';
+      ]
+    },
+    template: {
+      // optionally customize event template
+      time: (event) => {
+        // event.title already styled by TUI color settings
+        return `<span style="color: ${event.color || '#fff'}; font-weight:500;">${event.title}</span>`;
+      },
+      allday: (event) => {
+        return `<span style="color: ${event.color || '#fff'}; font-weight:500;">${event.title}</span>`;
+      }
     }
-  }
+  });
+
+  // optional: automatically adjust the all-day section height after render
+  this.calendar.on('afterRender', () => {
+    this.updateAllDayHeight();
+  });
+
+  // optional: auto-scroll to 8am each day
+  this.calendar.on('afterRenderSchedule', () => {
+    this.scrollToTime(8);
+  });
+
+  this.showCalendar();
+}
+
 
   showCalendar() {
     document.getElementById('loading').style.display = 'none';
