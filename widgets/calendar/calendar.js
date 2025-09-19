@@ -321,7 +321,54 @@ requestCalendarData() {
 
     titleEl.textContent = this.currentDate.toLocaleDateString('en-US', options);
     modeEl.textContent = this.currentView.charAt(0).toUpperCase() + this.currentView.slice(1);
+
+    this.updateAllDayHeight();
+
   }
+
+  // Update all-day bar height dynamically
+updateAllDayHeight() {
+  if (!this.calendar || (this.currentView !== 'week' && this.currentView !== 'daily')) return;
+
+  const allDayContainer = document.querySelector('.toastui-calendar-allday');
+  if (!allDayContainer) return;
+
+  // Determine visible date range
+  let startDate = new Date(this.currentDate);
+  let endDate = new Date(this.currentDate);
+
+  if (this.currentView === 'week') {
+    // start = Monday
+    startDate = this.getStartOfWeek(this.currentDate);
+    endDate = new Date(startDate);
+    endDate.setDate(endDate.getDate() + 6);
+  }
+
+  // Count all-day events per day
+  const dayCounts = {};
+  this.calendar.getEvents().forEach(ev => {
+    if (ev.category !== 'allday') return;
+    let current = new Date(ev.start);
+    const end = new Date(ev.end);
+    while (current <= end) {
+      if (current >= startDate && current <= endDate) {
+        const dayKey = current.toDateString();
+        dayCounts[dayKey] = (dayCounts[dayKey] || 0) + 1;
+      }
+      current.setDate(current.getDate() + 1);
+    }
+  });
+
+  const maxEvents = Math.max(0, ...Object.values(dayCounts));
+
+  // Rough row height
+  const rowHeight = 16;
+  const padding = 8;
+
+  allDayContainer.style.height = `${maxEvents * rowHeight + padding}px`;
+}
+
+  
 
   handleCommand(action) {
     console.log('📅 Calendar widget received command:', action);
