@@ -124,30 +124,34 @@ requestCalendarData() {
     return;
   }
 
+  // Save raw calendar data
   this.calendarData = {
     events: data.events || [],
     calendars: data.calendars || [],
     lastUpdated: data.lastUpdated
   };
 
-  // Build TUI calendar configs dynamically from Google Calendar colors
-  this.tuiCalendars = this.calendarData.calendars.map((cal, index) => ({
-    id: cal.id,
-    name: cal.summary,
-    backgroundColor: cal.backgroundColor || '#1976d2', // fallback color
-    borderColor: cal.backgroundColor || '#1976d2',
-    color: cal.foregroundColor || '#ffffff'
-  }));
-
   this.isDataLoaded = true;
   this.updateConnectionStatus('connected');
 
   console.log(`📅 ✅ Calendar data loaded: ${this.calendarData.events.length} events`);
 
+  // Update TUI calendar colors using Google calendar IDs
+  this.tuiCalendars = this.GOOGLE_CALENDARS.map((cal) => {
+    const remoteCal = this.calendarData.calendars.find(rc => rc.summary === cal.summary);
+    return {
+      id: cal.id, // keep Google calendar ID
+      name: cal.summary,
+      backgroundColor: remoteCal?.backgroundColor || cal.color,
+      borderColor: remoteCal?.backgroundColor || cal.color,
+      color: remoteCal?.foregroundColor || cal.textColor
+    };
+  });
+
   this.loadEventsIntoCalendar();
 }
 
- loadEventsIntoCalendar() {
+loadEventsIntoCalendar() {
   if (!this.calendar || !this.isDataLoaded) {
     console.log('📅 ⏳ Calendar not ready or no data loaded yet');
     return;
@@ -158,42 +162,33 @@ requestCalendarData() {
 
   const tuiEvents = [];
 
-  console.log('📅 🔍 DEBUG: First few events:', this.calendarData.events.slice(0, 3));
-
   this.calendarData.events.forEach((event, eventIndex) => {
-    // find matching TUI calendar by calendarId
-    const tuiCalendar = this.tuiCalendars.find(c => c.id === event.calendarId) || this.tuiCalendars[0];
+    // Find matching TUI calendar by Google ID
+    const tuiCalendar = this.tuiCalendars.find(cal => cal.id === event.calendarId) || this.tuiCalendars[0];
 
-    // Pull start/end dates
-    const startString = event.start.dateTime || event.start.date;
-    const endString = event.end.dateTime || event.end.date;
-    const start = new Date(startString);
-    let end = new Date(endString);
+    // Parse start/end
+    const start = new Date(event.start.dateTime || event.start.date);
+    let end = new Date(event.end.dateTime || event.end.date);
 
     // Determine all-day
     let isAllDay = !!event.start.date; // Google uses date for all-day
     if (!isAllDay && start.getHours() === end.getHours() && start.toDateString() !== end.toDateString()) {
       isAllDay = true;
-    }
-    if (isAllDay) {
-      end = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+      end = new Date(end.getTime() - 24 * 60 * 60 * 1000); // adjust end for display
     }
 
-    // Create TUI event
-    const tuiEvent = {
+    tuiEvents.push({
       id: `event-${eventIndex}`,
       calendarId: tuiCalendar.id,
       title: event.summary || '(No title)',
-      start: start,
-      end: end,
+      start,
+      end,
       category: isAllDay ? 'allday' : 'time',
       backgroundColor: tuiCalendar.backgroundColor,
       borderColor: tuiCalendar.borderColor,
       color: tuiCalendar.color,
       raw: event
-    };
-
-    tuiEvents.push(tuiEvent);
+    });
   });
 
   if (tuiEvents.length > 0) {
@@ -202,10 +197,8 @@ requestCalendarData() {
   } else {
     console.log('📅 ℹ️ No events to display');
   }
-
-  // Update all-day bar height if necessary
-  this.updateAllDayHeight();
 }
+
 
   updateConnectionStatus(status) {
     this.connectionStatus = status;
