@@ -141,6 +141,7 @@ class CalendarWidget {
         backgroundColor: tuiCalendar.backgroundColor,
         borderColor: tuiCalendar.borderColor,
         color: tuiCalendar.color,
+        borderRadius: 6,
         raw: event
       };
     });
