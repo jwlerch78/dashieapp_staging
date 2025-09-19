@@ -51,21 +51,6 @@ class CalendarWidget {
       }
     });
 
-    document.addEventListener('keydown', (e) => {
-      if (document.hasFocus()) {
-        switch (e.key) {
-          case ',':
-            e.preventDefault();
-            this.cycleView('forward');
-            break;
-          case '.':
-            e.preventDefault();
-            this.cycleView('backward');
-            break;
-        }
-      }
-    });
-
     window.addEventListener('load', () => {
       if (window.parent !== window) {
         window.parent.postMessage({
