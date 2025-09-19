@@ -117,100 +117,81 @@ requestCalendarData() {
   }
 }
 
-  handleCalendarData(data) {
-    if (data.status === 'error') {
-      console.error('📅 ❌ Calendar data error:', data.error);
-      this.updateConnectionStatus('error');
-      return;
+ handleCalendarData(data) {
+  if (data.status === 'error') {
+    console.error('📅 ❌ Calendar data error:', data.error);
+    this.updateConnectionStatus('error');
+    return;
+  }
+
+  this.calendarData = {
+    events: data.events || [],
+    calendars: data.calendars || [],
+    lastUpdated: data.lastUpdated
+  };
+
+  this.isDataLoaded = true;
+  this.updateConnectionStatus('connected');
+
+  console.log(`📅 ✅ Calendar data loaded: ${this.calendarData.events.length} events`);
+
+  this.loadEventsIntoCalendar();
+}
+
+ loadEventsIntoCalendar() {
+  if (!this.calendar || !this.isDataLoaded) {
+    console.log('📅 ⏳ Calendar not ready or no data loaded yet');
+    return;
+  }
+
+  // Clear existing events
+  this.calendar.clear();
+
+  const tuiEvents = [];
+
+  this.calendarData.events.forEach((event, eventIndex) => {
+    // Match calendar by calendarId
+    const cal = this.GOOGLE_CALENDARS.find(c => c.id === event.calendarId) || this.GOOGLE_CALENDARS[0];
+
+    // Start / end
+    const start = new Date(event.start.dateTime || event.start.date);
+    let end = new Date(event.end.dateTime || event.end.date);
+
+    // Determine all-day
+    let isAllDay = !!event.start.date; // Google uses `date` for all-day
+    if (!isAllDay && start.getHours() === end.getHours() && start.toDateString() !== end.toDateString()) {
+      isAllDay = true;
+    }
+    if (isAllDay) {
+      end = new Date(end.getTime() - 24 * 60 * 60 * 1000);
     }
 
-    this.calendarData = {
-      events: data.events || [],
-      calendars: data.calendars || [],
-      lastUpdated: data.lastUpdated
+    const tuiEvent = {
+      id: `event-${eventIndex}`,
+      calendarId: `google-cal-${this.GOOGLE_CALENDARS.indexOf(cal)}`,
+      title: event.summary || '(No title)',
+      start: start,
+      end: end,
+      category: isAllDay ? 'allday' : 'time',
+      backgroundColor: cal.backgroundColor,
+      borderColor: cal.backgroundColor,
+      color: cal.foregroundColor,
+      raw: event
     };
 
-    this.isDataLoaded = true;
-    this.updateConnectionStatus('connected');
+    tuiEvents.push(tuiEvent);
+  });
 
-    console.log(`📅 ✅ Calendar data loaded: ${this.calendarData.events.length} events`);
-
-    this.loadEventsIntoCalendar();
+  if (tuiEvents.length > 0) {
+    this.calendar.createEvents(tuiEvents);
+    console.log(`📅 ✅ Loaded ${tuiEvents.length} events into TUI Calendar`);
+  } else {
+    console.log('📅 ℹ️ No events to display');
   }
 
-  loadEventsIntoCalendar() {
-    if (!this.calendar || !this.isDataLoaded) {
-      console.log('📅 ⏳ Calendar not ready or no data loaded yet');
-      return;
-    }
-
-    // Clear existing events
-    this.calendar.clear();
-
-    const tuiEvents = [];
-
-    console.log('📅 🔍 DEBUG: First few events:', this.calendarData.events.slice(0, 3));
-    console.log('📅 🔍 DEBUG: Event structure sample:', JSON.stringify(this.calendarData.events[0], null, 2));
-
-
-    this.calendarData.events.forEach((event, eventIndex) => {
-      // find matching calendar by calendarId
-      let calendarConfig = null;
-      let tuiCalendar = null;
-    
-      for (let i = 0; i < this.GOOGLE_CALENDARS.length; i++) {
-        if (event.calendarId === this.GOOGLE_CALENDARS[i].id) { // <-- use calendarId, not summary
-          calendarConfig = this.GOOGLE_CALENDARS[i];
-          tuiCalendar = this.tuiCalendars[i];
-          break;
-        }
-      }
-    
-      if (!calendarConfig) {
-        calendarConfig = this.GOOGLE_CALENDARS[0];
-        tuiCalendar = this.tuiCalendars[0];
-      }
-    
-      // correctly pull start/end
-      const startString = event.start.dateTime || event.start.date;
-      const endString = event.end.dateTime || event.end.date;
-      const start = new Date(startString);
-      let end = new Date(endString);
-    
-      // determine all-day
-      let isAllDay = !!event.start.date; // Google uses date for all-day
-      if (!isAllDay && start.getHours() === end.getHours() && start.toDateString() !== end.toDateString()) {
-        isAllDay = true;
-      }
-      if (isAllDay) {
-        end = new Date(end.getTime() - 24 * 60 * 60 * 1000);
-      }
-    
-      const tuiEvent = {
-        id: `event-${eventIndex}`,
-        calendarId: tuiCalendar.id,
-        title: event.summary || '(No title)',
-        start: start,
-        end: end,
-        category: isAllDay ? 'allday' : 'time',
-        backgroundColor: tuiCalendar.backgroundColor,
-        borderColor: tuiCalendar.borderColor,
-        color: tuiCalendar.color,
-        raw: event
-      };
-    
-      tuiEvents.push(tuiEvent);
-    });
-
-
-    if (tuiEvents.length > 0) {
-      this.calendar.createEvents(tuiEvents);
-      console.log(`📅 ✅ Loaded ${tuiEvents.length} events into TUI Calendar`);
-      this.updateAllDayHeight();
-    } else {
-      console.log('📅 ℹ️ No events to display');
-    }
-  }
+  // Adjust all-day height after events are created
+  setTimeout(() => this.updateAllDayHeight(), 100);
+}
 
   updateConnectionStatus(status) {
     this.connectionStatus = status;
