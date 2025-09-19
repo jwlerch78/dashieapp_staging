@@ -130,6 +130,15 @@ requestCalendarData() {
     lastUpdated: data.lastUpdated
   };
 
+  // Build TUI calendar configs dynamically from Google Calendar colors
+  this.tuiCalendars = this.calendarData.calendars.map((cal, index) => ({
+    id: cal.id,
+    name: cal.summary,
+    backgroundColor: cal.backgroundColor || '#1976d2', // fallback color
+    borderColor: cal.backgroundColor || '#1976d2',
+    color: cal.foregroundColor || '#ffffff'
+  }));
+
   this.isDataLoaded = true;
   this.updateConnectionStatus('connected');
 
@@ -149,16 +158,20 @@ requestCalendarData() {
 
   const tuiEvents = [];
 
-  this.calendarData.events.forEach((event, eventIndex) => {
-    // Match calendar by calendarId
-    const cal = this.GOOGLE_CALENDARS.find(c => c.id === event.calendarId) || this.GOOGLE_CALENDARS[0];
+  console.log('📅 🔍 DEBUG: First few events:', this.calendarData.events.slice(0, 3));
 
-    // Start / end
-    const start = new Date(event.start.dateTime || event.start.date);
-    let end = new Date(event.end.dateTime || event.end.date);
+  this.calendarData.events.forEach((event, eventIndex) => {
+    // find matching TUI calendar by calendarId
+    const tuiCalendar = this.tuiCalendars.find(c => c.id === event.calendarId) || this.tuiCalendars[0];
+
+    // Pull start/end dates
+    const startString = event.start.dateTime || event.start.date;
+    const endString = event.end.dateTime || event.end.date;
+    const start = new Date(startString);
+    let end = new Date(endString);
 
     // Determine all-day
-    let isAllDay = !!event.start.date; // Google uses `date` for all-day
+    let isAllDay = !!event.start.date; // Google uses date for all-day
     if (!isAllDay && start.getHours() === end.getHours() && start.toDateString() !== end.toDateString()) {
       isAllDay = true;
     }
@@ -166,16 +179,17 @@ requestCalendarData() {
       end = new Date(end.getTime() - 24 * 60 * 60 * 1000);
     }
 
+    // Create TUI event
     const tuiEvent = {
       id: `event-${eventIndex}`,
-      calendarId: `google-cal-${this.GOOGLE_CALENDARS.indexOf(cal)}`,
+      calendarId: tuiCalendar.id,
       title: event.summary || '(No title)',
       start: start,
       end: end,
       category: isAllDay ? 'allday' : 'time',
-      backgroundColor: cal.backgroundColor,
-      borderColor: cal.backgroundColor,
-      color: cal.foregroundColor,
+      backgroundColor: tuiCalendar.backgroundColor,
+      borderColor: tuiCalendar.borderColor,
+      color: tuiCalendar.color,
       raw: event
     };
 
@@ -189,8 +203,8 @@ requestCalendarData() {
     console.log('📅 ℹ️ No events to display');
   }
 
-  // Adjust all-day height after events are created
-  setTimeout(() => this.updateAllDayHeight(), 100);
+  // Update all-day bar height if necessary
+  this.updateAllDayHeight();
 }
 
   updateConnectionStatus(status) {
