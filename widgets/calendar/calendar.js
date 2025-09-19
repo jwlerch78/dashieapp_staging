@@ -347,14 +347,22 @@ updateAllDayHeight() {
     endDate.setDate(endDate.getDate() + 6);
   }
 
-  // Count all-day events per day using already-loaded TUI events
+  // Count all-day events per day using already-loaded events
   const dayCounts = {};
-  const allTuiEvents = this.calendar.getEvents(); // use TUI events
 
-  allTuiEvents.forEach(ev => {
-    if (ev.category !== 'allday') return;
-    let current = new Date(ev.start);
-    const end = new Date(ev.end);
+  this.calendarData.events.forEach(ev => {
+    // Use the adjusted values we stored in loadEventsIntoCalendar
+    let start = new Date(ev.start.dateTime || ev.start.date);
+    let end = new Date(ev.end.dateTime || ev.end.date);
+    let isAllDay = !!ev.start.date; 
+    if (!isAllDay && start.getHours() === end.getHours() && start.toDateString() !== end.toDateString()) {
+      isAllDay = true;
+      end = new Date(end.getTime() - 24 * 60 * 60 * 1000);
+    }
+
+    if (!isAllDay) return;
+
+    let current = new Date(start);
     while (current <= end) {
       if (current >= startDate && current <= endDate) {
         const dayKey = current.toDateString();
@@ -377,8 +385,6 @@ updateAllDayHeight() {
     allDayContainer.style.display = 'block';
   }
 }
-
-
 
   
 
