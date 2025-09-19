@@ -214,13 +214,13 @@ async initializeCalendar() {
         // Use per-calendar text color if available
         time: (schedule) => {
           const calendar = this.tuiCalendars.find(cal => cal.id === schedule.calendarId);
-          const textColor = calendar ? calendar.color : '#ffffff';
+          const textColor = '#ffffff';  //forced white
           // schedule.title is the event title
           return `<span style="color: ${textColor}; font-weight: 500;">${schedule.title}</span>`;
         },
         allday: (schedule) => {
           const calendar = this.tuiCalendars.find(cal => cal.id === schedule.calendarId);
-          const textColor = calendar ? calendar.color : '#ffffff';
+          const textColor = '#ffffff';  //forced white
           return `<span style="color: ${textColor}; font-weight: 500;">${schedule.title}</span>`;
         }
       }
