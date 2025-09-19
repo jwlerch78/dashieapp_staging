@@ -196,6 +196,8 @@ requestCalendarData() {
       let isAllDay = !!event.start.date; // Google uses date for all-day
       if (!isAllDay && start.getHours() === end.getHours() && start.toDateString() !== end.toDateString()) {
         isAllDay = true;
+      }
+      if (isAllDay) {
         end = new Date(end.getTime() - 24 * 60 * 60 * 1000);
       }
     
