@@ -143,7 +143,6 @@ class CalendarWidget {
         color: tuiCalendar.color,
         borderRadius: 6,
         isReadOnly: true,
-        classNames: ['force-opacity']
         raw: event
       };
     });
