@@ -199,3 +199,8 @@ html, body {
 .toastui-calendar-day-name * {
   color: var(--text-primary, #fff);
 }
+
+.toastui-calendar-event-time.force-opacity,
+.toastui-calendar-allday-event.force-opacity {
+  opacity: 1 !important;
+}
