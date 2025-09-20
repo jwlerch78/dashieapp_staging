@@ -107,9 +107,12 @@ async function handleUnifiedInput(action, originalEvent = null) {
     await handleSleepToggle();
     return;
   }
-  
+
+
+   console.log('isAsleep value', state.isAsleep);
   // Handle sleep mode - any key wakes up
   if (state.isAsleep) {
+    console.log('Waking up);
     const { wakeUp } = await import('../ui/modals.js');
     const { startResleepTimer } = await import('../ui/settings.js');
     wakeUp();
