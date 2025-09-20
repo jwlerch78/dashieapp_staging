@@ -119,8 +119,8 @@ export function autoInitialize() {
   }
 }
 
-// Auto-initialize
-autoInitialize();
+// Auto-initialize: was happening prematurely.  triggering later manually in main.js
+// autoInitialize();
 
 // Export aliases for compatibility
 export {
