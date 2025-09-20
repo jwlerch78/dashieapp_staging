@@ -46,22 +46,31 @@
     <!-- Preload auth system (FIXED: Absolute path) -->
     <script type="module" src="/js/auth/simple-auth.js"></script>
     
-    <!-- JavaScript modules (FIXED: All paths now absolute) -->
-    <script type="module">
-        // FIXED: Import and initialize the app with correct function name and absolute path
-        import('/js/main.js').then((module) => {
-            // Try multiple possible export names
-            const initFn = module.initializeApp || module.default || module.init;
-            if (initFn && typeof initFn === 'function') {
-                initFn();
-            } else {
-                console.error('No valid initialization function found in main.js');
-                console.log('Available exports:', Object.keys(module));
-            }
-        }).catch(error => {
-            console.error('Failed to load main application:', error);
-        });
-    </script>
+<!-- Add this debug script before the main.js import -->
+<script type="module">
+    console.log("🔍 DEBUG: Starting main.js import process");
+    
+    import('/js/main.js').then((module) => {
+        console.log("🔍 DEBUG: main.js import succeeded");
+        console.log("🔍 DEBUG: Available exports:", Object.keys(module));
+        console.log("🔍 DEBUG: initializeApp type:", typeof module.initializeApp);
+        console.log("🔍 DEBUG: default type:", typeof module.default);
+        
+        // Try multiple possible export names
+        const initFn = module.initializeApp || module.default || module.init;
+        console.log("🔍 DEBUG: Selected function:", initFn ? initFn.name : 'NONE FOUND');
+        
+        if (initFn && typeof initFn === 'function') {
+            console.log("🔍 DEBUG: Calling initialization function");
+            initFn();
+        } else {
+            console.error('🔍 DEBUG: No valid initialization function found in main.js');
+            console.log('🔍 DEBUG: Available exports:', Object.keys(module));
+        }
+    }).catch(error => {
+        console.error('🔍 DEBUG: Failed to load main application:', error);
+    });
+</script>
 
 
 </body>
