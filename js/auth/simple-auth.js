@@ -2,7 +2,7 @@
 // CHANGE SUMMARY: Complete rewrite using new modular architecture with auth coordinator, data manager, and widget messenger
 
 import { createLogger, configureLogging } from '../utils/logger.js';
-import { LOGGING_CONFIG } from './auth-config.js';
+import { API_CONFIG, LOGGING_CONFIG } from './auth-config.js';
 import { events, EVENTS } from '../utils/event-emitter.js';
 
 import { AuthCoordinator } from '../apis/api-auth/auth-coordinator.js';
