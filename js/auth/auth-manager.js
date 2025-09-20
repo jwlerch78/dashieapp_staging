@@ -1,11 +1,11 @@
 // js/auth/auth-manager.js
 // CHANGE SUMMARY: Fixed widget postMessage error by removing non-cloneable objects from message
 
-import { DeviceFlowAuth } from './device-flow-auth.js';
-import { NativeAuth } from './native-auth.js'; 
+import { NativeAuth } from './native-auth.js';
 import { WebAuth } from './web-auth.js';
 import { AuthUI } from './auth-ui.js';
 import { AuthStorage } from './auth-storage.js';
+import { DeviceFlowAuth } from './device-flow-auth.js';
 import { GoogleAPIClient } from '../google-apis/google-api-client.js';
 
 export class AuthManager {
