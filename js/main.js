@@ -4,7 +4,7 @@
 import { initializeEvents } from './core/events.js';
 import { updateFocus, initializeHighlightTimeout } from './core/navigation.js';
 import { renderGrid, renderSidebar } from './ui/grid.js';
-import { initializeSettings } from './settings/settings-main.js';
+import { initializeSettings, authoInitialize } from './settings/settings-main.js';
 import { initializeThemeSystem } from './core/theme.js';
 
 // ---------------------
@@ -63,9 +63,13 @@ export async function initializeApp() {
   
   // Wait for auth system to be ready (created by simple-auth.js)
   await checkAuthReady();
+
+  // Now safe to initialize settings
+  autoInitialize();
+
   
   // Initialize settings early so they can load and apply theme
-  await initializeSettings();
+  //await initializeSettings();
   
   // Initialize theme system (after settings so theme can be applied)
   initializeThemeSystem();
