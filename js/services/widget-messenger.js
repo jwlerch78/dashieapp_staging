@@ -179,7 +179,52 @@ export class WidgetMessenger {
    * @param {Object} messageData - Message data
    */
   async handleGenericDataRequest(event, messageData) {
-    await this.dataManager.handleWidgetDataRequest(messageData, event.source);
+    try {
+      let responseData = {};
+      
+      if (messageData.dataType === 'calendar') {
+        responseData = await this.dataManager.handleCalendarRequest(messageData.requestType, messageData.params);
+      } else if (messageData.dataType === 'photos') {
+        responseData = await this.dataManager.handlePhotosRequest(messageData.requestType, messageData.params);
+      } else {
+        throw new Error(`Unknown data type: ${messageData.dataType}`);
+      }
+      
+      // For backward compatibility, send the data directly (not nested)
+      const response = {
+        type: 'widget-data-response',
+        requestId: messageData.requestId,
+        success: true,
+        // Flatten the response for calendar widget compatibility
+        ...(messageData.dataType === 'calendar' && messageData.requestType === 'events' ? responseData : { data: responseData }),
+        timestamp: Date.now()
+      };
+      
+      event.source.postMessage(response, '*');
+      
+      logger.widget('send', 'data_response', this.getWidgetName(event.source), {
+        requestId: messageData.requestId,
+        dataType: messageData.dataType,
+        success: true
+      });
+      
+    } catch (error) {
+      logger.error('Widget data request failed', {
+        requestId: messageData.requestId,
+        dataType: messageData.dataType,
+        error: error.message
+      });
+      
+      const errorResponse = {
+        type: 'widget-data-response',
+        requestId: messageData.requestId,
+        success: false,
+        error: error.message,
+        timestamp: Date.now()
+      };
+      
+      event.source.postMessage(errorResponse, '*');
+    }
   }
 
   /**
@@ -386,12 +431,12 @@ export class WidgetMessenger {
    * Send error message to widget
    * @param {Window} targetWindow - Target widget window
    * @param {string} errorType - Error type
-   * @param {string} errorMessageParam - Error message
+   * @param {string} errorMessage - Error message
    */
-  sendErrorMessage(targetWindow, errorType, errorMessageParam) {
+  sendErrorMessage(targetWindow, errorType, errorMessage) {
     const errorMessage = {
       type: errorType,
-      error: errorMessageParam,
+      error: errorMessage,
       timestamp: Date.now()
     };
 
