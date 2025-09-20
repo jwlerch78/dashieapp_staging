@@ -127,6 +127,11 @@ export class SimpleAuth {
       logger.info('Authentication successful, initializing services');
       this.isAuthenticated = true;
       await this.initializeServices();
+      
+      // Emit auth ready event
+      document.dispatchEvent(new CustomEvent('dashie-auth-ready', {
+        detail: { authenticated: true, user }
+      }));
     });
 
     events.auth.onFailure((error) => {
