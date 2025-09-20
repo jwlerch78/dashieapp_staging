@@ -1,9 +1,9 @@
 // js/auth/simple-auth.js - Refactored Auth Entry Point
-// CHANGE SUMMARY: Complete rewrite using new modular architecture with auth coordinator, data manager, and widget messenger
+// CHANGE SUMMARY: Complete rewrite using new modular architecture with auth coordinator, data manager, and widget messenger. Fixed naming conflict between isAuthenticated property and method.
 
 import { createLogger, configureLogging } from '../utils/logger.js';
 import { LOGGING_CONFIG } from './auth-config.js';
-import { events, EVENTS } from '../utils/event-emitter.js';
+import { events as eventSystem, EVENTS } from '../utils/event-emitter.js';
 
 import { AuthCoordinator } from '../apis/api-auth/auth-coordinator.js';
 import { AuthStorage } from '../apis/api-auth/auth-storage.js';
@@ -25,7 +25,7 @@ const logger = createLogger('SimpleAuth');
 export class SimpleAuth {
   constructor() {
     this.isInitialized = false;
-    this.isAuthenticated = false;
+    this.authenticated = false; // Renamed from isAuthenticated to avoid method conflict
     
     // Core components
     this.authStorage = null;
@@ -56,7 +56,7 @@ export class SimpleAuth {
       const authResult = await this.authCoordinator.init();
       
       if (authResult.authenticated) {
-        this.isAuthenticated = true;
+        this.authenticated = true;
         await this.initializeServices();
       }
       
@@ -66,14 +66,14 @@ export class SimpleAuth {
       this.isInitialized = true;
       
       logger.success('Dashie authentication system initialized', {
-        authenticated: this.isAuthenticated,
+        authenticated: this.authenticated,
         userId: this.authCoordinator.currentUser?.id
       });
       
       // Emit auth ready event for main.js
       document.dispatchEvent(new CustomEvent('dashie-auth-ready', {
         detail: { 
-          authenticated: this.isAuthenticated,
+          authenticated: this.authenticated,
           user: this.authCoordinator.currentUser 
         }
       }));
@@ -123,9 +123,9 @@ export class SimpleAuth {
    */
   setupEventListeners() {
     // Auth events
-    events.auth.onSuccess(async (user) => {
+    eventSystem.auth.onSuccess(async (user) => {
       logger.info('Authentication successful, initializing services');
-      this.isAuthenticated = true;
+      this.authenticated = true;
       await this.initializeServices();
       
       // Emit auth ready event
@@ -134,19 +134,19 @@ export class SimpleAuth {
       }));
     });
 
-    events.auth.onFailure((error) => {
+    eventSystem.auth.onFailure((error) => {
       logger.error('Authentication failed', error);
-      this.isAuthenticated = false;
+      this.authenticated = false;
     });
 
-    events.auth.onSignout(() => {
+    eventSystem.auth.onSignout(() => {
       logger.info('User signed out, cleaning up services');
-      this.isAuthenticated = false;
+      this.authenticated = false;
       this.cleanupServices();
     });
 
     // Data events
-    events.data.onLoaded((dataType, data) => {
+    eventSystem.data.onLoaded((dataType, data) => {
       if (this.widgetMessenger) {
         this.widgetMessenger.broadcastDataUpdate(dataType, data);
       }
@@ -189,7 +189,15 @@ export class SimpleAuth {
    * @returns {boolean} True if authenticated
    */
   isUserAuthenticated() {
-    return this.isAuthenticated && this.authCoordinator?.isUserAuthenticated();
+    return this.authenticated && this.authCoordinator?.isUserAuthenticated();
+  }
+
+  /**
+   * @deprecated Use isUserAuthenticated() instead
+   * @returns {boolean} True if authenticated
+   */
+  isAuthenticated() {
+    return this.isUserAuthenticated();
   }
 
   /**
@@ -236,22 +244,12 @@ export class SimpleAuth {
   getSystemStatus() {
     return {
       isInitialized: this.isInitialized,
-      isAuthenticated: this.isAuthenticated,
+      isAuthenticated: this.authenticated,
       auth: this.authCoordinator?.getStatus() || null,
       data: this.dataManager?.getStatus() || null,
       widgets: this.widgetMessenger?.getStatus() || null,
       apis: this.apis ? Object.keys(this.apis) : []
     };
-  }
-
-  // ==================== DEPRECATED METHODS (FOR COMPATIBILITY) ====================
-
-  /**
-   * @deprecated Use isUserAuthenticated() instead
-   */
-  isAuthenticated() {
-    logger.warn('isAuthenticated() is deprecated, use isUserAuthenticated()');
-    return this.isUserAuthenticated();
   }
 }
 
@@ -279,7 +277,7 @@ function initializeAuth() {
   // Also expose auth manager for compatibility
   window.authManager = {
     getUser: () => dashieAuthInstance.getUser(),
-    isAuthenticated: () => dashieAuthInstance.isUserAuthenticated(),
+    isAuthenticated: () => dashieAuthInstance.isAuthenticated(),
     getGoogleAccessToken: () => dashieAuthInstance.getGoogleAccessToken(),
     signOut: () => dashieAuthInstance.signOut(),
     exitApp: () => dashieAuthInstance.exitApp()
