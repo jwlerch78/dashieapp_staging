@@ -2,7 +2,7 @@
 // CHANGE SUMMARY: Extracted data management logic from auth-manager.js, added structured logging, improved caching strategy
 
 import { createLogger } from '../utils/logger.js';
-import { events, EVENTS } from '../utils/event-emitter.js';
+import { events as eventSystem, EVENTS } from '../utils/event-emitter.js';
 
 const logger = createLogger('DataManager');
 
@@ -129,7 +129,7 @@ export class DataManager {
     const timer = logger.startTimer('Calendar Data Refresh');
     
     try {
-      events.data.emitLoading('calendar');
+      eventSystem.data.emitLoading('calendar');
       
       // Fetch both events and calendar metadata
       const [events, calendars] = await Promise.all([
@@ -151,7 +151,7 @@ export class DataManager {
         duration
       });
       
-      events.data.emitLoaded('calendar', {
+      eventSystem.data.emitLoaded('calendar', {
         events,
         calendars,
         lastUpdated: cacheData.lastUpdated
@@ -168,7 +168,7 @@ export class DataManager {
       cacheData.isLoading = false;
       
       logger.data('refresh', 'calendar', 'error', error.message);
-      events.data.emitError('calendar', error);
+      eventSystem.data.emitError('calendar', error);
       
       // Send error to widgets
       this.sendErrorToPendingRequests('calendar', error.message);
@@ -242,7 +242,7 @@ export class DataManager {
     const timer = logger.startTimer('Photos Data Refresh');
     
     try {
-      events.data.emitLoading('photos');
+      eventSystem.data.emitLoading('photos');
       
       // TODO: Implement when Photos API is ready
       // For now, return empty data
@@ -263,7 +263,7 @@ export class DataManager {
         duration
       });
       
-      events.data.emitLoaded('photos', {
+      eventSystem.data.emitLoaded('photos', {
         albums,
         recentPhotos,
         lastUpdated: cacheData.lastUpdated
@@ -280,7 +280,7 @@ export class DataManager {
       cacheData.isLoading = false;
       
       logger.data('refresh', 'photos', 'error', error.message);
-      events.data.emitError('photos', error);
+      eventSystem.data.emitError('photos', error);
       
       // Send error to widgets
       this.sendErrorToPendingRequests('photos', error.message);
