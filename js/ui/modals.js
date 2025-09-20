@@ -20,6 +20,8 @@ export function enterSleepMode() {
   
   document.body.appendChild(sleepOverlay);
   
+console.log('ading sleep layer')
+
   // Fade in
   setTimeout(() => {
     sleepOverlay.classList.add("visible");
@@ -40,6 +42,7 @@ export function wakeUp() {
   const sleepOverlay = document.getElementById("sleep-overlay");
   
   if (sleepOverlay) {
+console.log('removing sleep layer')
     sleepOverlay.classList.remove("visible");
     setTimeout(() => {
       sleepOverlay.remove();
