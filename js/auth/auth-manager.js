@@ -51,6 +51,41 @@ export class AuthManager {
     this.init();
   }
 
+    detectWebView() {
+    const userAgent = navigator.userAgent;
+    const isAndroidWebView = /wv/.test(userAgent) || 
+                           /Android.*AppleWebKit(?!.*Chrome)/.test(userAgent) ||
+                           userAgent.includes('DashieApp');
+    const isIOSWebView = /(iPhone|iPod|iPad).*AppleWebKit(?!.*Safari)/.test(userAgent);
+    
+    console.log('🔐 Environment detection:', {
+      userAgent: userAgent,
+      isAndroidWebView: isAndroidWebView,
+      isIOSWebView: isIOSWebView,
+      isWebView: isAndroidWebView || isIOSWebView
+    });
+    
+    return isAndroidWebView || isIOSWebView;
+  }
+
+  detectNativeAuth() {
+    const hasNative = window.DashieNative && 
+                     typeof window.DashieNative.signIn === 'function';
+    console.log('🔐 Native auth available:', hasNative);
+    return !!hasNative;
+  }
+
+  detectFireTV() {
+    const userAgent = navigator.userAgent;
+    const isFireTV = userAgent.includes('AFTS') || userAgent.includes('FireTV') || 
+                    userAgent.includes('AFT') || userAgent.includes('AFTMM') ||
+                    userAgent.includes('AFTRS') || userAgent.includes('AFTSS');
+    console.log('🔥 Fire TV detected:', isFireTV);
+    return isFireTV;
+  }
+
+  
+
   async init() {
   console.log('🔐 Initializing Enhanced AuthManager with Google OAuth...');
   
