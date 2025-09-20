@@ -42,13 +42,12 @@ export function wakeUp() {
   const sleepOverlay = document.getElementById("sleep-overlay");
   
   if (sleepOverlay) {
-console.log('removing sleep layer')
-    sleepOverlay.classList.remove("visible");
-    setTimeout(() => {
-      sleepOverlay.remove();
-    }, 500);
+    console.log('🛌 Force removing sleep overlay immediately');
+    // Skip the transition - remove immediately
+    sleepOverlay.remove();
   }
 }
+
 
 // ---------------------
 // ENHANCED EXIT CONFIRMATION WITH AUTH
