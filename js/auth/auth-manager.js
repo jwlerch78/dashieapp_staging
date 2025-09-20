@@ -1,7 +1,9 @@
 // js/auth/auth-manager.js
 // CHANGE SUMMARY: Fixed widget postMessage error by removing non-cloneable objects from message
 
-import { CognitoAuth } from './cognito-auth.js';
+import { DeviceFlowAuth } from './device-flow-auth.js';
+import { NativeAuth } from './native-auth.js'; 
+import { WebAuth } from './web-auth.js';
 import { AuthUI } from './auth-ui.js';
 import { AuthStorage } from './auth-storage.js';
 import { GoogleAPIClient } from '../google-apis/google-api-client.js';
@@ -14,7 +16,9 @@ export class AuthManager {
     this.googleAPI = null;
     
     // Initialize auth modules - much simpler now!
-    this.cognitoAuth = new CognitoAuth();
+    this.deviceFlow = new DeviceFlowAuth();
+    this.nativeAuth = new NativeAuth();
+    this.webAuth = new WebAuth();
     this.ui = new AuthUI();
     this.storage = new AuthStorage(); // Keep for compatibility
     
@@ -43,106 +47,198 @@ export class AuthManager {
   }
 
   async init() {
-    console.log('🔐 Initializing simplified AuthManager with Cognito...');
+  console.log('🔐 Initializing Enhanced AuthManager with Google OAuth...');
+  
+  // Set up widget request handler (keep this - it's enhanced)
+  this.setupWidgetRequestHandler();
+  
+  try {
+    // Platform detection and Google OAuth initialization
+    const platform = this.detectPlatform();
+    console.log('🔐 📱 Platform detected:', platform);
     
-    // Set up widget request handler (unchanged)
-    this.setupWidgetRequestHandler();
+    // Check for existing authentication first
+    const existingAuth = await this.checkExistingAuth();
+    if (existingAuth) {
+      console.log('🔐 ✅ Found existing authentication');
+      this.setUserFromAuth(existingAuth.user, existingAuth.tokens);
+      this.isSignedIn = true;
+      this.ui.showSignedInState();
+      await this.initializeGoogleAPIs();
+      return;
+    }
     
-    try {
-      // Initialize Cognito
-      const result = await this.cognitoAuth.init();
-      
-      if (result.success && result.user) {
-        console.log('🔐 ✅ Cognito authentication successful');
-        this.setUserFromCognito(result.user);
+    // Check for OAuth callback
+    const callbackResult = await this.handleOAuthCallbacks();
+    if (callbackResult.handled) {
+      if (callbackResult.success) {
+        console.log('🔐 ✅ OAuth callback processed successfully');
+        this.setUserFromAuth(callbackResult.user, callbackResult.tokens);
         this.isSignedIn = true;
         this.ui.showSignedInState();
         await this.initializeGoogleAPIs();
         return;
+      } else {
+        console.error('🔐 ❌ OAuth callback failed:', callbackResult.error);
+        this.ui.showAuthError(callbackResult.error);
+        return;
       }
-      
-      // No existing auth found - show sign-in prompt
-      console.log('🔐 No existing authentication, showing sign-in prompt');
-      this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
-      
-    } catch (error) {
-      console.error('🔐 ❌ Auth initialization failed:', error);
-      this.handleAuthFailure(error);
     }
-  }
-
-  setUserFromCognito(userData) {
-    this.currentUser = userData;
-    this.googleAccessToken = userData.googleAccessToken;
     
-    console.log('🔐 ✅ User set from Cognito:', {
-      name: userData.name,
-      email: userData.email,
-      picture: userData.picture,
-      firstname: userData.given_name,
-      lastname: userData.family_name,
-      id: userData.id,
-      hasGoogleToken: !!this.googleAccessToken
-    });
+    // No existing auth found - show sign-in prompt
+    console.log('🔐 No existing authentication, showing sign-in prompt');
+    this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
     
-    // Save to legacy storage for compatibility
-    this.storage.saveUser(userData);
+  } catch (error) {
+    console.error('🔐 ❌ Auth initialization failed:', error);
+    this.handleAuthFailure(error);
   }
+}
 
-  async signIn() {
-    try {
-      console.log('🔐 Starting Cognito sign-in...');
-      this.ui.hideSignInPrompt();
-      
-      // This will redirect to Google OAuth
-      await this.cognitoAuth.signIn();
-      
-    } catch (error) {
-      console.error('🔐 ❌ Sign-in failed:', error);
-      this.ui.showAuthError('Sign-in failed. Please try again.');
+ async signIn() {
+  try {
+    console.log('🔐 Starting Google OAuth sign-in...');
+    this.ui.hideSignInPrompt();
+    
+    // Detect platform and use appropriate auth method
+    const platform = this.detectPlatform();
+    
+    if (platform === 'android') {
+      console.log('🔐 📱 Using Android native auth');
+      const result = await this.nativeAuth.signIn();
+      if (result.success) {
+        this.setUserFromAuth(result.user, result.tokens);
+        this.isSignedIn = true;
+        this.ui.showSignedInState();
+        await this.initializeGoogleAPIs();
+      } else {
+        throw new Error(result.error || 'Native auth failed');
+      }
+    } else if (platform === 'firetv') {
+      console.log('🔐 📺 Using FireTV device flow');
+      const result = await this.deviceFlow.signIn();
+      if (result.success) {
+        this.setUserFromAuth(result.user, result.tokens);
+        this.isSignedIn = true;
+        this.ui.showSignedInState();
+        await this.initializeGoogleAPIs();
+      } else {
+        throw new Error(result.error || 'Device flow failed');
+      }
+    } else {
+      console.log('🔐 🌐 Using web OAuth');
+      // Web auth will redirect, so we don't wait for result here
+      await this.webAuth.signIn();
     }
+    
+  } catch (error) {
+    console.error('🔐 ❌ Sign-in failed:', error);
+    this.ui.showAuthError('Sign-in failed. Please try again.');
   }
+}
 
   async signOut() {
-    console.log('🔐 Signing out...');
+  console.log('🔐 Signing out...');
+  
+  try {
+    // KEEP: Clear refresh timers (enhanced functionality)
+    Object.values(this.refreshTimers).forEach(timer => clearTimeout(timer));
+    this.refreshTimers = {};
     
-    try {
-      // Clear refresh timers
-      Object.values(this.refreshTimers).forEach(timer => clearTimeout(timer));
-      this.refreshTimers = {};
-      
-      // Clear data cache
-      this.dataCache = {
-        calendar: { events: [], calendars: [], lastUpdated: null, refreshInterval: 5 * 60 * 1000, isLoading: false },
-        photos: { albums: [], recentPhotos: [], lastUpdated: null, refreshInterval: 30 * 60 * 1000, isLoading: false }
-      };
-      
-      // Sign out from Cognito
-      await this.cognitoAuth.signOut();
-      
-      // Clear local state
-      this.currentUser = null;
-      this.isSignedIn = false;
-      this.googleAccessToken = null;
-      this.googleAPI = null;
-      
-      // Clear legacy storage
-      this.storage.clearSavedUser();
-      
-      // Show sign-in prompt
-      this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
-      
-    } catch (error) {
-      console.error('🔐 ❌ Sign-out failed:', error);
-      // Still clear local state even if remote sign-out fails
-      this.currentUser = null;
-      this.isSignedIn = false;
-      this.googleAccessToken = null;
-      this.googleAPI = null;
-      this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
+    // KEEP: Clear data cache (enhanced functionality)
+    this.dataCache = {
+      calendar: { events: [], calendars: [], lastUpdated: null, refreshInterval: 5 * 60 * 1000, isLoading: false },
+      photos: { albums: [], recentPhotos: [], lastUpdated: null, refreshInterval: 30 * 60 * 1000, isLoading: false }
+    };
+    
+    // REPLACED: Google OAuth sign-out instead of Cognito
+    const platform = this.detectPlatform();
+    
+    if (platform === 'android' && this.nativeAuth) {
+      await this.nativeAuth.signOut();
+    } else if (platform === 'firetv' && this.deviceFlow) {
+      await this.deviceFlow.signOut();
+    } else if (this.webAuth) {
+      await this.webAuth.signOut();
     }
+    
+    // KEEP: Clear local state (enhanced)
+    this.currentUser = null;
+    this.isSignedIn = false;
+    this.googleAccessToken = null;
+    this.googleAPI = null;
+    
+    // KEEP: Clear legacy storage (enhanced)
+    this.storage.clearSavedUser();
+    
+    // KEEP: Show sign-in prompt
+    this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
+    
+  } catch (error) {
+    console.error('🔐 ❌ Sign-out failed:', error);
+    // KEEP: Still clear local state even if remote sign-out fails
+    this.currentUser = null;
+    this.isSignedIn = false;
+    this.googleAccessToken = null;
+    this.googleAPI = null;
+    this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
   }
+}
 
+detectPlatform() {
+  const userAgent = navigator.userAgent.toLowerCase();
+  
+  if (userAgent.includes('android')) {
+    return 'android';
+  } else if (userAgent.includes('fire tv') || userAgent.includes('afts')) {
+    return 'firetv';
+  } else {
+    return 'web';
+  }
+}
+
+async checkExistingAuth() {
+  const savedUser = this.storage.getSavedUser();
+  if (savedUser && savedUser.googleAccessToken) {
+    return {
+      user: savedUser,
+      tokens: { access_token: savedUser.googleAccessToken }
+    };
+  }
+  return null;
+}
+
+async handleOAuthCallbacks() {
+  // Check web auth callback
+  if (this.webAuth && await this.webAuth.handleOAuthCallback()) {
+    const result = await this.webAuth.getAuthResult();
+    return { handled: true, success: result.success, user: result.user, tokens: result.tokens, error: result.error };
+  }
+  
+  return { handled: false };
+}
+
+setUserFromAuth(userData, tokens) {
+  this.currentUser = userData;
+  this.googleAccessToken = tokens?.access_token;
+  
+  // Ensure googleAccessToken is in user object for storage
+  if (this.googleAccessToken) {
+    this.currentUser.googleAccessToken = this.googleAccessToken;
+  }
+  
+  console.log('🔐 ✅ User set from Google OAuth:', {
+    name: userData.name,
+    email: userData.email,
+    picture: userData.picture,
+    hasGoogleToken: !!this.googleAccessToken
+  });
+  
+  // Save to storage for persistence
+  this.storage.saveUser(this.currentUser);
+}
+
+   
   exitApp() {
     console.log('🚪 Exiting Dashie...');
     
@@ -156,21 +252,20 @@ export class AuthManager {
     }
   }
 
-  handleAuthFailure(error) {
-    console.error('🔐 Auth initialization failed:', error);
-    
-    // Try to get saved user as fallback
-    const savedUser = this.cognitoAuth.getSavedUser();
-    if (savedUser) {
-      console.log('🔐 Using saved user data as fallback');
-      this.setUserFromCognito(savedUser);
-      this.isSignedIn = true;
-      this.ui.showSignedInState();
-    } else {
-      this.ui.showAuthError('Authentication service is currently unavailable. Please try again.');
-    }
+handleAuthFailure(error) {
+  console.error('🔐 Auth initialization failed:', error);
+  
+  // REPLACED: Try to get saved user from Google OAuth storage instead of Cognito
+  const savedUser = this.storage.getSavedUser();
+  if (savedUser) {
+    console.log('🔐 Using saved user data as fallback');
+    this.setUserFromAuth(savedUser, { access_token: savedUser.googleAccessToken });
+    this.isSignedIn = true;
+    this.ui.showSignedInState();
+  } else {
+    this.ui.showAuthError('Authentication service is currently unavailable. Please try again.');
   }
-
+}
   // API compatibility methods (unchanged from original)
   getUser() {
     return this.currentUser;
