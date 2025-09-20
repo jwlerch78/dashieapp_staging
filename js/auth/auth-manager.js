@@ -14,11 +14,16 @@ export class AuthManager {
     this.isSignedIn = false;
     this.googleAccessToken = null;
     this.googleAPI = null;
+    this.isWebView = this.detectWebView();
+    this.hasNativeAuth = this.detectNativeAuth();
+    this.isFireTV = this.detectFireTV();
     
     // Initialize auth modules - much simpler now!
-    this.deviceFlow = new DeviceFlowAuth();
-    this.nativeAuth = new NativeAuth();
+    this.nativeAuth = this.hasNativeAuth ? new NativeAuth() : null;
     this.webAuth = new WebAuth();
+    this.deviceFlowAuth = new DeviceFlowAuth();
+    
+    this.nativeAuthFailed = false;
     this.ui = new AuthUI();
     this.storage = new AuthStorage(); // Keep for compatibility
     
