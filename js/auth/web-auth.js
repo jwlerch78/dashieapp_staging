@@ -5,7 +5,7 @@ export class WebAuth {
     this.config = {
       client_id: '221142210647-58t8hr48rk7nlgl56j969himso1qjjoo.apps.googleusercontent.com',
       // ✅ UPDATED: Add Google Photos and Calendar scopes
-      scope: 'profile email https://www.googleapis.com/auth/photoslibrary.readonly https://www.googleapis.com/auth/calendar.readonly',
+      scope: 'profile email https://www.googleapis.com/auth/calendar.readonly',
       redirect_uri: window.location.origin + window.location.pathname
     };
     this.isInitialized = false;
