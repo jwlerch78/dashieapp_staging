@@ -102,13 +102,6 @@ async function handleUnifiedInput(action, originalEvent = null) {
     originalEvent.preventDefault();
   }
   
-  // NEW: Check if settings modal is open and let it handle events
-  const settingsOverlay = document.querySelector('.settings-overlay.active');
-  if (settingsOverlay) {
-    console.log('🎮 Settings modal is open, letting it handle input');
-    return; // Let settings modal handle its own navigation
-  }
-  
   // Handle special actions first
   if (action === "sleep-toggle") {
     await handleSleepToggle();
@@ -123,6 +116,15 @@ async function handleUnifiedInput(action, originalEvent = null) {
     startResleepTimer();
     return;
   }
+ 
+  
+  // NEW: Check if settings modal is open and let it handle events
+  const settingsOverlay = document.querySelector('.settings-overlay.active');
+  if (settingsOverlay) {
+    console.log('🎮 Settings modal is open, letting it handle input');
+    return; // Let settings modal handle its own navigation
+  }
+  
   
   // Handle settings modal - UPDATED for new settings system
   try {
