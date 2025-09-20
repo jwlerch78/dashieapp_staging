@@ -10,6 +10,35 @@ export const AUTH_CONFIG = {
   client_secret: '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'
 };
 
+export const API_CONFIG = {
+  google: {
+    // Base URL for all Google APIs
+    baseUrl: 'https://www.googleapis.com',
+
+    // Rate limiting (minimum interval between requests in ms)
+    rateLimitInterval: 100, // 100ms between requests
+
+    // Retry configuration for failed requests
+    retryConfig: {
+      maxRetries: 3,
+      baseDelay: 1000,  // 1 second between retries
+      maxDelay: 10000   // 10 seconds max backoff
+    },
+
+    // Calendar-specific settings
+    calendar: {
+      monthsAhead: 3, // originally MONTHS_AHEAD_TO_PULL
+      monthsBack: 1,  // originally MONTHS_BACK_TO_PULL
+      maxResults: 250, // adjust as needed for your API calls
+      includeCalendars: [
+        'jwlerch@gmail.com',
+        'Veeva'
+      ]
+    },
+  }
+};
+
+
 /**
  * Logging Configuration for new logging system
  */
