@@ -1,5 +1,5 @@
 // js/services/data-manager.js - Centralized Data Caching and Refresh System
-// CHANGE SUMMARY: Extracted data management logic from auth-manager.js, added structured logging, improved caching strategy
+// CHANGE SUMMARY: Extracted data management logic from auth-manager.js, added structured logging, improved caching strategy. Fixed calendar request format for backward compatibility.
 
 import { createLogger } from '../utils/logger.js';
 import { events as eventSystem, EVENTS } from '../utils/event-emitter.js';
@@ -399,11 +399,8 @@ export class DataManager {
     switch (requestType) {
       case 'events':
         const calendarData = await this.getCalendarData();
-        return {
-          events: calendarData.events,
-          calendars: calendarData.calendars,
-          lastUpdated: calendarData.lastUpdated
-        };
+        // Return flattened structure for backward compatibility
+        return calendarData; // This already has { events, calendars, lastUpdated }
         
       case 'calendars':
         const calendarsData = await this.getCalendarData();
