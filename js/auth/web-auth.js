@@ -1,70 +1,39 @@
 // js/auth/web-auth.js - Single OAuth-Only Web Auth (Complete Rewrite)
+// CHANGE SUMMARY: Fixed init() method to properly initialize web auth instead of containing AuthManager code
 
 export class WebAuth {
   constructor() {
     this.config = {
       client_id: '221142210647-58t8hr48rk7nlgl56j969himso1qjjoo.apps.googleusercontent.com',
-      // ✅ UPDATED: Add Google Photos and Calendar scopes
-      //scope: 'profile email https://www.googleapis.com/auth/calendar.readonly',
-      scope: 'profile email',
+      // Updated: Add Google Photos and Calendar scopes
+      scope: 'profile email https://www.googleapis.com/auth/photoslibrary.readonly https://www.googleapis.com/auth/calendar.readonly',
       redirect_uri: window.location.origin + window.location.pathname
     };
     this.isInitialized = false;
     this.accessToken = null;
   }
 
-   async init() {
-    console.log('🔐 Initializing AuthManager...');
-    console.log('🔐 Environment:', {
-      isWebView: this.isWebView,
-      hasNativeAuth: this.hasNativeAuth,
-      isFireTV: this.isFireTV
-    });
-
-    // Set up auth result handlers
-    window.handleNativeAuth = (result) => this.handleNativeAuthResult(result);
-    window.handleWebAuth = (result) => this.handleWebAuthResult(result);
+  async init() {
+    console.log('🔐 Initializing Web Auth...');
     
-    // NEW: Set up widget request handler
-    this.setupWidgetRequestHandler();
-    
-    // Check for existing authentication first
-    this.checkExistingAuth();
-    
-    // If already signed in, we're done
-    if (this.isSignedIn) {
-      console.log('🔐 ✅ Already authenticated, initializing data services');
-      await this.initializeGoogleAPIs();
-      return;
-    }
-
-    // Initialize appropriate auth method based on platform
-    if (this.hasNativeAuth) {
-      console.log('🔐 Using native Android authentication');
-      await this.nativeAuth.init();
-      this.checkNativeUser();
+    try {
+      // Set initialized flag
+      this.isInitialized = true;
       
-    } else if (this.isWebView) {
-      console.log('🔐 WebView without native auth - showing WebView prompt');
-      this.ui.showWebViewAuthPrompt(() => this.createWebViewUser(), () => this.exitApp());
+      // Check if we're returning from OAuth callback
+      const callbackHandled = await this.handleOAuthCallback();
       
-    } else {
-      console.log('🔐 Browser environment - initializing web auth');
-      try {
-        await this.webAuth.init();
-        
-        if (this.isSignedIn) {
-          console.log('🔐 ✅ OAuth callback handled during init, user is now signed in');
-          return;
-        }
-        
-        console.log('🔐 No existing auth found, showing sign-in prompt');
-        this.ui.showSignInPrompt(() => this.signIn(), () => this.exitApp());
-        
-      } catch (error) {
-        console.error('🔐 Web auth initialization failed:', error);
-        this.handleAuthFailure(error);
+      if (callbackHandled) {
+        console.log('🔐 OAuth callback was handled during init');
+        return;
       }
+      
+      console.log('🔐 ✅ Web auth initialized successfully');
+      
+    } catch (error) {
+      console.error('🔐 ❌ Web auth initialization failed:', error);
+      this.isInitialized = true; // Still mark as initialized even if callback failed
+      throw error;
     }
   }
 
