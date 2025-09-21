@@ -413,14 +413,14 @@ export class WidgetMessenger {
    * Send error response to widget
    * @param {Window} targetWindow - Target widget window
    * @param {string} requestId - Request ID
-   * @param {string} errorMessage - Error message
+   * @param {string} errorMessageParam - Error message
    */
-  sendErrorResponse(targetWindow, requestId, errorMessage) {
+  sendErrorResponse(targetWindow, requestId, errorMessageParam) {
     const errorResponse = {
       type: 'widget-data-response',
       requestId: requestId,
       success: false,
-      error: errorMessage,
+      error: errorMessageParam,
       timestamp: Date.now()
     };
 
