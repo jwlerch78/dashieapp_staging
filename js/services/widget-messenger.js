@@ -431,12 +431,12 @@ export class WidgetMessenger {
    * Send error message to widget
    * @param {Window} targetWindow - Target widget window
    * @param {string} errorType - Error type
-   * @param {string} errorMessage - Error message
+   * @param {string} errorMessageParam - Error message
    */
-  sendErrorMessage(targetWindow, errorType, errorMessage) {
+  sendErrorMessage(targetWindow, errorType, errorMessageParam) {
     const errorMessage = {
       type: errorType,
-      error: errorMessage,
+      error: errorMessageParam,
       timestamp: Date.now()
     };
 
