@@ -178,54 +178,59 @@ export class WidgetMessenger {
    * @param {MessageEvent} event - Message event
    * @param {Object} messageData - Message data
    */
-  async handleGenericDataRequest(event, messageData) {
-    try {
-      let responseData = {};
-      
-      if (messageData.dataType === 'calendar') {
-        responseData = await this.dataManager.handleCalendarRequest(messageData.requestType, messageData.params);
-      } else if (messageData.dataType === 'photos') {
-        responseData = await this.dataManager.handlePhotosRequest(messageData.requestType, messageData.params);
-      } else {
-        throw new Error(`Unknown data type: ${messageData.dataType}`);
-      }
-      
-      // For backward compatibility, send the data directly (not nested)
-      const response = {
-        type: 'widget-data-response',
-        requestId: messageData.requestId,
-        success: true,
-        // Flatten the response for calendar widget compatibility
-        ...(messageData.dataType === 'calendar' && messageData.requestType === 'events' ? responseData : { data: responseData }),
-        timestamp: Date.now()
-      };
-      
-      event.source.postMessage(response, '*');
-      
-      logger.widget('send', 'data_response', this.getWidgetName(event.source), {
-        requestId: messageData.requestId,
-        dataType: messageData.dataType,
-        success: true
-      });
-      
-    } catch (error) {
-      logger.error('Widget data request failed', {
-        requestId: messageData.requestId,
-        dataType: messageData.dataType,
-        error: error.message
-      });
-      
-      const errorResponse = {
-        type: 'widget-data-response',
-        requestId: messageData.requestId,
-        success: false,
-        error: error.message,
-        timestamp: Date.now()
-      };
-      
-      event.source.postMessage(errorResponse, '*');
+ async handleGenericDataRequest(event, messageData) {
+  try {
+    let responseData = {};
+    
+    if (messageData.dataType === 'calendar') {
+      responseData = await this.dataManager.handleCalendarRequest(messageData.requestType, messageData.params);
+    } else if (messageData.dataType === 'photos') {
+      responseData = await this.dataManager.handlePhotosRequest(messageData.requestType, messageData.params);
+    } else {
+      throw new Error(`Unknown data type: ${messageData.dataType}`);
     }
+    
+    // FIXED: Proper response format for calendar widget compatibility
+    const response = {
+      type: 'widget-data-response',
+      requestId: messageData.requestId,
+      success: true,
+      data: responseData,
+      // Also flatten calendar events to root level for backward compatibility
+      ...(messageData.dataType === 'calendar' && messageData.requestType === 'events' ? {
+        events: responseData.events || [],
+        calendars: responseData.calendars || [],
+        lastUpdated: responseData.lastUpdated
+      } : {}),
+      timestamp: Date.now()
+    };
+    
+    event.source.postMessage(response, '*');
+    
+    logger.widget('send', 'data_response', this.getWidgetName(event.source), {
+      requestId: messageData.requestId,
+      dataType: messageData.dataType,
+      success: true
+    });
+    
+  } catch (error) {
+    logger.error('Widget data request failed', {
+      requestId: messageData.requestId,
+      dataType: messageData.dataType,
+      error: error.message
+    });
+    
+    const errorResponse = {
+      type: 'widget-data-response',
+      requestId: messageData.requestId,
+      success: false,
+      error: error.message,
+      timestamp: Date.now()
+    };
+    
+    event.source.postMessage(errorResponse, '*');
   }
+}
 
   /**
    * Handle widget ready notification

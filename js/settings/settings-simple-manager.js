@@ -21,7 +21,7 @@ export class SimplifiedSettings {
     this.controllerReady = false;
     
     // Start initialization process with delay
-    setTimeout(() => this.initializeController(), 500);
+    setTimeout(() => this.initializeController(), 200);
 
     // Listen for widget requests for family name and queue them if needed
     window.addEventListener('message', (event) => {
@@ -55,8 +55,8 @@ export class SimplifiedSettings {
       
       if (!authStatus.ready) {
         if (this.initializationAttempts < this.maxInitAttempts) {
-          console.log('⚙️ Auth not ready, retrying in 500ms...');
-          setTimeout(() => this.initializeController(), 500);
+          console.log('⚙️ Auth not ready, retrying in 200ms...');
+          setTimeout(() => this.initializeController(), 200);
           return;
         } else {
           console.warn('⚙️ Max initialization attempts reached, proceeding without full auth');

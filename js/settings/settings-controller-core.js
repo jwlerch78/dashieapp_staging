@@ -35,11 +35,41 @@ export class SettingsControllerCore {
     this.handleBeforeUnload = this.handleBeforeUnload.bind(this);
   }
 
+
+  // ADD THIS NEW METHOD somewhere in the class
+  loadSettingsFromLocalStorage() {
+    try {
+      const saved = localStorage.getItem('dashie-settings');
+      if (saved) {
+        this.currentSettings = { ...this.getDefaultSettings(), ...JSON.parse(saved) };
+        console.log('⚙️ 📱 Loaded settings from localStorage');
+      } else {
+        this.currentSettings = this.getDefaultSettings();
+      }
+    } catch (error) {
+      console.error('⚙️ Failed to load from localStorage:', error);
+      this.currentSettings = this.getDefaultSettings();
+    }
+  }
+
+  // ADD THIS NEW METHOD:
+  saveToLocalStorage() {
+    try {
+      localStorage.setItem('dashie-settings', JSON.stringify(this.currentSettings));
+      console.log('⚙️ 💾 Settings saved to localStorage');
+    } catch (error) {
+      console.error('⚙️ Failed to save to localStorage:', error);
+    }
+  }
+
+
   // Initialize with auth detection and error handling
   async init() {
     try {
       console.log('⚙️ Initializing Settings Controller...');
-      
+      this.loadSettingsFromLocalStorage();
+
+
       // Wait for auth to be ready with timeout
       const currentUser = await this.waitForAuth(5000);
       
@@ -231,9 +261,10 @@ export class SettingsControllerCore {
       
       // Auto-save after a short delay (debounced)
       this.scheduleAutoSave();
-      
+      this.saveToLocalStorage();
       return true;
     } else {
+      this.saveToLocalStorage();
       return true;
     }
   }

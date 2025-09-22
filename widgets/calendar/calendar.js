@@ -50,32 +50,75 @@ class CalendarWidget {
     });
   }
 
+  // FIXED: Better data handling for widget-data-response
   handleDataServiceMessage(data) {
+    console.log('📅 Calendar widget received message:', data.type, data);
+    
     switch (data.type) {
       case 'calendar-data-ready':
         this.handleCalendarData(data.data);
         break;
+        
       case 'widget-data-response':
-        if (data.success && data.data) {
-          this.handleCalendarData({
-            events: data.data,
-            calendars: data.calendars || [],
-            lastUpdated: data.timestamp
+        if (data.success) {
+          // FIXED: Handle multiple possible response formats
+          let calendarData = null;
+          
+          if (data.events && Array.isArray(data.events)) {
+            // Format 1: events directly in response (flattened format)
+            calendarData = {
+              events: data.events,
+              calendars: data.calendars || [],
+              lastUpdated: data.lastUpdated || data.timestamp
+            };
+            console.log('📅 Using flattened events format');
+          } else if (data.data && data.data.events && Array.isArray(data.data.events)) {
+            // Format 2: events in data.events
+            calendarData = {
+              events: data.data.events,
+              calendars: data.data.calendars || [],
+              lastUpdated: data.data.lastUpdated || data.timestamp
+            };
+            console.log('📅 Using nested events format');
+          } else if (data.data && Array.isArray(data.data)) {
+            // Format 3: data.data is directly the events array
+            calendarData = {
+              events: data.data,
+              calendars: data.calendars || [],
+              lastUpdated: data.timestamp
+            };
+            console.log('📅 Using direct array format');
+          } else {
+            console.error('📅 ❌ No valid events array found in response:', data);
+            this.updateConnectionStatus('error');
+            return;
+          }
+          
+          console.log('📅 📊 Processing calendar data:', {
+            eventsCount: calendarData.events.length,
+            calendarsCount: calendarData.calendars.length,
+            eventsType: typeof calendarData.events,
+            isArray: Array.isArray(calendarData.events)
           });
+          
+          this.handleCalendarData(calendarData);
+          
         } else {
           console.error('📅 ❌ Widget data response error:', data.error);
           this.updateConnectionStatus('error');
         }
         break;
+        
       case 'theme-change':
         this.applyTheme(data.theme);
         break;
+        
       case 'google-apis-ready':
+        console.log('📅 Google APIs ready, requesting calendar data...');
         setTimeout(() => this.requestCalendarData(), 1000);
         break;
     }
   }
-
   requestCalendarData() {
     window.parent.postMessage({
       type: 'widget-data-request',

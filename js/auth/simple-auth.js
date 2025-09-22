@@ -55,6 +55,19 @@ export class SimpleAuth {
       // Initialize the auth system
       const authResult = await this.authCoordinator.init();
       
+      // Check for saved user in localStorage for immediate settings initialization
+      const savedUser = this.authStorage.getSavedUser();
+      if (savedUser && !authResult.authenticated) {
+        // Emit auth ready event even if not fully authenticated
+        document.dispatchEvent(new CustomEvent('dashie-auth-ready', {
+          detail: { 
+            authenticated: false,
+            user: savedUser,
+            fromStorage: true
+          }
+        }));
+      }
+
       if (authResult.authenticated) {
         this.authenticated = true;
         await this.initializeServices();
