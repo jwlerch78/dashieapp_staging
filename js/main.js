@@ -1,100 +1,72 @@
-// js/main.js - App Initialization & Orchestration (Fixed to eliminate duplicate auth)
+// js/main.js - App Initialization (Fixed for new auth system)
+// CHANGE SUMMARY: Removed auth checking logic, simplified to work with new simple-auth.js system
+
 import { initializeEvents } from './core/events.js';
 import { updateFocus, initializeHighlightTimeout } from './core/navigation.js';
 import { renderGrid, renderSidebar } from './ui/grid.js';
-import { initializeSettings } from './settings/settings-main.js';
+import { autoInitialize } from './settings/settings-main.js';
 import { initializeThemeSystem } from './core/theme.js';
 
-// ---------------------
-// EARLY THEME APPLICATION
-// ---------------------
-// Import and apply theme as early as possible to prevent flash
-async function preApplyTheme() {
-  try {
-    const { applyThemeBeforeLoad } = await import('./core/theme.js');
-    applyThemeBeforeLoad();
-  } catch (error) {
-    console.warn('Early theme application failed:', error);
-  }
-}
-
-// ---------------------
-// AUTH CHECK (No duplicate creation)
-// ---------------------
-// Check if auth is already initialized by simple-auth.js
-function checkAuthReady() {
-  return new Promise((resolve) => {
-    // Check immediately first
-    if (window.dashieAuth) {
-      console.log('🔐 Auth system already ready');
-      resolve(true);
-      return;
-    }
-    
-    const checkInterval = setInterval(() => {
-      if (window.dashieAuth) {
-        clearInterval(checkInterval);
-        console.log('🔐 Auth system found and ready');
-        resolve(true);
-      }
-    }, 100);
-    
-    // Increased timeout to 10 seconds to account for auth initialization
-    setTimeout(() => {
-      clearInterval(checkInterval);
-      if (window.dashieAuth) {
-        console.log('🔐 Auth system found just before timeout');
-        resolve(true);
-      } else {
-        console.log('🔐 Auth system not found within timeout, continuing anyway');
-        resolve(false);
-      }
-    }, 10000);
-  });
-}
 
 // ---------------------
 // APP INITIALIZATION
 // ---------------------
-async function initializeApp() {
-  console.log("Initializing Dashie Dashboard...");
+export async function initializeApp() {
+  console.log("🚀 Initializing Dashie Dashboard...");
   
-  // Wait for auth system to be ready (created by simple-auth.js)
-  await checkAuthReady();
-  
-  // Initialize settings early so they can load and apply theme
-  await initializeSettings();
-  
-  // Initialize theme system (after settings so theme can be applied)
-  initializeThemeSystem();
-  
-  // Set up event listeners
-  initializeEvents();
-  
-  // Initialize navigation highlight timeout system
-  initializeHighlightTimeout();
-  
-  // Render initial UI
-  renderSidebar();
-  renderGrid();
-  
-  // Handle authenticated state when ready
-  setTimeout(() => {
-    if (window.dashieAuth && window.dashieAuth.isAuthenticated()) {
-      document.getElementById('app').classList.add('authenticated');
-      console.log('🔐 App marked as authenticated');
+  try {
+    // Auto-initialize settings (will wait for auth internally)
+    autoInitialize();
+    
+    // Initialize theme system
+    initializeThemeSystem();
+    
+    // Set up event listeners
+    initializeEvents();
+    
+    // Initialize navigation highlight timeout system
+    initializeHighlightTimeout();
+    
+    // Always render UI immediately - auth system will show/hide as needed
+    renderSidebar();
+    renderGrid();
+    
+    console.log("✅ Dashie Dashboard UI initialized successfully!");
+    
+    // Set up auth state listener for when user signs in
+    const checkAuthAndUpdate = () => {
+      if (window.dashieAuth && window.dashieAuth.isUserAuthenticated()) {
+        const app = document.getElementById('app');
+        if (app) {
+          app.classList.add('authenticated');
+        }
+        console.log('🔐 App marked as authenticated');
+        return true;
+      }
+      return false;
+    };
+    
+    // Check immediately
+    if (!checkAuthAndUpdate()) {
+      // If not authenticated yet, set up listeners
+      document.addEventListener('dashie-auth-ready', checkAuthAndUpdate);
+      
+      // Also check periodically as fallback
+      const authCheckInterval = setInterval(() => {
+        if (checkAuthAndUpdate()) {
+          clearInterval(authCheckInterval);
+        }
+      }, 1000);
+      
+      // Stop checking after 30 seconds
+      setTimeout(() => clearInterval(authCheckInterval), 30000);
     }
-  }, 1000); 
-  
-  console.log("Dashie Dashboard initialized successfully!");
+    
+  } catch (error) {
+    console.error('❌ Failed to initialize Dashie Dashboard:', error);
+    throw error;
+  }
 }
 
-// Pre-apply theme immediately when script loads
-preApplyTheme();
-
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeApp);
-} else {
-  initializeApp();
-}
+// Export for compatibility
+export default initializeApp;

@@ -9,20 +9,30 @@ import { state, setSleepMode, setConfirmDialog } from '../core/state.js';
 export function enterSleepMode() {
   setSleepMode(true);
   
-  // Create sleep overlay - pure black screen with no content
+  // Create sleep overlay
   const sleepOverlay = document.createElement("div");
   sleepOverlay.id = "sleep-overlay";
   sleepOverlay.className = "sleep-overlay";
   
+  // IMPORTANT: Make sure it can receive keyboard events
+  sleepOverlay.setAttribute('tabindex', '-1');
+  sleepOverlay.focus();
+  
   document.body.appendChild(sleepOverlay);
   
-  // Fade in using CSS class
+console.log('ading sleep layer')
+
+  // Fade in
   setTimeout(() => {
     sleepOverlay.classList.add("visible");
   }, 10);
   
-  // Add wake up listeners
+  // Add wake up listeners - BOTH click AND keydown
   sleepOverlay.addEventListener("click", wakeUp);
+  sleepOverlay.addEventListener("keydown", (e) => {
+    e.preventDefault();
+    wakeUp();
+  });
 }
 
 export function wakeUp() {
@@ -38,6 +48,7 @@ export function wakeUp() {
     }, 500);
   }
 }
+
 
 // ---------------------
 // ENHANCED EXIT CONFIRMATION WITH AUTH

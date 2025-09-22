@@ -1,0 +1,14 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Launch Dashie in Chrome (Debug Profile)",
+            "type": "pwa-chrome",
+            "request": "launch",
+            "url": "http://localhost:3000",
+            "webRoot": "${workspaceFolder}",
+            "sourceMaps": true,
+            "userDataDir": "C:\\Users\\John Lerch\\ChromeDebugProfile"
+        }
+    ]
+}

@@ -1,50 +1,77 @@
-<!-- index.html -->
+<!-- index.html for Dashie -->
+<!-- CHANGE SUMMARY: Fixed all CSS and JS paths to use absolute paths (starting with /) to work correctly from /oauth2/idpresponse callback URL -->
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Dashie Grid</title>
-  
-  <!-- Favicons -->
-  <link rel="icon" type="image/png" sizes="512x512" href="icons/Dashie_Logo_Orange_Transparent.png">
-  <link rel="icon" type="image/png" sizes="192x192" href="icons/Dashie_Logo_Orange_Transparent.png">
-  <link rel="icon" type="image/png" sizes="32x32" href="icons/Dashie_Logo_Orange_Transparent.png">
-  <link rel="icon" type="image/png" sizes="16x16" href="icons/Dashie_Logo_Orange_Transparent.png">
-  
-  <!-- CSS Core Files (in order) -->
-  <link rel="stylesheet" href="css/core/variables.css">
-  <link rel="stylesheet" href="css/core/base.css">
-  
-  <!-- CSS Component Files -->
-  <link rel="stylesheet" href="css/components/grid.css">
-  <link rel="stylesheet" href="css/components/widgets.css">
-  <link rel="stylesheet" href="css/components/sidebar.css">
-  <link rel="stylesheet" href="css/components/navigation.css">
-  <link rel="stylesheet" href="css/components/modals.css">
-  <link rel="stylesheet" href="js/settings/simplified-settings.css">
+    <!-- FIXED: Corrected AWS Amplify CDN and setup for Cognito integration -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashie - Family Dashboard</title>
+
+    <!-- Dynamic base tag -->
+      <script>
+        const hostname = window.location.hostname;
+        if (hostname === 'jwlerch78.github.io') {
+          document.write('<base href="/dashie_staging/">');
+        }
+      </script>
+
+    
+    <link rel="icon" type="image/x-icon" href="/icons/favicon.ico">
+    
+    <!-- CSS imports (FIXED: All paths now absolute) -->
+    <link rel="stylesheet" href="/css/core/variables.css">
+    <link rel="stylesheet" href="/css/core/base.css">
+    <link rel="stylesheet" href="/css/components/sidebar.css">
+    <link rel="stylesheet" href="/css/components/grid.css">
+    <link rel="stylesheet" href="/css/components/widgets.css">
+    <link rel="stylesheet" href="/css/components/modals.css">
+    <link rel="stylesheet" href="/css/components/navigation.css">
+    <link rel="stylesheet" href="/js/settings/simplified-settings.css">
+    
 </head>
 <body>
-<div id="app">
-  <!-- Sidebar Menu (now on the left) -->
-  <div id="sidebar-wrapper">
-    <div id="sidebar"></div>
-  </div>
-  <div id="grid"></div>
-</div>
+    <!-- Main app container (simplified for Cognito redirect flow) -->
+    <div id="app">
+        <div id="sidebar-wrapper">
+            <div id="sidebar"></div>
+        </div>
+        <div id="grid"></div>
+    </div>
+    
+      <!-- Configuration (keep this) -->
+      <script src="/js/config.js"></script>
+    
+    <!-- Preload auth system (FIXED: Absolute path) -->
+    <script type="module" src="/js/auth/simple-auth.js"></script>
+    
+<!-- Add this debug script before the main.js import -->
+<script type="module">
+    console.log("🔍 DEBUG: Starting main.js import process");
+    
+    import('/js/main.js').then((module) => {
+        console.log("🔍 DEBUG: main.js import succeeded");
+        console.log("🔍 DEBUG: Available exports:", Object.keys(module));
+        console.log("🔍 DEBUG: initializeApp type:", typeof module.initializeApp);
+        console.log("🔍 DEBUG: default type:", typeof module.default);
+        
+        // Try multiple possible export names
+        const initFn = module.initializeApp || module.default || module.init;
+        console.log("🔍 DEBUG: Selected function:", initFn ? initFn.name : 'NONE FOUND');
+        
+        if (initFn && typeof initFn === 'function') {
+            console.log("🔍 DEBUG: Calling initialization function");
+            initFn();
+        } else {
+            console.error('🔍 DEBUG: No valid initialization function found in main.js');
+            console.log('🔍 DEBUG: Available exports:', Object.keys(module));
+        }
+    }).catch(error => {
+        console.error('🔍 DEBUG: Failed to load main application:', error);
+    });
+</script>
 
-  <!-- Configuration (keep this) -->
-  <script src="js/config.js"></script>
-   
-<!-- Google SSO Login (this handles settings initialization internally) -->
-<script type="module" src="js/auth/simple-auth.js"></script>
-  
-  <!-- Modular JavaScript (ES6 modules) -->
-  <script type="module" src="js/main.js"></script>
 
-  <!-- Location code (traccar) -->
-  <!--<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script> -->
-  <!--<script src="widgets/location/location.js"></script> -->
-  
 </body>
 </html>

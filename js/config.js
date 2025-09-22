@@ -20,7 +20,8 @@ const dbConfig = {
 
 // Auto-detect environment based on domain
 const getCurrentDbConfig = () => {
-    if (window.location.hostname.includes('dev.')) {
+    const host = window.location.hostname; // <— add this line
+    if (host.includes('dev.') || host === 'localhost' || host.startsWith('localhost')) {
         return dbConfig.development;
     }
     return dbConfig.production;

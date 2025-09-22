@@ -1,17 +1,10 @@
-// js/core/theme.js - Complete Theme Management System with Flash Prevention
+// js/core/theme.js - Complete Theme Management System integrated with new modular settings
+// CHANGE SUMMARY: Integrated with new modular settings system, added structured logging, removed direct localStorage access, added proper event-driven theme loading
 
+import { createLogger } from '../utils/logger.js';
+import { events as eventSystem, EVENTS } from '../utils/event-emitter.js';
 
-const storage = (() => {
-  try {
-    return localStorage;
-  } catch (e) {
-    return { 
-      getItem: () => null, 
-      setItem: () => {}, 
-      removeItem: () => {} 
-    };
-  }
-})();
+const logger = createLogger('Theme');
 
 // ---------------------
 // THEME CONSTANTS
@@ -26,12 +19,12 @@ export const THEME_CONFIG = {
   [THEMES.DARK]: {
     name: 'Dark Theme',
     className: 'theme-dark',
-    logoSrc: 'icons/Dashie_Full_Logo_White_Transparent.png'
+    logoSrc: '/icons/Dashie_Full_Logo_White_Transparent.png'
   },
   [THEMES.LIGHT]: {
     name: 'Light Theme', 
     className: 'theme-light',
-    logoSrc: 'icons/Dashie_Full_Logo_Black_Transparent.png'
+    logoSrc: '/icons/Dashie_Full_Logo_Black_Transparent.png'
   }
 };
 
@@ -39,7 +32,121 @@ export const THEME_CONFIG = {
 // THEME STATE
 // ---------------------
 
-let currentTheme = THEMES.LIGHT; // Default theme
+let currentTheme = null; // Default fallback theme
+let isInitialized = false;
+let settingsSystem = null;
+
+// ---------------------
+// SETTINGS INTEGRATION
+// ---------------------
+
+/**
+ * Initialize connection to the new modular settings system
+ */
+async function initializeSettingsConnection() {
+  if (settingsSystem) return settingsSystem;
+
+  try {
+    // Wait for settings system to be available
+    const { getSettingValue, setSettingValue, isSettingsReady } = await import('../settings/settings-main.js');
+    
+    // Wait up to 5 seconds for settings to be ready
+    let attempts = 0;
+    while (!isSettingsReady() && attempts < 50) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      attempts++;
+    }
+    
+    if (isSettingsReady()) {
+      settingsSystem = { getSettingValue, setSettingValue };
+      logger.info('Connected to modular settings system');
+      return settingsSystem;
+    } else {
+      logger.warn('Settings system not ready, using fallback storage');
+      return null;
+    }
+  } catch (error) {
+    logger.warn('Failed to connect to settings system:', error.message);
+    return null;
+  }
+}
+
+/**
+ * Load theme from the new settings system with fallback to localStorage
+ */
+async function loadSavedTheme() {
+  // Try to get from new settings system first
+  if (settingsSystem) {
+    try {
+      const savedTheme = settingsSystem.getSettingValue('display.theme', THEMES.DARK);
+      if (savedTheme && Object.values(THEMES).includes(savedTheme)) {
+        logger.debug('Theme loaded from settings system:', savedTheme);
+        return savedTheme;
+      }
+    } catch (error) {
+      logger.warn('Failed to load theme from settings system:', error.message);
+    }
+  }
+
+  // Fallback to localStorage for immediate theme application
+  try {
+    const storage = (() => {
+      try { return localStorage; } 
+      catch (e) { return { getItem: () => null }; }
+    })();
+    
+    const saved = storage.getItem('dashie-theme');
+    if (saved && Object.values(THEMES).includes(saved)) {
+      logger.debug('Theme loaded from localStorage fallback:', saved);
+      return saved;
+    }
+  } catch (error) {
+    logger.warn('Failed to load theme from localStorage:', error.message);
+  }
+
+  logger.debug('Using default theme:', THEMES.DARK);
+  return THEMES.DARK;
+}
+
+/**
+ * Save theme to both settings system and localStorage
+ */
+async function saveTheme(theme) {
+  const saves = [];
+
+  // Save to new settings system
+  if (settingsSystem) {
+    try {
+      const success = settingsSystem.setSettingValue('display.theme', theme);
+      if (success) {
+        saves.push('settings system');
+        logger.debug('Theme saved to settings system:', theme);
+      }
+    } catch (error) {
+      logger.warn('Failed to save theme to settings system:', error.message);
+    }
+  }
+
+  // Always save to localStorage as backup
+  try {
+    const storage = (() => {
+      try { return localStorage; } 
+      catch (e) { return { setItem: () => {} }; }
+    })();
+    
+    storage.setItem('dashie-theme', theme);
+    saves.push('localStorage');
+    logger.debug('Theme saved to localStorage:', theme);
+  } catch (error) {
+    logger.warn('Failed to save theme to localStorage:', error.message);
+  }
+
+  if (saves.length > 0) {
+    logger.info(`Theme saved to: ${saves.join(', ')}`);
+  } else {
+    logger.error('Failed to save theme to any storage system');
+  }
+}
 
 // ---------------------
 // WIDGET THEME APPLICATION
@@ -58,7 +165,7 @@ function applyThemeClassToWidget(iframe, theme) {
   try {
     const doc = iframe.contentDocument || iframe.contentWindow.document;
     if (!doc || !doc.body) {
-      console.warn('Cannot access iframe body for theme application');
+      logger.warn('Cannot access iframe body for theme application');
       return false;
     }
 
@@ -70,10 +177,11 @@ function applyThemeClassToWidget(iframe, theme) {
     // Add new theme class (CSS variables will handle the rest)
     doc.body.classList.add(`theme-${theme}`);
     
+    logger.debug('Theme class applied to widget:', theme);
     return true;
 
   } catch (error) {
-    console.warn('Theme class application failed:', error.message);
+    logger.warn('Theme class application failed:', error.message);
     return false;
   }
 }
@@ -88,35 +196,58 @@ function sendThemeViaPostMessage(iframe, theme) {
       themeClass: `theme-${theme}`,
       themeConfig: THEME_CONFIG[theme]
     }, '*');
-    console.log(`📤 Sent ${theme} theme via postMessage`);
+    logger.debug(`Sent ${theme} theme via postMessage`);
   } catch (error) {
-    console.warn('PostMessage failed:', error.message);
+    logger.warn('PostMessage failed:', error.message);
   }
 }
 
-// ---------------------
-// THEME PERSISTENCE
-// ---------------------
-
-function loadSavedTheme() {
-  try {
-    const saved = storage.getItem('dashie-theme');
-    if (saved && Object.values(THEMES).includes(saved)) {
-      return saved;
+function applyThemeToNewWidget(iframe) {
+  if (!iframe) return;
+  
+  const attemptThemeApplication = () => {
+    const classSuccess = applyThemeClassToWidget(iframe, currentTheme);
+    sendThemeViaPostMessage(iframe, currentTheme);
+    
+    if (!classSuccess) {
+      logger.debug('Will retry theme application in 100ms');
+      setTimeout(attemptThemeApplication, 100);
     }
-  } catch (e) {
-    console.warn('Failed to load saved theme:', e);
+  };
+  
+  // Wait for iframe to load, then apply theme
+  if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+    attemptThemeApplication();
+  } else {
+    iframe.addEventListener('load', attemptThemeApplication);
   }
-  return THEMES.DARK;
 }
 
-function saveTheme(theme) {
-  try {
-    storage.setItem('dashie-theme', theme);
-    console.log(`💾 Theme saved: ${theme}`);
-  } catch (e) {
-    console.warn('Failed to save theme:', e);
-  }
+function notifyWidgetsThemeChange(theme) {
+  const iframes = document.querySelectorAll('iframe.widget-iframe');
+  let successCount = 0;
+  
+  iframes.forEach(iframe => {
+    const classSuccess = applyThemeClassToWidget(iframe, theme);
+    sendThemeViaPostMessage(iframe, theme);
+    if (classSuccess) successCount++;
+  });
+  
+  logger.info(`Theme applied to ${successCount}/${iframes.length} widgets`);
+  
+  // Retry failed widgets after a delay
+  setTimeout(() => {
+    const retryIframes = document.querySelectorAll('iframe.widget-iframe');
+    retryIframes.forEach(iframe => {
+      if (canAccessIframe(iframe)) {
+        const doc = iframe.contentDocument || iframe.contentWindow.document;
+        if (doc && doc.body && !doc.body.classList.contains(`theme-${theme}`)) {
+          applyThemeClassToWidget(iframe, theme);
+          logger.debug('Retried theme application for widget');
+        }
+      }
+    });
+  }, 100);
 }
 
 // ---------------------
@@ -127,17 +258,17 @@ function updateLogo(theme) {
   const logo = document.querySelector('.dashie-logo');
   if (logo) {
     logo.src = THEME_CONFIG[theme].logoSrc;
-    console.log(`🖼️ Logo updated for ${theme} theme`);
+    logger.debug(`Logo updated for ${theme} theme`);
   } else {
-    console.warn('🖼️ Dashie logo element not found - will retry');
+    logger.debug('Dashie logo element not found - will retry');
     // Retry after a short delay if logo element doesn't exist yet
     setTimeout(() => {
       const retryLogo = document.querySelector('.dashie-logo');
       if (retryLogo) {
         retryLogo.src = THEME_CONFIG[theme].logoSrc;
-        console.log(`🖼️ Logo updated on retry for ${theme} theme`);
+        logger.debug(`Logo updated on retry for ${theme} theme`);
       } else {
-        console.warn('🖼️ Logo element still not found after retry');
+        logger.warn('Logo element still not found after retry');
       }
     }, 200);
   }
@@ -154,6 +285,7 @@ function applyThemeToBody(theme) {
   // Add the new theme class
   body.classList.add(`theme-${theme}`);
   
+  logger.debug(`Body theme class applied: theme-${theme}`);
 }
 
 function preventTransitionsOnLoad() {
@@ -163,86 +295,23 @@ function preventTransitionsOnLoad() {
   }, 200); // Increased timeout to ensure theme is fully applied
 }
 
-// NEW: Apply theme immediately to prevent flash
-export function applyThemeBeforeLoad() {
-  const savedTheme = loadSavedTheme();
-  currentTheme = savedTheme;
-  
-  // Apply theme class immediately - even before DOM is ready
-  if (document.body) {
-    applyThemeToBody(savedTheme);
-  } else {
-    // If body doesn't exist yet, apply when it does
-    const observer = new MutationObserver((mutations, obs) => {
-      if (document.body) {
-        applyThemeToBody(savedTheme);
-        obs.disconnect();
-      }
-    });
-    observer.observe(document.documentElement, { childList: true });
-  }
-  
-}
-
 // ---------------------
 // WIDGET COMMUNICATION
 // ---------------------
 
-function notifyWidgetsThemeChange(theme) {
-  const iframes = document.querySelectorAll('.widget-iframe');
-  let classApplicationCount = 0;
-  let postMessageCount = 0;
-  
-  iframes.forEach((iframe, index) => {
-    console.log(`🎨 Applying ${theme} theme to widget ${index + 1}/${iframes.length}`);
-    
-    // Method 1: Try direct CSS class application (uses your CSS variables)
-    if (canAccessIframe(iframe)) {
-      const success = applyThemeClassToWidget(iframe, theme);
-      if (success) {
-        classApplicationCount++;
-        return;
+function initializeWidgetCommunication() {
+  // Listen for widget requests for current theme
+  window.addEventListener('message', (event) => {
+    if (event.data.type === 'request-theme') {
+      const iframe = Array.from(document.querySelectorAll('iframe.widget-iframe'))
+        .find(frame => frame.contentWindow === event.source);
+      
+      if (iframe) {
+        sendThemeViaPostMessage(iframe, currentTheme);
+        logger.debug('Sent theme to requesting widget');
       }
     }
-    
-    // Method 2: Fallback to postMessage
-    sendThemeViaPostMessage(iframe, theme);
-    postMessageCount++;
   });
-  
-}
-
-function handleWidgetThemeRequest(widgetName) {
-  const iframes = document.querySelectorAll('.widget-iframe');
-  
-  iframes.forEach(iframe => {
-    if (canAccessIframe(iframe)) {
-      applyThemeClassToWidget(iframe, currentTheme);
-    } else {
-      sendThemeViaPostMessage(iframe, currentTheme);
-    }
-  });
-  
-  console.log(`📡 Sent current theme (${currentTheme}) to requesting widget: ${widgetName}`);
-}
-
-function initializeWidgetCommunication() {
-  window.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'widget-request-theme') {
-      handleWidgetThemeRequest(event.data.widget || 'unknown');
-    }
-  });
-}
-
-function applyThemeToNewWidget(iframe) {
-  setTimeout(() => {
-    if (canAccessIframe(iframe)) {
-      applyThemeClassToWidget(iframe, currentTheme);
-      console.log(`🎨 Applied ${currentTheme} theme to newly loaded widget`);
-    } else {
-      sendThemeViaPostMessage(iframe, currentTheme);
-    }
-  }, 100);
 }
 
 // ---------------------
@@ -260,50 +329,112 @@ export function getAvailableThemes() {
   }));
 }
 
-export function switchTheme(newTheme) {
+export async function switchTheme(newTheme) {
   if (!Object.values(THEMES).includes(newTheme)) {
-    console.warn(`Invalid theme: ${newTheme}`);
+    logger.warn(`Invalid theme: ${newTheme}`);
     return false;
   }
   
-  console.log(`🎨 Switching theme from ${currentTheme} to ${newTheme}`);
+  logger.info(`Switching theme from ${currentTheme} to ${newTheme}`);
   
   currentTheme = newTheme;
   
   // Apply theme changes
   applyThemeToBody(newTheme);
   updateLogo(newTheme);
-  saveTheme(newTheme);
+  await saveTheme(newTheme);
   
   // Notify widgets about theme change
   notifyWidgetsThemeChange(newTheme);
   
-  console.log(`✅ Theme switched to: ${THEME_CONFIG[newTheme].name}`);
+  // Emit theme change event for other systems
+  eventSystem.emit(EVENTS.THEME_CHANGED, { theme: newTheme });
+  
+  logger.info(`Theme switched to: ${THEME_CONFIG[newTheme].name}`);
   return true;
 }
 
-export function initializeThemeSystem() {
-  
-  // IMPORTANT: Apply theme before preventing transitions to avoid flash
-  applyThemeBeforeLoad();
-  preventTransitionsOnLoad();
-  
-  initializeWidgetCommunication();
-  
-  // Apply theme to any existing widgets
-  setTimeout(() => {
-    notifyWidgetsThemeChange(currentTheme);
-  }, 500);
-  
-  // Update logo with multiple retries to ensure sidebar is rendered
-  updateLogo(currentTheme);
-  setTimeout(() => updateLogo(currentTheme), 300);
-  setTimeout(() => updateLogo(currentTheme), 600);
+export async function initializeThemeSystem() {
+  if (isInitialized) {
+    logger.debug('Theme system already initialized');
+    return;
+  }
 
+  logger.info('Initializing theme system');
+
+  try {
+    // Initialize connection to settings system
+    await initializeSettingsConnection();
+
+    // Load theme from settings system or fallback storage
+    const savedTheme = await loadSavedTheme();
+    currentTheme = savedTheme;
+
+    // Apply theme before preventing transitions to avoid flash
+    applyThemeToBody(currentTheme);
+    preventTransitionsOnLoad();
+    
+    // Initialize widget communication
+    initializeWidgetCommunication();
+    
+    // Apply theme to any existing widgets
+    setTimeout(() => {
+      notifyWidgetsThemeChange(currentTheme);
+    }, 500);
+    
+    // Update logo with multiple retries to ensure sidebar is rendered
+    updateLogo(currentTheme);
+    setTimeout(() => updateLogo(currentTheme), 300);
+    setTimeout(() => updateLogo(currentTheme), 600);
+
+    // Listen for settings system theme changes
+    eventSystem.on(EVENTS.SETTINGS_CHANGED, (data) => {
+      if (data.path === 'display.theme' && data.value !== currentTheme) {
+        logger.info('Theme change detected from settings system');
+        switchTheme(data.value);
+      }
+    });
+
+    isInitialized = true;
+    logger.info('Theme system initialized successfully');
+
+  } catch (error) {
+    logger.error('Failed to initialize theme system:', error);
+    // Apply fallback theme to prevent broken UI
+    applyThemeToBody(THEMES.DARK);
+    currentTheme = THEMES.DARK;
+    isInitialized = true;
+  }
 }
 
 export function applyThemeToWidget(iframe) {
   applyThemeToNewWidget(iframe);
+}
+
+// ---------------------
+// EARLY THEME APPLICATION (prevents flash)
+// ---------------------
+
+/**
+ * Apply theme as early as possible - before main initialization
+ * This prevents theme flash on page load
+ */
+export async function applyThemeBeforeLoad() {
+  try {
+    // Quick theme loading without full initialization
+    const savedTheme = await loadSavedTheme();
+    currentTheme = savedTheme;
+    
+    // Apply theme class immediately to prevent flash
+    applyThemeToBody(currentTheme);
+    
+    logger.debug('Early theme applied:', savedTheme);
+  } catch (error) {
+    logger.warn('Early theme application failed:', error);
+    // Apply fallback theme
+    applyThemeToBody(THEMES.DARK);
+    currentTheme = THEMES.DARK;
+  }
 }
 
 // ---------------------

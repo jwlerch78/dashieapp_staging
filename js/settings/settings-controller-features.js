@@ -83,37 +83,42 @@ export class SettingsControllerFeatures {
 
   // Save settings to database with local-only filtering
   async saveSettings() {
-    if (!this.isDirty) {
-      return true;
-    }
+  if (!this.isDirty) {
+    return true;
+  }
 
-    // Save local-only settings to localStorage first
-    await this.saveLocalOnlySettings();
+  // Save local-only settings to localStorage first
+  await this.saveLocalOnlySettings();
 
-    if (!this.storage) {
-      try {
-        localStorage.setItem('dashie-settings', JSON.stringify(this.currentSettings));
-        this.isDirty = false;
-        return true;
-      } catch (error) {
-        console.error('Failed to save to localStorage:', error);
-        return false;
-      }
-    }
+  // ALWAYS save to localStorage first (primary storage)
+  try {
+    localStorage.setItem('dashie-settings', JSON.stringify(this.currentSettings));
+    console.log('⚙️ 💾 Settings saved to localStorage');
+    this.isDirty = false;
+  } catch (error) {
+    console.error('⚙️ ❌ Failed to save to localStorage:', error);
+    return false;
+  }
 
+  // BONUS: Try to save to Supabase if available (secondary storage)
+  if (this.storage) {
     try {
       // Filter out local-only settings before saving to database
       const databaseSettings = this.filterOutLocalOnlySettings(this.currentSettings);
       
       await this.storage.saveSettings(databaseSettings);
-      this.isDirty = false;
-      return true;
+      console.log('⚙️ ☁️ Settings also saved to Supabase');
       
     } catch (error) {
-      console.error('Failed to save settings to storage:', error);
-      return false;
+      console.warn('⚙️ ⚠️ Supabase save failed, but localStorage succeeded:', error.message);
+      // Don't return false - localStorage already succeeded
     }
+  } else {
+    console.log('⚙️ ℹ️ No Supabase storage available, using localStorage only');
   }
+
+  return true;
+}
 
   // Save local-only settings to localStorage
   async saveLocalOnlySettings() {

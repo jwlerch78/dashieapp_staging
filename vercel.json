@@ -1,0 +1,27 @@
+{
+  "rewrites": [
+    {
+      "source": "/oauth2/idpresponse",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/((?!css|js|icons|widgets|favicon\\.ico|.*\\.).*)$",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
+    }
+  ]
+}
