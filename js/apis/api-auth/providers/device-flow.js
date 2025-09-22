@@ -188,126 +188,126 @@ export class DeviceFlowProvider {
     return overlay;
   }
 
-  /**
-   * Start polling Google for tokens
-   * @param {Object} deviceData - Device code response data
-   * @param {Function} resolve - Promise resolve function
-   * @param {Function} reject - Promise reject function
-   * @param {HTMLElement} overlay - UI overlay element
-   */
-  startPolling(deviceData, resolve, reject, overlay) {
-    const deviceCode = deviceData.device_code;
-    const interval = deviceData.interval || 5; // seconds
-    const maxAttempts = Math.floor(deviceData.expires_in / interval);
-    let attempts = 0;
+ /**
+ * Start polling Google for tokens
+ * @param {Object} deviceData - Device code response data
+ * @param {Function} resolve - Promise resolve function
+ * @param {Function} reject - Promise reject function
+ * @param {HTMLElement} overlay - UI overlay element
+ */
+startPolling(deviceData, resolve, reject, overlay) {
+  const deviceCode = deviceData.device_code;
+  let interval = deviceData.interval || 5; // seconds
+  const maxAttempts = Math.floor(deviceData.expires_in / interval);
+  let attempts = 0;
 
-    logger.debug('Starting token polling', {
-      interval: interval,
-      maxAttempts: maxAttempts,
-      expiresIn: deviceData.expires_in
-    });
+  const poll = async () => {
+    attempts++;
 
-    const poll = async () => {
-      attempts++;
+    if (attempts > maxAttempts) {
+      logger.auth('device', 'polling_timeout', 'error');
+      this.cleanup(overlay);
+      reject(new Error('Device flow timeout - please try again'));
+      return;
+    }
+
+    try {
+      logger.debug(`Polling attempt ${attempts}/${maxAttempts}`);
       
-      if (attempts > maxAttempts) {
-        logger.auth('device', 'polling_timeout', 'error');
+      // Request tokens
+      let tokenResponse = await this.requestTokens(deviceCode, true); // first try with client_secret
+      
+      // If Google complains about client_secret, retry without it
+      if (tokenResponse.error === 'invalid_request' && tokenResponse.error_description?.includes('client_secret')) {
+        logger.debug('Retrying token request without client_secret...');
+        tokenResponse = await this.requestTokens(deviceCode, false); // retry without client_secret
+      }
+
+      if (tokenResponse.success) {
+        // Got access token
+        const tokens = tokenResponse.tokens;
+        this.currentTokens = tokens;
+
+        // Get user info
+        const userInfo = await this.fetchUserInfo(tokens.access_token);
+
+        const result = {
+          success: true,
+          user: {
+            id: userInfo.id,
+            name: userInfo.name,
+            email: userInfo.email,
+            picture: userInfo.picture,
+            authMethod: 'device_flow',
+            googleAccessToken: tokens.access_token
+          },
+          tokens
+        };
+
         this.cleanup(overlay);
-        reject(new Error('Device flow timeout - please try again'));
+        resolve(result);
         return;
       }
 
-      try {
-        logger.debug(`Polling attempt ${attempts}/${maxAttempts}`);
-        
-        const tokenResponse = await this.requestTokens(deviceCode);
-        
-        if (tokenResponse.success) {
-          // Success! We have tokens
-          const tokens = tokenResponse.tokens;
-          this.currentTokens = tokens;
-          
-          // Get user info
-          const userInfo = await this.fetchUserInfo(tokens.access_token);
-          
-          const result = {
-            success: true,
-            user: {
-              id: userInfo.id,
-              name: userInfo.name,
-              email: userInfo.email,
-              picture: userInfo.picture,
-              authMethod: 'device_flow',
-              googleAccessToken: tokens.access_token
-            },
-            tokens: tokens
-          };
-          
-          this.cleanup(overlay);
-          resolve(result);
-          return;
-        }
-        
-        // Continue polling
-        this.pollInterval = setTimeout(poll, interval * 1000);
-        
-      } catch (error) {
-        logger.error(`Polling attempt ${attempts} failed`, error);
-        
-        // Continue polling on error
-        this.pollInterval = setTimeout(poll, interval * 1000);
-      }
-    };
-
-    // Start first poll immediately
-    poll();
-  }
-
-  /**
-   * Request tokens from Google using device code
-   * @param {string} deviceCode - Device code from initial request
-   * @returns {Promise<Object>} Token request result
-   */
-  async requestTokens(deviceCode) {
-    try {
-      const response = await fetch(this.config.token_endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          client_id: this.config.client_id,
-          client_secret: this.config.client_secret,
-          device_code: deviceCode,
-          grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-        })
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.access_token) {
-        return {
-          success: true,
-          tokens: data
-        };
+      // Handle pending or slow_down
+      if (tokenResponse.pending) {
+        logger.debug('Authorization still pending, will retry...');
+      } else if (tokenResponse.slowDown) {
+        interval += 5;
+        logger.debug(`Server requested slow down, next poll in ${interval}s`);
       }
 
-      // Handle specific error cases
-      if (data.error === 'authorization_pending') {
-        return { success: false, pending: true };
-      }
-      
-      if (data.error === 'slow_down') {
-        return { success: false, slowDown: true };
-      }
+      // Schedule next poll
+      this.pollInterval = setTimeout(poll, interval * 1000);
 
-      // Other errors
-      throw new Error(data.error_description || data.error || 'Token request failed');
-      
     } catch (error) {
-      throw error;
+      logger.error(`Polling attempt ${attempts} failed`, error);
+      this.pollInterval = setTimeout(poll, interval * 1000);
     }
+  };
+
+  poll();
+}
+
+ /**
+ * Request tokens from Google using device code
+ * @param {string} deviceCode - Device code from initial request
+ * @param {boolean} useClientSecret - Whether to include client_secret
+ * @returns {Promise<Object>} Token request result
+ */
+async requestTokens(deviceCode, useClientSecret = true) {
+  try {
+    const bodyParams = {
+      client_id: this.config.client_id,
+      device_code: deviceCode,
+      grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
+    };
+    if (useClientSecret && this.config.client_secret) {
+      bodyParams.client_secret = this.config.client_secret;
+    }
+
+    const response = await fetch(this.config.token_endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams(bodyParams)
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.access_token) {
+      return { success: true, tokens: data };
+    }
+
+    // Handle pending / slow_down
+    if (data.error === 'authorization_pending') return { success: false, pending: true };
+    if (data.error === 'slow_down') return { success: false, slowDown: true };
+
+    return { success: false, error: data.error, error_description: data.error_description };
+
+  } catch (error) {
+    throw error;
   }
+}
 
   /**
    * Fetch user info from Google
