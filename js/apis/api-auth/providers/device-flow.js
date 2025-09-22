@@ -275,7 +275,7 @@ startPolling(deviceData, resolve, reject, overlay) {
  * @param {boolean} useClientSecret - Whether to include client_secret
  * @returns {Promise<Object>} Token request result
  */
-async requestTokens(deviceCode, useClientSecret = true) {
+async requestTokens(deviceCode, useClientSecret = false) {
   try {
     const bodyParams = {
       client_id: this.config.client_id,
