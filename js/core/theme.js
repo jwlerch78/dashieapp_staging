@@ -48,7 +48,7 @@ async function initializeSettingsConnection() {
 
   try {
     // Wait for settings system to be available
-    const { getSetting, setSetting, isSettingsReady } = await import('../settings/settings-main.js');
+    const { getSettingValue, setSettingValue, isSettingsReady } = await import('../settings/settings-main.js');
     
     // Wait up to 5 seconds for settings to be ready
     let attempts = 0;
@@ -58,7 +58,7 @@ async function initializeSettingsConnection() {
     }
     
     if (isSettingsReady()) {
-      settingsSystem = { getSetting, setSetting };
+      settingsSystem = { getSettingValue, setSettingValue };
       logger.info('Connected to modular settings system');
       return settingsSystem;
     } else {
@@ -78,7 +78,7 @@ async function loadSavedTheme() {
   // Try to get from new settings system first
   if (settingsSystem) {
     try {
-      const savedTheme = settingsSystem.getSetting('display.theme', THEMES.DARK);
+      const savedTheme = settingsSystem.getSettingValue('display.theme', THEMES.DARK);
       if (savedTheme && Object.values(THEMES).includes(savedTheme)) {
         logger.debug('Theme loaded from settings system:', savedTheme);
         return savedTheme;
@@ -117,7 +117,7 @@ async function saveTheme(theme) {
   // Save to new settings system
   if (settingsSystem) {
     try {
-      const success = settingsSystem.setSetting('display.theme', theme);
+      const success = settingsSystem.setSettingValue('display.theme', theme);
       if (success) {
         saves.push('settings system');
         logger.debug('Theme saved to settings system:', theme);

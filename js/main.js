@@ -4,7 +4,7 @@
 import { initializeEvents } from './core/events.js';
 import { updateFocus, initializeHighlightTimeout } from './core/navigation.js';
 import { renderGrid, renderSidebar } from './ui/grid.js';
-//import { autoInitialize } from './settings/settings-main.js';
+import { autoInitialize } from './settings/settings-main.js';
 import { initializeThemeSystem } from './core/theme.js';
 
 
@@ -16,7 +16,7 @@ export async function initializeApp() {
   
   try {
     // Auto-initialize settings (will wait for auth internally)
-   // autoInitialize();
+    autoInitialize();
     
     // Initialize theme system
     initializeThemeSystem();

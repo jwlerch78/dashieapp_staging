@@ -65,7 +65,7 @@ export class WebOAuthProvider {
    */
   async signIn() {
     if (!this.isInitialized) {
-      throw new Error('Web OAuth provider not initialized');
+      await this.init();
     }
 
     logger.auth('web', 'sign_in_start', 'pending');
