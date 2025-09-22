@@ -36,9 +36,6 @@ window.currentDbConfig = currentDbConfig;
 
 
 
-
-
-
 // Theme + configuration
 const theme = {
   sidebarBg: "#222",

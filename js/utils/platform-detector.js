@@ -366,14 +366,15 @@ export class PlatformDetector {
    * @returns {string} Recommended auth method
    */
   getRecommendedAuthFlow() {
-    if (this.hasNativeCapabilities()) {
-      return 'native';
-    }
-    
+
     if (this.isTV() || this.platform === PLATFORMS.FIRE_TV) {
       return 'device_flow';
     }
-    
+
+    if (this.hasNativeCapabilities()) {
+      return 'native';
+    }
+        
     if (this.platform === PLATFORMS.BROWSER ||
         this.platform === PLATFORMS.ANDROID_WEBVIEW) {
       return 'web_oauth';
