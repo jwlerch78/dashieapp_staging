@@ -223,7 +223,7 @@ export class PlatformDetector {
     const methods = [];
 
     // Native auth (Android app)
-    if (this.hasNativeCapabilities()) {
+    if (this.hasNativeCapabilities() && this.platform !== PLATFORMS.FIRE_TV) {
       methods.push('native');
     }
 
@@ -367,14 +367,14 @@ export class PlatformDetector {
    */
   getRecommendedAuthFlow() {
 
-    if (this.isTV() || this.platform === PLATFORMS.FIRE_TV) {
-      return 'device_flow';
-    }
-
     if (this.hasNativeCapabilities()) {
       return 'native';
     }
         
+    if (this.isTV() || this.platform === PLATFORMS.FIRE_TV) {
+      return 'device_flow';
+    }
+
     if (this.platform === PLATFORMS.BROWSER ||
         this.platform === PLATFORMS.ANDROID_WEBVIEW) {
       return 'web_oauth';
