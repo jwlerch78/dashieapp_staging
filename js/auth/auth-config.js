@@ -7,7 +7,8 @@
  */
 export const AUTH_CONFIG = {
   // Existing client secret (keep as-is)
-  client_secret: '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'
+  client_secret_web_oauth: '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',
+  client_secret_device_flow: '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'
 };
 
 export const API_CONFIG = {

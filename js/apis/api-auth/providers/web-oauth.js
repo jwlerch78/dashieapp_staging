@@ -214,7 +214,7 @@ export class WebOAuthProvider {
         },
         body: new URLSearchParams({
           client_id: this.config.client_id,
-          client_secret: AUTH_CONFIG.client_secret,
+          client_secret: AUTH_CONFIG.client_secret_web_oauth,
           code: authCode,
           grant_type: 'authorization_code',
           redirect_uri: this.config.redirect_uri,

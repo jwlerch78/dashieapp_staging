@@ -14,7 +14,7 @@ export class DeviceFlowProvider {
   constructor() {
     this.config = {
       client_id: '221142210647-m9vf7t0qgm6nlc6gggfsqefmjrak1mo9.apps.googleusercontent.com',
-      client_secret: AUTH_CONFIG.client_secret,
+      client_secret: AUTH_CONFIG.client_secret_device_flow,
       device_code_endpoint: 'https://oauth2.googleapis.com/device/code',
       token_endpoint: 'https://oauth2.googleapis.com/token',
       scope: 'openid email profile https://www.googleapis.com/auth/calendar.readonly'
