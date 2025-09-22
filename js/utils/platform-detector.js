@@ -368,7 +368,7 @@ export class PlatformDetector {
   getRecommendedAuthFlow() {
 
     if (this.hasNativeCapabilities() && this.platform !== PLATFORMS.FIRE_TV) {
-      methods.push('native');
+      return 'native';
     }
         
     if (this.isTV() || this.platform === PLATFORMS.FIRE_TV) {
