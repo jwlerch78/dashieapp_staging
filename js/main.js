@@ -4,20 +4,9 @@
 import { initializeEvents } from './core/events.js';
 import { updateFocus, initializeHighlightTimeout } from './core/navigation.js';
 import { renderGrid, renderSidebar } from './ui/grid.js';
-import { autoInitialize } from './settings/settings-main.js';
+//import { autoInitialize } from './settings/settings-main.js';
 import { initializeThemeSystem } from './core/theme.js';
 
-// ---------------------
-// EARLY THEME APPLICATION
-// ---------------------
-async function preApplyTheme() {
-  try {
-    const { applyThemeBeforeLoad } = await import('./core/theme.js');
-    applyThemeBeforeLoad();
-  } catch (error) {
-    console.warn('Early theme application failed:', error);
-  }
-}
 
 // ---------------------
 // APP INITIALIZATION
@@ -27,7 +16,7 @@ export async function initializeApp() {
   
   try {
     // Auto-initialize settings (will wait for auth internally)
-    autoInitialize();
+   // autoInitialize();
     
     // Initialize theme system
     initializeThemeSystem();
@@ -78,9 +67,6 @@ export async function initializeApp() {
     throw error;
   }
 }
-
-// Pre-apply theme immediately when script loads
-preApplyTheme();
 
 // Export for compatibility
 export default initializeApp;

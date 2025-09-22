@@ -1,5 +1,5 @@
 // js/apis/api-auth/auth-coordinator.js - Central Authentication Orchestrator
-// CHANGE SUMMARY: Extracted core auth logic from auth-manager.js, added platform detection integration, clean provider management
+// CHANGE SUMMARY: Fixed OAuth redirect handling - WebOAuth signIn() redirects instead of returning result, added proper error handling for undefined result
 
 import { createLogger } from '../../utils/logger.js';
 import { getPlatformDetector } from '../../utils/platform-detector.js';
@@ -205,6 +205,9 @@ export class AuthCoordinator {
         if (result && result.success && result.user) {
           logger.success(`Provider ${providerName} completed authentication during init`);
           this.setAuthenticatedUser(result.user, provider);
+          
+          // IMPORTANT: Save the user data when auth completes during init
+          this.storage.saveUser(this.currentUser);
         }
       }
     } catch (error) {
@@ -271,7 +274,16 @@ export class AuthCoordinator {
       
       const result = await provider.signIn();
       
-      if (result.success && result.user) {
+      // FIXED: Handle the case where WebOAuth redirects (result is undefined)
+      if (selectedProvider === 'web_oauth' && result === undefined) {
+        // WebOAuth provider redirects to Google, so we won't get a result here
+        // The authentication will complete on the callback page load
+        logger.debug('WebOAuth redirect initiated, authentication will complete on callback');
+        return { success: true, redirected: true, message: 'Redirecting to Google OAuth...' };
+      }
+      
+      // Handle normal auth flow (device flow, native, etc.)
+      if (result && result.success && result.user) {
         this.setAuthenticatedUser(result.user, provider);
         this.storage.saveUser(this.currentUser);
         
@@ -284,8 +296,13 @@ export class AuthCoordinator {
         });
 
         return { success: true, user: this.currentUser };
+      } else if (result && result.error) {
+        // Handle provider-specific errors
+        throw new Error(result.error);
       } else {
-        throw new Error('Authentication failed - no user data received');
+        // Handle unexpected result format
+        logger.warn('Unexpected auth result format', { result, provider: selectedProvider });
+        throw new Error('Authentication failed - unexpected result format');
       }
       
     } catch (error) {

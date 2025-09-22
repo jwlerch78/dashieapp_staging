@@ -226,7 +226,7 @@ export class SimplifiedSettings {
         sleepTime: '22:00',
         wakeTime: '07:00',
         reSleepDelay: 30,
-        theme: 'dark'
+        theme: 'light'
       },
       accounts: {
         dashieAccount: userEmail,

@@ -73,16 +73,30 @@ export class SettingsControllerCore {
       // Wait for auth to be ready with timeout
       const currentUser = await this.waitForAuth(5000);
       
-      if (!currentUser) {
-        console.warn('⚙️ No authenticated user, using localStorage only');
+    if (!currentUser) {
+      console.warn('⚙️ No authenticated user, using localStorage only');
+      
+      // FIXED: Load from localStorage first, then fallback to defaults
+      try {
+        const savedSettings = localStorage.getItem('dashie-settings');
+        if (savedSettings) {
+          this.currentSettings = { ...this.getDefaultSettings(), ...JSON.parse(savedSettings) };
+          console.log('⚙️ 📱 Loaded settings from localStorage');
+        } else {
+          this.currentSettings = this.getDefaultSettings();
+          console.log('⚙️ Using default settings (no localStorage found)');
+        }
+      } catch (error) {
+        console.error('⚙️ Failed to load from localStorage:', error);
         this.currentSettings = this.getDefaultSettings();
-        this.isInitialized = true;
-        
-        this.mergeLocalOnlySettings();
-        await this.applyLoadedSettings();
-        
-        return true;
       }
+      
+      this.isInitialized = true;
+      this.mergeLocalOnlySettings();
+      await this.applyLoadedSettings();
+      
+      return true;
+    }
 
       console.log('⚙️ Found authenticated user:', currentUser.email);
 
@@ -404,36 +418,4 @@ export class SettingsControllerCore {
     console.log('⚙️ Settings Controller cleaned up');
   }
 
-  // Placeholder methods that will be implemented in features file
-  mergeLocalOnlySettings() {
-    throw new Error('mergeLocalOnlySettings must be implemented in features class');
-  }
-
-  applyLoadedSettings() {
-    throw new Error('applyLoadedSettings must be implemented in features class');
-  }
-
-  saveSettings() {
-    throw new Error('saveSettings must be implemented in features class');
-  }
-
-  detectCurrentSite() {
-    throw new Error('detectCurrentSite must be implemented in features class');
-  }
-
-  checkSiteRedirectSync() {
-    throw new Error('checkSiteRedirectSync must be implemented in features class');
-  }
-
-  applyThemeImmediate() {
-    throw new Error('applyThemeImmediate must be implemented in features class');
-  }
-
-  applyFamilyNameImmediate() {
-    throw new Error('applyFamilyNameImmediate must be implemented in features class');
-  }
-
-  handleSiteChange() {
-    throw new Error('handleSiteChange must be implemented in features class');
-  }
 }

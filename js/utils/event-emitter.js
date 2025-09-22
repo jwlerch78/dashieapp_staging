@@ -1,218 +1,357 @@
-// js/utils/event-emitter.js - Simple Event Coordination System
-// CHANGE SUMMARY: New event system for coordinating between auth, data, and widget modules
+// js/utils/event-emitter.js - Enhanced Event System for Dashie
+// CHANGE SUMMARY: Added new events for theme changes, auth events, settings changes, and token management
 
 import { createLogger } from './logger.js';
 
-const logger = createLogger('EventEmitter');
+const logger = createLogger('EventSystem');
 
 /**
- * Simple event emitter for coordinating between modules
- * Provides a clean way to decouple auth, data, and widget communication
+ * Enhanced event emitter for decoupled component communication
  */
-export class EventEmitter {
+class EventEmitter {
   constructor() {
-    this.events = new Map();
+    this.listeners = new Map();
     this.maxListeners = 50; // Prevent memory leaks
+    this.debugMode = false;
   }
 
   /**
-   * Add an event listener
-   * @param {string} eventName - Name of the event
-   * @param {Function} listener - Event handler function
-   * @returns {Function} Unsubscribe function
+   * Add event listener with optional priority and once flag
    */
-  on(eventName, listener) {
-    if (!this.events.has(eventName)) {
-      this.events.set(eventName, []);
+  on(event, callback, options = {}) {
+    if (typeof callback !== 'function') {
+      throw new Error('Callback must be a function');
     }
 
-    const listeners = this.events.get(eventName);
+    if (!this.listeners.has(event)) {
+      this.listeners.set(event, []);
+    }
+
+    const listeners = this.listeners.get(event);
     
+    // Check max listeners limit
     if (listeners.length >= this.maxListeners) {
-      logger.warn(`Max listeners (${this.maxListeners}) reached for event: ${eventName}`);
+      logger.warn(`Max listeners (${this.maxListeners}) reached for event: ${event}`);
+      return false;
     }
 
-    listeners.push(listener);
-    logger.debug(`Listener added for event: ${eventName}`, {
-      listenerCount: listeners.length
-    });
+    const listenerObj = {
+      callback,
+      once: options.once || false,
+      priority: options.priority || 0,
+      id: this.generateListenerId()
+    };
 
-    // Return unsubscribe function
-    return () => this.off(eventName, listener);
+    listeners.push(listenerObj);
+    
+    // Sort by priority (higher priority first)
+    listeners.sort((a, b) => b.priority - a.priority);
+
+    if (this.debugMode) {
+      logger.debug(`Listener added for event: ${event} (ID: ${listenerObj.id})`);
+    }
+
+    return listenerObj.id;
   }
 
   /**
-   * Add a one-time event listener
-   * @param {string} eventName - Name of the event
-   * @param {Function} listener - Event handler function
-   * @returns {Function} Unsubscribe function
+   * Add one-time event listener
    */
-  once(eventName, listener) {
-    const unsubscribe = this.on(eventName, (...args) => {
-      unsubscribe();
-      listener(...args);
-    });
-    return unsubscribe;
+  once(event, callback, options = {}) {
+    return this.on(event, callback, { ...options, once: true });
   }
 
   /**
-   * Remove an event listener
-   * @param {string} eventName - Name of the event
-   * @param {Function} listener - Event handler function to remove
+   * Remove event listener by ID or callback
    */
-  off(eventName, listener) {
-    const listeners = this.events.get(eventName);
-    if (!listeners) return;
+  off(event, callbackOrId) {
+    if (!this.listeners.has(event)) return false;
 
-    const index = listeners.indexOf(listener);
-    if (index > -1) {
-      listeners.splice(index, 1);
-      logger.debug(`Listener removed for event: ${eventName}`, {
-        listenerCount: listeners.length
-      });
+    const listeners = this.listeners.get(event);
+    const initialLength = listeners.length;
 
-      // Clean up empty event arrays
-      if (listeners.length === 0) {
-        this.events.delete(eventName);
+    if (typeof callbackOrId === 'string') {
+      // Remove by ID
+      const index = listeners.findIndex(l => l.id === callbackOrId);
+      if (index !== -1) {
+        listeners.splice(index, 1);
+        if (this.debugMode) {
+          logger.debug(`Listener removed by ID: ${callbackOrId} for event: ${event}`);
+        }
+      }
+    } else if (typeof callbackOrId === 'function') {
+      // Remove by callback function
+      for (let i = listeners.length - 1; i >= 0; i--) {
+        if (listeners[i].callback === callbackOrId) {
+          listeners.splice(i, 1);
+          if (this.debugMode) {
+            logger.debug(`Listener removed by callback for event: ${event}`);
+          }
+        }
       }
     }
+
+    // Clean up empty listener arrays
+    if (listeners.length === 0) {
+      this.listeners.delete(event);
+    }
+
+    return listeners.length !== initialLength;
   }
 
   /**
-   * Emit an event to all listeners
-   * @param {string} eventName - Name of the event
-   * @param {...any} args - Arguments to pass to listeners
+   * Emit event with data and error handling
    */
-  emit(eventName, ...args) {
-    const listeners = this.events.get(eventName);
-    if (!listeners || listeners.length === 0) {
-      logger.debug(`No listeners for event: ${eventName}`);
-      return;
+  emit(event, data = {}) {
+    if (!this.listeners.has(event)) {
+      if (this.debugMode) {
+        logger.debug(`No listeners for event: ${event}`);
+      }
+      return true;
     }
 
-    logger.debug(`Emitting event: ${eventName}`, {
-      listenerCount: listeners.length,
-      hasData: args.length > 0
-    });
+    const listeners = this.listeners.get(event);
+    const listenersToRemove = [];
+    let successCount = 0;
+    let errorCount = 0;
 
-    // Call all listeners
-    listeners.forEach(listener => {
+    // Create event object
+    const eventObj = {
+      type: event,
+      data,
+      timestamp: Date.now(),
+      preventDefault: false
+    };
+
+    for (let i = 0; i < listeners.length; i++) {
+      const listener = listeners[i];
+      
       try {
-        listener(...args);
+        listener.callback(eventObj.data, eventObj);
+        successCount++;
+        
+        // Mark one-time listeners for removal
+        if (listener.once) {
+          listenersToRemove.push(i);
+        }
+
+        // Check if event was prevented
+        if (eventObj.preventDefault) {
+          logger.debug(`Event ${event} was prevented by listener ${listener.id}`);
+          break;
+        }
       } catch (error) {
-        logger.error(`Error in event listener for ${eventName}`, error);
+        errorCount++;
+        logger.error(`Error in event listener for ${event}:`, error);
+        // Continue executing other listeners even if one fails
       }
-    });
+    }
+
+    // Remove one-time listeners (in reverse order to maintain indices)
+    for (let i = listenersToRemove.length - 1; i >= 0; i--) {
+      listeners.splice(listenersToRemove[i], 1);
+    }
+
+    // Clean up empty listener arrays
+    if (listeners.length === 0) {
+      this.listeners.delete(event);
+    }
+
+    if (this.debugMode) {
+      logger.debug(`Event ${event} emitted to ${successCount} listeners (${errorCount} errors)`);
+    }
+
+    return errorCount === 0;
   }
 
   /**
-   * Remove all listeners for an event (or all events)
-   * @param {string} [eventName] - Specific event to clear, or all if not provided
+   * Remove all listeners for an event or all events
    */
-  removeAllListeners(eventName) {
-    if (eventName) {
-      this.events.delete(eventName);
-      logger.debug(`All listeners removed for event: ${eventName}`);
+  removeAllListeners(event = null) {
+    if (event) {
+      const removed = this.listeners.has(event);
+      this.listeners.delete(event);
+      if (this.debugMode && removed) {
+        logger.debug(`All listeners removed for event: ${event}`);
+      }
+      return removed;
     } else {
-      const eventCount = this.events.size;
-      this.events.clear();
-      logger.debug(`All listeners removed for all events`, {
-        clearedEvents: eventCount
-      });
+      const eventCount = this.listeners.size;
+      this.listeners.clear();
+      if (this.debugMode) {
+        logger.debug(`All listeners removed for ${eventCount} events`);
+      }
+      return eventCount > 0;
     }
   }
 
   /**
-   * Get list of events with listener counts
-   * @returns {Object} Event summary
+   * Get listener count for event or total
    */
-  getEventSummary() {
-    const summary = {};
-    for (const [eventName, listeners] of this.events) {
-      summary[eventName] = listeners.length;
+  listenerCount(event = null) {
+    if (event) {
+      return this.listeners.has(event) ? this.listeners.get(event).length : 0;
+    } else {
+      let total = 0;
+      for (const listeners of this.listeners.values()) {
+        total += listeners.length;
+      }
+      return total;
     }
-    return summary;
+  }
+
+  /**
+   * Get list of events with listeners
+   */
+  eventNames() {
+    return Array.from(this.listeners.keys());
+  }
+
+  /**
+   * Enable/disable debug mode
+   */
+  setDebugMode(enabled) {
+    this.debugMode = enabled;
+    logger.info(`Event system debug mode: ${enabled ? 'enabled' : 'disabled'}`);
+  }
+
+  /**
+   * Generate unique listener ID
+   */
+  generateListenerId() {
+    return 'listener_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 9);
+  }
+
+  /**
+   * Get system stats
+   */
+  getStats() {
+    const events = this.eventNames();
+    const stats = {
+      totalEvents: events.length,
+      totalListeners: this.listenerCount(),
+      events: {}
+    };
+
+    events.forEach(event => {
+      stats.events[event] = this.listenerCount(event);
+    });
+
+    return stats;
   }
 }
 
-// Create a global event emitter instance for the app
-const globalEvents = new EventEmitter();
-
 /**
- * Predefined event names for consistency across the app
+ * Enhanced event constants with new theme and auth events
  */
 export const EVENTS = {
-  // Auth events
-  AUTH_INITIALIZED: 'auth:initialized',
-  AUTH_SUCCESS: 'auth:success',
-  AUTH_FAILURE: 'auth:failure',
-  AUTH_SIGNOUT: 'auth:signout',
-  TOKEN_REFRESHED: 'auth:token_refreshed',
+  // Authentication Events
+  AUTH_READY: 'auth-ready',
+  AUTH_FAILED: 'auth-failed',
+  AUTH_CLEARED: 'auth-cleared',
+  AUTH_REPAIRED: 'auth-repaired',
+  USER_STORED: 'user-stored',
+  USER_CLEARED: 'user-cleared',
+  TOKEN_STORED: 'token-stored',
+  TOKEN_CLEARED: 'token-cleared',
+  TOKEN_REFRESH_NEEDED: 'token-refresh-needed',
+  TOKEN_REFRESHED: 'token-refreshed',
 
-  // Data events
-  DATA_LOADING: 'data:loading',
-  DATA_LOADED: 'data:loaded',
-  DATA_ERROR: 'data:error',
-  DATA_CACHE_UPDATED: 'data:cache_updated',
+  // Theme Events
+  THEME_CHANGED: 'theme-changed',
+  THEME_LOADED: 'theme-loaded',
 
-  // Widget events
-  WIDGET_READY: 'widget:ready',
-  WIDGET_REQUEST: 'widget:request',
-  WIDGET_RESPONSE: 'widget:response',
+  // Settings Events
+  SETTINGS_CHANGED: 'settings-changed',
+  SETTINGS_LOADED: 'settings-loaded',
+  SETTINGS_SAVED: 'settings-saved',
+  SETTINGS_READY: 'settings-ready',
 
-  // App events
-  APP_INITIALIZED: 'app:initialized',
-  THEME_CHANGED: 'app:theme_changed',
-  SETTINGS_UPDATED: 'app:settings_updated'
+  // Widget Events
+  WIDGET_LOADED: 'widget-loaded',
+  WIDGET_ERROR: 'widget-error',
+  WIDGET_MESSAGE: 'widget-message',
+
+  // Navigation Events
+  FOCUS_CHANGED: 'focus-changed',
+  NAVIGATION_INPUT: 'navigation-input',
+
+  // Data Events
+  DATA_LOADED: 'data-loaded',
+  DATA_ERROR: 'data-error',
+  DATA_REFRESHED: 'data-refreshed',
+
+  // System Events
+  APP_READY: 'app-ready',
+  APP_ERROR: 'app-error',
+  SLEEP_MODE: 'sleep-mode',
+  WAKE_UP: 'wake-up'
 };
 
-/**
- * Convenience functions for common event patterns
- */
-export const events = {
-  // Global emitter access
-  on: (eventName, listener) => globalEvents.on(eventName, listener),
-  once: (eventName, listener) => globalEvents.once(eventName, listener),
-  off: (eventName, listener) => globalEvents.off(eventName, listener),
-  emit: (eventName, ...args) => globalEvents.emit(eventName, ...args),
-  removeAllListeners: (eventName) => globalEvents.removeAllListeners(eventName),
-  getSummary: () => globalEvents.getEventSummary(),
+// Create singleton instance
+export const events = new EventEmitter();
 
-  // Typed event helpers
+// Set up global error handler for unhandled event errors
+window.addEventListener('error', (event) => {
+  events.emit(EVENTS.APP_ERROR, {
+    type: 'unhandled-error',
+    error: event.error,
+    message: event.message,
+    filename: event.filename,
+    lineno: event.lineno,
+    colno: event.colno
+  });
+});
+
+// Set up global promise rejection handler
+window.addEventListener('unhandledrejection', (event) => {
+  events.emit(EVENTS.APP_ERROR, {
+    type: 'unhandled-promise-rejection',
+    reason: event.reason,
+    promise: event.promise
+  });
+});
+
+// Export for convenience
+export default events;
+
+/**
+ * Typed event helpers for better developer experience
+ * Maintains compatibility with existing code
+ */
+export const eventHelpers = {
   auth: {
-    onInitialized: (listener) => globalEvents.on(EVENTS.AUTH_INITIALIZED, listener),
-    onSuccess: (listener) => globalEvents.on(EVENTS.AUTH_SUCCESS, listener),
-    onFailure: (listener) => globalEvents.on(EVENTS.AUTH_FAILURE, listener),
-    onSignout: (listener) => globalEvents.on(EVENTS.AUTH_SIGNOUT, listener),
+    onInitialized: (listener) => events.on(EVENTS.AUTH_READY, listener),
+    onSuccess: (listener) => events.on(EVENTS.AUTH_READY, listener),
+    onFailure: (listener) => events.on(EVENTS.AUTH_FAILED, listener),
+    onSignout: (listener) => events.on(EVENTS.AUTH_CLEARED, listener),
     
-    emitInitialized: (data) => globalEvents.emit(EVENTS.AUTH_INITIALIZED, data),
-    emitSuccess: (user) => globalEvents.emit(EVENTS.AUTH_SUCCESS, user),
-    emitFailure: (error) => globalEvents.emit(EVENTS.AUTH_FAILURE, error),
-    emitSignout: () => globalEvents.emit(EVENTS.AUTH_SIGNOUT)
+    emitInitialized: (data) => events.emit(EVENTS.AUTH_READY, data),
+    emitSuccess: (user) => events.emit(EVENTS.AUTH_READY, user),
+    emitFailure: (error) => events.emit(EVENTS.AUTH_FAILED, error),
+    emitSignout: () => events.emit(EVENTS.AUTH_CLEARED)
   },
 
   data: {
-    onLoading: (listener) => globalEvents.on(EVENTS.DATA_LOADING, listener),
-    onLoaded: (listener) => globalEvents.on(EVENTS.DATA_LOADED, listener),
-    onError: (listener) => globalEvents.on(EVENTS.DATA_ERROR, listener),
+    onLoading: (listener) => events.on(EVENTS.DATA_LOADED, listener),
+    onLoaded: (listener) => events.on(EVENTS.DATA_LOADED, listener),
+    onError: (listener) => events.on(EVENTS.DATA_ERROR, listener),
     
-    emitLoading: (dataType) => globalEvents.emit(EVENTS.DATA_LOADING, dataType),
-    emitLoaded: (dataType, data) => globalEvents.emit(EVENTS.DATA_LOADED, dataType, data),
-    emitError: (dataType, error) => globalEvents.emit(EVENTS.DATA_ERROR, dataType, error)
+    emitLoading: (dataType) => events.emit(EVENTS.DATA_LOADED, dataType),
+    emitLoaded: (dataType, data) => events.emit(EVENTS.DATA_LOADED, dataType, data),
+    emitError: (dataType, error) => events.emit(EVENTS.DATA_ERROR, dataType, error)
   },
 
   widget: {
-    onReady: (listener) => globalEvents.on(EVENTS.WIDGET_READY, listener),
-    onRequest: (listener) => globalEvents.on(EVENTS.WIDGET_REQUEST, listener),
+    onReady: (listener) => events.on(EVENTS.WIDGET_LOADED, listener),
+    onRequest: (listener) => events.on(EVENTS.WIDGET_MESSAGE, listener),
     
-    emitReady: (widgetInfo) => globalEvents.emit(EVENTS.WIDGET_READY, widgetInfo),
-    emitRequest: (request) => globalEvents.emit(EVENTS.WIDGET_REQUEST, request)
+    emitReady: (widgetInfo) => events.emit(EVENTS.WIDGET_LOADED, widgetInfo),
+    emitRequest: (request) => events.emit(EVENTS.WIDGET_MESSAGE, request)
   }
 };
 
-// Default export
-export default {
-  EventEmitter,
-  events,
-  EVENTS
-};
+// Add event helpers to the main events export for backward compatibility
+events.auth = eventHelpers.auth;
+events.data = eventHelpers.data;
+events.widget = eventHelpers.widget;

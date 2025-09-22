@@ -82,8 +82,7 @@
 }
 
 /* ===== DARK THEME (Default) ===== */
-body.theme-dark,
-body:not([class*="theme-"]) {
+body.theme-dark {
   /* Background Colors */
   --bg-primary: #222;
   --bg-secondary: #333;
@@ -111,7 +110,8 @@ body:not([class*="theme-"]) {
 }
 
 /* ===== LIGHT THEME ===== */
-body.theme-light {
+body.theme-light,
+body:not([class*="theme-"]) {
   --bg-primary: #FCFCFF;    /* Off-white grid background */
   --bg-secondary: #FCFCFF;    /* Off-white widget background */
   --bg-modal-backdrop: rgba(0, 0, 0, 0.5);

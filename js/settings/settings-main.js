@@ -44,19 +44,7 @@ export function handleSettingsKeyPress(event) {
 }
 
 // LEGACY COMPATIBILITY: Keep existing API for backward compatibility
-export function getSetting(path, defaultValue = undefined) {
-  if (!settingsInstance?.controller) {
-    return defaultValue;
-  }
-  return settingsInstance.controller.getSetting(path) ?? defaultValue;
-}
 
-export function setSetting(path, value) {
-  if (!settingsInstance?.controller) {
-    return false;
-  }
-  return settingsInstance.controller.setSetting(path, value);
-}
 
 export async function saveSettings() {
   if (!settingsInstance?.controller) {
@@ -72,14 +60,6 @@ export function getAllSettings() {
   return settingsInstance.controller.getSettings();
 }
 
-// Theme helpers for backward compatibility
-export function getTheme() {
-  return getSetting('display.theme', 'dark');
-}
-
-export function setTheme(theme) {
-  return setSetting('display.theme', theme);
-}
 
 export function getSleepTimes() {
   return {
@@ -95,38 +75,10 @@ export function getPhotosSettings() {
   };
 }
 
-// Auto-initialize when auth is ready
-export function autoInitialize() {
-  const checkAuth = () => {
-    if ((window.authManager && window.authManager.currentUser) || 
-        (window.dashieAuth && window.dashieAuth.isAuthenticated())) {
-      initializeSettings().catch(error => {
-        console.warn('⚙️ ⚠️ Auto-initialization failed:', error);
-      });
-      return true;
-    }
-    return false;
-  };
-  
-  if (!checkAuth()) {
-    document.addEventListener('dashie-auth-ready', () => {
-      checkAuth();
-    });
-    
-    setTimeout(() => {
-      checkAuth();
-    }, 2000);
-  }
-}
-
-// Auto-initialize: was happening prematurely.  triggering later manually in main.js
-// autoInitialize();
 
 // Export aliases for compatibility
 export {
   showSettings as show,
   hideSettings as hide,
-  getSetting as get,
-  setSetting as set,
   saveSettings as save
 };

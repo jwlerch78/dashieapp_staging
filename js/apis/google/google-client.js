@@ -1,139 +1,144 @@
-// js/apis/google/google-client.js - Reorganized Google API Client
-// CHANGE SUMMARY: Moved from js/google-apis/, added structured logging, improved error handling, removed Cognito references
+// js/apis/google/google-client.js - Optimized Google API Client
+// CHANGE SUMMARY: Added optional calendars parameter to getAllCalendarEvents to avoid redundant getCalendarList calls
 
 import { createLogger } from '../../utils/logger.js';
-import { API_CONFIG } from '../../auth/auth-config.js';
+import { AUTH_CONFIG, API_CONFIG } from '../../auth/auth-config.js';
 
 const logger = createLogger('GoogleAPIClient');
 
 /**
- * Core Google API client with enhanced logging and error handling
- * Supports Calendar API and future Photos API integration
+ * Enhanced Google API client with structured logging and retry logic
+ * Handles Calendar API and future Photos API integration
  */
 export class GoogleAPIClient {
   constructor(authManager) {
     this.authManager = authManager;
     this.config = API_CONFIG.google;
-    this.baseUrl = this.config.baseUrl;
-    
-    // Request tracking
-    this.lastRequestTime = 0;
     
     logger.info('Google API client initialized', {
-      baseUrl: this.baseUrl,
+      baseUrl: this.config.baseUrl,
       rateLimitInterval: this.config.rateLimitInterval
     });
   }
 
   /**
-   * Get current valid access token
-   * @returns {Promise<string>} Valid Google access token
+   * Get current Google access token from auth manager
+   * @returns {string|null} Access token
    */
-  async getAccessToken() {
-    try {
-      const token = this.authManager.getGoogleAccessToken();
-      
-      if (!token) {
-        throw new Error('No Google access token available');
-      }
-      
-      return token;
-    } catch (error) {
-      logger.error('Failed to get valid access token', error);
-      throw new Error('Unable to get valid access token');
+  getAccessToken() {
+    if (!this.authManager) {
+      logger.warn('No auth manager available for token');
+      return null;
     }
+
+    const token = this.authManager.getGoogleAccessToken();
+    if (!token) {
+      logger.warn('No Google access token available');
+      return null;
+    }
+
+    return token;
   }
 
   /**
-   * Rate limiting helper
-   * @returns {Promise<void>}
-   */
-  async waitForRateLimit() {
-    const now = Date.now();
-    const timeSinceLastRequest = now - this.lastRequestTime;
-    
-    if (timeSinceLastRequest < this.config.rateLimitInterval) {
-      const waitTime = this.config.rateLimitInterval - timeSinceLastRequest;
-      logger.debug(`Rate limiting: waiting ${waitTime}ms`);
-      await new Promise(resolve => setTimeout(resolve, waitTime));
-    }
-    
-    this.lastRequestTime = Date.now();
-  }
-
-  /**
-   * Enhanced request method with retry logic and structured logging
-   * @param {string} endpoint - API endpoint (relative or absolute URL)
+   * Make authenticated API request with retry logic and rate limiting
+   * @param {string} endpoint - API endpoint (relative to baseUrl)
    * @param {Object} options - Request options
    * @returns {Promise<Object>} API response data
    */
   async makeRequest(endpoint, options = {}) {
-    const method = options.method || 'GET';
-    let url = endpoint.startsWith('http') ? endpoint : `${this.baseUrl}${endpoint}`;
+    const accessToken = this.getAccessToken();
+    if (!accessToken) {
+      throw new Error('No access token available for API request');
+    }
+
+    const {
+      method = 'GET',
+      headers = {},
+      body = null,
+      timeout = 30000
+    } = options;
+
+    const url = endpoint.startsWith('http') ? endpoint : `${this.config.baseUrl}${endpoint}`;
     
+    let lastError;
     const timer = logger.startTimer(`API ${method} ${endpoint}`);
-    let lastError = null;
 
-    // Apply rate limiting
-    await this.waitForRateLimit();
+    // Rate limiting
+    if (this.lastRequestTime) {
+      const timeSinceLastRequest = Date.now() - this.lastRequestTime;
+      if (timeSinceLastRequest < this.config.rateLimitInterval) {
+        const delay = this.config.rateLimitInterval - timeSinceLastRequest;
+        logger.debug('Rate limiting: waiting ' + delay + 'ms');
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    this.lastRequestTime = Date.now();
 
+    // Retry logic
     for (let attempt = 1; attempt <= this.config.retryConfig.maxRetries; attempt++) {
       try {
-        const accessToken = await this.getAccessToken();
-        
-        const requestOptions = {
-          method,
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-            ...options.headers
-          },
-          ...options
-        };
-
         logger.debug(`Making API request (attempt ${attempt})`, {
           method,
-          url,
+          url: url.length > 100 ? url.substring(0, 100) + '...' : url,
           attempt,
           maxAttempts: this.config.retryConfig.maxRetries
         });
 
-        const response = await fetch(url, requestOptions);
+        const requestHeaders = {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+          ...headers
+        };
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+        const response = await fetch(url, {
+          method,
+          headers: requestHeaders,
+          body: body ? JSON.stringify(body) : null,
+          signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
         const duration = timer();
 
         if (!response.ok) {
-          const errorText = await response.text();
-          const error = new Error(`HTTP ${response.status}: ${errorText}`);
-          error.status = response.status;
-          error.response = response;
-          
-          logger.apiCall(method, endpoint, response.status, duration);
-          
-          // Handle specific error cases
-          if (response.status === 401) {
-            logger.warn('Google API returned 401 - token may be expired');
-            // Could trigger token refresh here in the future
-          }
-          
-          throw error;
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }
 
         const data = await response.json();
-        logger.apiCall(method, endpoint, response.status, duration);
+        
+        logger.success(`API ${method} ${endpoint} - ${response.status} (${duration}ms)`);
         
         return data;
 
       } catch (error) {
         lastError = error;
         
-        // Check if this is a retryable error
-        const isRetryable = error.status >= 500 || error.status === 429 || !error.status;
-        
-        if (!isRetryable || attempt === this.config.retryConfig.maxRetries) {
-          logger.error(`API request failed (attempt ${attempt})`, {
+        // Determine if error is retryable
+        const isRetryable = 
+          error.name === 'TypeError' || // Network errors
+          error.name === 'AbortError' || // Timeout
+          (error.message.includes('HTTP 5')) || // Server errors
+          (error.message.includes('HTTP 429')); // Rate limiting
+
+        logger.error(`API request failed (attempt ${attempt})`, {
+          method,
+          endpoint,
+          error: error.message,
+          status: error.status,
+          isRetryable,
+          finalAttempt: attempt === this.config.retryConfig.maxRetries
+        });
+
+        // Don't retry on final attempt or non-retryable errors
+        if (attempt === this.config.retryConfig.maxRetries || !isRetryable) {
+          logger.error(`API request failed permanently`, {
             method,
             endpoint,
-            error: error.message,
+            finalAttempt: attempt,
             status: error.status,
             isRetryable,
             finalAttempt: attempt === this.config.retryConfig.maxRetries
@@ -248,15 +253,23 @@ export class GoogleAPIClient {
 
   /**
    * Get events from all configured calendars
-   * @param {Object} timeRange - Optional time range override
+   * @param {Object} options - Optional configuration
+   * @param {Array} options.calendars - Pre-fetched calendar list (to avoid redundant API call)
+   * @param {Object} options.timeRange - Optional time range override
    * @returns {Promise<Array>} Array of all events sorted by start time
    */
-  async getAllCalendarEvents(timeRange = null) {
+  async getAllCalendarEvents(options = {}) {
     logger.info('Fetching events from all configured calendars');
     
     try {
-      // Get calendar list first
-      const calendars = await this.getCalendarList();
+      // Use provided calendars list or fetch it
+      let calendars = options.calendars;
+      if (!calendars) {
+        logger.debug('No calendar list provided, fetching from API');
+        calendars = await this.getCalendarList();
+      } else {
+        logger.debug('Using provided calendar list to avoid redundant API call');
+      }
       
       // Filter to configured calendars
       const targetCalendars = calendars.filter(cal => 
@@ -274,8 +287,8 @@ export class GoogleAPIClient {
         try {
           return await this.getCalendarEvents(
             calendar.id, 
-            timeRange?.timeMin, 
-            timeRange?.timeMax
+            options.timeRange?.timeMin, 
+            options.timeRange?.timeMax
           );
         } catch (error) {
           logger.warn(`Failed to fetch from calendar ${calendar.summary}`, error);

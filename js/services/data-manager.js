@@ -1,5 +1,5 @@
 // js/services/data-manager.js - Centralized Data Caching and Refresh System
-// CHANGE SUMMARY: Extracted data management logic from auth-manager.js, added structured logging, improved caching strategy. Fixed calendar request format for backward compatibility.
+// CHANGE SUMMARY: Removed redundant API testing since simple-auth already handles it, simplified init method to be truly lazy
 
 import { createLogger } from '../utils/logger.js';
 import { events as eventSystem, EVENTS } from '../utils/event-emitter.js';
@@ -45,61 +45,12 @@ export class DataManager {
   }
 
   /**
-   * Initialize data manager and start background refresh
+   * Initialize data manager - now truly lazy, no redundant API calls
    * @returns {Promise<void>}
    */
   async init() {
-    logger.info('Initializing data manager');
-    
-    try {
-      // Test API access first
-      const apiStatus = await this.testAPIAccess();
-      
-      if (apiStatus.calendar) {
-        // Start initial calendar data fetch
-        setTimeout(() => this.refreshCalendarData(true), 1000);
-      }
-      
-      if (apiStatus.photos) {
-        // Start initial photos data fetch
-        setTimeout(() => this.refreshPhotosData(true), 2000);
-      }
-      
-      logger.success('Data manager initialized', apiStatus);
-      
-    } catch (error) {
-      logger.error('Data manager initialization failed', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Test Google API access
-   * @returns {Promise<Object>} API test results
-   */
-  async testAPIAccess() {
-    logger.debug('Testing Google API access');
-    
-    try {
-      const results = await this.googleAPI.testAccess();
-      
-      logger.info('API access test completed', {
-        calendar: results.calendar,
-        photos: results.photos,
-        tokenStatus: results.tokenStatus
-      });
-      
-      return results;
-      
-    } catch (error) {
-      logger.error('API access test failed', error);
-      return {
-        calendar: false,
-        photos: false,
-        tokenStatus: 'error',
-        error: error.message
-      };
-    }
+    logger.info('Data manager initialized - ready for on-demand data requests');
+    // No initial API testing or data fetching - completely lazy
   }
 
   // ==================== CALENDAR DATA MANAGEMENT ====================
@@ -131,11 +82,27 @@ export class DataManager {
     try {
       eventSystem.data.emitLoading('calendar');
       
-      // Fetch both events and calendar metadata
-      const [events, calendars] = await Promise.all([
-        this.googleAPI.getAllCalendarEvents(),
-        this.googleAPI.getCalendarList()
-      ]);
+      // OPTIMIZED: Pass calendar list to getAllCalendarEvents to avoid redundant API call
+      let calendarsPromise;
+      let eventsPromise;
+      
+      // If we have recent calendar metadata, reuse it to avoid redundant calls
+      if (cacheData.calendars.length > 0 && cacheData.lastUpdated && 
+          (Date.now() - cacheData.lastUpdated) < 5 * 60 * 1000) {
+        // Calendar metadata is less than 5 minutes old, reuse it
+        calendarsPromise = Promise.resolve(cacheData.calendars);
+        eventsPromise = this.googleAPI.getAllCalendarEvents({ calendars: cacheData.calendars });
+        logger.debug('Reusing cached calendar metadata to avoid redundant API call');
+      } else {
+        // Need fresh calendar metadata
+        calendarsPromise = this.googleAPI.getCalendarList();
+        eventsPromise = calendarsPromise.then(calendars => 
+          this.googleAPI.getAllCalendarEvents({ calendars })
+        );
+        logger.debug('Fetching fresh calendar metadata');
+      }
+      
+      const [events, calendars] = await Promise.all([eventsPromise, calendarsPromise]);
       
       const duration = timer();
       
@@ -282,9 +249,6 @@ export class DataManager {
       logger.data('refresh', 'photos', 'error', error.message);
       eventSystem.data.emitError('photos', error);
       
-      // Send error to widgets
-      this.sendErrorToPendingRequests('photos', error.message);
-      
       throw error;
     }
   }
@@ -330,18 +294,12 @@ export class DataManager {
   // ==================== WIDGET REQUEST HANDLING ====================
 
   /**
-   * Handle data request from widget
-   * @param {Object} request - Widget data request
-   * @param {Window} sourceWindow - Source widget window
-   * @returns {Promise<void>}
+   * Handle widget data request generically
+   * @param {Object} requestData - Request data from widget
+   * @param {Window} sourceWindow - Widget window source
    */
-  async handleWidgetDataRequest(request, sourceWindow) {
-    const { dataType, requestType, requestId, params } = request;
-    
-    logger.widget('receive', `${dataType}_${requestType}`, 'widget', {
-      requestId,
-      params
-    });
+  async handleWidgetDataRequest(requestData, sourceWindow) {
+    const { requestId, dataType, requestType, params } = requestData;
     
     try {
       let responseData = {};
@@ -526,39 +484,20 @@ export class DataManager {
     const refreshInterval = this.dataCache[dataType].refreshInterval;
     
     this.refreshTimers[dataType] = setTimeout(() => {
-      logger.debug(`Auto-refreshing ${dataType} data`);
+      logger.debug(`Scheduled ${dataType} refresh triggered`, {
+        interval: refreshInterval / 1000 / 60 + ' minutes'
+      });
       
       if (dataType === 'calendar') {
-        this.refreshCalendarData(false);
+        this.refreshCalendarData(true);
       } else if (dataType === 'photos') {
-        this.refreshPhotosData(false);
+        this.refreshPhotosData(true);
       }
     }, refreshInterval);
     
     logger.debug(`Scheduled ${dataType} refresh`, {
-      interval: Math.round(refreshInterval / 1000 / 60) + ' minutes'
+      interval: refreshInterval / 1000 / 60 + ' minutes'
     });
-  }
-
-  /**
-   * Force refresh all data
-   * @returns {Promise<void>}
-   */
-  async refreshAllData() {
-    logger.info('Force refreshing all data');
-    
-    try {
-      await Promise.all([
-        this.refreshCalendarData(true),
-        this.refreshPhotosData(true)
-      ]);
-      
-      logger.success('All data refreshed successfully');
-      
-    } catch (error) {
-      logger.error('Failed to refresh all data', error);
-      throw error;
-    }
   }
 
   /**
@@ -571,51 +510,46 @@ export class DataManager {
     Object.values(this.refreshTimers).forEach(timer => clearTimeout(timer));
     this.refreshTimers = {};
     
-    // Reset cache
-    this.dataCache = {
-      calendar: {
-        events: [],
-        calendars: [],
-        lastUpdated: null,
-        refreshInterval: 5 * 60 * 1000,
-        isLoading: false
-      },
-      photos: {
-        albums: [],
-        recentPhotos: [],
-        lastUpdated: null,
-        refreshInterval: 30 * 60 * 1000,
-        isLoading: false
-      }
+    // Clear cache data
+    this.dataCache.calendar = {
+      events: [],
+      calendars: [],
+      lastUpdated: null,
+      refreshInterval: 5 * 60 * 1000,
+      isLoading: false
+    };
+    
+    this.dataCache.photos = {
+      albums: [],
+      recentPhotos: [],
+      lastUpdated: null,
+      refreshInterval: 30 * 60 * 1000,
+      isLoading: false
     };
     
     // Clear pending requests
     this.pendingWidgetRequests = [];
-    
-    logger.success('Cache cleared');
   }
 
   /**
-   * Get data manager status
+   * Get data manager status for debugging
    * @returns {Object} Status information
    */
   getStatus() {
     return {
-      cache: {
-        calendar: {
-          eventsCount: this.dataCache.calendar.events.length,
-          calendarsCount: this.dataCache.calendar.calendars.length,
-          lastUpdated: this.dataCache.calendar.lastUpdated,
-          isLoading: this.dataCache.calendar.isLoading,
-          isFresh: this.isDataFresh('calendar')
-        },
-        photos: {
-          albumsCount: this.dataCache.photos.albums.length,
-          photosCount: this.dataCache.photos.recentPhotos.length,
-          lastUpdated: this.dataCache.photos.lastUpdated,
-          isLoading: this.dataCache.photos.isLoading,
-          isFresh: this.isDataFresh('photos')
-        }
+      calendar: {
+        events: this.dataCache.calendar.events.length,
+        calendars: this.dataCache.calendar.calendars.length,
+        lastUpdated: this.dataCache.calendar.lastUpdated,
+        isLoading: this.dataCache.calendar.isLoading,
+        isFresh: this.isDataFresh('calendar')
+      },
+      photos: {
+        albums: this.dataCache.photos.albums.length,
+        recentPhotos: this.dataCache.photos.recentPhotos.length,
+        lastUpdated: this.dataCache.photos.lastUpdated,
+        isLoading: this.dataCache.photos.isLoading,
+        isFresh: this.isDataFresh('photos')
       },
       pendingRequests: this.pendingWidgetRequests.length,
       activeTimers: Object.keys(this.refreshTimers).length

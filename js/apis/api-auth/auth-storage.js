@@ -1,141 +1,78 @@
-// js/apis/api-auth/auth-storage.js - User Data Persistence (Moved to new location)
-// CHANGE SUMMARY: Moved from js/auth/auth-storage.js, added structured logging, enhanced validation
+// js/apis/api-auth/auth-storage.js - Enhanced User Data Persistence with Simple Interface
+// CHANGE SUMMARY: Simplified to use original method names and storage keys, enhanced validation and token management, removed unnecessary complexity
 
 import { createLogger } from '../../utils/logger.js';
+import { events as eventSystem, EVENTS } from '../../utils/event-emitter.js';
 
 const logger = createLogger('AuthStorage');
 
 /**
- * Authentication storage manager
- * Handles user data persistence with localStorage and validation
+ * Enhanced user authentication storage - uses original interface with improved functionality
  */
 export class AuthStorage {
   constructor() {
-    this.storageKey = 'dashie-user';
-    this.maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days
+    this.storageKey = 'dashie-user';  // Original storage key
+    this.tokenKey = 'dashie-google-token';
+    this.currentUser = null;
+    this.googleAccessToken = null;
     
-    logger.debug('Auth storage initialized', {
-      storageKey: this.storageKey,
-      maxAgeHours: this.maxAge / (1000 * 60 * 60)
-    });
+    // Load existing data on initialization
+    this.loadStoredData();
   }
 
   /**
-   * Save user data to localStorage
-   * @param {Object} userData - User data to save
+   * Load stored authentication data from localStorage
    */
-  saveUser(userData) {
+  loadStoredData() {
     try {
-      if (!this.isUserValid(userData)) {
-        throw new Error('Invalid user data provided');
-      }
-
-      const dataToSave = {
-        ...userData,
-        savedAt: Date.now()
-      };
-      
-      localStorage.setItem(this.storageKey, JSON.stringify(dataToSave));
-      
-      logger.success('User data saved', {
-        userId: userData.id,
-        userEmail: userData.email,
-        authMethod: userData.authMethod,
-        hasGoogleToken: !!userData.googleAccessToken
-      });
-      
-    } catch (error) {
-      logger.error('Failed to save user data', {
-        error: error.message,
-        userId: userData?.id
-      });
-      throw error;
-    }
-  }
-
-  /**
-   * Get saved user data from localStorage
-   * @returns {Object|null} Saved user data or null
-   */
-  getSavedUser() {
-    try {
-      const saved = localStorage.getItem(this.storageKey);
-      if (!saved) {
-        logger.debug('No saved user data found');
-        return null;
-      }
-
-      const userData = JSON.parse(saved);
-      const now = Date.now();
-      
-      // Check if data is still valid (not expired)
-      if (userData.savedAt && (now - userData.savedAt < this.maxAge)) {
-        logger.info('Loaded saved user data', {
-          userId: userData.id,
-          userEmail: userData.email,
-          authMethod: userData.authMethod,
-          savedAge: Math.round((now - userData.savedAt) / (1000 * 60 * 60)) + ' hours'
-        });
+      // Load user data
+      const userData = localStorage.getItem(this.storageKey);
+      if (userData) {
+        const parsedUser = JSON.parse(userData);
         
-        return userData;
-      } else {
-        logger.warn('Saved user data expired, removing', {
-          savedAt: new Date(userData.savedAt).toISOString(),
-          ageHours: Math.round((now - userData.savedAt) / (1000 * 60 * 60))
-        });
-        
-        this.clearSavedUser();
-        return null;
+        // Enhanced validation
+        if (this.isValidUser(parsedUser)) {
+          this.currentUser = parsedUser;
+          logger.debug('User data loaded from storage:', this.currentUser?.email);
+        } else {
+          logger.warn('Stored user data is invalid, clearing');
+          this.clearSavedUser();
+        }
       }
-      
+
+      // Load Google token data
+      const tokenData = localStorage.getItem(this.tokenKey);
+      if (tokenData) {
+        const parsedToken = JSON.parse(tokenData);
+        
+        // Enhanced token validation
+        if (this.isValidToken(parsedToken)) {
+          this.googleAccessToken = parsedToken.access_token;
+          logger.debug('Google token loaded from storage');
+        } else {
+          logger.warn('Stored Google token is invalid, clearing');
+          this.clearGoogleToken();
+        }
+      }
+
     } catch (error) {
-      logger.error('Failed to load user data', error);
-      
-      // Clear corrupted data
-      this.clearSavedUser();
-      return null;
+      logger.error('Failed to load stored auth data:', error);
+      this.clearAllData();
     }
   }
 
   /**
-   * Clear saved user data
+   * Validate user data
    */
-  clearSavedUser() {
-    try {
-      localStorage.removeItem(this.storageKey);
-      logger.info('User data cleared from storage');
-    } catch (error) {
-      logger.error('Failed to clear user data', error);
-    }
-  }
-
-  /**
-   * Validate user data structure
-   * @param {Object} userData - User data to validate
-   * @returns {boolean} True if valid
-   */
-  isUserValid(userData) {
-    if (!userData || typeof userData !== 'object') {
-      logger.warn('User data validation failed: not an object');
-      return false;
-    }
+  isValidUser(userData) {
+    if (!userData || typeof userData !== 'object') return false;
     
-    const requiredFields = ['id', 'name', 'email'];
-    const missingFields = requiredFields.filter(field => !userData[field]);
+    // Must have required fields
+    if (!userData.id || !userData.email || !userData.name) return false;
     
-    if (missingFields.length > 0) {
-      logger.warn('User data validation failed: missing required fields', {
-        missingFields
-      });
-      return false;
-    }
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(userData.email)) {
-      logger.warn('User data validation failed: invalid email format', {
-        email: userData.email
-      });
+    // Check if data is too old (7 days)
+    if (userData.savedAt && (Date.now() - userData.savedAt) > 7 * 24 * 60 * 60 * 1000) {
+      logger.debug('User data is too old (>7 days)');
       return false;
     }
 
@@ -143,32 +80,214 @@ export class AuthStorage {
   }
 
   /**
-   * Check if localStorage is available
-   * @returns {boolean} True if localStorage is available
+   * Validate token data
    */
-  isStorageAvailable() {
+  isValidToken(tokenData) {
+    if (!tokenData || typeof tokenData !== 'object') return false;
+    
+    // Must have access token
+    if (!tokenData.access_token) return false;
+    
+    // Check expiry if available
+    if (tokenData.expires_at && tokenData.expires_at < Date.now()) {
+      logger.debug('Token has expired');
+      return false;
+    }
+    
+    // Check if token is too old (1 day for safety)
+    if (tokenData.issued_at && (Date.now() - tokenData.issued_at) > 24 * 60 * 60 * 1000) {
+      logger.debug('Token is too old (>1 day)');
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Save user data - original method name
+   */
+  saveUser(userData) {
     try {
-      const testKey = 'dashie-storage-test';
-      localStorage.setItem(testKey, 'test');
-      localStorage.removeItem(testKey);
+      if (!userData || !userData.id) {
+        throw new Error('Invalid user data');
+      }
+
+      // Enhanced user data with timestamp
+      const enhancedUserData = {
+        ...userData,
+        savedAt: Date.now(),
+        lastSeen: Date.now()
+      };
+
+      localStorage.setItem(this.storageKey, JSON.stringify(enhancedUserData));
+      this.currentUser = enhancedUserData;
+
+      logger.info('User data saved:', userData.email);
+      
+      eventSystem.emit(EVENTS.USER_STORED, { user: enhancedUserData });
+      
       return true;
     } catch (error) {
-      logger.warn('localStorage not available', error);
+      logger.error('Failed to save user data:', error);
       return false;
     }
   }
 
   /**
-   * Get storage information
-   * @returns {Object} Storage status and info
+   * Store Google token with enhanced metadata
    */
-  getStorageInfo() {
+  storeGoogleToken(token) {
+    try {
+      if (!token) {
+        throw new Error('No token provided');
+      }
+
+      // Enhanced token data
+      const tokenData = {
+        access_token: token,
+        issued_at: Date.now(),
+        expires_at: Date.now() + (55 * 60 * 1000), // 55 minutes
+        user_id: this.currentUser?.id
+      };
+
+      localStorage.setItem(this.tokenKey, JSON.stringify(tokenData));
+      this.googleAccessToken = token;
+
+      logger.info('Google token stored');
+      
+      eventSystem.emit(EVENTS.TOKEN_STORED, { tokenData });
+      
+      return true;
+    } catch (error) {
+      logger.error('Failed to store Google token:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Get saved user - original method name
+   */
+  getSavedUser() {
+    if (!this.currentUser) return null;
+
+    // Validate user data is still fresh
+    if (this.currentUser.savedAt && (Date.now() - this.currentUser.savedAt) > 7 * 24 * 60 * 60 * 1000) {
+      logger.warn('Stored user data is stale (>7 days), clearing');
+      this.clearSavedUser();
+      return null;
+    }
+
+    // Update last seen
+    if (this.currentUser) {
+      this.currentUser.lastSeen = Date.now();
+      try {
+        localStorage.setItem(this.storageKey, JSON.stringify(this.currentUser));
+      } catch (error) {
+        logger.warn('Failed to update last seen:', error);
+      }
+    }
+
+    return this.currentUser;
+  }
+
+  /**
+   * Get Google access token
+   */
+  getGoogleToken() {
+    if (!this.googleAccessToken) return null;
+
+    // Re-validate token from storage
+    try {
+      const tokenData = localStorage.getItem(this.tokenKey);
+      if (tokenData) {
+        const parsedToken = JSON.parse(tokenData);
+        if (this.isValidToken(parsedToken)) {
+          return parsedToken.access_token;
+        } else {
+          logger.warn('Google token validation failed, clearing');
+          this.clearGoogleToken();
+          return null;
+        }
+      }
+    } catch (error) {
+      logger.error('Token validation error:', error);
+      this.clearGoogleToken();
+    }
+
+    return null;
+  }
+
+  /**
+   * Clear user data - original method name
+   */
+  clearSavedUser() {
+    try {
+      localStorage.removeItem(this.storageKey);
+      this.currentUser = null;
+      logger.info('User data cleared');
+      
+      eventSystem.emit(EVENTS.USER_CLEARED);
+    } catch (error) {
+      logger.error('Failed to clear user data:', error);
+    }
+  }
+
+  /**
+   * Clear Google token
+   */
+  clearGoogleToken() {
+    try {
+      localStorage.removeItem(this.tokenKey);
+      this.googleAccessToken = null;
+      logger.info('Google token cleared');
+      
+      eventSystem.emit(EVENTS.TOKEN_CLEARED);
+    } catch (error) {
+      logger.error('Failed to clear Google token:', error);
+    }
+  }
+
+  /**
+   * Clear all stored authentication data
+   */
+  clearAllData() {
+    logger.info('Clearing all authentication data');
+    
+    this.clearSavedUser();
+    this.clearGoogleToken();
+    
+    eventSystem.emit(EVENTS.AUTH_CLEARED);
+  }
+
+  /**
+   * Check if user is authenticated
+   */
+  isAuthenticated() {
+    const user = this.getSavedUser();
+    const token = this.getGoogleToken();
+    
+    const isAuth = !!(user && user.id && token);
+    
+    if (isAuth) {
+      logger.debug('User authentication validated');
+    } else {
+      logger.debug('User authentication validation failed');
+    }
+    
+    return isAuth;
+  }
+
+  /**
+   * Get authentication status for debugging
+   */
+  getAuthStatus() {
     return {
-      available: this.isStorageAvailable(),
-      storageKey: this.storageKey,
-      maxAgeHours: this.maxAge / (1000 * 60 * 60),
-      hasSavedUser: !!localStorage.getItem(this.storageKey),
-      currentUser: this.getSavedUser()
+      hasUser: !!this.currentUser,
+      hasToken: !!this.getGoogleToken(),
+      isAuthenticated: this.isAuthenticated(),
+      userEmail: this.currentUser?.email,
+      lastSeen: this.currentUser?.lastSeen,
+      userAge: this.currentUser?.savedAt ? Math.round((Date.now() - this.currentUser.savedAt) / (1000 * 60 * 60)) + ' hours' : 'unknown'
     };
   }
 }
