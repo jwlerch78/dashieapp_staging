@@ -80,68 +80,26 @@ export class NativeAndroidProvider {
     return null;
   }
 
-  /**
-   * Start native sign-in flow
-   * @returns {Promise<Object>} Auth result - resolved by native callback
-   */
-  async signIn() {
-    if (!this.available) {
-      throw new Error('Native Android auth not available');
-    }
-    
-    logger.auth('native', 'sign_in_start', 'pending');
-    
-    return new Promise((resolve, reject) => {
-      // Set up callback handler
-      const originalHandler = window.handleNativeAuth;
-      
-      window.handleNativeAuth = (result) => {
-        // Restore original handler
-        window.handleNativeAuth = originalHandler;
-        
-        if (result.success && result.user) {
-          this.currentUser = result.user;
-          
-          logger.auth('native', 'sign_in_complete', 'success', {
-            userId: result.user.id,
-            userEmail: result.user.email,
-            hasTokens: !!result.tokens
-          });
-          
-          resolve({
-            success: true,
-            user: {
-              ...result.user,
-              authMethod: 'native_android'
-            },
-            tokens: result.tokens
-          });
-        } else {
-          const error = result.error || 'Native authentication failed';
-          
-          logger.auth('native', 'sign_in_complete', 'error', error);
-          
-          if (error !== 'Sign-in was cancelled') {
-            reject(new Error(error));
-          } else {
-            reject(new Error('CANCELLED')); // Special error type for cancellation
-          }
-        }
-      };
-      
-      // Trigger native sign-in
-      try {
-        logger.debug('Triggering native Android sign-in');
-        window.DashieNative.signIn();
-      } catch (error) {
-        // Restore handler on error
-        window.handleNativeAuth = originalHandler;
-        
-        logger.auth('native', 'sign_in_trigger', 'error', error.message);
-        reject(new Error(`Native sign-in trigger failed: ${error.message}`));
-      }
-    });
+ /**
+ * Start native sign-in flow - simplified approach
+ * @returns {void} - Result handled by global callback
+ */
+signIn() {
+  if (!this.available) {
+    throw new Error('Native Android auth not available');
   }
+
+  logger.auth('native', 'sign_in_start', 'pending');
+  
+  try {
+    logger.debug('Triggering native Android sign-in');
+    window.DashieNative.signIn();
+    // Don't return a promise - let the result be handled by the global callback
+  } catch (error) {
+    logger.auth('native', 'sign_in_trigger', 'error', error.message);
+    throw new Error(`Native sign-in trigger failed: ${error.message}`);
+  }
+}
 
   /**
    * Sign out from native interface
