@@ -188,7 +188,7 @@ export class DeviceFlowProvider {
     return overlay;
   }
 
-/**
+ /**
  * Start polling Google for tokens
  * @param {Object} deviceData - Device code response data
  * @param {Function} resolve - Promise resolve function
@@ -214,8 +214,14 @@ startPolling(deviceData, resolve, reject, overlay) {
     try {
       logger.debug(`Polling attempt ${attempts}/${maxAttempts}`);
       
-      // Always request tokens without client_secret
-      const tokenResponse = await this.requestTokens(deviceCode, false);
+      // Request tokens
+      let tokenResponse = await this.requestTokens(deviceCode, true); // first try with client_secret
+      
+      // If Google complains about client_secret, retry without it
+      if (tokenResponse.error === 'invalid_request' && tokenResponse.error_description?.includes('client_secret')) {
+        logger.debug('Retrying token request without client_secret...');
+        tokenResponse = await this.requestTokens(deviceCode, false); // retry without client_secret
+      }
 
       if (tokenResponse.success) {
         // Got access token
@@ -243,17 +249,12 @@ startPolling(deviceData, resolve, reject, overlay) {
         return;
       }
 
-      // Handle pending / slow_down
+      // Handle pending or slow_down
       if (tokenResponse.pending) {
         logger.debug('Authorization still pending, will retry...');
       } else if (tokenResponse.slowDown) {
         interval += 5;
         logger.debug(`Server requested slow down, next poll in ${interval}s`);
-      } else if (tokenResponse.error) {
-        logger.error(`Token error: ${tokenResponse.error} - ${tokenResponse.error_description}`);
-        this.cleanup(overlay);
-        reject(new Error(tokenResponse.error_description || tokenResponse.error));
-        return;
       }
 
       // Schedule next poll
@@ -268,19 +269,22 @@ startPolling(deviceData, resolve, reject, overlay) {
   poll();
 }
 
-/**
+ /**
  * Request tokens from Google using device code
  * @param {string} deviceCode - Device code from initial request
- * @param {boolean} useClientSecret - Ignored, client_secret is never sent
+ * @param {boolean} useClientSecret - Whether to include client_secret
  * @returns {Promise<Object>} Token request result
  */
-async requestTokens(deviceCode, useClientSecret = false) {
+async requestTokens(deviceCode, useClientSecret = true) {
   try {
     const bodyParams = {
       client_id: this.config.client_id,
       device_code: deviceCode,
       grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
     };
+    if (useClientSecret && this.config.client_secret) {
+      bodyParams.client_secret = this.config.client_secret;
+    }
 
     const response = await fetch(this.config.token_endpoint, {
       method: 'POST',
@@ -301,10 +305,9 @@ async requestTokens(deviceCode, useClientSecret = false) {
     return { success: false, error: data.error, error_description: data.error_description };
 
   } catch (error) {
-    return { success: false, error: 'network_error', error_description: error.message };
+    throw error;
   }
 }
-
 
   /**
    * Fetch user info from Google
