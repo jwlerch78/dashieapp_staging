@@ -20,6 +20,11 @@ html, body {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+
+    /* Zoom out vertically only */
+  transform: scaleY(0.85);
+  transform-origin: top; /* anchor at the top so it doesn't shift down */
+
 }
 
 .calendar-header {
