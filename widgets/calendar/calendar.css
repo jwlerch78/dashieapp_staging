@@ -1,4 +1,5 @@
 /* widgets/calendar/calendar.css - Calendar Widget Styles with proper theme inheritance and height */
+/* CHANGE SUMMARY: Implemented proper zoom-out using wrapper with overflow hidden and scaled container with increased dimensions */
 
 html, body {
   height: 100%;
@@ -11,20 +12,28 @@ html, body {
   box-sizing: border-box;
 }
 
-#calendar-container {
+/* Zoom wrapper - clips overflow and fills viewport */
+.calendar-zoom-container {
   width: 100%;
   height: 100vh;
+  background: var(--bg-primary, #222);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* Calendar container - larger dimensions with scale down to fill viewport when scaled */
+#calendar-container {
+  width: 117.65%; /* 100 / 0.85 = 117.65% */
+  height: 117.65vh; /* 100 / 0.85 = 117.65vh */
   position: relative;
   background: var(--bg-primary, #222);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-
-    /* Zoom out vertically only 
-  transform: scaleY(0.85);
-  transform-origin: top; /* anchor at the top so it doesn't shift down */
-
+  /* Scale down by 15% from top-left */
+  transform: scale(0.85);
+  transform-origin: top left;
 }
 
 .calendar-header {

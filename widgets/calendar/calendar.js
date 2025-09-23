@@ -58,7 +58,14 @@ class CalendarWidget {
         window.parent.postMessage({ type: 'widget-ready', widget: 'calendar' }, '*');
       }
     });
+
+
+
+    
   }
+
+
+  
 
   // NEW: Simplified message handler for widget-messenger system
   handleDataServiceMessage(data) {
