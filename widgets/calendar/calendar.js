@@ -1,11 +1,15 @@
-// widgets/calendar/calendar.js - UPDATED: TUI Calendar Widget with centralized data service
-// Preserves all existing TUI Calendar functionality while using centralized Google Calendar data
+// widgets/calendar/calendar.js - UPDATED: Converted to new widget-messenger system - pure receiver pattern
+// CHANGE SUMMARY: Added proper logger system, improved debugging output for widget-update message handling
+
+import { createLogger } from '../../js/utils/logger.js';
+
+const logger = createLogger('CalendarWidget');
 
 class CalendarWidget {
   constructor() {
     // ============== CONFIG VARIABLES ==============
     
-    // Hard-coded Google calendar IDs you’re using
+    // Hard-coded Google calendar IDs you're using
     this.GOOGLE_CALENDARS = [
       { id: 'jwlerch@gmail.com', summary: 'jwlerch@gmail.com', color: '#1976d2', textColor: '#ffffff' },
       { id: 'fd5949d42a667f6ca3e88dcf1feb27818463bbdc19c5e56d2e0da62b87d881c5@group.calendar.google.com', summary: 'Veeva', color: '#388e3c', textColor: '#ffffff' }
@@ -39,8 +43,14 @@ class CalendarWidget {
 
   setupEventListeners() {
     window.addEventListener('message', (event) => {
-      if (event.data && event.data.action) this.handleCommand(event.data.action);
-      if (event.data && event.data.type) this.handleDataServiceMessage(event.data);
+      // Handle navigation commands (single action strings)
+      if (event.data && typeof event.data.action === 'string' && !event.data.type) {
+        this.handleCommand(event.data.action);
+      }
+      // Handle message objects with type
+      if (event.data && event.data.type) {
+        this.handleDataServiceMessage(event.data);
+      }
     });
 
     window.addEventListener('load', () => {
@@ -50,89 +60,51 @@ class CalendarWidget {
     });
   }
 
-  // FIXED: Better data handling for widget-data-response
+  // NEW: Simplified message handler for widget-messenger system
   handleDataServiceMessage(data) {
-    console.log('📅 Calendar widget received message:', data.type, data);
+    logger.debug('Calendar widget received message', { type: data.type, hasPayload: !!data.payload });
     
     switch (data.type) {
-      case 'calendar-data-ready':
-        this.handleCalendarData(data.data);
-        break;
+      case 'widget-update':
+        logger.info('Processing widget-update', { action: data.action });
+        logger.debug('Payload structure', data.payload);
+        logger.info('Calendar data available', { hasCalendarData: !!data.payload?.calendar });
         
-      case 'widget-data-response':
-        if (data.success) {
-          // FIXED: Handle multiple possible response formats
-          let calendarData = null;
-          
-          if (data.events && Array.isArray(data.events)) {
-            // Format 1: events directly in response (flattened format)
-            calendarData = {
-              events: data.events,
-              calendars: data.calendars || [],
-              lastUpdated: data.lastUpdated || data.timestamp
-            };
-            console.log('📅 Using flattened events format');
-          } else if (data.data && data.data.events && Array.isArray(data.data.events)) {
-            // Format 2: events in data.events
-            calendarData = {
-              events: data.data.events,
-              calendars: data.data.calendars || [],
-              lastUpdated: data.data.lastUpdated || data.timestamp
-            };
-            console.log('📅 Using nested events format');
-          } else if (data.data && Array.isArray(data.data)) {
-            // Format 3: data.data is directly the events array
-            calendarData = {
-              events: data.data,
-              calendars: data.calendars || [],
-              lastUpdated: data.timestamp
-            };
-            console.log('📅 Using direct array format');
-          } else {
-            console.error('📅 ❌ No valid events array found in response:', data);
-            this.updateConnectionStatus('error');
-            return;
-          }
-          
-          console.log('📅 📊 Processing calendar data:', {
-            eventsCount: calendarData.events.length,
-            calendarsCount: calendarData.calendars.length,
-            eventsType: typeof calendarData.events,
-            isArray: Array.isArray(calendarData.events)
+        if (data.action === 'state-update' && data.payload?.calendar) {
+          logger.success('Calendar data details', {
+            eventsCount: data.payload.calendar.events?.length,
+            calendarsCount: data.payload.calendar.calendars?.length,
+            lastUpdated: data.payload.calendar.lastUpdated
           });
           
-          this.handleCalendarData(calendarData);
-          
-        } else {
-          console.error('📅 ❌ Widget data response error:', data.error);
-          this.updateConnectionStatus('error');
+          this.handleCalendarData({
+            events: data.payload.calendar.events || [],
+            calendars: data.payload.calendar.calendars || [],
+            lastUpdated: data.payload.calendar.lastUpdated
+          });
+        } else if (data.action === 'state-update' && !data.payload?.calendar) {
+          logger.warn('No calendar data in payload', { 
+            payloadKeys: Object.keys(data.payload || {}),
+            hasPayload: !!data.payload 
+          });
         }
         break;
         
       case 'theme-change':
+        logger.info('Applying theme change', { theme: data.theme });
         this.applyTheme(data.theme);
         break;
         
-      case 'google-apis-ready':
-        console.log('📅 Google APIs ready, requesting calendar data...');
-        setTimeout(() => this.requestCalendarData(), 1000);
+      default:
+        logger.debug('Unhandled message type', { type: data.type });
         break;
     }
-  }
-  requestCalendarData() {
-    window.parent.postMessage({
-      type: 'widget-data-request',
-      dataType: 'calendar',
-      requestType: 'events',
-      requestId: Date.now(),
-      params: {}
-    }, '*');
-    this.updateConnectionStatus('connecting');
   }
 
   handleCalendarData(data) {
     if (data.status === 'error') {
       this.updateConnectionStatus('error');
+      logger.error('Calendar data error', { error: data.status });
       return;
     }
 
@@ -144,7 +116,13 @@ class CalendarWidget {
     this.isDataLoaded = true;
     this.updateConnectionStatus('connected');
 
-    // Merge Google’s actual colors if provided by the centralized service
+    logger.success('Calendar data loaded successfully', {
+      eventsCount: this.calendarData.events.length,
+      calendarsCount: this.calendarData.calendars.length,
+      lastUpdated: this.calendarData.lastUpdated
+    });
+
+    // Merge Google's actual colors if provided by the centralized service
     this.tuiCalendars = this.GOOGLE_CALENDARS.map((cal) => {
       const remoteCal = this.calendarData.calendars.find(rc => rc.id === cal.id || rc.summary === cal.summary);
       return {
@@ -160,7 +138,14 @@ class CalendarWidget {
   }
 
   loadEventsIntoCalendar() {
-    if (!this.calendar || !this.isDataLoaded) return;
+    if (!this.calendar || !this.isDataLoaded) {
+      logger.warn('Cannot load events', { 
+        hasCalendar: !!this.calendar, 
+        isDataLoaded: this.isDataLoaded 
+      });
+      return;
+    }
+    
     this.calendar.clear();
 
     const tuiEvents = this.calendarData.events.map((event, i) => {
@@ -191,7 +176,13 @@ class CalendarWidget {
       };
     });
 
-    if (tuiEvents.length) this.calendar.createEvents(tuiEvents);
+    if (tuiEvents.length) {
+      this.calendar.createEvents(tuiEvents);
+      logger.success('Events loaded into TUI Calendar', { eventCount: tuiEvents.length });
+    } else {
+      logger.info('No events to display');
+    }
+    
     this.updateCalendarHeader();
   }
 
@@ -299,23 +290,18 @@ async initializeCalendar() {
       });
     }
 
-    // Request centralized calendar data (keeps original behavior)
-    console.log('📅 Requesting calendar data from centralized service...');
-    this.requestCalendarData();
+    // REMOVED: No longer request data - widget will receive state updates automatically
+    logger.info('TUI Calendar initialized - waiting for state updates...');
 
     // Optional: scroll to a friendly hour after render
     setTimeout(() => this.scrollToTime(8), 200);
 
-    console.log('📅 TUI Calendar initialized in', this.currentView, 'view');
-
   } catch (error) {
-    console.error('📅 Failed to initialize calendar:', error);
+    logger.error('Failed to initialize calendar', error);
     const loader = document.getElementById('loading');
     if (loader) loader.textContent = 'Failed to load calendar';
   }
 }
-
-
 
   showCalendar() {
     document.getElementById('loading').style.display = 'none';
@@ -344,45 +330,18 @@ async initializeCalendar() {
     modeEl.textContent = this.currentView.charAt(0).toUpperCase() + this.currentView.slice(1);
 
     this.updateAllDayHeight();
-
   }
 
 // Update all-day bar height dynamically
-// CHANGE SUMMARY: Complete rewrite - Fixed overall calendar container height to grow/shrink with all-day events while maintaining time panel hours
+// CHANGE SUMMARY: Cleaned up debugging - maintains fixed calendar height while redistributing space between time panel and all-day section
 updateAllDayHeight() {
   if (!this.calendar || (this.currentView !== 'week' && this.currentView !== 'daily')) return;
 
   const allDayContainer = document.querySelector('.toastui-calendar-allday');
   const timePanelContainer = document.querySelector('.toastui-calendar-panel.toastui-calendar-time');
-  
-  // Try multiple possible calendar container selectors
-  let calendarContainer = document.querySelector('.toastui-calendar') ||
-                         document.querySelector('.toastui-calendar-main') ||
-                         document.querySelector('.toastui-calendar-week-view') ||
-                         document.querySelector('.toastui-calendar-container') ||
-                         document.querySelector('[class*="toastui-calendar"]');
-  
-  // Debug what we found
-  console.log('📅 Container search results:', {
-    allDay: !!allDayContainer,
-    timePanel: !!timePanelContainer, 
-    calendar: !!calendarContainer,
-    calendarClass: calendarContainer ? calendarContainer.className : 'not found',
-    calendarId: calendarContainer ? calendarContainer.id : 'no id'
-  });
-  
-  // If we have 200+ elements, let's find the main container more precisely
-  if (calendarContainer) {
-    console.log('📅 Using calendar container:', {
-      tagName: calendarContainer.tagName,
-      className: calendarContainer.className,
-      currentHeight: window.getComputedStyle(calendarContainer).height,
-      parentClass: calendarContainer.parentElement ? calendarContainer.parentElement.className : 'no parent'
-    });
-  }
+  const calendarContainer = document.querySelector('.toastui-calendar');
   
   if (!allDayContainer || !timePanelContainer) {
-    console.log('📅 Missing required containers - exiting');
     return;
   }
 
@@ -430,13 +389,8 @@ updateAllDayHeight() {
   const rowHeight = 24;  // slightly taller to prevent clipping
   const padding = 1;
 
-  // Store TUI's baseline heights in their natural state (not forcing all-day to be hidden)
+  // Store TUI's baseline heights in their natural state
   if (!this.dashieBaselineHeights) {
-    console.log('📅 Capturing baseline heights in natural state...');
-    
-    // Don't force hide - let TUI calculate with all-day in its current state
-    // This should give us the "real" space TUI thinks it has to work with
-    
     setTimeout(() => {
       const timePanelStyle = window.getComputedStyle(timePanelContainer);
       const calendarStyle = window.getComputedStyle(calendarContainer || document.body);
@@ -451,13 +405,11 @@ updateAllDayHeight() {
         currentAllDayHeight: currentAllDayHeight
       };
       
-      console.log('📅 NEW: Captured natural baseline heights:', this.dashieBaselineHeights);
-      
       // Continue with the adjustment using the natural baseline
       this.applyHeightAdjustmentNew(allDayContainer, timePanelContainer, calendarContainer, maxEvents, rowHeight, padding);
     }, 100);
     
-    return; // Exit early on first run to let async capture complete
+    return;
   }
   
   // Apply adjustment using captured TUI baseline
@@ -488,23 +440,10 @@ applyHeightAdjustmentNew(allDayContainer, timePanelContainer, calendarContainer,
   const adjustedTimePanelHeight = totalAvailableSpace - allDayHeight;
   
   timePanelContainer.style.height = `${adjustedTimePanelHeight}px`;
-  
-  console.log('📅 NEW: Applied FIXED height adjustment:', {
-    maxEvents,
-    allDayHeight,
-    baselineTimePanel: this.dashieBaselineHeights.timePanel,
-    baselineAllDayHeight: this.dashieBaselineHeights.currentAllDayHeight,
-    totalAvailableSpace,
-    adjustedTimePanelHeight,
-    verification: `${adjustedTimePanelHeight} + ${allDayHeight} = ${adjustedTimePanelHeight + allDayHeight} (target: ${totalAvailableSpace})`
-  });
 }
 
-
-  
-
   handleCommand(action) {
-    console.log('📅 Calendar widget received command:', action);
+    logger.debug('Calendar widget received command', { action });
     switch (action) {
       case 'right': 
         this.navigateCalendar('next'); 
@@ -519,7 +458,7 @@ applyHeightAdjustmentNew(allDayContainer, timePanelContainer, calendarContainer,
         this.scrollCalendar('down'); 
         break;
       case 'enter': 
-        console.log('📅 Enter pressed on calendar widget'); 
+        logger.debug('Enter pressed on calendar widget'); 
         break;
       case 'next-view':
       case 'fastforward': 
@@ -534,7 +473,7 @@ applyHeightAdjustmentNew(allDayContainer, timePanelContainer, calendarContainer,
         this.cycleView('backward'); 
         break;
       default: 
-        console.log('📅 Calendar widget ignoring command:', action); 
+        logger.debug('Calendar widget ignoring command', { action }); 
         break;
     }
   }
@@ -609,7 +548,7 @@ applyHeightAdjustmentNew(allDayContainer, timePanelContainer, calendarContainer,
     document.body.classList.remove('theme-dark', 'theme-light');
     document.documentElement.classList.add(themeClass);
     document.body.classList.add(themeClass);
-    console.log(`📅 Applied ${theme} theme to TUI Calendar`);
+    logger.info('Applied theme to TUI Calendar', { theme });
   }
 
   requestTheme() {
@@ -619,7 +558,7 @@ applyHeightAdjustmentNew(allDayContainer, timePanelContainer, calendarContainer,
         widget: 'calendar'
       }, '*');
     } catch (error) {
-      console.log('📅 Could not request theme');
+      logger.warn('Could not request theme', { error: error.message });
     }
   }
 }

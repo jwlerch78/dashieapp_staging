@@ -115,14 +115,7 @@ export class SimpleAuth {
       
       // Initialize widget messenger
       this.widgetMessenger = new WidgetMessenger(this.dataManager);
-      
-      // Test APIs and broadcast to widgets
-      const apiStatus = await this.apis.google.testAccess();
-      this.widgetMessenger.broadcastGoogleAPIsReady(
-        apiStatus, 
-        this.authCoordinator.getGoogleAccessToken()
-      );
-      
+           
       logger.success('All services initialized successfully');
       
     } catch (error) {
@@ -158,12 +151,6 @@ export class SimpleAuth {
       this.cleanupServices();
     });
 
-    // Data events
-    eventSystem.data.onLoaded((dataType, data) => {
-      if (this.widgetMessenger) {
-        this.widgetMessenger.broadcastDataUpdate(dataType, data);
-      }
-    });
 
     logger.debug('Event listeners configured');
   }
