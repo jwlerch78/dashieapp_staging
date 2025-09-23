@@ -71,12 +71,12 @@ export class SettingsControllerCore {
 
 
       // Wait for auth to be ready with timeout
-      const currentUser = await this.waitForAuth(5000);
+      const currentUser = await this.waitForAuth();
       
     if (!currentUser) {
       console.warn('⚙️ No authenticated user, using localStorage only');
       
-      // FIXED: Load from localStorage first, then fallback to defaults
+      // Load from localStorage first, then fallback to defaults
       try {
         const savedSettings = localStorage.getItem('dashie-settings');
         if (savedSettings) {
@@ -136,19 +136,22 @@ export class SettingsControllerCore {
   }
 
   // Wait for auth system to be ready
-  async waitForAuth(timeoutMs = 5000) {
+  async waitForAuth(timeoutMs = null) {
     const startTime = Date.now();
     
-    while (Date.now() - startTime < timeoutMs) {
+    while (true) {
       const user = this.getCurrentUser();
       if (user) {
         return user;
       }
       
+      // Only check timeout if one was provided
+      if (timeoutMs && (Date.now() - startTime >= timeoutMs)) {
+        return null;
+      }
+      
       await new Promise(resolve => setTimeout(resolve, 100));
     }
-    
-    return null;
   }
 
   // Better auth detection with multiple fallbacks

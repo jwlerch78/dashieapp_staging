@@ -45,6 +45,16 @@ checkExistingAuthState() {
     const user = window.dashieAuth.getUser();
     this.currentState.auth = { ready: true, user };
   }
+
+// Also check for current theme
+  try {
+    const currentTheme = localStorage.getItem('dashie-theme') || 'dark';
+    this.currentState.theme = currentTheme;
+    console.log('DEBUG: WidgetMessenger loaded current theme:', currentTheme);
+  } catch (error) {
+    this.currentState.theme = 'dark';
+  }
+
 }
 
 
