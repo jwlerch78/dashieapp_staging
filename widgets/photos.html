@@ -52,8 +52,12 @@ html, body {
   <script src="../js/config.js"></script>
   <script src="photos/photos.js"></script>
 
-<script>
+<script type="module">
 // photo_widget.js - with D-pad navigation support and settings integration
+import { createLogger } from '../js/utils/logger.js';
+
+const logger = createLogger('PhotosWidget');
+
 document.addEventListener("DOMContentLoaded", function() {
   // --- Elements ---
   const photoImg = document.getElementById("photoImg");
@@ -83,7 +87,10 @@ document.addEventListener("DOMContentLoaded", function() {
       currentPhotoIndex = index;
     }
     photoImg.src = shuffledPhotos[currentPhotoIndex] + "?t=" + Date.now();
-    console.log(`📸 Showing photo ${currentPhotoIndex + 1} of ${shuffledPhotos.length}`);
+    logger.debug('Showing photo', { 
+      photoIndex: currentPhotoIndex + 1, 
+      totalPhotos: shuffledPhotos.length 
+    });
   }
 
   function nextPhoto() {
@@ -97,7 +104,7 @@ document.addEventListener("DOMContentLoaded", function() {
   function updateTransitionTime(newTime) {
     if (newTime && newTime >= 5 && newTime <= 120) {
       transitionTime = newTime;
-      console.log(`📸 Updated transition time to ${transitionTime} seconds`);
+      logger.info('Updated transition time', { transitionTime });
       
       // Restart auto-advance with new timing
       if (autoAdvanceInterval) {
@@ -109,14 +116,66 @@ document.addEventListener("DOMContentLoaded", function() {
 
   function startAutoAdvance() {
     autoAdvanceInterval = setInterval(nextPhoto, transitionTime * 1000);
-    console.log(`📸 Auto-advance started with ${transitionTime}s interval`);
+    logger.info('Auto-advance started', { intervalSeconds: transitionTime });
   }
 
   function stopAutoAdvance() {
     if (autoAdvanceInterval) {
       clearInterval(autoAdvanceInterval);
       autoAdvanceInterval = null;
-      console.log('📸 Auto-advance stopped');
+      logger.info('Auto-advance stopped');
+    }
+  }
+
+  // Handle navigation commands
+  function handleCommand(action) {
+    logger.debug('Photos widget received command', { action });
+    
+    switch(action) {
+      case 'right':
+      case 'down':
+        nextPhoto();
+        break;
+      case 'left':
+      case 'up':
+        prevPhoto();
+        break;
+      case 'enter':
+        logger.debug('Enter pressed on photos widget');
+        break;
+      default:
+        logger.debug('Photos widget ignoring command', { action });
+        break;
+    }
+  }
+
+  // Handle system messages
+  function handleSystemMessage(data) {
+    logger.debug('Photos widget received system message', { type: data.type });
+    
+    switch(data.type) {
+      case 'widget-update':
+        if (data.action === 'state-update') {
+          logger.debug('Processing widget state update');
+          // Photos widget doesn't need to handle state updates yet
+          // but this prevents the "ignoring command" log
+        }
+        break;
+        
+      case 'update-settings':
+        if (data.photoTransitionTime) {
+          updateTransitionTime(data.photoTransitionTime);
+        }
+        break;
+        
+      case 'theme-change':
+        logger.info('Applying theme change', { theme: data.theme });
+        // Apply theme if needed
+        break;
+        
+      default:
+        logger.debug('Unhandled system message type', { type: data.type });
+        break;
     }
   }
 
@@ -125,37 +184,16 @@ document.addEventListener("DOMContentLoaded", function() {
   window.photoPrevPhoto = prevPhoto;
   window.photoUpdateTransitionTime = updateTransitionTime;
 
-  // --- Message Handling ---
-  // Listen for commands from parent dashboard and settings updates
+  // --- Message Handling - FIXED: Separate commands from system messages ---
   window.addEventListener('message', (event) => {
-    if (event.data && event.data.action) {
-      const action = event.data.action;
-      console.log('📸 Photos widget received command:', action);
-      
-      switch(action) {
-        case 'right':
-        case 'down':
-          nextPhoto();
-          break;
-        case 'left':
-        case 'up':
-          prevPhoto();
-          break;
-        case 'enter':
-          // Optional: could pause/resume auto-advance
-          console.log('📸 Enter pressed on photos widget');
-          break;
-        default:
-          console.log('📸 Photos widget ignoring command:', action);
-          break;
-      }
+    // Handle navigation commands (single action strings with no type)
+    if (event.data && typeof event.data.action === 'string' && !event.data.type) {
+      handleCommand(event.data.action);
     }
     
-    // Handle settings updates
-    if (event.data && event.data.type === 'update-settings') {
-      if (event.data.photoTransitionTime) {
-        updateTransitionTime(event.data.photoTransitionTime);
-      }
+    // Handle system messages with type (like widget-update, settings, etc.)
+    if (event.data && event.data.type) {
+      handleSystemMessage(event.data);
     }
   });
 
@@ -166,6 +204,11 @@ document.addEventListener("DOMContentLoaded", function() {
     
     // Start auto-advance
     startAutoAdvance();
+    
+    logger.info('Photos widget initialized', { 
+      totalPhotos: shuffledPhotos.length,
+      transitionTime 
+    });
   }
 
   // Send ready signal to parent dashboard

@@ -105,7 +105,7 @@ export class DataManager {
       
       // FIXED: Emit proper events for widget broadcasting
       eventSystem.data.emitLoaded('calendar', freshData);
-      
+            
       // Schedule next refresh
       this.cache.scheduleRefresh('calendar', () => this.refreshCalendarData(true));
       

@@ -12,6 +12,11 @@ const logger = createLogger('WidgetMessenger');
  */
 export class WidgetMessenger {
   constructor(dataManager) {
+    
+ console.log('DEBUG: Setting up auth event debugging...');
+  
+  const originalEmit = eventSystem.emit.bind(eventSystem);
+  
     this.dataManager = dataManager;
     this.widgets = new Map(); // Track active widgets
     
@@ -23,14 +28,29 @@ export class WidgetMessenger {
       theme: 'dark'
     };
     
+
+    this.checkExistingAuthState();
+
     this.setupEventListeners();
     this.setupMessageListener();
     
     logger.info('Clean widget messenger initialized - generic broadcasting only');
   }
 
+
+  // NEW: Method to check for existing auth state
+checkExistingAuthState() {
+  // Check if there's already an authenticated user
+  if (window.dashieAuth && window.dashieAuth.isUserAuthenticated()) {
+    const user = window.dashieAuth.getUser();
+    this.currentState.auth = { ready: true, user };
+  }
+}
+
+
   /**
    * Set up event listeners for data and auth changes
+   * CLEANED UP: Only broadcast to registered widgets, rely on individual sends for new widgets
    */
   setupEventListeners() {
     // Listen for data loaded events from DataManager
@@ -39,11 +59,14 @@ export class WidgetMessenger {
       this.updateStateAndBroadcast(dataType, data);
     });
 
-    // Listen for auth events
+    // Listen for auth events - update state only, widgets get state when they register
     eventSystem.auth.onSuccess((user) => {
       logger.info('Auth success event received');
       this.currentState.auth = { ready: true, user };
-      this.broadcastCurrentState();
+      // Only broadcast if we have registered widgets, otherwise they'll get state on registration
+      if (this.widgets.size > 0) {
+        this.broadcastCurrentState();
+      }
     });
 
     eventSystem.auth.onSignout(() => {
@@ -51,17 +74,21 @@ export class WidgetMessenger {
       this.currentState.auth = { ready: false, user: null };
       this.currentState.calendar = null;
       this.currentState.photos = null;
+      // Always broadcast signout to clear widget state
       this.broadcastCurrentState();
     });
 
-    // Listen for theme changes
+    // Listen for theme changes - update state only, widgets get theme when they register
     eventSystem.on(EVENTS.THEME_CHANGED, (themeData) => {
       logger.info('Theme change event received', themeData);
       this.currentState.theme = themeData.theme;
-      this.broadcastCurrentState();
+      // Only broadcast if we have registered widgets
+      if (this.widgets.size > 0) {
+        this.broadcastCurrentState();
+      }
     });
 
-    logger.debug('Event listeners configured for clean broadcasting');
+    logger.debug('Event listeners configured - broadcasts only to registered widgets');
   }
 
   /**
@@ -104,7 +131,7 @@ export class WidgetMessenger {
   updateStateAndBroadcast(dataType, data) {
     // Update current state
     this.currentState[dataType] = data;
-    
+  
     logger.info(`State updated: ${dataType}`, {
       eventsCount: data.events?.length,
       albumsCount: data.albums?.length,

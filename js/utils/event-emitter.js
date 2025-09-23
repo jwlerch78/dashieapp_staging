@@ -315,39 +315,40 @@ window.addEventListener('unhandledrejection', (event) => {
 // Export for convenience
 export default events;
 
+
 /**
- * Typed event helpers for better developer experience
- * Maintains compatibility with existing code
+ * Typed event helpers with structured payloads for consistency
+ * All events now use structured data: { dataType, data }, { user }, { theme }, etc.
  */
 export const eventHelpers = {
   auth: {
-    onInitialized: (listener) => events.on(EVENTS.AUTH_READY, listener),
-    onSuccess: (listener) => events.on(EVENTS.AUTH_READY, listener),
-    onFailure: (listener) => events.on(EVENTS.AUTH_FAILED, listener),
-    onSignout: (listener) => events.on(EVENTS.AUTH_CLEARED, listener),
+    onInitialized: (listener) => events.on(EVENTS.AUTH_READY, (payload) => listener(payload.user)),
+    onSuccess: (listener) => events.on(EVENTS.AUTH_READY, (payload) => listener(payload.user)),
+    onFailure: (listener) => events.on(EVENTS.AUTH_FAILED, (payload) => listener(payload.error)),
+    onSignout: (listener) => events.on(EVENTS.AUTH_CLEARED, () => listener()),
     
-    emitInitialized: (data) => events.emit(EVENTS.AUTH_READY, data),
-    emitSuccess: (user) => events.emit(EVENTS.AUTH_READY, user),
-    emitFailure: (error) => events.emit(EVENTS.AUTH_FAILED, error),
-    emitSignout: () => events.emit(EVENTS.AUTH_CLEARED)
+    emitInitialized: (user) => events.emit(EVENTS.AUTH_READY, { user }),
+    emitSuccess: (user) => events.emit(EVENTS.AUTH_READY, { user }),
+    emitFailure: (error) => events.emit(EVENTS.AUTH_FAILED, { error }),
+    emitSignout: () => events.emit(EVENTS.AUTH_CLEARED, {})
   },
 
   data: {
-    onLoading: (listener) => events.on(EVENTS.DATA_LOADED, listener),
-    onLoaded: (listener) => events.on(EVENTS.DATA_LOADED, listener),
-    onError: (listener) => events.on(EVENTS.DATA_ERROR, listener),
+    onLoading: (listener) => events.on(EVENTS.DATA_LOADING, (payload) => listener(payload.dataType)),
+    onLoaded: (listener) => events.on(EVENTS.DATA_LOADED, (payload) => listener(payload.dataType, payload.data)),
+    onError: (listener) => events.on(EVENTS.DATA_ERROR, (payload) => listener(payload.dataType, payload.error)),
     
-    emitLoading: (dataType) => events.emit(EVENTS.DATA_LOADED, dataType),
-    emitLoaded: (dataType, data) => events.emit(EVENTS.DATA_LOADED, dataType, data),
-    emitError: (dataType, error) => events.emit(EVENTS.DATA_ERROR, dataType, error)
+    emitLoading: (dataType) => events.emit(EVENTS.DATA_LOADING, { dataType }),
+    emitLoaded: (dataType, data) => events.emit(EVENTS.DATA_LOADED, { dataType, data }),
+    emitError: (dataType, error) => events.emit(EVENTS.DATA_ERROR, { dataType, error })
   },
 
   widget: {
-    onReady: (listener) => events.on(EVENTS.WIDGET_LOADED, listener),
-    onRequest: (listener) => events.on(EVENTS.WIDGET_MESSAGE, listener),
+    onReady: (listener) => events.on(EVENTS.WIDGET_LOADED, (payload) => listener(payload.widgetInfo)),
+    onRequest: (listener) => events.on(EVENTS.WIDGET_MESSAGE, (payload) => listener(payload.request)),
     
-    emitReady: (widgetInfo) => events.emit(EVENTS.WIDGET_LOADED, widgetInfo),
-    emitRequest: (request) => events.emit(EVENTS.WIDGET_MESSAGE, request)
+    emitReady: (widgetInfo) => events.emit(EVENTS.WIDGET_LOADED, { widgetInfo }),
+    emitRequest: (request) => events.emit(EVENTS.WIDGET_MESSAGE, { request })
   }
 };
 
