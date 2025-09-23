@@ -1,4 +1,5 @@
-// js/settings/settings-d-pad-nav.js - FIXED: Text input editing problems
+// js/settings/settings-d-pad-nav.js - FIXED: Tab down navigation + dropdown selection issues
+// CHANGE SUMMARY: Fixed tab down arrow to move to content area, improved dropdown D-pad selection
 // D-pad navigation logic for settings interface
 
 export class SimplifiedNavigation {
@@ -117,9 +118,14 @@ export class SimplifiedNavigation {
         handled = true;
         break;
       case 'ArrowDown':
-        // FIXED: Always move down, even on tabs
-        this.moveFocus(1);
-        handled = true;
+        // FIXED: When on tabs, move to first content element instead of next tab
+        if (this.isOnTabs()) {
+          this.moveFromTabsToContent();
+          handled = true;
+        } else {
+          this.moveFocus(1);
+          handled = true;
+        }
         break;
       case 'ArrowLeft':
         // Only handle left/right for tabs
@@ -151,6 +157,20 @@ export class SimplifiedNavigation {
   isOnTabs() {
     const current = this.focusableElements[this.focusIndex];
     return current && current.classList.contains('tab-button');
+  }
+
+  // FIXED: New method to move from tabs down to content
+  moveFromTabsToContent() {
+    // Find first non-tab element (first content element)
+    const firstContentIndex = this.focusableElements.findIndex(el => !el.classList.contains('tab-button'));
+    if (firstContentIndex !== -1) {
+      this.focusIndex = firstContentIndex;
+      this.updateFocus();
+      console.log(`⚙️ Moved from tabs to first content element at index ${firstContentIndex}`);
+    } else {
+      // Fallback to normal down movement if no content found
+      this.moveFocus(1);
+    }
   }
 
   moveTabFocus(direction) {
@@ -302,9 +322,9 @@ export class SimplifiedNavigation {
     }
   }
 
-  // FIXED: Better text input handling
+  // FIXED: Better form control activation, especially for dropdowns
   activateFormControl(control) {
-    console.log(`⚙️ Activating form control: ${control.id}, type: ${control.type}`);
+    console.log(`⚙️ Activating form control: ${control.id}, type: ${control.type}, tag: ${control.tagName}`);
     
     if (control.type === 'text') {
       // FIXED: Special handling for text inputs
@@ -332,12 +352,27 @@ export class SimplifiedNavigation {
       this.temporarilyDisableNavigation(control);
       
     } else if (control.tagName.toLowerCase() === 'select') {
-      // For select elements, focus first then simulate space bar or click
+      // FIXED: Better dropdown handling for D-pad environments
+      console.log(`⚙️ Activating select dropdown: ${control.id}`);
+      
+      // First focus the element
       control.focus();
       
+      // For D-pad environments, we need to handle this differently
+      // Try multiple approaches in sequence with proper timing
       setTimeout(() => {
-        try {
-          // Method 1: Simulate space key (works on many browsers)
+        // Method 1: Try to expand dropdown with Enter key
+        const enterEvent = new KeyboardEvent('keydown', {
+          key: 'Enter',
+          code: 'Enter',
+          keyCode: 13,
+          bubbles: true,
+          cancelable: true
+        });
+        control.dispatchEvent(enterEvent);
+        
+        // Method 2: Also try space key as backup
+        setTimeout(() => {
           const spaceEvent = new KeyboardEvent('keydown', {
             key: ' ',
             code: 'Space',
@@ -346,21 +381,28 @@ export class SimplifiedNavigation {
             cancelable: true
           });
           control.dispatchEvent(spaceEvent);
-          console.log(`⚙️ Sent space key to open select`);
           
-          // Method 2: Also try click as fallback
-          const clickEvent = new MouseEvent('click', {
-            bubbles: true,
-            cancelable: true,
-            view: window
-          });
-          control.dispatchEvent(clickEvent);
-          console.log(`⚙️ Sent click event to select`);
-          
-        } catch (error) {
-          console.log(`⚙️ Select activation failed:`, error);
-        }
-      }, 100);
+          // Method 3: Try direct size manipulation for Android/FireTV
+          setTimeout(() => {
+            if (control.size === 1 || !control.hasAttribute('size')) {
+              console.log(`⚙️ Attempting to expand dropdown by setting size`);
+              const originalSize = control.size;
+              control.size = Math.min(control.options.length, 8); // Show max 8 options
+              
+              // Set up a listener to collapse it when selection is made
+              const collapseHandler = () => {
+                control.size = originalSize;
+                control.removeEventListener('change', collapseHandler);
+                control.removeEventListener('blur', collapseHandler);
+                console.log(`⚙️ Dropdown collapsed after selection`);
+              };
+              
+              control.addEventListener('change', collapseHandler);
+              control.addEventListener('blur', collapseHandler);
+            }
+          }, 100);
+        }, 50);
+      }, 50);
       
     } else {
       // For other inputs, just focus

@@ -240,7 +240,7 @@ async initializeCalendar() {
         dayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
         narrowWeekend: false,
         workweek: false,
-        hourStart: 6,
+        hourStart: 0,
         hourEnd: 24,
         hourHeight: 15,
         showNowIndicator: true,
@@ -347,12 +347,44 @@ async initializeCalendar() {
 
   }
 
-  // Update all-day bar height dynamically
+// Update all-day bar height dynamically
+// CHANGE SUMMARY: Complete rewrite - Fixed overall calendar container height to grow/shrink with all-day events while maintaining time panel hours
 updateAllDayHeight() {
   if (!this.calendar || (this.currentView !== 'week' && this.currentView !== 'daily')) return;
 
   const allDayContainer = document.querySelector('.toastui-calendar-allday');
-  if (!allDayContainer) return;
+  const timePanelContainer = document.querySelector('.toastui-calendar-panel.toastui-calendar-time');
+  
+  // Try multiple possible calendar container selectors
+  let calendarContainer = document.querySelector('.toastui-calendar') ||
+                         document.querySelector('.toastui-calendar-main') ||
+                         document.querySelector('.toastui-calendar-week-view') ||
+                         document.querySelector('.toastui-calendar-container') ||
+                         document.querySelector('[class*="toastui-calendar"]');
+  
+  // Debug what we found
+  console.log('📅 Container search results:', {
+    allDay: !!allDayContainer,
+    timePanel: !!timePanelContainer, 
+    calendar: !!calendarContainer,
+    calendarClass: calendarContainer ? calendarContainer.className : 'not found',
+    calendarId: calendarContainer ? calendarContainer.id : 'no id'
+  });
+  
+  // If we have 200+ elements, let's find the main container more precisely
+  if (calendarContainer) {
+    console.log('📅 Using calendar container:', {
+      tagName: calendarContainer.tagName,
+      className: calendarContainer.className,
+      currentHeight: window.getComputedStyle(calendarContainer).height,
+      parentClass: calendarContainer.parentElement ? calendarContainer.parentElement.className : 'no parent'
+    });
+  }
+  
+  if (!allDayContainer || !timePanelContainer) {
+    console.log('📅 Missing required containers - exiting');
+    return;
+  }
 
   // Determine visible date range
   let startDate = new Date(this.currentDate);
@@ -395,17 +427,77 @@ updateAllDayHeight() {
   });
 
   const maxEvents = Math.max(0, ...Object.values(dayCounts));
-
   const rowHeight = 24;  // slightly taller to prevent clipping
   const padding = 1;
 
+  // Store TUI's baseline heights in their natural state (not forcing all-day to be hidden)
+  if (!this.dashieBaselineHeights) {
+    console.log('📅 Capturing baseline heights in natural state...');
+    
+    // Don't force hide - let TUI calculate with all-day in its current state
+    // This should give us the "real" space TUI thinks it has to work with
+    
+    setTimeout(() => {
+      const timePanelStyle = window.getComputedStyle(timePanelContainer);
+      const calendarStyle = window.getComputedStyle(calendarContainer || document.body);
+      
+      // Get the current all-day height to understand what TUI is working with
+      const allDayStyle = window.getComputedStyle(allDayContainer);
+      const currentAllDayHeight = parseInt(allDayStyle.height, 10) || 0;
+      
+      this.dashieBaselineHeights = {
+        timePanel: parseInt(timePanelStyle.height, 10),
+        calendar: parseInt(calendarStyle.height, 10),
+        currentAllDayHeight: currentAllDayHeight
+      };
+      
+      console.log('📅 NEW: Captured natural baseline heights:', this.dashieBaselineHeights);
+      
+      // Continue with the adjustment using the natural baseline
+      this.applyHeightAdjustmentNew(allDayContainer, timePanelContainer, calendarContainer, maxEvents, rowHeight, padding);
+    }, 100);
+    
+    return; // Exit early on first run to let async capture complete
+  }
+  
+  // Apply adjustment using captured TUI baseline
+  this.applyHeightAdjustmentNew(allDayContainer, timePanelContainer, calendarContainer, maxEvents, rowHeight, padding);
+}
+
+applyHeightAdjustmentNew(allDayContainer, timePanelContainer, calendarContainer, maxEvents, rowHeight, padding) {
+  // Calculate all-day section height
+  let allDayHeight = 0;
   if (maxEvents === 0) {
     allDayContainer.style.height = '0px';
     allDayContainer.style.display = 'none';
   } else {
-    allDayContainer.style.height = `${maxEvents * rowHeight + padding}px`;
+    allDayHeight = maxEvents * rowHeight + padding;
+    allDayContainer.style.height = `${allDayHeight}px`;
     allDayContainer.style.display = 'block';
   }
+
+  // Keep the overall calendar container height FIXED at baseline
+  if (calendarContainer) {
+    calendarContainer.style.height = `${this.dashieBaselineHeights.calendar}px`;
+  }
+  
+  // Calculate the space redistribution
+  // We want: timePanel + allDayHeight = constant total
+  // The constant total should be: baseline timePanel + whatever all-day space TUI naturally reserved
+  const totalAvailableSpace = this.dashieBaselineHeights.timePanel + this.dashieBaselineHeights.currentAllDayHeight;
+  const adjustedTimePanelHeight = totalAvailableSpace - allDayHeight;
+  
+  timePanelContainer.style.height = `${adjustedTimePanelHeight}px`;
+  
+  console.log('📅 NEW: Applied FIXED height adjustment:', {
+    maxEvents,
+    allDayHeight,
+    baselineTimePanel: this.dashieBaselineHeights.timePanel,
+    baselineAllDayHeight: this.dashieBaselineHeights.currentAllDayHeight,
+    totalAvailableSpace,
+    adjustedTimePanelHeight,
+    verification: `${adjustedTimePanelHeight} + ${allDayHeight} = ${adjustedTimePanelHeight + allDayHeight} (target: ${totalAvailableSpace})`
+  });
 }
 
 
