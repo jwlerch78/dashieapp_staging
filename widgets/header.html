@@ -1,5 +1,5 @@
 <!-- header.html: Header Widget -->
-<!-- UPDATED: Family name management with "The [Name] Family" formatting -->
+<!-- CLEANED: Removed redundant theme management, simplified family name handling -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -7,26 +7,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Header</title>
-  
-  <!-- Apply theme immediately to prevent flash -->
-  <script>
-    (function() {
-      try {
-        const savedTheme = localStorage.getItem('dashie-theme') || 'dark';
-        document.documentElement.className = `theme-${savedTheme}`;
-        if (document.body) {
-          document.body.className = `theme-${savedTheme}`;
-        } else {
-          document.addEventListener('DOMContentLoaded', function() {
-            document.body.className = `theme-${savedTheme}`;
-          });
-        }
-      } catch (e) {
-        document.documentElement.className = 'theme-dark';
-        if (document.body) document.body.className = 'theme-dark';
-      }
-    })();
-  </script>
   
   <!-- Import theme variables from parent -->
   <link rel="stylesheet" href="../css/core/variables.css">
@@ -70,26 +50,11 @@
     }
   </style>
 </head>
-<body class="theme-dark">
+<body>
   <div id="family-name">The Dashie Family</div>
   
   <script>
-    // Enhanced theme management
-    function applyTheme(theme) {
-      const themeClass = `theme-${theme}`;
-      
-      // Remove existing theme classes
-      document.documentElement.classList.remove('theme-dark', 'theme-light');
-      document.body.classList.remove('theme-dark', 'theme-light');
-      
-      // Add new theme class
-      document.documentElement.classList.add(themeClass);
-      document.body.classList.add(themeClass);
-      
-      console.log(`👨‍👩‍👧‍👦 Family header applied ${theme} theme`);
-    }
-
-    // NEW: Family name management with "The [Name] Family" formatting
+    // Family name management with "The [Name] Family" formatting
     function updateFamilyName(familyName) {
       const element = document.getElementById('family-name');
       if (element && familyName && familyName.trim()) {
@@ -108,7 +73,6 @@
       try {
         // Method 1: Try to get from parent window settings
         if (window.parent && window.parent !== window) {
-          // Try to access parent's settings system
           try {
             if (window.parent.dashieAuth && window.parent.dashieAuth.isAuthenticated()) {
               // Request family name from parent
@@ -144,24 +108,33 @@
       }
     }
     
-    // Listen for messages from parent
+    // Listen for messages from parent - theme handling removed, done via widget-update now
     window.addEventListener('message', (event) => {
-      if (event.data && event.data.type === 'theme-change') {
-        const newTheme = event.data.theme;
-        applyTheme(newTheme);
-      }
-      
-      // NEW: Listen for family name updates
+      // Family name updates
       if (event.data && event.data.type === 'family-name-update') {
         updateFamilyName(event.data.familyName);
       }
       
-      // NEW: Listen for settings changes
+      // Settings changes
       if (event.data && event.data.type === 'dashie-settings-changed') {
         const changes = event.data.detail;
         if (changes && changes['family.familyName']) {
           updateFamilyName(changes['family.familyName']);
         }
+      }
+      
+      // Handle widget-update messages (includes theme changes)
+      if (event.data && event.data.type === 'widget-update') {
+        if (event.data.action === 'state-update') {
+          // Widget state updates handled here if needed
+          console.log('👨‍👩‍👧‍👦 Header widget received state update');
+        }
+      }
+      
+      // Handle direct theme-change messages
+      if (event.data && event.data.type === 'theme-change') {
+        // Theme will be applied via CSS variables automatically
+        console.log(`👨‍👩‍👧‍👦 Family header applied ${event.data.theme} theme`);
       }
     });
 
@@ -173,25 +146,17 @@
       }
     });
 
-    // Request current theme from parent and send ready signal
+    // Simple initialization - no theme requests
     window.addEventListener('load', () => {
       // Load family name from settings
       loadFamilyName();
       
+      // Send widget ready signal
       if (window.parent !== window) {
-        // Request theme first
         window.parent.postMessage({ 
-          type: 'widget-request-theme',
+          type: 'widget-ready', 
           widget: 'header' 
         }, '*');
-        
-        // Then signal ready
-        setTimeout(() => {
-          window.parent.postMessage({ 
-            type: 'widget-ready', 
-            widget: 'header' 
-          }, '*');
-        }, 100);
       }
     });
   </script>

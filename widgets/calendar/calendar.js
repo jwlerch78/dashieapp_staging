@@ -551,19 +551,9 @@ applyHeightAdjustmentNew(allDayContainer, timePanelContainer, calendarContainer,
     logger.info('Applied theme to TUI Calendar', { theme });
   }
 
-  requestTheme() {
-    try {
-      window.parent.postMessage({
-        type: 'widget-request-theme',
-        widget: 'calendar'
-      }, '*');
-    } catch (error) {
-      logger.warn('Could not request theme', { error: error.message });
-    }
-  }
+ 
 }
 
 document.addEventListener('DOMContentLoaded', () => {
   const calendarWidget = new CalendarWidget();
-  setTimeout(() => calendarWidget.requestTheme(), 500);
 });
