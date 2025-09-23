@@ -106,13 +106,150 @@ html, body {
   z-index: 1000;
 }
 
-/* ===== TOAST UI CALENDAR THEME OVERRIDES ===== */
+/* ===== VIEW-SPECIFIC STYLING ===== */
+/* Apply different styles based on current calendar view */
 
-/* Main calendar container */
-.toastui-calendar {
-  background: var(--bg-secondary, #333);
+/* ===== WEEK AND DAILY VIEW STYLES ONLY ===== */
+/* Only apply our aggressive text wrapping and styling to week/daily views */
+
+/* Week/Daily view containers */
+.toastui-calendar-week-view,
+.toastui-calendar-daily-view {
   height: 100% !important;
-  width: 100% !important;
+  background: var(--bg-secondary, #333);
+}
+
+.toastui-calendar-week-view-layout,
+.toastui-calendar-daily-view-layout {
+  height: 100% !important;
+}
+
+/* WEEK/DAILY ONLY: All-day events - CONTAINED text wrapping with 2px padding */
+.toastui-calendar-week-view .toastui-calendar-weekday-event,
+.toastui-calendar-daily-view .toastui-calendar-weekday-event,
+.toastui-calendar-week-view .toastui-calendar-allday-event,
+.toastui-calendar-daily-view .toastui-calendar-allday-event {
+  border-radius: 5px !important;
+  margin: 1px 4px !important;
+  padding: 2px 4px !important;
+  font-size: 11px !important;
+  white-space: normal !important;
+  overflow: hidden !important;
+  text-overflow: clip !important;
+  line-height: 1.0em !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  text-indent: 0 !important;
+  box-sizing: border-box !important;
+}
+
+/* WEEK/DAILY ONLY: All-day event text content - 2px left padding */
+.toastui-calendar-week-view .toastui-calendar-weekday-event *,
+.toastui-calendar-daily-view .toastui-calendar-weekday-event *,
+.toastui-calendar-week-view .toastui-calendar-allday-event *,
+.toastui-calendar-daily-view .toastui-calendar-allday-event * {
+  font-size: 11px !important;
+  white-space: normal !important;
+  overflow: hidden !important;
+  text-overflow: clip !important;
+  line-height: 1.0em !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  text-indent: 0 !important;
+  padding-left: 2px !important;
+  margin-left: 0 !important;
+  margin: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* WEEK/DAILY ONLY: Timed events - target the ACTUAL DOM structure */
+.toastui-calendar-week-view .toastui-calendar-event-time,
+.toastui-calendar-daily-view .toastui-calendar-event-time {
+  border-radius: 5px !important;
+  font-size: 11px !important;
+  line-height: 1.0em !important;
+  white-space: normal !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  overflow: hidden !important;
+  text-overflow: clip !important;
+  text-indent: 0 !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* WEEK/DAILY ONLY: Timed event text content - 2px left padding */
+.toastui-calendar-week-view .toastui-calendar-event-time *,
+.toastui-calendar-daily-view .toastui-calendar-event-time * {
+  font-size: 11px !important;
+  line-height: 1.0em !important;
+  margin: 0 !important;
+  white-space: normal !important;
+  overflow: hidden !important;
+  word-wrap: break-word !important;
+  overflow-wrap: break-word !important;
+  word-break: break-word !important;
+  text-overflow: clip !important;
+  text-indent: 0 !important;
+  padding-left: 2px !important;
+  margin-left: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  padding-right: 0 !important;
+  border-radius: 5px !important;
+}
+
+/* ===== MONTH VIEW STYLES ONLY ===== */
+/* Separate, clean styling for monthly view */
+
+.toastui-calendar-month-view {
+  height: 100% !important;
+  background: var(--bg-secondary, #333);
+}
+
+.toastui-calendar-month-view-layout {
+  height: 100% !important;
+}
+
+/* MONTH ONLY: Day cells */
+.toastui-calendar-month-view .toastui-calendar-daygrid-cell {
+  background-color: var(--bg-secondary, #333) !important;
+}
+
+/* MONTH ONLY: Day dates */
+.toastui-calendar-month-view .toastui-calendar-grid-cell-date,
+.toastui-calendar-month-view .toastui-calendar-weekday-grid-date {
+  color: var(--text-primary, #fff) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+}
+
+/* MONTH ONLY: Events - keep original Toast UI styling but fix colors */
+.toastui-calendar-month-view .toastui-calendar-weekday-event {
+  border-radius: 5px !important; /* Apply our 5px radius to month events too */
+  font-size: 11px !important;
+  /* Keep Toast UI's original layout behavior for month view */
+}
+
+/* MONTH ONLY: Event text - just fix visibility */
+.toastui-calendar-month-view .toastui-calendar-weekday-event-title,
+.toastui-calendar-month-view .toastui-calendar-template-allday,
+.toastui-calendar-month-view .toastui-calendar-template-time {
+  color: var(--text-primary, #fff) !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+}
+
+/* MONTH ONLY: "More" button styling */
+.toastui-calendar-month-view .toastui-calendar-grid-cell-more-events {
+  color: var(--text-secondary, #ccc) !important;
+  font-size: 10px !important;
 }
 
 /* Calendar layout and panels */
@@ -361,13 +498,13 @@ div.toastui-calendar-event-time,
   border-radius: 5px !important;
 }
 
-/* Target all spans and divs inside events - 2px left padding */
-.toastui-calendar-allday-event span,
-.toastui-calendar-allday-event div,
-.toastui-calendar-time .toastui-calendar-event span,
-.toastui-calendar-time .toastui-calendar-event div,
-.toastui-calendar-event span,
-.toastui-calendar-event div {
+/* Target all spans and divs inside events - 2px left padding BUT EXCLUDE MONTHLY VIEW */
+.toastui-calendar-allday-event span:not(.toastui-calendar-month-view *),
+.toastui-calendar-allday-event div:not(.toastui-calendar-month-view *),
+.toastui-calendar-time .toastui-calendar-event span:not(.toastui-calendar-month-view *),
+.toastui-calendar-time .toastui-calendar-event div:not(.toastui-calendar-month-view *),
+.toastui-calendar-event span:not(.toastui-calendar-month-view *),
+.toastui-calendar-event div:not(.toastui-calendar-month-view *) {
   white-space: normal !important;
   word-wrap: break-word !important;
   overflow-wrap: break-word !important;

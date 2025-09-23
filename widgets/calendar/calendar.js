@@ -214,6 +214,9 @@ class CalendarWidget {
     }
   }
 
+// Key section of calendar.js that needs updating for monthly view
+// CHANGE SUMMARY: Fixed monthly view to show full 6-week calendar and added month template for proper event display
+
 async initializeCalendar() {
   try {
     // ensure we start on the week's Monday
@@ -250,24 +253,78 @@ async initializeCalendar() {
         startDayOfWeek: 1,
         dayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
         visibleWeeksCount: 6,
-        isAlways6Week: false,
-        workweek: false
+        isAlways6Week: true, // FIXED: Force full 6-week month display
+        workweek: false,
+        // ADDED: Monthly view specific settings
+        visibleEventCount: 6, // Show more events before "more" button
+        moreLayerSize: {
+          height: 'auto'
+        }
       },
 
-      template: {
-        // Use per-calendar text color if available
-        time: (schedule) => {
-          const calendar = this.tuiCalendars.find(cal => cal.id === schedule.calendarId);
-          const textColor = '#ffffff';  //forced white
-          // schedule.title is the event title
-          return `<span style="color: ${textColor}; font-weight: 500;">${schedule.title}</span>`;
-        },
-        allday: (schedule) => {
-          const calendar = this.tuiCalendars.find(cal => cal.id === schedule.calendarId);
-          const textColor = '#ffffff';  //forced white
-          return `<span style="color: ${textColor}; font-weight: 500;">${schedule.title}</span>`;
-        }
-      }
+// CHANGE SUMMARY: Fixed monthly view configuration to show full 6-week calendar and added month template
+
+// Replace the month configuration section in calendar.js initializeCalendar() function:
+
+month: {
+  startDayOfWeek: 1,
+  dayNames: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+  visibleWeeksCount: 6,
+  isAlways6Week: true, // FIXED: Force full 6-week month display
+  workweek: false,
+  // ADDED: Monthly view specific settings
+  visibleEventCount: 6, // Show more events before "more" button
+  moreLayerSize: {
+    height: 'auto'
+  }
+},
+
+// Replace the template section to add month template:
+
+    template: {
+  // Use per-calendar text color if available
+  time: (schedule) => {
+    const calendar = this.tuiCalendars.find(cal => cal.id === schedule.calendarId);
+    const textColor = '#ffffff';  //forced white
+    // schedule.title is the event title
+    return `<span style="color: ${textColor}; font-weight: 500;">${schedule.title}</span>`;
+  },
+  allday: (schedule) => {
+    const calendar = this.tuiCalendars.find(cal => cal.id === schedule.calendarId);
+    const textColor = '#ffffff';  //forced white
+    return `<span style="color: ${textColor}; font-weight: 500;">${schedule.title}</span>`;
+  },
+  // FIXED: Monthly view template for proper event display
+  month: (schedule) => {
+    const calendar = this.tuiCalendars.find(cal => cal.id === schedule.calendarId);
+    const backgroundColor = calendar?.backgroundColor || '#4285f4';
+    const textColor = '#ffffff';
+    
+    // For all-day events, show as colored bar with text
+    if (schedule.category === 'allday') {
+      return `<span style="color: ${textColor}; font-weight: 500; background-color: ${backgroundColor}; padding: 2px 4px; border-radius: 3px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${schedule.title}</span>`;
+    }
+    
+    // For timed events, show as colored dot + text
+    return `
+      <span style="display: flex; align-items: center; font-size: 11px; color: var(--text-primary, #fff);">
+        <span style="
+          width: 6px; 
+          height: 6px; 
+          background-color: ${backgroundColor}; 
+          border-radius: 50%; 
+          margin-right: 4px; 
+          flex-shrink: 0;
+        "></span>
+        <span style="font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary, #fff);">
+          ${schedule.title}
+        </span>
+      </span>
+    `;
+  }
+  // REMOVED: The broken monthGridHeader and monthGridHeaderExceed templates
+  // Let Toast UI handle these with default behavior
+}
     });
 
     // Set the initial date and show the UI
