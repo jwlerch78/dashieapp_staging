@@ -14,13 +14,13 @@ export const elements = {
 // Widget URL mappings - FIXED: All paths now absolute
 export const widgetUrls = {
   calendar: "/widgets/calendar/calendar.html",
-  clock: "/widgets/clock.html", 
-  location: "/widgets/location.html",
-  map: "/widgets/map.html",
+  clock: "/widgets/clock/clock.html", 
+  location: "/widgets/location/location.html",
+  map: "/widgets/map/map.html",
   agenda: "/widgets/agenda/agenda.html",
   photos: "/widgets/photos/photos.html",
   camera: "/widgets/camera.html", // for future camera widget
-  header: "/widgets/header.html"
+  header: "/widgets/header/header.html"
 };
 
 // Widget layout configuration
