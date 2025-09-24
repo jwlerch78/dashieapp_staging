@@ -148,7 +148,13 @@ html, body {
 
 /* ===== NEW FIX 1: TIMEGRID HIDDEN HOUR LABELS ===== */
 /* Force timegrid time labels to be visible when TUI hides them during events */
-.toastui-calendar-timegrid-time.toastui-calendar-timegrid-time-hidden {
+.toastui-calendar-timegrid-time,
+.toastui-calendar-timegrid-time-date,
+.toastui-calendar-time-date,
+.toastui-calendar-time-hour,
+.toastui-calendar-week-view .toastui-calendar-timegrid-time,
+.toastui-calendar-day-view .toastui-calendar-timegrid-time,
+.toastui-calendar-daily-view .toastui-calendar-timegrid-time {
   display: block !important;
   opacity: 1 !important;
   visibility: visible !important;
@@ -297,6 +303,7 @@ html, body {
 
 .toastui-calendar-month-view .toastui-calendar-weekday-event + .toastui-calendar-weekday-event {
   margin-top: 1px !important; /* Reduced from default */
+  background: var(--bg-secondary, #333) !important;
 }
 
 /* Monthly event text should also be smaller */
@@ -304,6 +311,8 @@ html, body {
 .toastui-calendar-month-view .toastui-calendar-template-time,
 .toastui-calendar-month-view .toastui-calendar-template-time *,
 .toastui-calendar-month-view .toastui-calendar-weekday-event-title * {
+  background: var(--bg-secondary, #333) !important;
+  color: var(--text-primary, #fff) !important;
   font-size: 10px !important; /* Smaller font for tighter events */
   line-height: 14px !important; /* Tight line height within the 16px container */
   height: auto !important; /* Let text height be flexible within container */
@@ -368,6 +377,8 @@ html, body {
   font-size: 14px !important;
   line-height: 1 !important;
 }
+
+
 
 /* Make current day text bold and blue for weekly view (fallback) */
 .toastui-calendar-week-view [data-testid*="dayName-week"] [style*="color: inherit"] {

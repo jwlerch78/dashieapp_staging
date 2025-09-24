@@ -78,7 +78,7 @@ export class CalendarConfig {
       // Monthly view template for proper event display
       month: (schedule) => {
         const calendar = this.tuiCalendars.find(cal => cal.id === schedule.calendarId);
-        const backgroundColor = calendar?.backgroundColor || '#4285f4';
+        //const backgroundColor = calendar?.backgroundColor || '#4285f4';
         
         // For all-day events, show as colored bar with white text (since they have colored backgrounds)
         if (schedule.category === 'allday') {
@@ -90,8 +90,7 @@ export class CalendarConfig {
           <span style="display: flex; align-items: center; font-size: 11px;">
             <span style="
               width: 6px; 
-              height: 6px; 
-              background-color: ${backgroundColor}; 
+              height: 6px;  
               border-radius: 50%; 
               margin-right: 4px; 
               flex-shrink: 0;
