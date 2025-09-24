@@ -1,5 +1,5 @@
 /* widgets/calendar/calendar.css - Calendar Widget Styles with proper theme inheritance and height */
-/* CHANGE SUMMARY: Simplified CSS to match old working structure while keeping essential text visibility fixes */
+/* CHANGE SUMMARY: Added timegrid-time-hidden fix, current day circle size fix, daily view +2px fonts, monthly event spacing - on existing working code */
 
 html, body {
   height: 100%;
@@ -146,6 +146,15 @@ html, body {
   display: none;
 }
 
+/* ===== NEW FIX 1: TIMEGRID HIDDEN HOUR LABELS ===== */
+/* Force timegrid time labels to be visible when TUI hides them during events */
+.toastui-calendar-timegrid-time.toastui-calendar-timegrid-time-hidden {
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  color: var(--text-primary, #fff) !important;
+}
+
 /* ===== WEEKLY AND DAILY VIEW SPECIFIC STYLES ===== */
 /* Apply aggressive text wrapping to weekly/daily views (they behave similarly) */
 
@@ -178,11 +187,23 @@ html, body {
   text-indent: 0 !important;
 }
 
+/* ===== NEW FIX 2: DAILY VIEW FONT SIZE +2PX ===== */
+/* Override daily view events to be larger than weekly view events */
+.toastui-calendar-layout.toastui-calendar-daily-view .toastui-calendar-panel.toastui-calendar-allday .toastui-calendar-weekday-event,
+.toastui-calendar-layout.toastui-calendar-day-view .toastui-calendar-panel.toastui-calendar-allday .toastui-calendar-weekday-event {
+  font-size: 15px !important; /* +2px from the existing 13px */
+}
+
+.toastui-calendar-layout.toastui-calendar-daily-view .toastui-calendar-panel.toastui-calendar-time .toastui-calendar-event-time,
+.toastui-calendar-layout.toastui-calendar-day-view .toastui-calendar-panel.toastui-calendar-time .toastui-calendar-event-time {
+  font-size: 13px !important; /* +2px from the base 11px */
+}
+
 /* Weekly/Daily all-day event text - larger font and no wrap */
 .toastui-calendar-layout.toastui-calendar-week-view .toastui-calendar-panel.toastui-calendar-allday .toastui-calendar-weekday-event *,
 .toastui-calendar-layout.toastui-calendar-daily-view .toastui-calendar-panel.toastui-calendar-allday .toastui-calendar-weekday-event *,
 .toastui-calendar-layout.toastui-calendar-day-view .toastui-calendar-panel.toastui-calendar-allday .toastui-calendar-weekday-event * {
-  font-size: 13px !important; /* Increased from 11px to 13px (+2pt) */
+  font-size: 11px !important; /* Increased from 11px to 13px (+2pt) */
   white-space: nowrap !important; /* No wrapping for all-day events */
   overflow: hidden !important;
   text-overflow: ellipsis !important;
@@ -190,6 +211,12 @@ html, body {
   text-indent: 0 !important;
   padding-left: 2px !important;
   margin: 0 !important;
+}
+
+/* ===== NEW FIX 2b: DAILY VIEW ALL-DAY TEXT +2PX ===== */
+.toastui-calendar-layout.toastui-calendar-daily-view .toastui-calendar-panel.toastui-calendar-allday .toastui-calendar-weekday-event *,
+.toastui-calendar-layout.toastui-calendar-day-view .toastui-calendar-panel.toastui-calendar-allday .toastui-calendar-weekday-event * {
+  font-size: 15px !important; /* +2px from the existing 13px */
 }
 
 /* Weekly/Daily timed events with text wrapping */
@@ -223,6 +250,12 @@ html, body {
   margin: 0 !important;
 }
 
+/* ===== NEW FIX 2c: DAILY VIEW TIMED EVENT TEXT +2PX ===== */
+.toastui-calendar-layout.toastui-calendar-daily-view .toastui-calendar-panel.toastui-calendar-time .toastui-calendar-event-time *,
+.toastui-calendar-layout.toastui-calendar-day-view .toastui-calendar-panel.toastui-calendar-time .toastui-calendar-event-time * {
+  font-size: 13px !important; /* +2px from the base 11px */
+}
+
 /* Hide time column for weekly/daily views */
 .toastui-calendar-week-view .toastui-calendar-time-hour,
 .toastui-calendar-daily-view .toastui-calendar-time-hour,
@@ -248,6 +281,37 @@ html, body {
   font-weight: 500 !important;
 }
 
+/* ===== NEW FIX 3: MONTHLY VIEW TIGHTER EVENT SPACING ===== */
+/* Reduce spacing and height of timed events to fit more per day */
+/* AGGRESSIVE override of TUI Calendar's built-in theme height of 24px */
+.toastui-calendar-month-view .toastui-calendar-weekday-event {
+  margin-bottom: 1px !important; /* Tighter spacing */
+  line-height: 16px !important; /* Reduced from 24px to 16px */
+  height: 16px !important; /* Force height to 16px instead of 24px */
+  min-height: 16px !important; /* Override any min-height */
+  max-height: 16px !important; /* Prevent expansion */
+  font-size: 10px !important; /* Slightly smaller font to fit in 16px height */
+  box-sizing: border-box !important;
+  padding: 1px 2px !important; /* Minimal padding */
+}
+
+.toastui-calendar-month-view .toastui-calendar-weekday-event + .toastui-calendar-weekday-event {
+  margin-top: 1px !important; /* Reduced from default */
+}
+
+/* Monthly event text should also be smaller */
+.toastui-calendar-month-view .toastui-calendar-weekday-event-title,
+.toastui-calendar-month-view .toastui-calendar-template-time,
+.toastui-calendar-month-view .toastui-calendar-template-time *,
+.toastui-calendar-month-view .toastui-calendar-weekday-event-title * {
+  font-size: 10px !important; /* Smaller font for tighter events */
+  line-height: 14px !important; /* Tight line height within the 16px container */
+  height: auto !important; /* Let text height be flexible within container */
+  overflow: hidden !important; /* Prevent overflow */
+  padding: 0 !important; /* Remove internal padding */
+  margin: 0 !important; /* Remove margins */
+}
+
 /* ===== UNIVERSAL THEME STYLING ===== */
 
 /* Hide the time indicator label (24hr format time on left side) */
@@ -262,17 +326,47 @@ html, body {
   color: var(--text-primary, #fff) !important;
 }
 
-/* Current day highlighting for weekly view */
+/* ===== NEW FIX 4: CURRENT DAY CIRCLE SIZE FIX ===== */
+/* Current day highlighting for weekly view - BALANCED SIZING */
 .toastui-calendar-week-view .toastui-calendar-day-name-item [style*="color: inherit"] .toastui-calendar-day-name__date {
   background: #007bff !important;
   color: white !important;
   border-radius: 50% !important;
-  width: 24px !important;
-  height: 24px !important;
+  width: 26px !important; /* Slightly smaller circle */
+  height: 26px !important; /* Slightly smaller circle */
   display: inline-flex !important;
   align-items: center !important;
   justify-content: center !important;
   font-weight: bold !important;
+  font-size: 14px !important; /* Larger font for current day */
+  line-height: 1 !important;
+}
+
+/* Make other day numbers slightly smaller to balance */
+.toastui-calendar-week-view .toastui-calendar-day-name__date {
+  font-size: 14px !important; /* Increased to 14px and bold */
+  font-weight: bold !important;
+}
+
+/* Current day's day-of-week label should be blue too */
+.toastui-calendar-week-view .toastui-calendar-day-name-item [style*="color: inherit"] .toastui-calendar-day-name__name {
+  color: #007bff !important;
+  font-weight: bold !important;
+}
+
+/* Monthly view current day circle fix too */
+.toastui-calendar-month-view .toastui-calendar-month-week-item__date[style*="color: inherit"] {
+  background: #007bff !important;
+  color: white !important;
+  border-radius: 50% !important;
+  width: 26px !important;
+  height: 26px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-weight: bold !important;
+  font-size: 14px !important;
+  line-height: 1 !important;
 }
 
 /* Make current day text bold and blue for weekly view (fallback) */

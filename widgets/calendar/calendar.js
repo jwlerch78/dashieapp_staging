@@ -1,5 +1,5 @@
 // widgets/calendar/calendar.js - Main Calendar Widget Class
-// CHANGE SUMMARY: Refactored main widget into focused modules for better maintainability
+// CHANGE SUMMARY: Enhanced scroll positioning logic - intelligent time-based scrolling instead of extremes, replaces scrollToTime(8) and changeView scrollToTime(14)
 
 import { createLogger } from '../../js/utils/logger.js';
 import { CalendarConfig } from './calendar-config.js';
@@ -244,8 +244,8 @@ export class CalendarWidget {
 
       logger.info('TUI Calendar initialized - waiting for state updates...');
 
-      // Optional: scroll to a friendly hour after render
-      setTimeout(() => this.scrollToTime(8), 200);
+      // ENHANCED: Apply intelligent scroll positioning after initialization
+      setTimeout(() => this.setOptimalScrollPosition(), 200);
 
     } catch (error) {
       logger.error('Failed to initialize calendar', error);
@@ -254,11 +254,36 @@ export class CalendarWidget {
     }
   }
 
+  /**
+   * Simple scroll positioning using the working scroll container logic
+   */
+  setOptimalScrollPosition() {
+    if (this.currentView === 'week' || this.currentView === 'day') {
+      // Use the same container logic that works for scrollCalendar
+      const scrollContainer = document.querySelector('.toastui-calendar-time-scroll-wrapper')
+        || document.querySelector('.toastui-calendar-time')
+        || document.querySelector('.toastui-calendar-timegrid-scroll-area');
+      
+      if (scrollContainer) {
+        // Set to a fixed position - roughly 11am (about 45% down the day)
+        const targetScrollTop = scrollContainer.scrollHeight * 0.45;
+        scrollContainer.scrollTop = targetScrollTop;
+        logger.debug('Set scroll position using working container logic', { 
+          targetScrollTop, 
+          scrollHeight: scrollContainer.scrollHeight 
+        });
+      }
+    }
+  }
+
   setupCalendarEventListeners() {
     // When TUI finishes rendering the view, update header and layout
     this.calendar.on && this.calendar.on('afterRender', () => {
       this.updateCalendarHeader();
       this.layout.updateAllDayHeight(this.calendar, this.currentView, this.calendarData, this.currentDate);
+      
+      // ENHANCED: Apply optimal scroll positioning after renders too
+      setTimeout(() => this.setOptimalScrollPosition(), 100);
     });
 
     // After schedules are rendered (new events added), recalc all-day height
@@ -385,16 +410,27 @@ export class CalendarWidget {
     this.updateCalendarHeader();
   }
 
+  /**
+   * Enhanced: Improved scroll positioning using working container logic
+   * @param {number} hour - Hour to scroll to (0-23) - converted to percentage
+   */
   scrollToTime(hour) {
     if (this.currentView === 'week' || this.currentView === 'day') {
-      // Look for time elements - try multiple possible selectors for different views
-      const timeElements = document.querySelectorAll('.toastui-calendar-time-hour, .toastui-calendar-timegrid-time');
-      const targetElement = Array.from(timeElements).find(el => {
-        const hourText = el.textContent || el.innerText;
-        return hourText.includes(hour + ':00') || hourText.includes((hour % 12 || 12) + ':00');
-      });
-      if (targetElement) {
-        targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // Use the same container logic that works for scrollCalendar
+      const scrollContainer = document.querySelector('.toastui-calendar-time-scroll-wrapper')
+        || document.querySelector('.toastui-calendar-time')
+        || document.querySelector('.toastui-calendar-timegrid-scroll-area');
+        
+      if (scrollContainer) {
+        // Convert hour to percentage (11am = 45% down the day)
+        const percentage = Math.max(0.1, Math.min(0.9, hour / 24));
+        const targetScrollTop = scrollContainer.scrollHeight * percentage;
+        scrollContainer.scrollTop = targetScrollTop;
+        logger.debug(`Scrolled to ${hour}:00 using percentage`, { 
+          hour, 
+          percentage, 
+          targetScrollTop 
+        });
       }
     }
   }
@@ -417,8 +453,10 @@ export class CalendarWidget {
       this.currentView = newView;
       this.calendar.changeView(newView);
       this.updateCalendarHeader();
+      
+      // ENHANCED: Apply optimal scroll positioning after view change
       if (newView === 'week' || newView === 'day') {
-        setTimeout(() => this.scrollToTime(14), 100); // Center around 2pm for business hours
+        setTimeout(() => this.setOptimalScrollPosition(), 100);
       }
     }
   }
