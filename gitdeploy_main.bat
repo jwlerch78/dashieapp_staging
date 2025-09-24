@@ -1,7 +1,7 @@
 @echo off
 REM ===============================
-REM Usage: gitdeploy_main <staging_repo_path> <production_repo_name>
-REM Example: gitdeploy_main "C:\projects\dashieapp_staging" dashieapp
+REM Usage: gitdeploy_main.bat <staging_repo_path> <production_repo_name>
+REM Example: gitdeploy_main.bat "C:\projects\dashieapp_staging" dashieapp
 REM ===============================
 
 if "%~1"=="" (
@@ -26,6 +26,7 @@ echo 🚀 Deploying from: %STAGING_PATH%
 echo ➡️  To: %PROD_REPO_URL%
 echo.
 
+
 REM Ensure we are on main branch
 echo 🔄 Switching to main branch...
 git checkout main
@@ -33,6 +34,20 @@ if errorlevel 1 (
     echo ❌ Failed to checkout main branch.
     exit /b 1
 )
+
+REM Detect first remote name (staging or origin)
+for /f "delims=" %%r in ('git remote') do (
+    set FIRST_REMOTE=%%r
+    goto :gotremote
+)
+:gotremote
+
+if "%FIRST_REMOTE%"=="" (
+    echo ❌ No remotes found in this repo.
+    exit /b 1
+)
+
+echo 🔎 Using remote "%FIRST_REMOTE%" for pulling latest changes.
 
 REM Check for uncommitted changes
 echo 🔎 Checking for uncommitted changes...
@@ -43,11 +58,11 @@ if not "%errorlevel%"=="0" (
     exit /b 1
 )
 
-REM Pull latest changes from staging main
-echo 🔄 Pulling latest changes from origin main...
-git pull origin main
+REM Pull latest changes from detected remote main
+echo 🔄 Pulling latest changes from %FIRST_REMOTE% main...
+git pull %FIRST_REMOTE% main
 if errorlevel 1 (
-    echo ❌ Failed to pull latest changes.
+    echo ❌ Failed to pull latest changes from %FIRST_REMOTE%.
     exit /b 1
 )
 
