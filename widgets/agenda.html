@@ -1,174 +1,208 @@
+<!-- widgets/agenda.html -->
+<!-- CHANGE SUMMARY: Initial agenda widget implementation - displays upcoming events in chronological list format -->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Agenda Widget</title>
+  
+  <!-- Import theme variables from parent -->
   <link rel="stylesheet" href="../css/core/variables.css">
+  
   <style>
     body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
       margin: 0;
-      padding: 15px;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: var(--bg-primary, #333);
-      color: var(--text-primary, white);
+      padding: 8px;
+      background: var(--bg-primary);
+      color: var(--text-primary);
       height: 100vh;
       box-sizing: border-box;
       overflow: hidden;
     }
 
-    .agenda-header {
-      font-size: var(--font-size-large, 18px);
+    .agenda-container {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .agenda-content {
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding-right: 4px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--text-muted) transparent;
+    }
+
+    .agenda-content::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .agenda-content::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    .agenda-content::-webkit-scrollbar-thumb {
+      background: var(--text-muted);
+      border-radius: 2px;
+    }
+
+    .day-section {
+      margin-bottom: 16px;
+    }
+
+    .day-header {
+      font-size: 13px;
       font-weight: bold;
-      margin-bottom: 15px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid var(--text-muted, #555);
-      color: var(--text-primary, white);
+      color: var(--text-primary);
+      margin-bottom: 6px;
+      border-bottom: 1px solid var(--text-muted);
+      padding-bottom: 2px;
     }
 
-    .agenda-item {
-      padding: 8px 12px;
-      margin: 4px 0;
-      background: var(--bg-secondary, #444);
-      border-radius: var(--border-radius-small, 6px);
-      border-left: 4px solid var(--text-muted, #666);
-      transition: all var(--transition-fast, 0.2s ease);
-      font-size: var(--font-size-base, 14px);
+    .events-list {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
     }
 
-    .agenda-item.selected {
-      border-left-color: var(--accent-orange, #ffaa00);
-      background: var(--bg-tertiary, #555);
-      box-shadow: 0 2px 8px rgba(255, 170, 0, 0.2);
+    .event-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 11px;
+      line-height: 1.3;
+      min-height: 16px;
     }
 
-    .agenda-time {
-      font-size: var(--font-size-small, 12px);
-      color: var(--text-secondary, #999);
-      margin-bottom: 2px;
+    .event-time {
+      color: var(--text-secondary);
+      white-space: nowrap;
+      flex-shrink: 0;
+      min-width: 80px;
+      text-align: left;
     }
 
-    .command-indicator {
+    .event-details {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .event-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      margin-top: 3px;
+    }
+
+    .event-title {
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .all-day-event .event-time {
+      color: var(--text-secondary);
+    }
+
+    .no-events {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-style: italic;
+      margin-left: 8px;
+    }
+
+    .status-indicator {
       position: absolute;
-      bottom: 10px;
-      right: 10px;
-      background: var(--bg-secondary, #444);
-      padding: 5px 10px;
-      border-radius: var(--border-radius-small, 4px);
-      font-size: var(--font-size-small, 12px);
-      border: 1px solid var(--text-muted, #666);
-      transition: all var(--transition-fast, 0.2s ease);
-      color: var(--text-primary, white);
+      top: 4px;
+      right: 4px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #666;
+      transition: background-color 0.3s;
     }
 
-    .command-indicator.active {
-      border-color: var(--accent-blue, #00aaff);
-      background: var(--bg-tertiary, #445);
+    .status-indicator.connected {
+      background: #4caf50;
     }
 
-    .status {
+    .status-indicator.error {
+      background: #f44336;
+    }
+
+    .controls-hint {
       position: absolute;
-      top: 10px;
-      right: 10px;
-      font-size: var(--font-size-small, 12px);
-      color: var(--text-secondary, #999);
+      bottom: 4px;
+      right: 4px;
+      font-size: 9px;
+      color: var(--text-muted);
+      opacity: 0.7;
+      pointer-events: none;
+      white-space: nowrap;
+      transition: opacity 0.3s;
+    }
+
+    .event-item.selected {
+      transition: all 0.2s ease;
+    }
+
+    /* Selection mode visual feedback */
+    .agenda-container.selection-mode .controls-hint {
+      opacity: 1;
+    }
+
+    .agenda-container.selection-mode .controls-hint::after {
+      content: " • ↑↓ navigate • Enter to view";
+    }
+
+    /* Theme-specific scrollbar colors */
+    body.theme-light .agenda-content {
+      scrollbar-color: #9e9e9e transparent;
+    }
+
+    body.theme-light .agenda-content::-webkit-scrollbar-thumb {
+      background: #9e9e9e;
     }
   </style>
 </head>
 <body>
-  <div class="status">📝 Agenda Widget</div>
-  
-  <div class="agenda-header">
-    📝 Today's Agenda
-  </div>
-  
-  <div class="agenda-list" id="agendaList">
-    <div class="agenda-item" data-index="0">
-      <div class="agenda-time">9:00 AM</div>
-      <div>Team standup meeting</div>
+  <div class="agenda-container">
+    <div class="status-indicator" id="statusIndicator"></div>
+    <div class="controls-hint">→ to select events</div>
+    
+    <div class="loading" id="loading">
+      Loading agenda...
     </div>
-    <div class="agenda-item" data-index="1">
-      <div class="agenda-time">10:30 AM</div>
-      <div>Review dashboard wireframes</div>
-    </div>
-    <div class="agenda-item" data-index="2">
-      <div class="agenda-time">2:00 PM</div>
-      <div>Client presentation prep</div>
-    </div>
-    <div class="agenda-item" data-index="3">
-      <div class="agenda-time">4:00 PM</div>
-      <div>Code review session</div>
-    </div>
-    <div class="agenda-item" data-index="4">
-      <div class="agenda-time">5:30 PM</div>
-      <div>Sprint planning meeting</div>
+    
+    <div class="agenda-content" id="agendaContent" style="display: none;">
+      <!-- Events will be populated here -->
     </div>
   </div>
   
-  <div class="command-indicator" id="commandIndicator">
-    ↕️ Navigate
-  </div>
-
+  <!-- Agenda Widget Logic -->
+  <script type="module" src="agenda/agenda.js"></script>
+  
   <script>
-    let selectedIndex = 0;
-    const maxItems = 5;
-
-    function updateSelection() {
-      const items = document.querySelectorAll('.agenda-item');
-      
-      // Clear all selections
-      items.forEach(item => item.classList.remove('selected'));
-      
-      // Highlight current selection
-      if (items[selectedIndex]) {
-        items[selectedIndex].classList.add('selected');
-      }
-    }
-
-    function handleCommand(action) {
-      const indicator = document.getElementById('commandIndicator');
-      
-      switch(action) {
-        case 'up':
-          if (selectedIndex > 0) {
-            selectedIndex--;
-            updateSelection();
-          }
-          break;
-        case 'down':
-          if (selectedIndex < maxItems - 1) {
-            selectedIndex++;
-            updateSelection();
-          }
-          break;
-        case 'left':
-        case 'right':
-          // Horizontal navigation doesn't do anything in agenda
-          break;
-      }
-      
-      // Show command feedback
-      indicator.textContent = `⬆️ ${action.toUpperCase()}`;
-      indicator.classList.add('active');
-      
-      setTimeout(() => {
-        indicator.classList.remove('active');
-        indicator.textContent = '↕️ Navigate';
-      }, 600);
-    }
-
-    // Initialize selection
-    updateSelection();
-
-    // Listen for commands from parent dashboard
-    window.addEventListener('message', (event) => {
-      if (event.data && event.data.action) {
-        handleCommand(event.data.action);
-        console.log('Agenda widget received command:', event.data.action);
-      }
-    });
-
-    // Send ready signal to parent
+    // Widget ready signal
     window.addEventListener('load', () => {
       if (window.parent !== window) {
         window.parent.postMessage({ 
