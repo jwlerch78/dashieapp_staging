@@ -1,5 +1,5 @@
 // js/services/widget-messenger.js - Clean Widget Communication System
-// CHANGE SUMMARY: Refactored to use generic broadcasting pattern, removed legacy request-response handlers, event-driven updates
+// CHANGE SUMMARY: Added deduplication to prevent sending the same theme repeatedly to widgets
 
 import { createLogger } from '../utils/logger.js';
 import { events as eventSystem, EVENTS } from '../utils/event-emitter.js';
@@ -8,17 +8,15 @@ const logger = createLogger('WidgetMessenger');
 
 /**
  * Clean widget communication manager
- * Uses generic broadcasting pattern - no request-response, everything is push-based
+ * Uses generic broadcasting pattern with deduplication
  */
 export class WidgetMessenger {
   constructor(dataManager) {
-    
- console.log('DEBUG: Setting up auth event debugging...');
-  
-  const originalEmit = eventSystem.emit.bind(eventSystem);
-  
     this.dataManager = dataManager;
     this.widgets = new Map(); // Track active widgets
+    
+    // Track last sent state to each widget for deduplication
+    this.lastSentState = new Map(); // widgetWindow -> lastState
     
     // Current system state - sent to widgets in broadcasts
     this.currentState = {
@@ -28,39 +26,33 @@ export class WidgetMessenger {
       theme: 'dark'
     };
     
-
     this.checkExistingAuthState();
-
     this.setupEventListeners();
     this.setupMessageListener();
     
-    logger.info('Clean widget messenger initialized - generic broadcasting only');
+    logger.info('Widget messenger initialized with deduplication');
   }
 
+  // Check for existing auth state and theme
+  checkExistingAuthState() {
+    // Check if there's already an authenticated user
+    if (window.dashieAuth && window.dashieAuth.isUserAuthenticated()) {
+      const user = window.dashieAuth.getUser();
+      this.currentState.auth = { ready: true, user };
+    }
 
-  // NEW: Method to check for existing auth state
-checkExistingAuthState() {
-  // Check if there's already an authenticated user
-  if (window.dashieAuth && window.dashieAuth.isUserAuthenticated()) {
-    const user = window.dashieAuth.getUser();
-    this.currentState.auth = { ready: true, user };
+    // Also check for current theme
+    try {
+      const currentTheme = localStorage.getItem('dashie-theme') || 'dark';
+      this.currentState.theme = currentTheme;
+      logger.debug('WidgetMessenger loaded current theme:', currentTheme);
+    } catch (error) {
+      this.currentState.theme = 'dark';
+    }
   }
-
-// Also check for current theme
-  try {
-    const currentTheme = localStorage.getItem('dashie-theme') || 'dark';
-    this.currentState.theme = currentTheme;
-    console.log('DEBUG: WidgetMessenger loaded current theme:', currentTheme);
-  } catch (error) {
-    this.currentState.theme = 'dark';
-  }
-
-}
-
 
   /**
    * Set up event listeners for data and auth changes
-   * CLEANED UP: Only broadcast to registered widgets, rely on individual sends for new widgets
    */
   setupEventListeners() {
     // Listen for data loaded events from DataManager
@@ -69,11 +61,10 @@ checkExistingAuthState() {
       this.updateStateAndBroadcast(dataType, data);
     });
 
-    // Listen for auth events - update state only, widgets get state when they register
+    // Listen for auth events
     eventSystem.auth.onSuccess((user) => {
       logger.info('Auth success event received');
       this.currentState.auth = { ready: true, user };
-      // Only broadcast if we have registered widgets, otherwise they'll get state on registration
       if (this.widgets.size > 0) {
         this.broadcastCurrentState();
       }
@@ -84,21 +75,31 @@ checkExistingAuthState() {
       this.currentState.auth = { ready: false, user: null };
       this.currentState.calendar = null;
       this.currentState.photos = null;
-      // Always broadcast signout to clear widget state
+      // Clear last sent state on signout
+      this.lastSentState.clear();
       this.broadcastCurrentState();
     });
 
-    // Listen for theme changes - update state only, widgets get theme when they register
+    // Listen for theme changes
     eventSystem.on(EVENTS.THEME_CHANGED, (themeData) => {
       logger.info('Theme change event received', themeData);
+      const oldTheme = this.currentState.theme;
       this.currentState.theme = themeData.theme;
-      // Only broadcast if we have registered widgets
-      if (this.widgets.size > 0) {
+      
+      // Only broadcast if theme actually changed
+      if (oldTheme !== themeData.theme && this.widgets.size > 0) {
+        logger.info('Broadcasting theme change to widgets', { 
+          from: oldTheme, 
+          to: themeData.theme,
+          widgetCount: this.widgets.size 
+        });
         this.broadcastCurrentState();
+      } else if (oldTheme === themeData.theme) {
+        logger.debug('Theme unchanged, skipping broadcast', { theme: themeData.theme });
       }
     });
 
-    logger.debug('Event listeners configured - broadcasts only to registered widgets');
+    logger.debug('Event listeners configured with deduplication');
   }
 
   /**
@@ -109,10 +110,8 @@ checkExistingAuthState() {
       if (!event.data || !event.data.type) return;
 
       const messageData = event.data;
-      
       logger.widget('receive', messageData.type, messageData.widget || 'unknown');
 
-      // Handle only essential widget lifecycle messages
       switch (messageData.type) {
         case 'widget-ready':
           this.handleWidgetReady(event, messageData);
@@ -123,12 +122,11 @@ checkExistingAuthState() {
           break;
 
         default:
-          // Log unhandled message types for debugging
           logger.debug('Unhandled widget message type:', messageData.type);
       }
     });
 
-    logger.debug('Message listener configured for widget lifecycle only');
+    logger.debug('Message listener configured');
   }
 
   // ==================== STATE MANAGEMENT ====================
@@ -148,31 +146,136 @@ checkExistingAuthState() {
       lastUpdated: data.lastUpdated
     });
 
-    // Broadcast complete current state to all widgets
+    // Broadcast current state with deduplication
     this.broadcastCurrentState();
   }
 
   /**
-   * Broadcast complete current state to all widgets
+   * Broadcast current state to all widgets with deduplication
    */
   broadcastCurrentState() {
-    const message = {
-      type: 'widget-update',
-      action: 'state-update',
-      payload: {
-        ...this.currentState,
-        timestamp: Date.now()
-      }
-    };
+    const allIframes = document.querySelectorAll('iframe');
+    let broadcastCount = 0;
+    let skippedCount = 0;
+    
+    allIframes.forEach((iframe, index) => {
+      if (iframe.contentWindow) {
+        // Check if we need to send update to this widget
+        if (this.shouldSendStateUpdate(iframe.contentWindow)) {
+          const message = {
+            type: 'widget-update',
+            action: 'state-update',
+            payload: {
+              ...this.currentState,
+              timestamp: Date.now()
+            }
+          };
 
-    logger.info('Broadcasting current state to all widgets', {
-      widgetCount: this.widgets.size,
-      hasCalendar: !!this.currentState.calendar,
-      hasPhotos: !!this.currentState.photos,
-      authReady: this.currentState.auth.ready
+          this.sendMessage(iframe.contentWindow, message);
+          
+          // Update last sent state for this widget
+          this.updateLastSentState(iframe.contentWindow);
+          broadcastCount++;
+        } else {
+          skippedCount++;
+        }
+      }
     });
 
-    this.broadcastToAllWidgets(message);
+    logger.info('State broadcast completed', {
+      sent: broadcastCount,
+      skipped: skippedCount,
+      hasCalendar: !!this.currentState.calendar,
+      hasPhotos: !!this.currentState.photos,
+      authReady: this.currentState.auth.ready,
+      theme: this.currentState.theme
+    });
+  }
+
+  /**
+   * Check if we should send a state update to a widget (deduplication)
+   * @param {Window} widgetWindow - Target widget window
+   * @returns {boolean} Whether to send the update
+   */
+  shouldSendStateUpdate(widgetWindow) {
+    const lastSent = this.lastSentState.get(widgetWindow);
+    
+    // Always send if we haven't sent anything to this widget yet
+    if (!lastSent) {
+      return true;
+    }
+
+    // Check if theme has changed
+    if (lastSent.theme !== this.currentState.theme) {
+      return true;
+    }
+
+    // Check if calendar data has changed
+    if (this.hasDataChanged(lastSent.calendar, this.currentState.calendar)) {
+      return true;
+    }
+
+    // Check if photos data has changed
+    if (this.hasDataChanged(lastSent.photos, this.currentState.photos)) {
+      return true;
+    }
+
+    // Check if auth state has changed
+    if (this.hasAuthChanged(lastSent.auth, this.currentState.auth)) {
+      return true;
+    }
+
+    // No changes detected
+    return false;
+  }
+
+  /**
+   * Check if data has changed between two data objects
+   * @param {Object} oldData - Previous data
+   * @param {Object} newData - New data
+   * @returns {boolean} Whether data has changed
+   */
+  hasDataChanged(oldData, newData) {
+    // If both are null/undefined, no change
+    if (!oldData && !newData) return false;
+    
+    // If one is null/undefined and other isn't, changed
+    if (!oldData || !newData) return true;
+    
+    // Compare lastUpdated timestamps
+    if (oldData.lastUpdated !== newData.lastUpdated) return true;
+    
+    // Compare data array lengths
+    if ((oldData.events?.length || 0) !== (newData.events?.length || 0)) return true;
+    if ((oldData.albums?.length || 0) !== (newData.albums?.length || 0)) return true;
+    
+    return false;
+  }
+
+  /**
+   * Check if auth state has changed
+   * @param {Object} oldAuth - Previous auth state
+   * @param {Object} newAuth - New auth state
+   * @returns {boolean} Whether auth has changed
+   */
+  hasAuthChanged(oldAuth, newAuth) {
+    if (oldAuth.ready !== newAuth.ready) return true;
+    if (oldAuth.user?.email !== newAuth.user?.email) return true;
+    return false;
+  }
+
+  /**
+   * Update the last sent state for a widget
+   * @param {Window} widgetWindow - Target widget window
+   */
+  updateLastSentState(widgetWindow) {
+    // Deep copy current state to avoid reference issues
+    this.lastSentState.set(widgetWindow, {
+      calendar: this.currentState.calendar ? { ...this.currentState.calendar } : null,
+      photos: this.currentState.photos ? { ...this.currentState.photos } : null,
+      auth: { ...this.currentState.auth },
+      theme: this.currentState.theme
+    });
   }
 
   // ==================== WIDGET LIFECYCLE HANDLING ====================
@@ -195,7 +298,7 @@ checkExistingAuthState() {
       totalWidgets: this.widgets.size
     });
 
-    // Immediately send current state to the new widget
+    // Send current state to the new widget (always send to new widgets)
     this.sendCurrentStateToWidget(event.source, widgetInfo.name);
     
     eventSystem.widget.emitReady(widgetInfo);
@@ -232,39 +335,14 @@ checkExistingAuthState() {
 
     this.sendMessage(targetWindow, message);
     
+    // Update last sent state for this widget
+    this.updateLastSentState(targetWindow);
+    
     logger.debug(`Sent current state to ${widgetName}`, {
       hasCalendar: !!this.currentState.calendar,
       hasPhotos: !!this.currentState.photos,
-      authReady: this.currentState.auth.ready
-    });
-  }
-
-  // ==================== BROADCASTING METHODS ====================
-
-  /**
-   * Broadcast message to all widgets
-   * @param {Object} message - Message to send
-   */
-  broadcastToAllWidgets(message) {
-    const allIframes = document.querySelectorAll('iframe');
-    
-    allIframes.forEach((iframe, index) => {
-      if (iframe.contentWindow) {
-        try {
-          iframe.contentWindow.postMessage(message, '*');
-          
-          logger.widget('send', message.type, this.getWidgetName(iframe.contentWindow), {
-            action: message.action,
-            widgetIndex: index + 1
-          });
-          
-        } catch (error) {
-          logger.error(`Failed to send message to widget ${index + 1}`, {
-            error: error.message,
-            widgetSrc: iframe.src
-          });
-        }
-      }
+      authReady: this.currentState.auth.ready,
+      theme: this.currentState.theme
     });
   }
 
@@ -313,6 +391,7 @@ checkExistingAuthState() {
     logger.info('Cleaning up widget messenger');
     
     this.widgets.clear();
+    this.lastSentState.clear();
     this.currentState = {
       calendar: null,
       photos: null,
@@ -337,7 +416,8 @@ checkExistingAuthState() {
         hasPhotos: !!this.currentState.photos,
         authReady: this.currentState.auth.ready,
         theme: this.currentState.theme
-      }
+      },
+      lastSentStates: this.lastSentState.size
     };
   }
 }
