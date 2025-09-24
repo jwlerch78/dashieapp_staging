@@ -66,7 +66,7 @@ export class AuthUI {
     
     return `
       <div class="sign-in-modal">
-        <img src="icons/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo-signin">
+        <img src="/icons/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo-signin">
         
         <div class="sign-in-header">
           <h2>Welcome to Dashie!</h2>
@@ -245,7 +245,7 @@ export class AuthUI {
     webViewOverlay.id = 'webview-auth-overlay';
     webViewOverlay.innerHTML = `
       <div class="sign-in-modal">
-        <img src="icons/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo-signin">
+        <img src="/icons/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo-signin">
         
         <div class="sign-in-header">
           <h2>Welcome to Dashie!</h2>

@@ -1,230 +1,412 @@
 <!-- photos.html -->
+<!-- CHANGE SUMMARY: Incorporated proper theme handling pattern following header.html example - added CSS variables, smooth transitions, focus management, and enhanced theme message handling. Removed photo counter and pause/resume functionality for simplicity -->
 
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Photos Widget</title>
-  <link rel="stylesheet" href="../css/core/variables.css">
-</head>
-
-<style>
-html, body {
-  height: 100%;
-  margin: 0;
-  background: var(--bg-primary, #000);
-  overflow: hidden;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Photo container */
-#photo-container {
-  width: 100%;      
-  height: 100%;     
-  background: var(--bg-primary);
-  position: relative;
-}
-
-#photo-container img {
-  position: absolute;
-  top: var(--padding-widget);
-  left: var(--padding-widget);
-  right: var(--padding-widget);
-  bottom: var(--padding-widget);
-  width: calc(100% - calc(var(--padding-widget) * 2));
-  height: calc(100% - calc(var(--padding-widget) * 2));
-  object-fit: contain;
-  object-position: center center;
-  display: block;
-  transition: opacity 0.3s ease;
-}
-</style>
   
+  <!-- Import theme variables from parent -->
+  <link rel="stylesheet" href="../css/core/variables.css">
+  
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      height: 100%;
+      width: 100%;
+      transition: background-color var(--transition-medium), color var(--transition-medium);
+    }
+
+    /* Photo container with theme support */
+    #photo-container {
+      width: 100%;      
+      height: 100%;     
+      background: var(--bg-primary);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background-color var(--transition-medium);
+    }
+
+    /* Loading state styling */
+    .loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      font-size: 1.2rem;
+      text-align: center;
+      transition: color var(--transition-medium);
+    }
+
+    .loading .status {
+      margin-top: 10px;
+      font-size: 2rem;
+      animation: pulse 2s ease-in-out infinite alternate;
+    }
+
+    @keyframes pulse {
+      from { opacity: 0.5; }
+      to { opacity: 1.0; }
+    }
+
+    /* Photo styling with proper transitions */
+    #photo-container img {
+      position: absolute;
+      top: var(--padding-widget, 10px);
+      left: var(--padding-widget, 10px);
+      right: var(--padding-widget, 10px);
+      bottom: var(--padding-widget, 10px);
+      width: calc(100% - calc(var(--padding-widget, 10px) * 2));
+      height: calc(100% - calc(var(--padding-widget, 10px) * 2));
+      object-fit: contain;
+      object-position: center center;
+      display: block;
+      opacity: 1;
+      transition: opacity var(--transition-medium), filter var(--transition-medium);
+      border-radius: var(--border-radius-small, 4px);
+    }
+
+    #photo-container img.transitioning {
+      opacity: 0;
+    }
+
+    /* Error state styling */
+    .error-message {
+      color: var(--color-error, #ff6b6b);
+      text-align: center;
+      padding: 20px;
+      font-size: 1.1rem;
+      transition: color var(--transition-medium);
+    }
+
+
+
+    /* Focus indicator for navigation */
+    body.widget-focused #photo-container {
+      outline: var(--outline-width-focused, 3px) solid var(--outline-focused, #00aaff);
+      outline-offset: var(--outline-offset-widget, 0px);
+      box-shadow: var(--glow-focused, 0 0 25px rgba(0, 170, 255, 0.9), 0 0 55px rgba(0, 170, 255, 0.5));
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 600px) {
+      .loading {
+        font-size: 1rem;
+      }
+    }
+  </style>
+</head>
 <body>
   <div id="photo-container">
-    <img id="photoImg" src="" alt="Slideshow Photo">
+    <div class="loading" id="loading">
+      Loading photos...
+      <div class="status" id="status">○</div>
+    </div>
+    
+    <img id="photoImg" src="" alt="Slideshow Photo" style="display: none;">
   </div>
   
-  <!-- Load photos.js first, then leftpanel.js -->
+  <!-- Load config and photos data -->
   <script src="../js/config.js"></script>
   <script src="photos/photos.js"></script>
 
-<script type="module">
-// photo_widget.js - with D-pad navigation support and settings integration
-import { createLogger } from '../js/utils/logger.js';
+  <script type="module">
+    // Enhanced Photos Widget with proper theme handling and focus management
+    import { createLogger } from '../js/utils/logger.js';
 
-const logger = createLogger('PhotosWidget');
+    const logger = createLogger('PhotosWidget');
 
-document.addEventListener("DOMContentLoaded", function() {
-  // --- Elements ---
-  const photoImg = document.getElementById("photoImg");
-  
-  // --- Photo State ---
-  let currentPhotoIndex = 0;
-  let shuffledPhotos = [];
-  let autoAdvanceInterval = null;
-  let transitionTime = 15; // Default 15 seconds, can be updated from settings
- 
-  // --- Photo Functions ---
-  function shuffleArray(array) {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  }
-
-  function showPhoto(index) {
-    if (index < 0) {
-      currentPhotoIndex = shuffledPhotos.length - 1;
-    } else if (index >= shuffledPhotos.length) {
-      currentPhotoIndex = 0;
-    } else {
-      currentPhotoIndex = index;
-    }
-    photoImg.src = shuffledPhotos[currentPhotoIndex] + "?t=" + Date.now();
-    logger.debug('Showing photo', { 
-      photoIndex: currentPhotoIndex + 1, 
-      totalPhotos: shuffledPhotos.length 
-    });
-  }
-
-  function nextPhoto() {
-    showPhoto(currentPhotoIndex + 1);
-  }
-
-  function prevPhoto() {
-    showPhoto(currentPhotoIndex - 1);
-  }
-
-  function updateTransitionTime(newTime) {
-    if (newTime && newTime >= 5 && newTime <= 120) {
-      transitionTime = newTime;
-      logger.info('Updated transition time', { transitionTime });
+    document.addEventListener("DOMContentLoaded", function() {
+      // --- Elements ---
+      const photoImg = document.getElementById("photoImg");
+      const photoContainer = document.getElementById("photo-container");
+      const loadingDiv = document.getElementById("loading");
       
-      // Restart auto-advance with new timing
-      if (autoAdvanceInterval) {
-        clearInterval(autoAdvanceInterval);
-        startAutoAdvance();
+      // --- Widget State ---
+      let currentPhotoIndex = 0;
+      let shuffledPhotos = [];
+      let autoAdvanceInterval = null;
+      let transitionTime = 15; // Default 15 seconds
+      let isFocused = false;
+      let isTransitioning = false;
+      let currentTheme = 'dark'; // Track current theme
+      
+      // --- Focus Management ---
+      function handleFocusChange(focused) {
+        const wasFocused = isFocused;
+        isFocused = focused;
+        
+        if (focused && !wasFocused) {
+          // Widget gained focus - add focus indicator
+          document.body.classList.add('widget-focused');
+          logger.debug('Photos widget gained focus');
+        } else if (!focused && wasFocused) {
+          // Widget lost focus - remove focus indicator
+          document.body.classList.remove('widget-focused');
+          logger.debug('Photos widget lost focus');
+        }
       }
-    }
-  }
 
-  function startAutoAdvance() {
-    autoAdvanceInterval = setInterval(nextPhoto, transitionTime * 1000);
-    logger.info('Auto-advance started', { intervalSeconds: transitionTime });
-  }
-
-  function stopAutoAdvance() {
-    if (autoAdvanceInterval) {
-      clearInterval(autoAdvanceInterval);
-      autoAdvanceInterval = null;
-      logger.info('Auto-advance stopped');
-    }
-  }
-
-  // Handle navigation commands
-  function handleCommand(action) {
-    logger.debug('Photos widget received command', { action });
-    
-    switch(action) {
-      case 'right':
-      case 'down':
-        nextPhoto();
-        break;
-      case 'left':
-      case 'up':
-        prevPhoto();
-        break;
-      case 'enter':
-        logger.debug('Enter pressed on photos widget');
-        break;
-      default:
-        logger.debug('Photos widget ignoring command', { action });
-        break;
-    }
-  }
-
-  // Handle system messages
-  function handleSystemMessage(data) {
-    logger.debug('Photos widget received system message', { type: data.type });
-    
-    switch(data.type) {
-      case 'widget-update':
-        if (data.action === 'state-update') {
-          logger.debug('Processing widget state update');
-          // Photos widget doesn't need to handle state updates yet
-          // but this prevents the "ignoring command" log
+      // --- Photo Functions with Enhanced UI ---
+      function shuffleArray(array) {
+        const shuffled = [...array];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
         }
-        break;
+        return shuffled;
+      }
+
+      function showPhoto(index, smooth = true) {
+        if (shuffledPhotos.length === 0) return;
         
-      case 'update-settings':
-        if (data.photoTransitionTime) {
-          updateTransitionTime(data.photoTransitionTime);
+        // Handle index wrapping
+        if (index < 0) {
+          currentPhotoIndex = shuffledPhotos.length - 1;
+        } else if (index >= shuffledPhotos.length) {
+          currentPhotoIndex = 0;
+        } else {
+          currentPhotoIndex = index;
         }
-        break;
+
+        // Prevent rapid transitions
+        if (isTransitioning) return;
+        isTransitioning = true;
+
+        const newSrc = shuffledPhotos[currentPhotoIndex] + "?t=" + Date.now();
         
-      case 'theme-change':
-        logger.info('Applying theme change', { theme: data.theme });
-        // Apply theme if needed
-        break;
+        if (smooth && photoImg.style.display !== 'none') {
+          // Smooth transition
+          photoImg.classList.add('transitioning');
+          
+          setTimeout(() => {
+            photoImg.src = newSrc;
+            photoImg.onload = () => {
+              photoImg.classList.remove('transitioning');
+              isTransitioning = false;
+            };
+            photoImg.onerror = () => {
+              photoImg.classList.remove('transitioning');
+              isTransitioning = false;
+              handlePhotoError();
+            };
+          }, 150); // Half of transition time
+        } else {
+          // Immediate load (first photo)
+          photoImg.src = newSrc;
+          photoImg.onload = () => {
+            loadingDiv.style.display = 'none';
+            photoImg.style.display = 'block';
+            isTransitioning = false;
+          };
+          photoImg.onerror = () => {
+            isTransitioning = false;
+            handlePhotoError();
+          };
+        }
         
-      default:
-        logger.debug('Unhandled system message type', { type: data.type });
-        break;
-    }
-  }
+        logger.debug('Showing photo', { 
+          photoIndex: currentPhotoIndex + 1, 
+          totalPhotos: shuffledPhotos.length 
+        });
+      }
 
-  // Make functions globally available for navigation
-  window.photoNextPhoto = nextPhoto;
-  window.photoPrevPhoto = prevPhoto;
-  window.photoUpdateTransitionTime = updateTransitionTime;
+      function handlePhotoError() {
+        logger.warn('Failed to load photo, skipping');
+        if (shuffledPhotos.length > 1) {
+          // Remove failed photo and try next
+          shuffledPhotos.splice(currentPhotoIndex, 1);
+          if (currentPhotoIndex >= shuffledPhotos.length) {
+            currentPhotoIndex = 0;
+          }
+          showPhoto(currentPhotoIndex, false);
+        } else {
+          // Show error message
+          loadingDiv.innerHTML = '<div class="error-message">No photos available</div>';
+        }
+      }
 
-  // --- Message Handling - FIXED: Separate commands from system messages ---
-  window.addEventListener('message', (event) => {
-    // Handle navigation commands (single action strings with no type)
-    if (event.data && typeof event.data.action === 'string' && !event.data.type) {
-      handleCommand(event.data.action);
-    }
-    
-    // Handle system messages with type (like widget-update, settings, etc.)
-    if (event.data && event.data.type) {
-      handleSystemMessage(event.data);
-    }
-  });
+      function nextPhoto() {
+        showPhoto(currentPhotoIndex + 1);
+      }
 
-  // --- Initialize Photos ---
-  function initializePhotos() {
-    shuffledPhotos = shuffleArray(photos);
-    showPhoto(0);
-    
-    // Start auto-advance
-    startAutoAdvance();
-    
-    logger.info('Photos widget initialized', { 
-      totalPhotos: shuffledPhotos.length,
-      transitionTime 
+      function prevPhoto() {
+        showPhoto(currentPhotoIndex - 1);
+      }
+
+      function updateTransitionTime(newTime) {
+        if (newTime && newTime >= 5 && newTime <= 120) {
+          transitionTime = newTime;
+          logger.info('Updated transition time', { transitionTime });
+          
+          // Restart auto-advance with new timing
+          if (autoAdvanceInterval) {
+            clearInterval(autoAdvanceInterval);
+            startAutoAdvance();
+          }
+        }
+      }
+
+      function startAutoAdvance() {
+        if (autoAdvanceInterval) {
+          clearInterval(autoAdvanceInterval);
+        }
+        autoAdvanceInterval = setInterval(nextPhoto, transitionTime * 1000);
+        logger.info('Auto-advance started', { intervalSeconds: transitionTime });
+      }
+
+      function stopAutoAdvance() {
+        if (autoAdvanceInterval) {
+          clearInterval(autoAdvanceInterval);
+          autoAdvanceInterval = null;
+          logger.info('Auto-advance stopped');
+        }
+      }
+
+      // --- Theme Handling ---
+      function applyTheme(theme) {
+        if (theme === currentTheme) return;
+        
+        logger.info('Applying theme change', { from: currentTheme, to: theme });
+        currentTheme = theme;
+        
+        // The theme is automatically applied via CSS variables
+        // Just need to ensure body has the correct class
+        document.body.className = document.body.className.replace(/theme-\w+/, '');
+        document.body.classList.add(`theme-${theme}`);
+        
+        // Optional: Add any theme-specific logic here
+        logger.debug('Theme applied to photos widget');
+      }
+
+      // --- Command Handling with Focus Management ---
+      function handleCommand(action) {
+        logger.debug('Photos widget received command', { action });
+        
+        // AUTO-FOCUS: Detect focus from receiving commands
+        if (!isFocused) {
+          handleFocusChange(true);
+        }
+        
+        switch(action) {
+          case 'right':
+          case 'down':
+            nextPhoto();
+            break;
+          case 'left':
+          case 'up':
+            prevPhoto();
+            break;
+          case 'select':
+            logger.debug('Enter pressed on photos widget');
+            break;
+          case 'back':
+            // CRITICAL: Handle focus loss
+            if (isFocused) {
+              handleFocusChange(false);
+            }
+            break;
+          default:
+            logger.debug('Photos widget ignoring command', { action });
+            break;
+        }
+      }
+
+      // --- System Message Handling ---
+      function handleDataServiceMessage(data) {
+        logger.debug('Photos widget received system message', { type: data.type });
+        
+        switch(data.type) {
+          case 'widget-update':
+            if (data.action === 'state-update' && data.payload) {
+              // Handle photos data updates if needed
+              if (data.payload.photos) {
+                logger.debug('Processing photos data update');
+                // Could refresh photos here if needed
+              }
+              
+              // Handle theme updates
+              if (data.payload.theme && data.payload.theme !== currentTheme) {
+                applyTheme(data.payload.theme);
+              }
+            }
+            break;
+            
+          case 'theme-change':
+            applyTheme(data.theme);
+            break;
+            
+          case 'update-settings':
+            if (data.photoTransitionTime) {
+              updateTransitionTime(data.photoTransitionTime);
+            }
+            break;
+            
+          default:
+            logger.debug('Unhandled system message type', { type: data.type });
+            break;
+        }
+      }
+
+      // --- Message Handling ---
+      window.addEventListener('message', (event) => {
+        // Handle navigation commands (action strings) - NEW PATTERN
+        if (event.data && typeof event.data.action === 'string' && !event.data.type) {
+          handleCommand(event.data.action);
+        }
+        
+        // Handle data service messages (type objects)
+        if (event.data && event.data.type) {
+          handleDataServiceMessage(event.data);
+        }
+      });
+
+      // --- Initialize Photos ---
+      function initializePhotos() {
+        // Check if photos data is available
+        if (typeof photos === 'undefined' || !Array.isArray(photos) || photos.length === 0) {
+          logger.warn('No photos data available, showing placeholder');
+          loadingDiv.innerHTML = '<div class="error-message">No photos configured</div>';
+          return;
+        }
+
+        shuffledPhotos = shuffleArray(photos);
+        showPhoto(0, false); // First photo without smooth transition
+        
+        // Start auto-advance after a delay
+        setTimeout(() => {
+          startAutoAdvance();
+        }, 1000);
+        
+        logger.info('Photos widget initialized', { 
+          totalPhotos: shuffledPhotos.length,
+          transitionTime 
+        });
+      }
+
+      // --- Widget Ready Signal ---
+      window.addEventListener('load', () => {
+        if (window.parent !== window) {
+          window.parent.postMessage({ 
+            type: 'widget-ready', 
+            widget: 'photos' 
+          }, '*');
+        }
+      });
+
+      // --- Initialize ---
+      initializePhotos();
     });
-  }
-
-  // Send ready signal to parent dashboard
-  window.addEventListener('load', () => {
-    if (window.parent !== window) {
-      window.parent.postMessage({ 
-        type: 'widget-ready', 
-        widget: 'photos' 
-      }, '*');
-    }
-  });
-
-  initializePhotos();
-});
-
-</script>
-  
+  </script>
 </body>
 </html>

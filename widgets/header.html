@@ -1,15 +1,16 @@
-<!-- header.html: Header Widget -->
-<!-- CLEANED: Removed redundant theme management, simplified family name handling -->
+<!-- widgets/header.html -->
+<!-- CHANGE SUMMARY: Added proper theme integration with early detection, structured logging, and standardized message handling while preserving family name functionality -->
 
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Header</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Header Widget</title>
   
   <!-- Import theme variables from parent -->
   <link rel="stylesheet" href="../css/core/variables.css">
+  
   <style>
     html, body {
       margin: 0;
@@ -44,121 +45,233 @@
     }
     
     @media (max-width: 400px) {
-      #family-name {
-        font-size: 8vw;
-      }
-    }
+      #family-
   </style>
 </head>
 <body>
   <div id="family-name">The Dashie Family</div>
-  
-  <script>
-    // Family name management with "The [Name] Family" formatting
-    function updateFamilyName(familyName) {
-      const element = document.getElementById('family-name');
-      if (element && familyName && familyName.trim()) {
-        // Format as "The [Name] Family"
-        const formattedName = `The ${familyName.trim()} Family`;
-        element.textContent = formattedName;
-        console.log(`👨‍👩‍👧‍👦 Updated family name to: ${formattedName}`);
-      } else {
-        // Fallback to default
-        element.textContent = 'The Dashie Family';
-        console.log('👨‍👩‍👧‍👦 Using default family name');
-      }
-    }
 
-    function loadFamilyName() {
-      try {
-        // Method 1: Try to get from parent window settings
-        if (window.parent && window.parent !== window) {
+  <script type="module">
+    // Import logger for structured logging
+    import { createLogger } from '../js/utils/logger.js';
+    const logger = createLogger('HeaderWidget');
+
+    class HeaderWidget {
+      constructor() {
+        this.currentTheme = null;
+        this.currentFamilyName = 'Loading...';
+        
+        this.init();
+      }
+
+      init() {
+        // Apply early theme detection
+        this.detectAndApplyInitialTheme();
+        
+        // Set up event listeners
+        this.setupEventListeners();
+        
+        // Load initial family name
+        this.loadFamilyName();
+        
+        logger.info('Header widget initialized with proper theme detection');
+      }
+
+      // Detect initial theme from DOM or localStorage
+      detectAndApplyInitialTheme() {
+        let initialTheme = 'dark'; // fallback
+
+        // Try to detect theme from body class (applied by early theme loading)
+        if (document.body.classList.contains('theme-light')) {
+          initialTheme = 'light';
+        } else if (document.body.classList.contains('theme-dark')) {
+          initialTheme = 'dark';
+        } else {
+          // Fallback: try localStorage
           try {
-            if (window.parent.dashieAuth && window.parent.dashieAuth.isAuthenticated()) {
-              // Request family name from parent
-              window.parent.postMessage({ 
-                type: 'widget-request-family-name',
-                widget: 'header' 
-              }, '*');
-              console.log('👨‍👩‍👧‍👦 Requested family name from parent');
+            const savedTheme = localStorage.getItem('dashie-theme');
+            if (savedTheme && (savedTheme === 'dark' || savedTheme === 'light')) {
+              initialTheme = savedTheme;
             }
-          } catch (e) {
-            console.log('👨‍👩‍👧‍👦 Cannot access parent settings, trying localStorage');
+          } catch (error) {
+            logger.debug('Could not read theme from localStorage, using default');
           }
         }
+
+        // Apply the detected theme immediately
+        this.applyTheme(initialTheme);
         
-        // Method 2: Try to get from localStorage settings
-        const saved = localStorage.getItem('dashie-settings');
-        if (saved) {
-          const settings = JSON.parse(saved);
-          const familyName = settings.family?.familyName;
-          if (familyName && familyName.trim()) {
-            updateFamilyName(familyName);
-            return;
+        logger.info('Initial theme detected and applied', { theme: initialTheme });
+      }
+
+      setupEventListeners() {
+        // Listen for widget-messenger communications
+        window.addEventListener('message', (event) => {
+          // Handle navigation commands (single action strings) - not needed for header but keeping pattern
+          if (event.data && typeof event.data.action === 'string' && !event.data.type) {
+            this.handleCommand(event.data.action);
           }
+          // Handle message objects with type
+          if (event.data && event.data.type) {
+            this.handleDataServiceMessage(event.data);
+          }
+        });
+
+        // Legacy settings change listener (for backward compatibility)
+        window.addEventListener('dashie-settings-changed', (event) => {
+          const changes = event.detail;
+          if (changes && changes['family.familyName']) {
+            this.updateFamilyName(changes['family.familyName']);
+          }
+        });
+
+        // Signal widget ready
+        window.addEventListener('load', () => {
+          if (window.parent !== window) {
+            window.parent.postMessage({ 
+              type: 'widget-ready', 
+              widget: 'header' 
+            }, '*');
+          }
+        });
+      }
+
+      // Handle navigation commands (header widget doesn't need navigation but keeping pattern)
+      handleCommand(action) {
+        logger.debug('Header widget received command', { action });
+        
+        // Header widget doesn't have interactive navigation, but could be extended
+        switch (action) {
+          case 'up':
+          case 'down':
+          case 'left':
+          case 'right':
+          case 'select':
+          case 'back':
+            // No action needed for header widget
+            break;
+          default:
+            logger.debug('Unhandled command', { action });
+            break;
         }
+      }
+
+      handleDataServiceMessage(data) {
+        logger.debug('Header widget received message', { type: data.type, hasPayload: !!data.payload });
         
-        // Fallback: Use default
-        updateFamilyName('Dashie');
-        console.log('👨‍👩‍👧‍👦 Using default family name');
+        switch (data.type) {
+          case 'widget-update':
+            if (data.action === 'state-update') {
+              logger.debug('Processing widget state update');
+              
+              // Handle family name updates from settings
+              if (data.payload?.settings?.['family.familyName']) {
+                this.updateFamilyName(data.payload.settings['family.familyName']);
+              }
+            }
+
+            // FIXED: Always apply theme from widget-update messages
+            if (data.payload?.theme) {
+              logger.info('Applying theme from widget-update', { 
+                incomingTheme: data.payload.theme, 
+                previousTheme: this.currentTheme 
+              });
+              this.applyTheme(data.payload.theme);
+            }
+            break;
+            
+          case 'theme-change':
+            logger.info('Applying theme change', { theme: data.theme });
+            this.applyTheme(data.theme);
+            break;
+
+          // Legacy message handlers for backward compatibility
+          case 'family-name-update':
+            this.updateFamilyName(data.familyName);
+            break;
+
+          case 'dashie-settings-changed':
+            const changes = data.detail;
+            if (changes && changes['family.familyName']) {
+              this.updateFamilyName(changes['family.familyName']);
+            }
+            break;
+            
+          default:
+            logger.debug('Unhandled message type', { type: data.type });
+            break;
+        }
+      }
+
+      // FIXED: Enhanced theme application with proper logging
+      applyTheme(theme) {
+        const previousTheme = this.currentTheme;
+        this.currentTheme = theme;
         
-      } catch (error) {
-        console.warn('👨‍👩‍👧‍👦 Failed to load family name from settings:', error);
-        updateFamilyName('Dashie');
+        // Remove any existing theme classes
+        document.body.classList.remove('theme-dark', 'theme-light');
+        
+        // Apply new theme class
+        document.body.classList.add(`theme-${theme}`);
+        
+        logger.info('Theme applied successfully', { 
+          theme, 
+          previousTheme,
+          bodyClasses: document.body.className 
+        });
+      }
+
+      async loadFamilyName() {
+        try {
+          // Try to load from localStorage first (faster)
+          const cached = localStorage.getItem('dashie-family-name');
+          if (cached) {
+            this.updateFamilyName(cached);
+            logger.debug('Family name loaded from cache', { familyName: cached });
+          }
+          
+          // Could also try to load from settings system here if needed
+          // For now, we'll rely on the WidgetMessenger to send the current state
+          
+        } catch (error) {
+          logger.error('Failed to load family name', { error: error.message });
+          this.updateFamilyName('Dashie');  // This will become "The Dashie Family"
+        }
+      }
+
+      updateFamilyName(familyName) {
+        if (!familyName || familyName.trim() === '') {
+          familyName = 'Dashie';
+        }
+
+        // Format as "The [Name] Family" to match original
+        const formattedName = `The ${familyName.trim()} Family`;
+        this.currentFamilyName = formattedName;
+        const element = document.getElementById('family-name');
+        
+        if (element) {
+          element.textContent = formattedName;  // Use textContent instead of innerHTML since we're not escaping
+          
+          // Cache the family name (store the base name, not the formatted version)
+          try {
+            localStorage.setItem('dashie-family-name', familyName.trim());
+          } catch (error) {
+            logger.debug('Could not cache family name', { error: error.message });
+          }
+          
+          logger.info('Family name updated', { familyName: formattedName });
+        }
+      }
+
+      escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
       }
     }
-    
-    // Listen for messages from parent - theme handling removed, done via widget-update now
-    window.addEventListener('message', (event) => {
-      // Family name updates
-      if (event.data && event.data.type === 'family-name-update') {
-        updateFamilyName(event.data.familyName);
-      }
-      
-      // Settings changes
-      if (event.data && event.data.type === 'dashie-settings-changed') {
-        const changes = event.data.detail;
-        if (changes && changes['family.familyName']) {
-          updateFamilyName(changes['family.familyName']);
-        }
-      }
-      
-      // Handle widget-update messages (includes theme changes)
-      if (event.data && event.data.type === 'widget-update') {
-        if (event.data.action === 'state-update') {
-          // Widget state updates handled here if needed
-          console.log('👨‍👩‍👧‍👦 Header widget received state update');
-        }
-      }
-      
-      // Handle direct theme-change messages
-      if (event.data && event.data.type === 'theme-change') {
-        // Theme will be applied via CSS variables automatically
-        console.log(`👨‍👩‍👧‍👦 Family header applied ${event.data.theme} theme`);
-      }
-    });
 
-    // Listen for global settings changes
-    window.addEventListener('dashie-settings-changed', (event) => {
-      const changes = event.detail;
-      if (changes && changes['family.familyName']) {
-        updateFamilyName(changes['family.familyName']);
-      }
-    });
-
-    // Simple initialization - no theme requests
-    window.addEventListener('load', () => {
-      // Load family name from settings
-      loadFamilyName();
-      
-      // Send widget ready signal
-      if (window.parent !== window) {
-        window.parent.postMessage({ 
-          type: 'widget-ready', 
-          widget: 'header' 
-        }, '*');
-      }
-    });
+    // Initialize the widget
+    new HeaderWidget();
   </script>
 </body>
 </html>
