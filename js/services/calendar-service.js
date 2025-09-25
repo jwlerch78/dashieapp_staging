@@ -1,5 +1,5 @@
 // js/services/calendar-service.js - Calendar Data Service
-// CHANGE SUMMARY: Extracted calendar logic from data-manager.js, maintains same API methods
+// CHANGE SUMMARY: Added description formatting for HTML content - works for all calendar sources
 
 import { createLogger } from '../utils/logger.js';
 
@@ -14,6 +14,49 @@ export class CalendarService {
     this.googleAPI = googleAPIClient;
     
     logger.info('Calendar service initialized');
+  }
+
+  /**
+   * Format event descriptions to handle basic HTML formatting safely
+   * @param {string} description - Raw description from any calendar source
+   * @returns {string} Formatted description with safe HTML
+   */
+  formatEventDescription(description) {
+    if (!description || !description.trim()) return '';
+    
+    // First escape potentially dangerous HTML
+    const escaped = description
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+    
+    // Then convert safe formatting back to HTML
+    return escaped
+      .replace(/&lt;br\s*\/?&gt;/gi, '<br>')
+      .replace(/&lt;\/p&gt;\s*&lt;p&gt;/gi, '</p><p>')
+      .replace(/&lt;p&gt;/gi, '<p>')
+      .replace(/&lt;\/p&gt;/gi, '</p>')
+      .replace(/\n/g, '<br>'); // Also handle plain newlines
+  }
+
+  /**
+   * Transform and clean event data from any calendar source
+   * @param {Array} events - Raw events from any calendar API
+   * @returns {Array} Cleaned and formatted events
+   */
+  cleanEventData(events) {
+    return events.map(event => ({
+      ...event,
+      // Clean and format description for safe HTML rendering
+      description: this.formatEventDescription(event.description),
+      
+      // Add other universal cleaning/formatting here as needed
+      summary: event.summary || 'Untitled Event',
+      location: event.location || '',
+      attendees: event.attendees || []
+    }));
   }
 
   /**
@@ -45,14 +88,18 @@ export class CalendarService {
         logger.debug('Fetching fresh calendar metadata');
       }
       
-      const [events, calendars] = await Promise.all([eventsPromise, calendarsPromise]);
+      const [rawEvents, calendars] = await Promise.all([eventsPromise, calendarsPromise]);
+      
+      // IMPORTANT: Clean and format all event data regardless of source
+      const events = this.cleanEventData(rawEvents);
       
       const duration = timer();
       
       logger.data('refresh', 'calendar', 'success', {
         eventsCount: events.length,
         calendarsCount: calendars.length,
-        duration
+        duration,
+        processedDescriptions: events.filter(e => e.description).length
       });
       
       return {
@@ -97,8 +144,10 @@ export class CalendarService {
    * @returns {Array} Transformed events
    */
   transformEvents(events) {
-    // Add any calendar-specific transformations here
-    return events.map(event => ({
+    // Clean the events first, then add display transformations
+    const cleanedEvents = this.cleanEventData(events);
+    
+    return cleanedEvents.map(event => ({
       ...event,
       // Add any calendar-specific fields or transformations
       displayTitle: event.summary || '(No title)',

@@ -242,30 +242,31 @@ export class AgendaWidget {
     });
   }
 
-  getNext14DaysEvents() {
+    getNext14DaysEvents() {
     const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Today at 00:00:00
     const fourteenDaysFromNow = new Date(now.getTime() + (14 * 24 * 60 * 60 * 1000));
 
-    // Filter events within the next 14 days
+    // Filter events from start of today through next 14 days (includes past events from today)
     const upcomingEvents = this.calendarData.events.filter(event => {
-      const eventStart = new Date(event.start.dateTime || event.start.date);
-      return eventStart >= now && eventStart <= fourteenDaysFromNow;
+        const eventStart = new Date(event.start.dateTime || event.start.date);
+        return eventStart >= startOfToday && eventStart <= fourteenDaysFromNow;
     });
 
     // Sort chronologically
     upcomingEvents.sort((a, b) => {
-      const aStart = new Date(a.start.dateTime || a.start.date);
-      const bStart = new Date(b.start.dateTime || b.start.date);
-      return aStart - bStart;
+        const aStart = new Date(a.start.dateTime || a.start.date);
+        const bStart = new Date(b.start.dateTime || b.start.date);
+        return aStart - bStart;
     });
 
-    logger.debug('Filtered events for next 14 days', {
-      originalCount: this.calendarData.events.length,
-      filteredCount: upcomingEvents.length
+    logger.debug('Filtered events including today past events', {
+        originalCount: this.calendarData.events.length,
+        filteredCount: upcomingEvents.length
     });
 
     return upcomingEvents;
-  }
+    }
 
   groupEventsByDay(events) {
     const eventsByDay = {};
@@ -302,45 +303,100 @@ export class AgendaWidget {
     return eventsByDay;
   }
 
-  renderEventsByDay(eventsByDay) {
-    const dayKeys = Object.keys(eventsByDay).sort((a, b) => {
-      return eventsByDay[a].date - eventsByDay[b].date;
-    });
+// Replace the renderEventsByDay method with this fixed version:
+renderEventsByDay(eventsByDay) {
+  const now = new Date();
+  const today = new Date();
+  const todayKey = today.toDateString();
+  
+  // Always ensure today is included, even if no events
+  if (!eventsByDay[todayKey]) {
+    eventsByDay[todayKey] = {
+      date: today,
+      allDayEvents: [],
+      timedEvents: []
+    };
+  }
 
-    if (dayKeys.length === 0) {
-      return '<div class="no-events">No events in the next 14 days</div>';
+  const dayKeys = Object.keys(eventsByDay).sort((a, b) => {
+    return eventsByDay[a].date - eventsByDay[b].date;
+  });
+
+  if (dayKeys.length === 0) {
+    return '<div class="no-events">No events in the next 14 days</div>';
+  }
+
+  return dayKeys.map(dayKey => {
+    const dayData = eventsByDay[dayKey];
+    const isToday = dayKey === todayKey;
+    const dayHeader = this.formatDayHeader(dayData.date);
+    
+    let eventsHtml = '';
+    
+    // Render all-day events first
+    dayData.allDayEvents.forEach(event => {
+      eventsHtml += this.renderEvent(event, true, false); // All-day events are never "past"
+    });
+    
+    // For today, we need to insert the current time indicator at the right position
+    if (isToday && dayData.timedEvents.length > 0) {
+      let timeIndicatorInserted = false;
+      
+      dayData.timedEvents.forEach(event => {
+        const isPast = this.isEventPast(event, now);
+        
+        // Insert current time indicator after the last past event (before first future event)
+        if (!timeIndicatorInserted && !isPast) {
+          eventsHtml += this.renderCurrentTimeIndicator(now);
+          timeIndicatorInserted = true;
+        }
+        
+        eventsHtml += this.renderEvent(event, false, isPast);
+      });
+      
+      // If all events are past, add the indicator at the end
+      if (!timeIndicatorInserted) {
+        eventsHtml += this.renderCurrentTimeIndicator(now);
+      }
+    } else {
+      // Not today, just render timed events normally
+      dayData.timedEvents.forEach(event => {
+        const isPast = this.isEventPast(event, now);
+        eventsHtml += this.renderEvent(event, false, isPast);
+      });
     }
 
-    return dayKeys.map(dayKey => {
-      const dayData = eventsByDay[dayKey];
-      const dayHeader = this.formatDayHeader(dayData.date);
-      
-      let eventsHtml = '';
-      
-      // Render all-day events first
-      dayData.allDayEvents.forEach(event => {
-        eventsHtml += this.renderEvent(event, true);
-      });
-      
-      // Then render timed events
-      dayData.timedEvents.forEach(event => {
-        eventsHtml += this.renderEvent(event, false);
-      });
+    // Show "No events today" if today has no events
+    if (!eventsHtml && isToday) {
+      eventsHtml = '<div class="no-events">No events today</div>';
+    } else if (!eventsHtml) {
+      eventsHtml = '<div class="no-events">No events</div>';
+    }
 
-      if (!eventsHtml) {
-        eventsHtml = '<div class="no-events">No events</div>';
-      }
-
-      return `
-        <div class="day-section">
-          <div class="day-header">${dayHeader}</div>
-          <div class="events-list">
-            ${eventsHtml}
-          </div>
+    return `
+      <div class="day-section">
+        <div class="day-header">${dayHeader}</div>
+        <div class="events-list">
+          ${eventsHtml}
         </div>
-      `;
-    }).join('');
-  }
+      </div>
+    `;
+  }).join('');
+}
+
+    renderCurrentTimeIndicator(now) {
+    return `
+        <div class="current-time-indicator">
+        <div class="current-time-line"></div>
+        </div>
+    `;
+    }
+
+    isEventPast(event, now) {
+    const eventEnd = new Date(event.end?.dateTime);
+    return eventEnd <= now;
+    }
+
 
   formatDayHeader(date) {
     // Format like "**Tuesday Sep 23**"
@@ -351,23 +407,24 @@ export class AgendaWidget {
     return `<strong>${dayName} ${monthName} ${dayNum}</strong>`;
   }
 
-  renderEvent(event, isAllDay) {
+    renderEvent(event, isAllDay, isPast = false) {
     const calendarColors = this.calendarColors.get(event.calendarId) || 
-      { backgroundColor: '#1976d2', textColor: '#ffffff' };
+        { backgroundColor: '#1976d2', textColor: '#ffffff' };
     
     const timeDisplay = isAllDay ? 'All day' : this.formatEventTime(event);
-    const eventClass = isAllDay ? 'event-item all-day-event' : 'event-item';
+    const pastClass = isPast ? 'event-past' : '';
+    const eventClass = isAllDay ? `event-item all-day-event ${pastClass}` : `event-item ${pastClass}`;
 
     return `
-      <div class="${eventClass}" data-event-id="${event.id}">
+        <div class="${eventClass}" data-event-id="${event.id}">
         <div class="event-time">${timeDisplay}</div>
         <div class="event-details">
-          <div class="event-dot" style="background-color: ${calendarColors.backgroundColor}"></div>
-          <div class="event-title">${this.escapeHtml(event.summary || 'No title')}</div>
+            <div class="event-dot" style="background-color: ${calendarColors.backgroundColor}"></div>
+            <div class="event-title">${this.escapeHtml(event.summary || 'No title')}</div>
         </div>
-      </div>
+        </div>
     `;
-  }
+    }
 
   formatEventTime(event) {
     const startTime = new Date(event.start.dateTime);

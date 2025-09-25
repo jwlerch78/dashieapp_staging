@@ -49,7 +49,12 @@ export class AgendaEventModal {
       this.modalNavigation = null;
     }
     
-    const modal = document.getElementById('eventModal');
+    // Check both iframe and parent document for modal
+    let modal = document.getElementById('eventModal');
+    if (modal) {
+      modal.remove();
+    }
+    modal = window.parent.document.getElementById('eventModal');
     if (modal) {
       modal.remove();
     }
@@ -61,13 +66,19 @@ export class AgendaEventModal {
   }
 
   createModal() {
-    // Remove existing modal if present
-    const existingModal = document.getElementById('eventModal');
+    // Remove existing modal if present (check both iframe and parent)
+    let existingModal = document.getElementById('eventModal');
+    if (existingModal) {
+      existingModal.remove();
+    }
+    existingModal = window.parent.document.getElementById('eventModal');
     if (existingModal) {
       existingModal.remove();
     }
 
-    const modal = document.createElement('div');
+    // Create modal in parent window (outside iframe)
+    const parentDoc = window.parent.document;
+    const modal = parentDoc.createElement('div');
     modal.id = 'eventModal';
     modal.className = 'event-modal';
     modal.tabIndex = -1; // Make focusable
@@ -90,8 +101,8 @@ export class AgendaEventModal {
       </div>
     `;
 
-    // Add modal styles
-    this.addModalStyles(modal);
+    // Add modal styles to parent document
+    this.addModalStyles(modal, parentDoc);
 
     // Set up click handlers
     modal.addEventListener('click', (e) => {
@@ -104,27 +115,58 @@ export class AgendaEventModal {
       this.hideModal();
     });
 
-    document.body.appendChild(modal);
+    parentDoc.body.appendChild(modal);
 
-    // Set up unified modal navigation
+    // Set up unified modal navigation (now in parent window context)
     this.setupModalNavigation(modal);
   }
 
-  setupModalNavigation(modal) {
+setupModalNavigation(modal) {
     // For the event modal, we just have the close button as a focusable element
     // The modal can be closed with escape or by clicking the close button
     const buttons = ['modalClose'];
     
-    this.modalNavigation = createModalNavigation(modal, buttons, {
-      initialFocus: 0, // Focus close button
+    // CRITICAL: Access the parent window's modal manager, not the iframe's
+    const parentWindow = window.parent;
+    const parentModalManager = parentWindow.dashieModalManager;
+    
+    if (!parentModalManager) {
+      logger.error('Parent window modal manager not found');
+      return;
+    }
+    
+    // Create modal navigation config in parent context
+    const modalConfig = {
+      buttons: buttons.map(id => ({ id })),
+      horizontalNavigation: false,
+      initialFocus: 0,
       onEscape: () => this.hideModal()
-    });
+    };
+    
+    // Register directly with parent's modal manager
+    parentModalManager.registerModal(modal, modalConfig);
+    
+    // Store reference for cleanup - but we need to clean up via parent manager
+    this.modalNavigation = {
+      destroy: () => {
+        if (parentModalManager.hasActiveModal()) {
+          parentModalManager.unregisterModal();
+        }
+      }
+    };
 
     logger.debug('Event modal navigation set up with unified system');
   }
 
-  addModalStyles(modal) {
-    const style = document.createElement('style');
+  addModalStyles(modal, parentDoc) {
+    // Check if styles already exist in parent document
+    const existingStyle = parentDoc.getElementById('agenda-event-modal-styles');
+    if (existingStyle) {
+      existingStyle.remove();
+    }
+
+    const style = parentDoc.createElement('style');
+    style.id = 'agenda-event-modal-styles';
     style.textContent = `
       .event-modal {
         position: fixed;
@@ -285,15 +327,23 @@ export class AgendaEventModal {
       }
     `;
     
-    modal.appendChild(style);
+    parentDoc.head.appendChild(style);
   }
 
   populateModal() {
     if (!this.currentEvent) return;
 
     const event = this.currentEvent;
-    const titleEl = document.getElementById('modalTitle');
-    const bodyEl = document.getElementById('modalBody');
+    
+    // Find modal elements in parent document
+    const parentDoc = window.parent.document;
+    const titleEl = parentDoc.getElementById('modalTitle');
+    const bodyEl = parentDoc.getElementById('modalBody');
+    
+    if (!titleEl || !bodyEl) {
+      logger.warn('Modal elements not found in parent document');
+      return;
+    }
 
     titleEl.textContent = event.summary || 'Untitled Event';
 
@@ -339,14 +389,14 @@ export class AgendaEventModal {
       `;
     }
 
-    // Description (if present)
+    // Description (if present) - CHANGE: Use innerHTML instead of escapeHtml
     if (event.description && event.description.trim()) {
-      detailsHtml += `
+        detailsHtml += `
         <div class="event-detail-row">
-          <div class="event-detail-label">Details:</div>
-          <div class="event-detail-value">${this.escapeHtml(event.description)}</div>
+            <div class="event-detail-label">Details:</div>
+            <div class="event-detail-value">${event.description}</div>
         </div>
-      `;
+        `;
     }
 
     // Attendees (if present)

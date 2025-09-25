@@ -12,21 +12,27 @@
   <link rel="stylesheet" href="../../css/core/variables.css">
   
   <style>
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
-      margin: 0;
-      padding: 8px;
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      height: 100vh;
-      box-sizing: border-box;
-      overflow: hidden;
-    }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+        margin: 0;
+        padding: 0; /* Remove padding from body */
+        background: var(--bg-primary);
+        color: var(--text-primary);
+        height: 100vh;
+        box-sizing: border-box;
+        overflow: hidden;
+      }
 
     .agenda-container {
       height: 100%;
       display: flex;
       flex-direction: column;
+      padding: 8px; /* Move padding here */
+    }
+
+    /* BUT remove left/right padding for full width */
+    .agenda-container {
+      padding: 8px 0; /* Only top/bottom padding */
     }
 
     .loading {
@@ -42,7 +48,7 @@
       height: 100%;
       overflow-y: auto;
       overflow-x: hidden;
-      padding-right: 4px;
+      padding-right: 0; /* Remove the existing padding-right: 4px */
       scrollbar-width: thin;
       scrollbar-color: var(--text-muted) transparent;
     }
@@ -65,12 +71,14 @@
     }
 
     .day-header {
-      font-size: 13px;
+      font-size: 12px;
       font-weight: bold;
       color: var(--text-primary);
       margin-bottom: 6px;
       border-bottom: 1px solid var(--text-muted);
       padding-bottom: 2px;
+      padding-left: 8px; /* Add left padding to day headers */
+      padding-right: 8px; /* Add right padding to day headers */
     }
 
     .events-list {
@@ -86,6 +94,8 @@
       font-size: 11px;
       line-height: 1.3;
       min-height: 16px;
+      padding-left: 8px; /* Add left padding to normal events */
+      padding-right: 8px; /* Add right padding to normal events */
     }
 
     .event-time {
@@ -127,7 +137,7 @@
       font-size: 11px;
       color: var(--text-muted);
       font-style: italic;
-      margin-left: 8px;
+      margin-left: 8px; /* Add left margin to no-events text */
     }
 
     .status-indicator {
@@ -149,20 +159,14 @@
       background: #f44336;
     }
 
-    .controls-hint {
-      position: absolute;
-      bottom: 4px;
-      right: 4px;
-      font-size: 9px;
-      color: var(--text-muted);
-      opacity: 0.7;
-      pointer-events: none;
-      white-space: nowrap;
-      transition: opacity 0.3s;
-    }
-
     .event-item.selected {
-      transition: all 0.2s ease;
+      background-color: var(--bg-active) !important;
+      margin-left: 0 !important; /* No negative margins needed */
+      margin-right: 0 !important;
+      padding-left: 8px !important; /* Keep text aligned */
+      padding-right: 8px !important;
+      border-radius: 0 !important;
+      transition: all 0.2s ease !important;
     }
 
     /* Selection mode visual feedback */
@@ -182,12 +186,50 @@
     body.theme-light .agenda-content::-webkit-scrollbar-thumb {
       background: #9e9e9e;
     }
+
+    /* Current time indicator */
+    .current-time-indicator {
+      position: relative;
+      margin: 0; /* Remove margin to not affect spacing */
+      padding: 0;
+      height: 0; /* Take up no space */
+    }
+
+    .current-time-line {
+      height: 1px; /* Thinner line */
+      background-color: var(--accent-orange);
+      width: 100%;
+      margin: 0;
+    }
+
+
+    /* Past event styling */
+    .event-item.event-past {
+      color: var(--text-muted) !important;
+    }
+
+    .event-item.event-past .event-time {
+      color: var(--text-muted) !important;
+    }
+
+    .event-item.event-past .event-title {
+      color: var(--text-muted) !important;
+    }
+
+    /* Ensure past events don't get brightened on selection */
+    .event-item.event-past.selected .event-time,
+    .event-item.event-past.selected .event-title {
+      color: var(--text-muted) !important;
+    }
+
+
   </style>
+
+
 </head>
 <body>
   <div class="agenda-container">
     <div class="status-indicator" id="statusIndicator"></div>
-    <div class="controls-hint">→ to select events</div>
     
     <div class="loading" id="loading">
       Loading agenda...
