@@ -11,7 +11,7 @@ export class AgendaEventModal {
     this.currentEvent = null;
     this.calendarColors = new Map();
     
-    this.setupKeyboardHandlers();
+    //this.setupKeyboardHandlers();
     logger.info('Agenda event modal initialized');
   }
 

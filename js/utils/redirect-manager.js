@@ -1,15 +1,14 @@
 // js/utils/redirect-manager.js - Extracted Redirect Logic from auth-ui.js
-// CHANGE SUMMARY: Simple extraction of existing redirect methods from auth-ui.js - no changes to logic, just moved to separate module
+// CHANGE SUMMARY: Updated to use unified modal navigation system integrated with events.js for consistent d-pad/keyboard navigation
 
 import { createLogger } from './logger.js';
 import { getPlatformDetector } from './platform-detector.js';
-import { createRedirectModalNavigation } from './modal-navigation-manager.js';
+import { createModalNavigation } from './modal-navigation-manager.js';
 
 const logger = createLogger('RedirectManager');
 
 /**
- * Manages site redirections - extracted from existing auth-ui.js
- * Contains exact same logic as original, just in separate module
+ * Manages site redirections - uses unified modal navigation system
  */
 export class RedirectManager {
   constructor() {
@@ -23,7 +22,7 @@ export class RedirectManager {
   }
 
   /**
-   * Detect if we're on development environment (from original auth-ui.js)
+   * Detect if we're on development environment
    * @returns {boolean} True if on dev/localhost
    */
   detectDevelopmentEnvironment() {
@@ -34,12 +33,12 @@ export class RedirectManager {
   }
 
   /**
-   * Show redirect confirmation modal (extracted from original auth-ui.js)
+   * Show redirect confirmation modal
    */
   showRedirectModal() {
     logger.debug('Showing redirect modal');
     
-    // Determine target site and messaging (original logic)
+    // Determine target site and messaging
     const targetSite = this.isDevelopmentSite ? 'production' : 'development';
     const targetUrl = this.isDevelopmentSite ? 'https://dashieapp.com' : 'https://dev.dashieapp.com';
     
@@ -57,12 +56,12 @@ export class RedirectManager {
             Yes
           </button>
           
-          <button id="redirect-cancel" class="redirect-modal-button cancel" tabindex="2">
+          <button id="redirect-cancel" class="redirect-modal-button cancel" tabindex="2" style="margin-bottom: 25px;">
             Cancel
           </button>
         </div>
         
-        <div class="redirect-modal-divider"></div>
+        <div class="redirect-modal-divider" style="margin: 20px 0 25px 0;"></div>
         
         <div class="redirect-modal-always-section">
           <button id="redirect-always" class="redirect-modal-button secondary" tabindex="3">
@@ -74,7 +73,7 @@ export class RedirectManager {
     
     document.body.appendChild(modal);
     
-    // Set up event handlers (original logic)
+    // Set up event handlers using unified navigation
     this.setupRedirectModalHandlers(modal);
     
     // Auto-focus first button
@@ -84,7 +83,7 @@ export class RedirectManager {
   }
 
   /**
-   * Set up redirect modal event handlers (extracted from original auth-ui.js)
+   * Set up redirect modal event handlers using unified navigation system
    * @param {HTMLElement} modal
    */
   setupRedirectModalHandlers(modal) {
@@ -92,7 +91,7 @@ export class RedirectManager {
     const cancelBtn = document.getElementById('redirect-cancel');
     const alwaysBtn = document.getElementById('redirect-always');
 
-    // Click handlers (original logic)
+    // Click handlers
     yesBtn?.addEventListener('click', () => {
       this.handleRedirectChoice('yes');
       modal.remove();
@@ -107,78 +106,39 @@ export class RedirectManager {
       modal.remove();
     });
 
-    // Set up modal TV navigation (original logic)
-    if (this.platform.isTV()) {
-      this.setupModalTVNavigation(modal);
-    }
-
-    // Escape key to close (original logic)
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') {
-        modal.remove();
-        document.removeEventListener('keydown', handleEscape);
-      }
-    };
-    document.addEventListener('keydown', handleEscape);
-  }
-
-  /**
-   * Set up TV navigation for redirect modal (extracted from original auth-ui.js)
-   * @param {HTMLElement} modal
-   */
-  setupModalTVNavigation(modal) {
-    const handleModalNavigation = (e) => {
-      const buttons = modal.querySelectorAll('.redirect-modal-button');
-      const focusedElement = document.activeElement;
-      const currentIndex = Array.from(buttons).findIndex(btn => btn === focusedElement);
-      
-      switch (e.keyCode) {
-        case 40: // D-pad down
-          e.preventDefault();
-          const nextIndex = (currentIndex + 1) % buttons.length;
-          buttons[nextIndex]?.focus();
-          break;
-          
-        case 38: // D-pad up
-          e.preventDefault();
-          const prevIndex = currentIndex <= 0 ? buttons.length - 1 : currentIndex - 1;
-          buttons[prevIndex]?.focus();
-          break;
-          
-        case 13: // Enter
-        case 23: // Fire TV Select
-          e.preventDefault();
-          focusedElement?.click();
-          break;
-      }
-    };
+    // Set up unified modal navigation using the new system
+    const buttons = ['redirect-yes', 'redirect-cancel', 'redirect-always'];
     
-    document.addEventListener('keydown', handleModalNavigation, true);
-    
-    // Clean up when modal is removed (original logic)
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        mutation.removedNodes.forEach((node) => {
-          if (node === modal) {
-            document.removeEventListener('keydown', handleModalNavigation, true);
-            observer.disconnect();
-          }
-        });
-      });
+    console.log('🔧 About to call createModalNavigation', { 
+      modal: modal.className, 
+      buttons,
+      modalManager: window.dashieModalManager 
     });
     
-    observer.observe(document.body, { childList: true });
+    this.modalNavigation = createModalNavigation(modal, buttons, {
+      initialFocus: 0, // Focus "Yes" first
+      onEscape: () => modal.remove()
+    });
+
+    console.log('🔧 createModalNavigation returned:', this.modalNavigation);
+    console.log('🔧 Modal manager state after registration:', {
+      hasActiveModal: window.dashieModalManager?.hasActiveModal(),
+      activeModal: window.dashieModalManager?.activeModal?.className,
+      focusableCount: window.dashieModalManager?.focusableElements?.length
+    });
+
+    logger.debug('Redirect modal navigation set up with unified system');
   }
 
   /**
-   * Handle redirect choice and execute (extracted from original auth-ui.js)
+   * Handle redirect choice and execute
    * @param {string} choice - 'yes', 'always', or 'cancel'
    */
   async handleRedirectChoice(choice) {
     logger.info('Redirect choice made', { choice });
 
     if (choice === 'yes') {
-      // Determine target URL based on current environment (original logic)
+      // Determine target URL based on current environment
       const targetUrl = this.isDevelopmentSite 
         ? 'https://dashieapp.com?noredirect=true'
         : 'https://dev.dashieapp.com?noredirect=true';
@@ -186,7 +146,7 @@ export class RedirectManager {
       // Perform redirect with noredirect parameter to prevent infinite loops
       window.location.href = targetUrl;
     } else if (choice === 'always') {
-      // Update local settings to enable auto-redirect (original logic)
+      // Update local settings to enable auto-redirect
       try {
         // Get existing local settings or create empty object
         const localSettings = JSON.parse(localStorage.getItem('dashie-local-settings') || '{}');
@@ -209,7 +169,6 @@ export class RedirectManager {
           fullSettings: localSettings
         });
         
-       
         // Perform the redirect immediately after saving settings
         const targetUrl = this.isDevelopmentSite 
           ? 'https://dashieapp.com?noredirect=true'
@@ -231,7 +190,7 @@ export class RedirectManager {
   }
 
   /**
-   * Get platform display name for footer (from original auth-ui.js)
+   * Get platform display name for footer
    * @returns {string}
    */
   getPlatformDisplayName() {
@@ -239,7 +198,7 @@ export class RedirectManager {
   }
 
   /**
-   * Get environment-specific footer HTML (from original auth-ui.js)
+   * Get environment-specific footer HTML
    * @returns {string}
    */
   getEnvironmentFooterHTML() {
@@ -258,7 +217,7 @@ export class RedirectManager {
   }
 
   /**
-   * Set up site switch link event handlers (from original auth-ui.js)
+   * Set up site switch link event handlers
    */
   setupSiteSwitchLink() {
     const siteLink = document.getElementById('site-switch-link');
@@ -279,297 +238,295 @@ export class RedirectManager {
     }
   }
 
-/**
- * Check for immediate redirect using localStorage (from settings system)
- * @returns {boolean} True if redirect happened, false otherwise
- */
-checkRedirectSync() {
-  try {
-    logger.debug('Checking for immediate redirect');
-    
-    // Check for noredirect parameter first
-    const urlParams = new URLSearchParams(window.location.search);
-    const hasNoRedirect = urlParams.get('noredirect') === 'true';
-
-    // Get settings from localStorage (same logic as settings system)
-    let settings = null;
-    
-    // Try dashie-local-settings first
+  /**
+   * Check for immediate redirect using localStorage (from settings system)
+   * @returns {boolean} True if redirect happened, false otherwise
+   */
+  checkRedirectSync() {
     try {
-      const localSettings = localStorage.getItem('dashie-local-settings');
-      if (localSettings) {
-        settings = JSON.parse(localSettings);
-        logger.debug('Loaded dashie-local-settings for redirect check');
-      }
-    } catch (e) {
-      logger.warn('Failed to parse dashie-local-settings', e);
-    }
+      logger.debug('Checking for immediate redirect');
+      
+      // Check for noredirect parameter first
+      const urlParams = new URLSearchParams(window.location.search);
+      const hasNoRedirect = urlParams.get('noredirect') === 'true';
 
-    // Fallback to dashie-settings
-    if (!settings) {
+      // Get settings from localStorage (same logic as settings system)
+      let settings = null;
+      
+      // Try dashie-local-settings first
       try {
-        const mainSettings = localStorage.getItem('dashie-settings');
-        if (mainSettings) {
-          settings = JSON.parse(mainSettings);
-          logger.debug('Loaded dashie-settings for redirect check');
+        const localSettings = localStorage.getItem('dashie-local-settings');
+        if (localSettings) {
+          settings = JSON.parse(localSettings);
+          logger.debug('Loaded dashie-local-settings for redirect check');
         }
       } catch (e) {
-        logger.warn('Failed to parse dashie-settings', e);
+        logger.warn('Failed to parse dashie-local-settings', e);
       }
-    }
 
-    // If no settings, no redirect needed
-    if (!settings || !settings.system) {
-      logger.debug('No settings found, no redirect needed');
-      return false;
-    }
+      // Fallback to dashie-settings
+      if (!settings) {
+        try {
+          const mainSettings = localStorage.getItem('dashie-settings');
+          if (mainSettings) {
+            settings = JSON.parse(mainSettings);
+            logger.debug('Loaded dashie-settings for redirect check');
+          }
+        } catch (e) {
+          logger.warn('Failed to parse dashie-settings', e);
+        }
+      }
 
-    // Check redirect settings
-    const autoRedirect = settings.system.autoRedirect;
-    const targetSite = settings.system.activeSite || 'prod';
+      // If no settings, no redirect needed
+      if (!settings || !settings.system) {
+        logger.debug('No settings found, no redirect needed');
+        return false;
+      }
+
+      // Check redirect settings
+      const autoRedirect = settings.system.autoRedirect;
+      const targetSite = settings.system.activeSite || 'prod';
+      
+      // If auto-redirect is enabled AND we have noredirect parameter, show removal modal
+      if (autoRedirect && hasNoRedirect) {
+        logger.info('Auto-redirect enabled but noredirect parameter present - showing removal modal');
+        this.showAutoRedirectRemovalModal();
+        return false; // Don't redirect, but show modal
+      }
+
+      // If noredirect parameter is present (but auto-redirect disabled), just bypass
+      if (hasNoRedirect) {
+        logger.info('Redirect bypassed due to ?noredirect=true parameter');
+        return false;
+      }
+
+      if (!autoRedirect) {
+        logger.debug('Auto-redirect not enabled');
+        return false;
+      }
+
+      // Determine current site (using existing method)
+      const currentSite = this.getCurrentSite();
+      
+      // If we're already on the target site, no redirect needed
+      if (currentSite === targetSite) {
+        logger.debug(`Already on target site: ${currentSite}`);
+        return false;
+      }
+
+      // Perform the redirect (using existing methods)
+      const targetUrl = this.getTargetUrl(targetSite);
+      const redirectUrl = `${targetUrl}?noredirect=true`;
+      
+      logger.info(`Performing immediate redirect from ${currentSite} to ${targetSite}`, {
+        currentSite,
+        targetSite,
+        redirectUrl
+      });
+
+      window.location.href = redirectUrl;
+      return true; // Redirect happening
+      
+    } catch (error) {
+      logger.error('Error checking for immediate redirect', error);
+      return false; // Don't block normal flow on error
+    }
+  }
+
+  /**
+   * Get the current site identifier  
+   * @returns {string} 'prod', 'dev', or 'other'
+   */
+  getCurrentSite() {
+    const hostname = window.location.hostname;
     
-    // If auto-redirect is enabled AND we have noredirect parameter, show removal modal
-    if (autoRedirect && hasNoRedirect) {
-      logger.info('Auto-redirect enabled but noredirect parameter present - showing removal modal');
-      this.showAutoRedirectRemovalModal();
-      return false; // Don't redirect, but show modal
+    if (hostname === 'dashieapp.com' || hostname === 'www.dashieapp.com') {
+      return 'prod';
+    } else if (hostname === 'dev.dashieapp.com') {
+      return 'dev';
+    } else {
+      return 'other';
     }
+  }
 
-    // If noredirect parameter is present (but auto-redirect disabled), just bypass
-    if (hasNoRedirect) {
-      logger.info('Redirect bypassed due to ?noredirect=true parameter');
-      return false;
-    }
+  /**
+   * Get the target URL for a given site
+   * @param {string} targetSite - 'prod' or 'dev'
+   * @returns {string} Target URL
+   */
+  getTargetUrl(targetSite) {
+    const urls = {
+      prod: 'https://dashieapp.com',
+      dev: 'https://dev.dashieapp.com'
+    };
+    return urls[targetSite];
+  }
 
-    if (!autoRedirect) {
-      logger.debug('Auto-redirect not enabled');
-      return false;
-    }
-
-    // Determine current site (using existing method)
+  /**
+   * Show modal to remove auto-redirect when ?noredirect=true is present
+   */
+  showAutoRedirectRemovalModal() {
+    logger.debug('Showing auto-redirect removal modal');
+    
+    // Determine current site and redirect target info
     const currentSite = this.getCurrentSite();
-    
-    // If we're already on the target site, no redirect needed
-    if (currentSite === targetSite) {
-      logger.debug(`Already on target site: ${currentSite}`);
-      return false;
-    }
-
-    // Perform the redirect (using existing methods)
+    const currentSiteName = currentSite === 'prod' ? 'Production' : 'Development';
+    const targetSite = this.isDevelopmentSite ? 'prod' : 'dev';
+    const targetSiteName = targetSite === 'prod' ? 'Production' : 'Development';
     const targetUrl = this.getTargetUrl(targetSite);
-    const redirectUrl = `${targetUrl}?noredirect=true`;
     
-    logger.info(`Performing immediate redirect from ${currentSite} to ${targetSite}`, {
-      currentSite,
-      targetSite,
-      redirectUrl
+    const modal = document.createElement('div');
+    modal.className = 'redirect-modal-backdrop';
+    modal.innerHTML = `
+      <div class="redirect-modal">
+        <h3>Auto-Redirect Disabled</h3>
+        <p>This device is set to automatically redirect from <strong>${currentSiteName}</strong> to:</p>
+        <p><strong>${targetUrl}</strong></p>
+        <p>You've bypassed this with the ?noredirect parameter.</p>
+        <p>Would you like to remove the automatic redirect setting?</p>
+        
+        <div class="redirect-modal-buttons">
+          <button id="remove-autoredirect-yes" class="redirect-modal-button primary" tabindex="1">
+            Yes, Remove Auto-Redirect
+          </button>
+          
+          <button id="remove-autoredirect-no" class="redirect-modal-button cancel" tabindex="2">
+            No, Keep Setting
+          </button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(modal);
+    
+    // Set up event handlers
+    this.setupAutoRedirectRemovalHandlers(modal);
+    
+    // Auto-focus first button
+    setTimeout(() => {
+      document.getElementById('remove-autoredirect-yes')?.focus();
+    }, 100);
+  }
+
+  /**
+   * Set up event handlers for auto-redirect removal modal using unified navigation
+   * @param {HTMLElement} modal
+   */
+  setupAutoRedirectRemovalHandlers(modal) {
+    const yesBtn = document.getElementById('remove-autoredirect-yes');
+    const noBtn = document.getElementById('remove-autoredirect-no');
+
+    // Click handlers
+    yesBtn?.addEventListener('click', () => {
+      this.removeAutoRedirect();
+      modal.remove();
     });
 
-    window.location.href = redirectUrl;
-    return true; // Redirect happening
+    noBtn?.addEventListener('click', () => {
+      modal.remove();
+    });
+
+    // Set up unified modal navigation using the new system
+    const buttons = ['remove-autoredirect-yes', 'remove-autoredirect-no'];
     
-  } catch (error) {
-    logger.error('Error checking for immediate redirect', error);
-    return false; // Don't block normal flow on error
+    this.modalNavigation = createModalNavigation(modal, buttons, {
+      initialFocus: 0, // Focus "Yes, Remove Auto-Redirect" first
+      onEscape: () => modal.remove()
+    });
+
+    logger.debug('Auto-redirect removal modal navigation set up with unified system');
   }
-}
 
+  /**
+   * Remove auto-redirect settings from localStorage
+   */
+  removeAutoRedirect() {
+    logger.info('Removing auto-redirect settings');
+    
+    try {
+      // Remove from dashie-local-settings
+      try {
+        const localSettings = JSON.parse(localStorage.getItem('dashie-local-settings') || '{}');
+        if (localSettings.system) {
+          delete localSettings.system.autoRedirect;
+          delete localSettings.system.activeSite;
+          
+          // If system object is now empty, remove it
+          if (Object.keys(localSettings.system).length === 0) {
+            delete localSettings.system;
+          }
+          
+          localStorage.setItem('dashie-local-settings', JSON.stringify(localSettings));
+          logger.debug('Removed auto-redirect from dashie-local-settings');
+        }
+      } catch (error) {
+        logger.warn('Failed to update dashie-local-settings', error);
+      }
 
-
-/**
- * Get the current site identifier  
- * @returns {string} 'prod', 'dev', or 'other'
- */
-getCurrentSite() {
-  const hostname = window.location.hostname;
-  
-  if (hostname === 'dashieapp.com' || hostname === 'www.dashieapp.com') {
-    return 'prod';
-  } else if (hostname === 'dev.dashieapp.com') {
-    return 'dev';
-  } else {
-    return 'other';
-  }
-}
-
-/**
- * Get the target URL for a given site
- * @param {string} targetSite - 'prod' or 'dev'
- * @returns {string} Target URL
- */
-getTargetUrl(targetSite) {
-  const urls = {
-    prod: 'https://dashieapp.com',
-    dev: 'https://dev.dashieapp.com'
-  };
-  return urls[targetSite];
-}
-
-/**
- * Show modal to remove auto-redirect when ?noredirect=true is present
- */
-showAutoRedirectRemovalModal() {
-  logger.debug('Showing auto-redirect removal modal');
-  
-  // Determine current site and redirect target info
-  const currentSite = this.getCurrentSite();
-  const currentSiteName = currentSite === 'prod' ? 'Production' : 'Development';
-  const targetSite = this.isDevelopmentSite ? 'prod' : 'dev';
-  const targetSiteName = targetSite === 'prod' ? 'Production' : 'Development';
-  const targetUrl = this.getTargetUrl(targetSite);
-  
-  const modal = document.createElement('div');
-  modal.className = 'redirect-modal-backdrop';
-  modal.innerHTML = `
-    <div class="redirect-modal">
-      <h3>Auto-Redirect Disabled</h3>
-      <p>This device is set to automatically redirect from <strong>${currentSiteName}</strong> to:</p>
-      <p><strong>${targetUrl}</strong></p>
-      <p>You've bypassed this with the ?noredirect parameter.</p>
-      <p>Would you like to remove the automatic redirect setting?</p>
+      // Also remove from dashie-settings for compatibility
+      try {
+        const mainSettings = JSON.parse(localStorage.getItem('dashie-settings') || '{}');
+        if (mainSettings.system) {
+          delete mainSettings.system.autoRedirect;
+          delete mainSettings.system.activeSite;
+          
+          // If system object is now empty, remove it
+          if (Object.keys(mainSettings.system).length === 0) {
+            delete mainSettings.system;
+          }
+          
+          localStorage.setItem('dashie-settings', JSON.stringify(mainSettings));
+          logger.debug('Removed auto-redirect from dashie-settings');
+        }
+      } catch (error) {
+        logger.warn('Failed to update dashie-settings', error);
+      }
       
-      <div class="redirect-modal-buttons">
-        <button id="remove-autoredirect-yes" class="redirect-modal-button primary" tabindex="1">
-          Yes, Remove Auto-Redirect
-        </button>
-        
-        <button id="remove-autoredirect-no" class="redirect-modal-button cancel" tabindex="2">
-          No, Keep Setting
-        </button>
-      </div>
-    </div>
-  `;
-  
-  document.body.appendChild(modal);
-  
-  // Set up event handlers
-  this.setupAutoRedirectRemovalHandlers(modal);
-  
-  // Auto-focus first button
-  setTimeout(() => {
-    document.getElementById('remove-autoredirect-yes')?.focus();
-  }, 100);
-}
-
-/**
- * Set up event handlers for auto-redirect removal modal (updated to use unified navigation)
- * @param {HTMLElement} modal
- */
-setupAutoRedirectRemovalHandlers(modal) {
-  const yesBtn = document.getElementById('remove-autoredirect-yes');
-  const noBtn = document.getElementById('remove-autoredirect-no');
-
-  // Click handlers
-  yesBtn?.addEventListener('click', () => {
-    this.removeAutoRedirect();
-    modal.remove();
-  });
-
-  noBtn?.addEventListener('click', () => {
-    modal.remove();
-  });
-
-  // Set up unified modal navigation using the new system
-  const buttons = ['remove-autoredirect-yes', 'remove-autoredirect-no'];
-  
-  this.modalNavigation = createModalNavigation(modal, buttons, {
-    initialFocus: 0, // Focus "Yes, Remove Auto-Redirect" first
-    onEscape: () => modal.remove()
-  });
-
-  logger.debug('Auto-redirect removal modal navigation set up with unified system');
-}
-
-/**
- * Remove auto-redirect settings from localStorage
- */
-removeAutoRedirect() {
-  logger.info('Removing auto-redirect settings');
-  
-  try {
-    // Remove from dashie-local-settings
-    try {
-      const localSettings = JSON.parse(localStorage.getItem('dashie-local-settings') || '{}');
-      if (localSettings.system) {
-        delete localSettings.system.autoRedirect;
-        delete localSettings.system.activeSite;
-        
-        // If system object is now empty, remove it
-        if (Object.keys(localSettings.system).length === 0) {
-          delete localSettings.system;
-        }
-        
-        localStorage.setItem('dashie-local-settings', JSON.stringify(localSettings));
-        logger.debug('Removed auto-redirect from dashie-local-settings');
-      }
+      logger.info('Auto-redirect settings successfully removed');
+      
+      // Show a brief confirmation message
+      this.showAutoRedirectRemovedConfirmation();
+      
     } catch (error) {
-      logger.warn('Failed to update dashie-local-settings', error);
+      logger.error('Failed to remove auto-redirect settings', error);
+      // Could show an error message here if needed
     }
-
-    // Also remove from dashie-settings for compatibility
-    try {
-      const mainSettings = JSON.parse(localStorage.getItem('dashie-settings') || '{}');
-      if (mainSettings.system) {
-        delete mainSettings.system.autoRedirect;
-        delete mainSettings.system.activeSite;
-        
-        // If system object is now empty, remove it
-        if (Object.keys(mainSettings.system).length === 0) {
-          delete mainSettings.system;
-        }
-        
-        localStorage.setItem('dashie-settings', JSON.stringify(mainSettings));
-        logger.debug('Removed auto-redirect from dashie-settings');
-      }
-    } catch (error) {
-      logger.warn('Failed to update dashie-settings', error);
-    }
-    
-    logger.info('Auto-redirect settings successfully removed');
-    
-    // Show a brief confirmation message
-    this.showAutoRedirectRemovedConfirmation();
-    
-  } catch (error) {
-    logger.error('Failed to remove auto-redirect settings', error);
-    // Could show an error message here if needed
   }
-}
 
-/**
- * Show brief confirmation that auto-redirect was removed
- */
-showAutoRedirectRemovedConfirmation() {
-  const confirmation = document.createElement('div');
-  confirmation.className = 'redirect-confirmation';
-  confirmation.innerHTML = `
-    <div class="redirect-confirmation-content">
-      <p>✓ Auto-redirect has been removed</p>
-    </div>
-  `;
-  
-  // Add some basic styling
-  confirmation.style.cssText = `
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 10001;
-    background: #4caf50;
-    color: white;
-    padding: 12px 20px;
-    border-radius: 6px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    font-size: 14px;
-    font-weight: 500;
-  `;
-  
-  document.body.appendChild(confirmation);
-  
-  // Auto-remove after 3 seconds
-  setTimeout(() => {
-    if (confirmation.parentNode) {
-      confirmation.remove();
-    }
-  }, 3000);
-}
+  /**
+   * Show brief confirmation that auto-redirect was removed
+   */
+  showAutoRedirectRemovedConfirmation() {
+    const confirmation = document.createElement('div');
+    confirmation.className = 'redirect-confirmation';
+    confirmation.innerHTML = `
+      <div class="redirect-confirmation-content">
+        <p>✓ Auto-redirect has been removed</p>
+      </div>
+    `;
+    
+    // Add some basic styling
+    confirmation.style.cssText = `
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 10001;
+      background: #4caf50;
+      color: white;
+      padding: 12px 20px;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      font-size: 14px;
+      font-weight: 500;
+    `;
+    
+    document.body.appendChild(confirmation);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+      if (confirmation.parentNode) {
+        confirmation.remove();
+      }
+    }, 3000);
+  }
 }

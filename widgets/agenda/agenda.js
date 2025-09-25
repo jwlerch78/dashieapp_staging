@@ -2,7 +2,7 @@
 // CHANGE SUMMARY: Added event selection mode with right arrow key, keyboard navigation, and modal integration
 
 import { createLogger } from '../../js/utils/logger.js';
-import { AgendaEventModal } from './agenda_event.js';
+//import { AgendaEventModal } from './agenda_event.js';
 
 const logger = createLogger('AgendaWidget');
 
@@ -28,7 +28,7 @@ export class AgendaWidget {
     ]);
 
     // Initialize event modal
-    this.eventModal = new AgendaEventModal();
+    //this.eventModal = new AgendaEventModal();
 
     this.init();
   }

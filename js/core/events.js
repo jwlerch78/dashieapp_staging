@@ -143,13 +143,15 @@ async function handleUnifiedInput(action, originalEvent = null) {
     console.log('Settings system not ready, continuing with normal navigation');
   }
 
-  // NEW: Handle redirect modals
-  if (window.dashieModalManager && window.dashieModalManager.hasActiveModal()) {
-    if (window.dashieModalManager.handleAction(action)) {
-      return; // Modal handled the action
-    }
+if (window.dashieModalManager && window.dashieModalManager.hasActiveModal()) {
+  console.log('🔧 Events.js found active modal, delegating action:', action);
+  if (window.dashieModalManager.handleAction(action)) {
+    console.log('🔧 Modal handled action:', action);
+    return; // Modal handled the action
+  } else {
+    console.log('🔧 Modal did NOT handle action:', action);
   }
-
+}
   
   // Handle exit confirmation dialog
   if (state.confirmDialog) {
