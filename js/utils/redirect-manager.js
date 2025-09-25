@@ -208,17 +208,7 @@ export class RedirectManager {
           fullSettings: localSettings
         });
         
-        // Also update the main settings if they exist (for compatibility)
-        try {
-          const mainSettings = JSON.parse(localStorage.getItem('dashie-settings') || '{}');
-          if (!mainSettings.system) mainSettings.system = {};
-          mainSettings.system.autoRedirect = true;
-          mainSettings.system.activeSite = this.isDevelopmentSite ? 'prod' : 'dev';
-          localStorage.setItem('dashie-settings', JSON.stringify(mainSettings));
-        } catch (error) {
-          logger.warn('Could not update main settings, continuing with local-only', error);
-        }
-        
+       
         // Perform the redirect immediately after saving settings
         const targetUrl = this.isDevelopmentSite 
           ? 'https://dashieapp.com?noredirect=true'
@@ -287,7 +277,7 @@ export class RedirectManager {
       });
     }
   }
-  /**
+ /**
  * Check for immediate redirect using localStorage (from settings system)
  * @returns {boolean} True if redirect happened, false otherwise
  */
@@ -297,10 +287,7 @@ checkRedirectSync() {
     
     // Check for noredirect parameter first
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('noredirect') === 'true') {
-      logger.info('Redirect bypassed due to ?noredirect=true parameter');
-      return false;
-    }
+    const hasNoRedirect = urlParams.get('noredirect') === 'true';
 
     // Get settings from localStorage (same logic as settings system)
     let settings = null;
@@ -316,19 +303,6 @@ checkRedirectSync() {
       logger.warn('Failed to parse dashie-local-settings', e);
     }
 
-    // Fallback to dashie-settings
-    if (!settings) {
-      try {
-        const mainSettings = localStorage.getItem('dashie-settings');
-        if (mainSettings) {
-          settings = JSON.parse(mainSettings);
-          logger.debug('Loaded dashie-settings for redirect check');
-        }
-      } catch (e) {
-        logger.warn('Failed to parse dashie-settings', e);
-      }
-    }
-
     // If no settings, no redirect needed
     if (!settings || !settings.system) {
       logger.debug('No settings found, no redirect needed');
@@ -339,6 +313,19 @@ checkRedirectSync() {
     const autoRedirect = settings.system.autoRedirect;
     const targetSite = settings.system.activeSite || 'prod';
     
+    // If auto-redirect is enabled AND we have noredirect parameter, show removal modal
+    if (autoRedirect && hasNoRedirect) {
+      logger.info('Auto-redirect enabled but noredirect parameter present - showing removal modal');
+      this.showAutoRedirectRemovalModal();
+      return false; // Don't redirect, but show modal
+    }
+
+    // If noredirect parameter is present (but auto-redirect disabled), just bypass
+    if (hasNoRedirect) {
+      logger.info('Redirect bypassed due to ?noredirect=true parameter');
+      return false;
+    }
+
     if (!autoRedirect) {
       logger.debug('Auto-redirect not enabled');
       return false;
@@ -399,6 +386,159 @@ getTargetUrl(targetSite) {
     dev: 'https://dev.dashieapp.com'
   };
   return urls[targetSite];
+}
+
+/**
+ * Show modal to remove auto-redirect when ?noredirect=true is present
+ */
+showAutoRedirectRemovalModal() {
+  logger.debug('Showing auto-redirect removal modal');
+  
+  // Determine current site and redirect target info
+  const currentSite = this.getCurrentSite();
+  const currentSiteName = currentSite === 'prod' ? 'Production' : 'Development';
+  const targetSite = this.isDevelopmentSite ? 'prod' : 'dev';
+  const targetSiteName = targetSite === 'prod' ? 'Production' : 'Development';
+  const targetUrl = this.getTargetUrl(targetSite);
+  
+  const modal = document.createElement('div');
+  modal.className = 'redirect-modal-backdrop';
+  modal.innerHTML = `
+    <div class="redirect-modal">
+      <h3>Auto-Redirect Disabled</h3>
+      <p>This device is set to automatically redirect from <strong>${currentSiteName}</strong> to:</p>
+      <p><strong>${targetUrl}</strong></p>
+      <p>You've bypassed this with the ?noredirect parameter.</p>
+      <p>Would you like to remove the automatic redirect setting?</p>
+      
+      <div class="redirect-modal-buttons">
+        <button id="remove-autoredirect-yes" class="redirect-modal-button primary" tabindex="1">
+          Yes, Remove Auto-Redirect
+        </button>
+        
+        <button id="remove-autoredirect-no" class="redirect-modal-button cancel" tabindex="2">
+          No, Keep Setting
+        </button>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  
+  // Set up event handlers
+  this.setupAutoRedirectRemovalHandlers(modal);
+  
+  // Auto-focus first button
+  setTimeout(() => {
+    document.getElementById('remove-autoredirect-yes')?.focus();
+  }, 100);
+}
+
+/**
+ * Set up event handlers for auto-redirect removal modal
+ * @param {HTMLElement} modal
+ */
+setupAutoRedirectRemovalHandlers(modal) {
+  const yesBtn = document.getElementById('remove-autoredirect-yes');
+  const noBtn = document.getElementById('remove-autoredirect-no');
+
+  // Click handlers
+  yesBtn?.addEventListener('click', () => {
+    this.removeAutoRedirect();
+    modal.remove();
+  });
+
+  noBtn?.addEventListener('click', () => {
+    modal.remove();
+  });
+
+  // Set up modal TV navigation if on TV platform
+  if (this.platform.isTV()) {
+    this.setupModalTVNavigation(modal);
+  }
+
+  // Escape key to close
+  const handleEscape = (e) => {
+    if (e.key === 'Escape') {
+      modal.remove();
+      document.removeEventListener('keydown', handleEscape);
+    }
+  };
+  document.addEventListener('keydown', handleEscape);
+}
+
+/**
+ * Remove auto-redirect settings from localStorage
+ */
+removeAutoRedirect() {
+  logger.info('Removing auto-redirect settings');
+  
+  try {
+    // Remove from dashie-local-settings
+    try {
+      const localSettings = JSON.parse(localStorage.getItem('dashie-local-settings') || '{}');
+      if (localSettings.system) {
+        delete localSettings.system.autoRedirect;
+        delete localSettings.system.activeSite;
+        
+        // If system object is now empty, remove it
+        if (Object.keys(localSettings.system).length === 0) {
+          delete localSettings.system;
+        }
+        
+        localStorage.setItem('dashie-local-settings', JSON.stringify(localSettings));
+        logger.debug('Removed auto-redirect from dashie-local-settings');
+      }
+    } catch (error) {
+      logger.warn('Failed to update dashie-local-settings', error);
+    }
+   
+    logger.info('Auto-redirect settings successfully removed');
+    
+    // Show a brief confirmation message
+    this.showAutoRedirectRemovedConfirmation();
+    
+  } catch (error) {
+    logger.error('Failed to remove auto-redirect settings', error);
+    // Could show an error message here if needed
+  }
+}
+
+/**
+ * Show brief confirmation that auto-redirect was removed
+ */
+showAutoRedirectRemovedConfirmation() {
+  const confirmation = document.createElement('div');
+  confirmation.className = 'redirect-confirmation';
+  confirmation.innerHTML = `
+    <div class="redirect-confirmation-content">
+      <p>✓ Auto-redirect has been removed</p>
+    </div>
+  `;
+  
+  // Add some basic styling
+  confirmation.style.cssText = `
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 10001;
+    background: #4caf50;
+    color: white;
+    padding: 12px 20px;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    font-size: 14px;
+    font-weight: 500;
+  `;
+  
+  document.body.appendChild(confirmation);
+  
+  // Auto-remove after 3 seconds
+  setTimeout(() => {
+    if (confirmation.parentNode) {
+      confirmation.remove();
+    }
+  }, 3000);
 }
 
 
