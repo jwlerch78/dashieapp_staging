@@ -39,16 +39,5 @@
   <!-- Calendar Widget Logic - Handles all theme management internally -->
   <script type="module" src="./calendar.js"></script>
   
-  <script>
-    // Simple widget ready signal - theme handling is done in calendar.js
-    window.addEventListener('load', () => {
-      if (window.parent !== window) {
-        window.parent.postMessage({ 
-          type: 'widget-ready', 
-          widget: 'calendar' 
-        }, '*');
-      }
-    });
-  </script>
 </body>
 </html>

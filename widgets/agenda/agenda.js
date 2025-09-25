@@ -1,5 +1,5 @@
 // widgets/agenda/agenda.js - Agenda Widget Implementation
-// CHANGE SUMMARY: Fixed theme initialization - removed hardcoded theme, added proper initial theme application and early theme detection
+// CHANGE SUMMARY: Added event selection mode with right arrow key, keyboard navigation, and modal integration
 
 import { createLogger } from '../../js/utils/logger.js';
 import { AgendaEventModal } from './agenda_event.js';
@@ -11,9 +11,7 @@ export class AgendaWidget {
     this.calendarData = { events: [], calendars: [], lastUpdated: null };
     this.isDataLoaded = false;
     this.connectionStatus = 'connecting';
-    
-    // FIXED: Don't hardcode theme - detect current theme or use null
-    this.currentTheme = null;
+    this.currentTheme = 'dark';
 
     // Event selection state - now auto-enters selection mode when focused
     this.isFocused = false;
@@ -36,40 +34,12 @@ export class AgendaWidget {
   }
 
   init() {
-    // FIXED: Apply early theme detection from body class or localStorage
-    this.detectAndApplyInitialTheme();
-    
     this.setupEventListeners();
     this.updateConnectionStatus('connecting');
-    logger.info('Agenda widget initialized with proper theme detection');
+    logger.info('Agenda widget initialized');
   }
 
-  // NEW: Detect initial theme from DOM or localStorage
-  detectAndApplyInitialTheme() {
-    let initialTheme = 'dark'; // fallback
 
-    // Try to detect theme from body class (applied by early theme loading)
-    if (document.body.classList.contains('theme-light')) {
-      initialTheme = 'light';
-    } else if (document.body.classList.contains('theme-dark')) {
-      initialTheme = 'dark';
-    } else {
-      // Fallback: try localStorage
-      try {
-        const savedTheme = localStorage.getItem('dashie-theme');
-        if (savedTheme && (savedTheme === 'dark' || savedTheme === 'light')) {
-          initialTheme = savedTheme;
-        }
-      } catch (error) {
-        logger.debug('Could not read theme from localStorage, using default');
-      }
-    }
-
-    // Apply the detected theme immediately
-    this.applyTheme(initialTheme);
-    
-    logger.info('Initial theme detected and applied', { theme: initialTheme });
-  }
 
   setupEventListeners() {
     // Listen for widget-messenger communications
@@ -94,6 +64,13 @@ export class AgendaWidget {
       }
     });
 
+    // Listen for widget focus/blur events from parent
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'widget-focus') {
+        this.handleFocusChange(event.data.focused);
+      }
+    });
+
     // Listen for modal closed event to restore focus
     window.addEventListener('modal-closed', () => {
       if (this.isFocused) {
@@ -111,13 +88,18 @@ export class AgendaWidget {
       return; // Modal handled the command
     }
 
-    // Receiving any command means we're focused - auto-enter selection if not already
-    if (!this.isFocused) {
-      this.handleFocusChange(true);
-    }
-
-    // Handle agenda navigation commands
+    // Handle agenda navigation commands based on focus state
     switch (action) {
+      case 'focus':
+        // Widget gained focus - auto-enter selection mode
+        this.handleFocusChange(true);
+        break;
+
+      case 'blur':
+        // Widget lost focus - clear selection
+        this.handleFocusChange(false);
+        break;
+
       case 'right':
         if (this.isFocused) {
           this.navigateToNextDay();
@@ -149,10 +131,7 @@ export class AgendaWidget {
         break;
 
       case 'back':
-        // Back/escape clears focus (user navigating away from widget)
-        if (this.isFocused) {
-          this.handleFocusChange(false);
-        }
+        // No specific back behavior needed for agenda
         break;
 
       default:
@@ -180,12 +159,8 @@ export class AgendaWidget {
           });
         }
 
-        // FIXED: Always apply theme from widget-update messages (don't compare against potentially wrong currentTheme)
-        if (data.payload?.theme) {
-          logger.info('Applying theme from widget-update', { 
-            incomingTheme: data.payload.theme, 
-            previousTheme: this.currentTheme 
-          });
+        // Handle theme updates
+        if (data.payload?.theme && data.payload.theme !== this.currentTheme) {
           this.applyTheme(data.payload.theme);
         }
         break;
@@ -319,7 +294,7 @@ export class AgendaWidget {
         };
       }
 
-      const isAllDay = !event.start.dateTime;
+      const isAllDay = !!event.start.date;
       if (isAllDay) {
         eventsByDay[dayKey].allDayEvents.push(event);
       } else {
@@ -454,22 +429,11 @@ export class AgendaWidget {
     logger.debug('Connection status updated', { status });
   }
 
-  // FIXED: Enhanced theme application with proper logging
   applyTheme(theme) {
-    const previousTheme = this.currentTheme;
     this.currentTheme = theme;
+    document.body.className = `theme-${theme}`;
     
-    // Remove any existing theme classes
-    document.body.classList.remove('theme-dark', 'theme-light');
-    
-    // Apply new theme class
-    document.body.classList.add(`theme-${theme}`);
-    
-    logger.info('Theme applied successfully', { 
-      theme, 
-      previousTheme,
-      bodyClasses: document.body.className 
-    });
+    logger.info('Theme applied', { theme });
   }
 
   escapeHtml(text) {
@@ -514,10 +478,10 @@ export class AgendaWidget {
       this.updateSelectionHighlight();
       this.scrollToSelectedEvent();
       
-      logger.debug('Selection navigated', { 
+      logger.debug('Navigation selection', { 
         direction, 
-        newIndex, 
-        totalEvents: this.chronologicalEvents.length 
+        newIndex: this.selectedEventIndex,
+        totalEvents: this.chronologicalEvents.length
       });
     }
   }
@@ -528,24 +492,24 @@ export class AgendaWidget {
     const currentEvent = this.chronologicalEvents[this.selectedEventIndex];
     if (!currentEvent) return;
 
-    const currentDate = new Date(currentEvent.start.dateTime || currentEvent.start.date);
-    const currentDateString = currentDate.toDateString();
-
-    // Find the first event of the next day
+    const currentEventDate = new Date(currentEvent.start.dateTime || currentEvent.start.date).toDateString();
+    
+    // Find first event of next day
+    let nextDayIndex = -1;
     for (let i = this.selectedEventIndex + 1; i < this.chronologicalEvents.length; i++) {
-      const event = this.chronologicalEvents[i];
-      const eventDate = new Date(event.start.dateTime || event.start.date);
-      
-      if (eventDate.toDateString() !== currentDateString) {
-        this.selectedEventIndex = i;
-        this.updateSelectionHighlight();
-        this.scrollToSelectedEvent();
-        logger.debug('Navigated to next day', { newIndex: i });
-        return;
+      const eventDate = new Date(this.chronologicalEvents[i].start.dateTime || this.chronologicalEvents[i].start.date).toDateString();
+      if (eventDate !== currentEventDate) {
+        nextDayIndex = i;
+        break;
       }
     }
-    
-    logger.debug('Already at last day');
+
+    if (nextDayIndex >= 0) {
+      this.selectedEventIndex = nextDayIndex;
+      this.updateSelectionHighlight();
+      this.scrollToSelectedEvent();
+      logger.info('Navigated to next day', { newIndex: this.selectedEventIndex });
+    }
   }
 
   navigateToPrevDay() {
@@ -554,52 +518,52 @@ export class AgendaWidget {
     const currentEvent = this.chronologicalEvents[this.selectedEventIndex];
     if (!currentEvent) return;
 
-    const currentDate = new Date(currentEvent.start.dateTime || currentEvent.start.date);
-    const currentDateString = currentDate.toDateString();
-
-    // Find the first event of the previous day (search backwards)
-    for (let i = this.selectedEventIndex - 1; i >= 0; i--) {
-      const event = this.chronologicalEvents[i];
-      const eventDate = new Date(event.start.dateTime || event.start.date);
-      
-      if (eventDate.toDateString() !== currentDateString) {
-        // Found previous day - but go to the FIRST event of that day
-        let firstEventOfDay = i;
-        const targetDateString = eventDate.toDateString();
-        
-        // Scan backwards to find the first event of this day
-        for (let j = i - 1; j >= 0; j--) {
-          const prevEvent = this.chronologicalEvents[j];
-          const prevDate = new Date(prevEvent.start.dateTime || prevEvent.start.date);
-          
-          if (prevDate.toDateString() === targetDateString) {
-            firstEventOfDay = j;
-          } else {
-            break;
-          }
-        }
-        
-        this.selectedEventIndex = firstEventOfDay;
-        this.updateSelectionHighlight();
-        this.scrollToSelectedEvent();
-        logger.debug('Navigated to previous day', { newIndex: firstEventOfDay });
-        return;
-      }
-    }
+    const currentEventDate = new Date(currentEvent.start.dateTime || currentEvent.start.date).toDateString();
     
-    logger.debug('Already at first day');
+    // Find first event of current day
+    let currentDayStart = this.selectedEventIndex;
+    while (currentDayStart > 0) {
+      const prevEventDate = new Date(this.chronologicalEvents[currentDayStart - 1].start.dateTime || this.chronologicalEvents[currentDayStart - 1].start.date).toDateString();
+      if (prevEventDate !== currentEventDate) {
+        break;
+      }
+      currentDayStart--;
+    }
+
+    // If we're already at the first event of current day, go to previous day
+    if (currentDayStart === this.selectedEventIndex && currentDayStart > 0) {
+      // Find first event of previous day
+      const targetDate = new Date(this.chronologicalEvents[currentDayStart - 1].start.dateTime || this.chronologicalEvents[currentDayStart - 1].start.date).toDateString();
+      
+      for (let i = currentDayStart - 1; i >= 0; i--) {
+        const eventDate = new Date(this.chronologicalEvents[i].start.dateTime || this.chronologicalEvents[i].start.date).toDateString();
+        if (eventDate === targetDate) {
+          this.selectedEventIndex = i;
+        } else {
+          break;
+        }
+      }
+    } else {
+      // Go to first event of current day
+      this.selectedEventIndex = currentDayStart;
+    }
+
+    this.updateSelectionHighlight();
+    this.scrollToSelectedEvent();
+    logger.info('Navigated to previous day', { newIndex: this.selectedEventIndex });
   }
 
   updateSelectionHighlight() {
-    // Clear all highlights
+    // Clear previous highlights
     this.clearSelectionHighlight();
 
-    // Highlight selected event
-    if (this.selectedEventIndex >= 0 && this.selectedEventIndex < this.eventElements.length) {
-      const eventElement = this.eventElements[this.selectedEventIndex];
+    if (this.isFocused && this.selectedEventIndex >= 0 && this.selectedEventIndex < this.chronologicalEvents.length) {
+      const selectedEvent = this.chronologicalEvents[this.selectedEventIndex];
+      const eventElement = this.findEventElementById(selectedEvent.id);
+      
       if (eventElement) {
         eventElement.classList.add('selected');
-        // Apply selection styling that matches navigation colors
+        // Use the same highlight styling as the main navigation system
         eventElement.style.background = 'var(--text-muted)';
         eventElement.style.borderRadius = '4px';
         eventElement.style.padding = '2px 4px';

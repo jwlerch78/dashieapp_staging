@@ -201,16 +201,5 @@
   <!-- Agenda Widget Logic -->
   <script type="module" src="./agenda.js"></script>
   
-  <script>
-    // Widget ready signal
-    window.addEventListener('load', () => {
-      if (window.parent !== window) {
-        window.parent.postMessage({ 
-          type: 'widget-ready', 
-          widget: 'agenda' 
-        }, '*');
-      }
-    });
-  </script>
 </body>
 </html>
