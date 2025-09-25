@@ -142,6 +142,14 @@ async function handleUnifiedInput(action, originalEvent = null) {
     // Settings module not loaded yet, continue
     console.log('Settings system not ready, continuing with normal navigation');
   }
+
+  // NEW: Handle redirect modals
+  if (window.dashieModalManager && window.dashieModalManager.hasActiveModal()) {
+    if (window.dashieModalManager.handleAction(action)) {
+      return; // Modal handled the action
+    }
+  }
+
   
   // Handle exit confirmation dialog
   if (state.confirmDialog) {

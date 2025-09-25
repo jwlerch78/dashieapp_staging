@@ -305,6 +305,19 @@ checkRedirectSync() {
       logger.warn('Failed to parse dashie-local-settings', e);
     }
 
+    // Fallback to dashie-settings
+    if (!settings) {
+      try {
+        const mainSettings = localStorage.getItem('dashie-settings');
+        if (mainSettings) {
+          settings = JSON.parse(mainSettings);
+          logger.debug('Loaded dashie-settings for redirect check');
+        }
+      } catch (e) {
+        logger.warn('Failed to parse dashie-settings', e);
+      }
+    }
+
     // If no settings, no redirect needed
     if (!settings || !settings.system) {
       logger.debug('No settings found, no redirect needed');
@@ -360,6 +373,7 @@ checkRedirectSync() {
     return false; // Don't block normal flow on error
   }
 }
+
 
 
 /**
@@ -438,7 +452,7 @@ showAutoRedirectRemovalModal() {
 }
 
 /**
- * Set up event handlers for auto-redirect removal modal
+ * Set up event handlers for auto-redirect removal modal (updated to use unified navigation)
  * @param {HTMLElement} modal
  */
 setupAutoRedirectRemovalHandlers(modal) {
@@ -456,12 +470,9 @@ setupAutoRedirectRemovalHandlers(modal) {
   });
 
   // Set up unified modal navigation using the new system
-  const buttons = [
-    { id: 'remove-autoredirect-yes', action: 'yes' },
-    { id: 'remove-autoredirect-no', action: 'no' }
-  ];
-
-  this.modalNavigation = createRedirectModalNavigation(modal, buttons, {
+  const buttons = ['remove-autoredirect-yes', 'remove-autoredirect-no'];
+  
+  this.modalNavigation = createModalNavigation(modal, buttons, {
     initialFocus: 0, // Focus "Yes, Remove Auto-Redirect" first
     onEscape: () => modal.remove()
   });

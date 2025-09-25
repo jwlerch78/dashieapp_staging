@@ -1,117 +1,49 @@
-// js/utils/modal-navigation-manager.js - Unified Modal Navigation System
-// CHANGE SUMMARY: New modal navigation manager that integrates with existing events.js system for consistent d-pad/keyboard navigation
+// js/utils/modal-navigation-manager.js - Global Modal Navigation System
+// CHANGE SUMMARY: Redesigned to integrate with events.js priority system as global singleton
 
 import { createLogger } from './logger.js';
 
 const logger = createLogger('ModalNavigationManager');
 
 /**
- * Unified Modal Navigation Manager
- * Integrates with existing events.js system for consistent navigation across all modals
+ * Global Modal Navigation Manager - Singleton that integrates with events.js
+ * Handles navigation for any active modal and plugs into the priority system
  */
-export class ModalNavigationManager {
-  constructor(modal, config) {
-    this.modal = modal;
-    this.config = config;
+class ModalNavigationManager {
+  constructor() {
+    this.activeModal = null;
+    this.config = null;
     this.focusableElements = [];
     this.currentIndex = 0;
-    this.isActive = false;
     
-    // Bind methods to maintain context
-    this.handleKeydown = this.handleKeydown.bind(this);
-    this.cleanup = this.cleanup.bind(this);
-    
-    this.initialize();
+    logger.debug('Global modal navigation manager initialized');
   }
 
-  initialize() {
-    logger.debug('Initializing modal navigation', {
-      modalClass: this.modal.className,
-      config: this.config
-    });
+  /**
+   * Check if there's an active modal (called by events.js)
+   */
+  hasActiveModal() {
+    return this.activeModal !== null && this.activeModal.parentNode !== null;
+  }
 
-    // Find all focusable elements in the modal
-    this.updateFocusableElements();
-    
-    // Set initial focus
-    if (this.focusableElements.length > 0) {
-      this.currentIndex = this.config.initialFocus || 0;
-      this.updateFocus();
+  /**
+   * Handle navigation action from events.js unified input system
+   * @param {string} action - Normalized action from events.js ("up", "down", "enter", "escape")
+   * @returns {boolean} True if action was handled, false if should continue to next priority
+   */
+  handleAction(action) {
+    if (!this.hasActiveModal()) {
+      logger.warn('handleAction called but no active modal');
+      return false;
     }
 
-    // Set up high-priority event capture (same pattern as settings)
-    document.addEventListener('keydown', this.handleKeydown, true);
-    
-    // Set up cleanup when modal is removed
-    this.setupCleanupObserver();
-    
-    this.isActive = true;
-    logger.debug('Modal navigation initialized', {
-      focusableCount: this.focusableElements.length,
-      initialIndex: this.currentIndex
-    });
-  }
-
-  updateFocusableElements() {
-    // Get all buttons defined in config
-    this.focusableElements = this.config.buttons
-      .map(buttonConfig => this.modal.querySelector(`#${buttonConfig.id}`))
-      .filter(button => button !== null);
-
-    logger.debug('Updated focusable elements', {
-      count: this.focusableElements.length,
-      ids: this.focusableElements.map(el => el.id)
-    });
-  }
-
-  handleKeydown(event) {
-    // Only handle if this modal is active
-    if (!this.isActive || !this.modal.parentNode) {
-      return;
-    }
-
-    // Convert keyboard event to action (using same logic as events.js)
-    const action = this.getActionFromKeyboardEvent(event);
-    if (!action) return;
-
-    logger.debug('Modal navigation key', {
-      key: event.key,
-      action: action,
+    logger.debug('Modal handling action', {
+      action,
       currentIndex: this.currentIndex,
-      totalElements: this.focusableElements.length
+      totalElements: this.focusableElements.length,
+      focusedElementId: this.focusableElements[this.currentIndex]?.id
     });
 
-    // Handle the action
-    if (this.handleNavigationAction(action)) {
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-    }
-  }
-
-  getActionFromKeyboardEvent(event) {
-    // Same mapping as events.js for consistency
-    const keyMap = {
-      "ArrowUp": "up",
-      "ArrowDown": "down",
-      "ArrowLeft": "left", 
-      "ArrowRight": "right",
-      "Enter": "enter",
-      "Escape": "escape",
-      "Backspace": "escape"
-    };
-    
-    // Also handle Fire TV specific keys
-    const codeMap = {
-      8: "escape",    // Backspace
-      27: "escape",   // Escape
-      461: "escape"   // Fire TV Back button
-    };
-
-    return keyMap[event.key] || codeMap[event.keyCode] || null;
-  }
-
-  handleNavigationAction(action) {
     switch (action) {
       case "up":
         this.moveFocus(-1);
@@ -121,26 +53,86 @@ export class ModalNavigationManager {
         return true;
       case "left":
         // For horizontal layouts, treat left/right as up/down
-        if (this.config.horizontalNavigation) {
+        if (this.config && this.config.horizontalNavigation) {
           this.moveFocus(-1);
           return true;
         }
-        break;
+        return false; // Let other systems handle if not horizontal
       case "right":
         // For horizontal layouts, treat left/right as up/down  
-        if (this.config.horizontalNavigation) {
+        if (this.config && this.config.horizontalNavigation) {
           this.moveFocus(1);
           return true;
         }
-        break;
+        return false; // Let other systems handle if not horizontal
       case "enter":
         this.activateCurrentElement();
         return true;
       case "escape":
         this.handleEscape();
         return true;
+      default:
+        // Unknown action, let other systems handle
+        return false;
     }
-    return false;
+  }
+
+  /**
+   * Register a modal with the navigation system
+   * @param {HTMLElement} modal - The modal element
+   * @param {Object} config - Modal configuration
+   */
+  registerModal(modal, config) {
+    logger.debug('Registering modal', {
+      modalClass: modal.className,
+      buttonsCount: config.buttons.length
+    });
+
+    // Store modal and config
+    this.activeModal = modal;
+    this.config = config;
+
+    // Find all focusable elements
+    this.updateFocusableElements();
+
+    // Set initial focus
+    if (this.focusableElements.length > 0) {
+      this.currentIndex = this.config.initialFocus || 0;
+      this.updateFocus();
+    }
+
+    // Set up cleanup when modal is removed
+    this.setupCleanupObserver();
+
+    logger.debug('Modal registered successfully', {
+      focusableCount: this.focusableElements.length,
+      initialIndex: this.currentIndex
+    });
+  }
+
+  /**
+   * Manually unregister the current modal
+   */
+  unregisterModal() {
+    logger.debug('Unregistering modal');
+    this.activeModal = null;
+    this.config = null;
+    this.focusableElements = [];
+    this.currentIndex = 0;
+  }
+
+  updateFocusableElements() {
+    if (!this.activeModal || !this.config) return;
+
+    // Get all buttons defined in config
+    this.focusableElements = this.config.buttons
+      .map(buttonConfig => this.activeModal.querySelector(`#${buttonConfig.id}`))
+      .filter(button => button !== null);
+
+    logger.debug('Updated focusable elements', {
+      count: this.focusableElements.length,
+      ids: this.focusableElements.map(el => el.id)
+    });
   }
 
   moveFocus(direction) {
@@ -199,22 +191,27 @@ export class ModalNavigationManager {
   handleEscape() {
     logger.debug('Escape pressed in modal');
     
-    if (this.config.onEscape) {
+    if (this.config && this.config.onEscape) {
       this.config.onEscape();
     } else {
       // Default: close modal
-      this.modal.remove();
+      if (this.activeModal) {
+        this.activeModal.remove();
+      }
     }
   }
 
   setupCleanupObserver() {
-    // Clean up when modal is removed (same pattern as existing code)
+    if (!this.activeModal) return;
+
+    // Clean up when modal is removed
     const observer = new MutationObserver((mutations) => {
       mutations.forEach((mutation) => {
         mutation.removedNodes.forEach((node) => {
-          if (node === this.modal) {
-            this.cleanup();
+          if (node === this.activeModal) {
+            this.unregisterModal();
             observer.disconnect();
+            logger.debug('Modal auto-unregistered after removal');
           }
         });
       });
@@ -222,36 +219,47 @@ export class ModalNavigationManager {
     
     observer.observe(document.body, { childList: true });
   }
-
-  cleanup() {
-    logger.debug('Cleaning up modal navigation');
-    
-    this.isActive = false;
-    document.removeEventListener('keydown', this.handleKeydown, true);
-    
-    logger.debug('Modal navigation cleaned up');
-  }
-
-  // Public method to manually cleanup
-  destroy() {
-    this.cleanup();
-  }
 }
 
+// Create global singleton instance
+const globalModalManager = new ModalNavigationManager();
+
+// Expose to window for events.js integration
+window.dashieModalManager = globalModalManager;
+
 /**
- * Helper function to create modal navigation for redirect-style modals
+ * Helper function to create modal navigation for any simple modal
  * @param {HTMLElement} modal - The modal element
- * @param {Array} buttons - Array of button configs [{id, action}]
+ * @param {Array} buttons - Array of button configs [{id}] or just button IDs as strings
  * @param {Object} options - Additional options
  */
-export function createRedirectModalNavigation(modal, buttons, options = {}) {
+export function createModalNavigation(modal, buttons, options = {}) {
+  // Normalize buttons array - handle both [{id: 'btn1'}] and ['btn1', 'btn2'] formats
+  const normalizedButtons = buttons.map(button => 
+    typeof button === 'string' ? { id: button } : button
+  );
+
   const config = {
-    buttons: buttons,
-    initialFocus: 0,
-    horizontalNavigation: false,
+    buttons: normalizedButtons,
+    initialFocus: options.initialFocus || 0,
+    horizontalNavigation: options.horizontalNavigation || false,
     onEscape: options.onEscape || (() => modal.remove()),
     ...options
   };
 
-  return new ModalNavigationManager(modal, config);
+  // Register with global manager
+  globalModalManager.registerModal(modal, config);
+
+  // Return a cleanup function
+  return {
+    destroy: () => globalModalManager.unregisterModal()
+  };
 }
+
+// Keep the old name for backward compatibility, but it just calls the new one
+export function createRedirectModalNavigation(modal, buttons, options = {}) {
+  return createModalNavigation(modal, buttons, options);
+}
+
+// Also export the global manager for direct access if needed
+export { globalModalManager };

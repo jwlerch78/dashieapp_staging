@@ -207,7 +207,6 @@ export class SettingsControllerCore {
         members: []
       },
       system: {
-        activeSite: defaultSite,
         refreshInterval: 30
         // NOTE: autoRedirect and debugMode will come from localStorage
       },
