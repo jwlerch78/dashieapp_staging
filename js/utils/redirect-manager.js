@@ -277,7 +277,7 @@ export class RedirectManager {
       });
     }
   }
- /**
+/**
  * Check for immediate redirect using localStorage (from settings system)
  * @returns {boolean} True if redirect happened, false otherwise
  */
@@ -301,6 +301,19 @@ checkRedirectSync() {
       }
     } catch (e) {
       logger.warn('Failed to parse dashie-local-settings', e);
+    }
+
+    // Fallback to dashie-settings
+    if (!settings) {
+      try {
+        const mainSettings = localStorage.getItem('dashie-settings');
+        if (mainSettings) {
+          settings = JSON.parse(mainSettings);
+          logger.debug('Loaded dashie-settings for redirect check');
+        }
+      } catch (e) {
+        logger.warn('Failed to parse dashie-settings', e);
+      }
     }
 
     // If no settings, no redirect needed
@@ -358,6 +371,7 @@ checkRedirectSync() {
     return false; // Don't block normal flow on error
   }
 }
+
 
 /**
  * Get the current site identifier  
@@ -492,7 +506,26 @@ removeAutoRedirect() {
     } catch (error) {
       logger.warn('Failed to update dashie-local-settings', error);
     }
-   
+
+    // Also remove from dashie-settings for compatibility
+    try {
+      const mainSettings = JSON.parse(localStorage.getItem('dashie-settings') || '{}');
+      if (mainSettings.system) {
+        delete mainSettings.system.autoRedirect;
+        delete mainSettings.system.activeSite;
+        
+        // If system object is now empty, remove it
+        if (Object.keys(mainSettings.system).length === 0) {
+          delete mainSettings.system;
+        }
+        
+        localStorage.setItem('dashie-settings', JSON.stringify(mainSettings));
+        logger.debug('Removed auto-redirect from dashie-settings');
+      }
+    } catch (error) {
+      logger.warn('Failed to update dashie-settings', error);
+    }
+    
     logger.info('Auto-redirect settings successfully removed');
     
     // Show a brief confirmation message
@@ -540,6 +573,4 @@ showAutoRedirectRemovedConfirmation() {
     }
   }, 3000);
 }
-
-
 }
