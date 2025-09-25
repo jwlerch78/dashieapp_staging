@@ -186,8 +186,6 @@ export class SettingsControllerCore {
   // Default settings with proper user email and system settings
   getDefaultSettings(userEmail = 'unknown@example.com') {
     // Detect current site for default
-    const currentSite = this.detectCurrentSite();
-    const defaultSite = currentSite !== 'other' ? currentSite : 'prod';
     
     return {
       photos: {

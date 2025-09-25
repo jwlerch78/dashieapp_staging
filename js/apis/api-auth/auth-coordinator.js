@@ -8,6 +8,8 @@ import { events, EVENTS } from '../../utils/event-emitter.js';
 import { WebOAuthProvider } from './providers/web-oauth.js';
 import { DeviceFlowProvider } from './providers/device-flow.js';
 import { NativeAndroidProvider } from './providers/native-android.js';
+import { RedirectManager } from '../../utils/redirect-manager.js';
+
 
 const logger = createLogger('AuthCoordinator');
 
@@ -20,6 +22,8 @@ export class AuthCoordinator {
     this.storage = authStorage;
     this.ui = authUI;
     this.platform = getPlatformDetector();
+    this.redirectManager = new RedirectManager();
+
     
     // Auth state
     this.currentUser = null;
@@ -86,6 +90,13 @@ export class AuthCoordinator {
     logger.info('Initializing authentication system');
     
     try {
+
+      const redirectHappened = this.redirectManager.checkRedirectSync();
+      if (redirectHappened) {
+        logger.info('Redirect initiated, stopping auth initialization');
+        return { success: true, redirected: true, message: 'Redirecting to target site...' };
+      }
+
       // Check for existing authentication first
       await this.checkExistingAuth();
       

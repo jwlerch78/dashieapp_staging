@@ -1,8 +1,9 @@
-// js/apis/api-auth/auth-ui.js - Authentication UI Management (Environment Detection & Bidirectional Site Redirect)
-// CHANGE SUMMARY: Combined site/platform text, increased font sizes, fixed Always Redirect localStorage issue with enhanced error handling and dual storage
+// js/apis/api-auth/auth-ui.js - Authentication UI Management (Minimal Update - Just Extract Redirect)
+// CHANGE SUMMARY: Only changed redirect-related methods to use redirect-manager.js. Everything else identical to original.
 
 import { createLogger } from '../../utils/logger.js';
 import { getPlatformDetector } from '../../utils/platform-detector.js';
+import { RedirectManager } from '../../utils/redirect-manager.js';
 
 const logger = createLogger('AuthUI');
 
@@ -14,6 +15,7 @@ export class AuthUI {
   constructor() {
     this.platform = getPlatformDetector();
     this.isDevelopmentSite = this.detectDevelopmentEnvironment();
+    this.redirectManager = new RedirectManager(); // NEW: Add redirect manager
     
     logger.debug('Auth UI initialized', {
       platform: this.platform.platform,
@@ -112,22 +114,11 @@ export class AuthUI {
   }
 
   /**
-   * Get environment-specific footer HTML
+   * Get environment-specific footer HTML - UPDATED: Use redirect manager
    * @returns {string}
    */
   getEnvironmentFooterHTML() {
-    if (this.isDevelopmentSite) {
-      return `
-        <p>Logging into Dev Site &nbsp;&nbsp;|&nbsp;&nbsp; ${this.getPlatformDisplayName()}</p>
-        <p><a href="#" id="site-switch-link" class="prod-site-link" tabindex="3">Go to production site</a></p>
-      `;
-    } else {
-      // Production site - show dev link
-      return `
-        <p>Logging into Production Site &nbsp;&nbsp;|&nbsp;&nbsp; ${this.getPlatformDisplayName()}</p>
-        <p><a href="#" id="site-switch-link" class="prod-site-link" tabindex="3">Go to development site</a></p>
-      `;
-    }
+    return this.redirectManager.getEnvironmentFooterHTML();
   }
 
   /**
@@ -230,23 +221,8 @@ export class AuthUI {
       }
     }
 
-    // Site switch link setup (for both dev and prod sites)
-    const siteLink = document.getElementById('site-switch-link');
-    if (siteLink) {
-      siteLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        this.showRedirectModal();
-      });
-      
-      siteLink.addEventListener('keydown', (e) => {
-        logger.debug('Site switch link keydown', { keyCode: e.keyCode, key: e.key });
-        if (e.keyCode === 13 || e.keyCode === 23 || e.key === 'Enter') {
-          e.preventDefault();
-          e.stopPropagation();
-          this.showRedirectModal();
-        }
-      });
-    }
+    // Site switch link setup - UPDATED: Use redirect manager
+    this.redirectManager.setupSiteSwitchLink();
 
     // Add global keydown handler for Fire TV navigation
     if (isFireTV) {
@@ -380,210 +356,31 @@ export class AuthUI {
   }
 
   /**
-   * Show redirect confirmation modal
+   * Show redirect confirmation modal - UPDATED: Use redirect manager
    */
   showRedirectModal() {
-    logger.debug('Showing redirect modal');
-    
-    // Determine target site and messaging
-    const targetSite = this.isDevelopmentSite ? 'production' : 'development';
-    const targetUrl = this.isDevelopmentSite ? 'https://dashieapp.com' : 'https://dev.dashieapp.com';
-    
-    const modal = document.createElement('div');
-    modal.className = 'redirect-modal-backdrop';
-    modal.innerHTML = `
-      <div class="redirect-modal">
-        <h3>Switch to ${targetSite.charAt(0).toUpperCase() + targetSite.slice(1)} Site?</h3>
-        <p>You are about to switch to the ${targetSite} site:</p>
-        <p><strong>${targetUrl}</strong></p>
-        <p>Do you want to continue?</p>
-        
-        <div class="redirect-modal-buttons">
-          <button id="redirect-yes" class="redirect-modal-button primary" tabindex="1">
-            Yes
-          </button>
-          
-          <button id="redirect-cancel" class="redirect-modal-button cancel" tabindex="2">
-            Cancel
-          </button>
-        </div>
-        
-        <div class="redirect-modal-divider"></div>
-        
-        <div class="redirect-modal-always-section">
-          <button id="redirect-always" class="redirect-modal-button secondary" tabindex="3">
-            Always Redirect
-          </button>
-        </div>
-      </div>
-    `;
-    
-    document.body.appendChild(modal);
-    
-    // Set up event handlers
-    this.setupRedirectModalHandlers(modal);
-    
-    // Auto-focus first button
-    setTimeout(() => {
-      document.getElementById('redirect-yes')?.focus();
-    }, 100);
+    this.redirectManager.showRedirectModal();
   }
 
   /**
-   * Set up redirect modal event handlers
-   * @param {HTMLElement} modal
+   * Set up redirect modal event handlers - REMOVED: Now in redirect manager
    */
   setupRedirectModalHandlers(modal) {
-    const yesBtn = document.getElementById('redirect-yes');
-    const cancelBtn = document.getElementById('redirect-cancel');
-    const alwaysBtn = document.getElementById('redirect-always');
-
-    // Click handlers
-    yesBtn?.addEventListener('click', () => {
-      this.handleRedirectChoice('yes');
-      modal.remove();
-    });
-
-    cancelBtn?.addEventListener('click', () => {
-      modal.remove();
-    });
-
-    alwaysBtn?.addEventListener('click', () => {
-      this.handleRedirectChoice('always');
-      modal.remove();
-    });
-
-    // Set up modal TV navigation
-    if (this.platform.isTV()) {
-      this.setupModalTVNavigation(modal);
-    }
-
-    // Escape key to close
-    const handleEscape = (e) => {
-      if (e.key === 'Escape') {
-        modal.remove();
-        document.removeEventListener('keydown', handleEscape);
-      }
-    };
-    document.addEventListener('keydown', handleEscape);
+    // This method is now handled by redirect manager
   }
 
   /**
-   * Set up TV navigation for redirect modal
-   * @param {HTMLElement} modal
+   * Set up TV navigation for redirect modal - REMOVED: Now in redirect manager
    */
   setupModalTVNavigation(modal) {
-    const handleModalNavigation = (e) => {
-      const buttons = modal.querySelectorAll('.redirect-modal-button');
-      const focusedElement = document.activeElement;
-      const currentIndex = Array.from(buttons).findIndex(btn => btn === focusedElement);
-      
-      switch (e.keyCode) {
-        case 40: // D-pad down
-          e.preventDefault();
-          const nextIndex = (currentIndex + 1) % buttons.length;
-          buttons[nextIndex]?.focus();
-          break;
-          
-        case 38: // D-pad up
-          e.preventDefault();
-          const prevIndex = currentIndex <= 0 ? buttons.length - 1 : currentIndex - 1;
-          buttons[prevIndex]?.focus();
-          break;
-          
-        case 13: // Enter
-        case 23: // Fire TV Select
-          e.preventDefault();
-          focusedElement?.click();
-          break;
-      }
-    };
-    
-    document.addEventListener('keydown', handleModalNavigation, true);
-    
-    // Clean up when modal is removed
-    const observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        mutation.removedNodes.forEach((node) => {
-          if (node === modal) {
-            document.removeEventListener('keydown', handleModalNavigation, true);
-            observer.disconnect();
-          }
-        });
-      });
-    });
-    
-    observer.observe(document.body, { childList: true });
+    // This method is now handled by redirect manager
   }
 
   /**
-   * Handle redirect choice and execute
-   * @param {string} choice - 'yes', 'always', or 'cancel'
+   * Handle redirect choice and execute - REMOVED: Now in redirect manager
    */
   async handleRedirectChoice(choice) {
-    logger.info('Redirect choice made', { choice });
-
-    if (choice === 'yes') {
-      // Determine target URL based on current environment
-      const targetUrl = this.isDevelopmentSite 
-        ? 'https://dashieapp.com?noredirect=true'
-        : 'https://dev.dashieapp.com?noredirect=true';
-      
-      // Perform redirect with noredirect parameter to prevent infinite loops
-      window.location.href = targetUrl;
-    } else if (choice === 'always') {
-      // Update local settings to enable auto-redirect
-      try {
-        // Get existing local settings or create empty object
-        const localSettings = JSON.parse(localStorage.getItem('dashie-local-settings') || '{}');
-        
-        // Ensure system object exists
-        if (!localSettings.system) {
-          localSettings.system = {};
-        }
-        
-        // Set auto-redirect preferences
-        localSettings.system.autoRedirect = true;
-        localSettings.system.activeSite = this.isDevelopmentSite ? 'prod' : 'dev';
-        
-        // Save to localStorage with the correct key that matches your settings system
-        localStorage.setItem('dashie-local-settings', JSON.stringify(localSettings));
-        
-        logger.info('Auto-redirect enabled in dashie-local-settings', { 
-          targetSite: localSettings.system.activeSite,
-          autoRedirect: localSettings.system.autoRedirect,
-          fullSettings: localSettings
-        });
-        
-        // Also update the main settings if they exist (for compatibility)
-        try {
-          const mainSettings = JSON.parse(localStorage.getItem('dashie-settings') || '{}');
-          if (!mainSettings.system) mainSettings.system = {};
-          mainSettings.system.autoRedirect = true;
-          mainSettings.system.activeSite = this.isDevelopmentSite ? 'prod' : 'dev';
-          localStorage.setItem('dashie-settings', JSON.stringify(mainSettings));
-        } catch (error) {
-          logger.warn('Could not update main settings, continuing with local-only', error);
-        }
-        
-        // Perform the redirect immediately after saving settings
-        const targetUrl = this.isDevelopmentSite 
-          ? 'https://dashieapp.com?noredirect=true'
-          : 'https://dev.dashieapp.com?noredirect=true';
-        
-        window.location.href = targetUrl;
-      } catch (error) {
-        logger.error('Failed to save auto-redirect setting', error);
-        
-        // Fall back to just redirecting once
-        const targetUrl = this.isDevelopmentSite 
-          ? 'https://dashieapp.com?noredirect=true'
-          : 'https://dev.dashieapp.com?noredirect=true';
-        
-        window.location.href = targetUrl;
-      }
-    }
-    // For cancel, just close modal (already handled in setupRedirectModalHandlers)
+    // This method is now handled by redirect manager
   }
 
   /**

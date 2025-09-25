@@ -1,0 +1,141 @@
+/* css/components/redirect-modal.css - Redirect Modal Styling */
+/* CHANGE SUMMARY: Extracted redirect modal styles from auth-ui.css into dedicated file for better organization */
+
+/* Redirect modal styling */
+.redirect-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.redirect-modal {
+  background: #FCFCFF;
+  border-radius: 12px;
+  padding: 30px;
+  max-width: 450px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  color: #424242;
+}
+
+.redirect-modal h3 {
+  color: #424242;
+  margin: 0 0 15px 0;
+  font-size: 24px;
+  font-weight: bold;
+}
+
+.redirect-modal p {
+  color: #616161;
+  margin: 0 0 15px 0;
+  font-size: 16px;
+  line-height: 1.4;
+}
+
+.redirect-modal-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 25px;
+}
+
+.redirect-modal-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 20px;
+  border: 1px solid #dadce0;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.redirect-modal-button.primary {
+  background: #1a73e8;
+  color: white;
+  border: 1px solid #1a73e8;
+}
+
+.redirect-modal-button.primary:hover,
+.redirect-modal-button.primary:focus {
+  background: #1557b0;
+  border: 1px solid #1557b0;
+  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
+}
+
+.redirect-modal-button.secondary {
+  background: white;
+  color: #5f6368;
+  border: 1px solid #dadce0;
+}
+
+.redirect-modal-button.secondary:hover,
+.redirect-modal-button.secondary:focus {
+  background: #f8f9fa;
+  border: 1px solid #bdc1c6;
+}
+
+.redirect-modal-button.cancel {
+  background: #f8f9fa;
+  color: #424242;
+  border: 1px solid #dadce0;
+}
+
+.redirect-modal-button.cancel:hover,
+.redirect-modal-button.cancel:focus {
+  background: #e8eaed;
+  border: 1px solid #bdc1c6;
+}
+
+/* TV focus for redirect modal buttons */
+.redirect-modal-button:focus {
+  outline: 3px solid #ffaa00 !important;
+  outline-offset: 2px;
+  transform: scale(1.02) !important;
+  box-shadow: 0 0 15px rgba(255, 170, 0, 0.5) !important;
+}
+
+/* Divider and Always section */
+.redirect-modal-divider {
+  margin: 20px 0;
+  height: 1px;
+  background: #e0e0e0;
+}
+
+.redirect-modal-always-section {
+  margin-top: 15px;
+}
+
+/* Loading indicator for success state */
+.loading-indicator {
+  margin-top: 20px;
+}
+
+.spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #1a73e8;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
