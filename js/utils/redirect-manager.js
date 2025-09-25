@@ -3,6 +3,7 @@
 
 import { createLogger } from './logger.js';
 import { getPlatformDetector } from './platform-detector.js';
+import { createRedirectModalNavigation } from './modal-navigation-manager.js';
 
 const logger = createLogger('RedirectManager');
 
@@ -277,6 +278,7 @@ export class RedirectManager {
       });
     }
   }
+
 /**
  * Check for immediate redirect using localStorage (from settings system)
  * @returns {boolean} True if redirect happened, false otherwise
@@ -301,19 +303,6 @@ checkRedirectSync() {
       }
     } catch (e) {
       logger.warn('Failed to parse dashie-local-settings', e);
-    }
-
-    // Fallback to dashie-settings
-    if (!settings) {
-      try {
-        const mainSettings = localStorage.getItem('dashie-settings');
-        if (mainSettings) {
-          settings = JSON.parse(mainSettings);
-          logger.debug('Loaded dashie-settings for redirect check');
-        }
-      } catch (e) {
-        logger.warn('Failed to parse dashie-settings', e);
-      }
     }
 
     // If no settings, no redirect needed
@@ -466,19 +455,18 @@ setupAutoRedirectRemovalHandlers(modal) {
     modal.remove();
   });
 
-  // Set up modal TV navigation if on TV platform
-  if (this.platform.isTV()) {
-    this.setupModalTVNavigation(modal);
-  }
+  // Set up unified modal navigation using the new system
+  const buttons = [
+    { id: 'remove-autoredirect-yes', action: 'yes' },
+    { id: 'remove-autoredirect-no', action: 'no' }
+  ];
 
-  // Escape key to close
-  const handleEscape = (e) => {
-    if (e.key === 'Escape') {
-      modal.remove();
-      document.removeEventListener('keydown', handleEscape);
-    }
-  };
-  document.addEventListener('keydown', handleEscape);
+  this.modalNavigation = createRedirectModalNavigation(modal, buttons, {
+    initialFocus: 0, // Focus "Yes, Remove Auto-Redirect" first
+    onEscape: () => modal.remove()
+  });
+
+  logger.debug('Auto-redirect removal modal navigation set up with unified system');
 }
 
 /**
