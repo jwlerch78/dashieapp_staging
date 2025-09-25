@@ -1,5 +1,5 @@
-// js/apis/api-auth/auth-ui.js - Authentication UI Management (Environment Detection & Site Redirect)
-// CHANGE SUMMARY: Added environment detection with subtle dev site indicator, production site link, simplified redirect modal (Yes/Cancel only), updated layout with privacy/platform info below buttons
+// js/apis/api-auth/auth-ui.js - Authentication UI Management (Environment Detection & Bidirectional Site Redirect)
+// CHANGE SUMMARY: Combined site/platform text, increased font sizes, fixed Always Redirect localStorage issue with enhanced error handling and dual storage
 
 import { createLogger } from '../../utils/logger.js';
 import { getPlatformDetector } from '../../utils/platform-detector.js';
@@ -79,12 +79,15 @@ export class AuthUI {
           ` : ''}
           
           <p class="privacy-notice">Your data stays private and secure</p>
-          <p class="platform-notice">Running on ${this.getPlatformDisplayName()}</p>
         </div>
         
         <div class="sign-in-footer">
-          ${this.getEnvironmentFooterHTML()}
         </div>
+      </div>
+      
+      <!-- Site info outside the modal box -->
+      <div class="site-info-external">
+        ${this.getEnvironmentFooterHTML()}
       </div>
     `;
     
@@ -115,11 +118,16 @@ export class AuthUI {
   getEnvironmentFooterHTML() {
     if (this.isDevelopmentSite) {
       return `
-        <p>Logging into Dev Site.</p>
-        <p><a href="#" id="prod-site-link" class="prod-site-link" tabindex="3">Go to production site</a></p>
+        <p>Logging into Dev Site &nbsp;&nbsp;|&nbsp;&nbsp; ${this.getPlatformDisplayName()}</p>
+        <p><a href="#" id="site-switch-link" class="prod-site-link" tabindex="3">Go to production site</a></p>
+      `;
+    } else {
+      // Production site - show dev link
+      return `
+        <p>Logging into Production Site &nbsp;&nbsp;|&nbsp;&nbsp; ${this.getPlatformDisplayName()}</p>
+        <p><a href="#" id="site-switch-link" class="prod-site-link" tabindex="3">Go to development site</a></p>
       `;
     }
-    return '';
   }
 
   /**
@@ -222,24 +230,22 @@ export class AuthUI {
       }
     }
 
-    // Production site link setup (only for dev sites)
-    if (this.isDevelopmentSite) {
-      const prodLink = document.getElementById('prod-site-link');
-      if (prodLink) {
-        prodLink.addEventListener('click', (e) => {
+    // Site switch link setup (for both dev and prod sites)
+    const siteLink = document.getElementById('site-switch-link');
+    if (siteLink) {
+      siteLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.showRedirectModal();
+      });
+      
+      siteLink.addEventListener('keydown', (e) => {
+        logger.debug('Site switch link keydown', { keyCode: e.keyCode, key: e.key });
+        if (e.keyCode === 13 || e.keyCode === 23 || e.key === 'Enter') {
           e.preventDefault();
+          e.stopPropagation();
           this.showRedirectModal();
-        });
-        
-        prodLink.addEventListener('keydown', (e) => {
-          logger.debug('Production link keydown', { keyCode: e.keyCode, key: e.key });
-          if (e.keyCode === 13 || e.keyCode === 23 || e.key === 'Enter') {
-            e.preventDefault();
-            e.stopPropagation();
-            this.showRedirectModal();
-          }
-        });
-      }
+        }
+      });
     }
 
     // Add global keydown handler for Fire TV navigation
@@ -340,11 +346,11 @@ export class AuthUI {
       
       const signInBtn = document.getElementById('native-signin-btn');
       const exitBtn = document.getElementById('exit-app-btn');
-      const prodLink = document.getElementById('prod-site-link');
+      const siteLink = document.getElementById('site-switch-link');
       const focusedElement = document.activeElement;
       
       // Create array of focusable elements in order
-      const focusableElements = [signInBtn, exitBtn, prodLink].filter(el => el && el.style.display !== 'none');
+      const focusableElements = [signInBtn, exitBtn, siteLink].filter(el => el && el.style.display !== 'none');
       const currentIndex = focusableElements.findIndex(el => el === focusedElement);
       
       switch (e.keyCode) {
@@ -379,28 +385,34 @@ export class AuthUI {
   showRedirectModal() {
     logger.debug('Showing redirect modal');
     
+    // Determine target site and messaging
+    const targetSite = this.isDevelopmentSite ? 'production' : 'development';
+    const targetUrl = this.isDevelopmentSite ? 'https://dashieapp.com' : 'https://dev.dashieapp.com';
+    
     const modal = document.createElement('div');
     modal.className = 'redirect-modal-backdrop';
     modal.innerHTML = `
       <div class="redirect-modal">
-        <h3>Switch to Production Site?</h3>
-        <p>You are about to switch to the production site:</p>
-        <p><strong>https://dashieapp.com</strong></p>
+        <h3>Switch to ${targetSite.charAt(0).toUpperCase() + targetSite.slice(1)} Site?</h3>
+        <p>You are about to switch to the ${targetSite} site:</p>
+        <p><strong>${targetUrl}</strong></p>
         <p>Do you want to continue?</p>
         
         <div class="redirect-modal-buttons">
           <button id="redirect-yes" class="redirect-modal-button primary" tabindex="1">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M9 16.2L4.8 12l-1.4 1.4L9 19 21 7l-1.4-1.4L9 16.2z"/>
-            </svg>
             Yes
           </button>
           
           <button id="redirect-cancel" class="redirect-modal-button cancel" tabindex="2">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-            </svg>
             Cancel
+          </button>
+        </div>
+        
+        <div class="redirect-modal-divider"></div>
+        
+        <div class="redirect-modal-always-section">
+          <button id="redirect-always" class="redirect-modal-button secondary" tabindex="3">
+            Always Redirect
           </button>
         </div>
       </div>
@@ -424,6 +436,7 @@ export class AuthUI {
   setupRedirectModalHandlers(modal) {
     const yesBtn = document.getElementById('redirect-yes');
     const cancelBtn = document.getElementById('redirect-cancel');
+    const alwaysBtn = document.getElementById('redirect-always');
 
     // Click handlers
     yesBtn?.addEventListener('click', () => {
@@ -432,6 +445,11 @@ export class AuthUI {
     });
 
     cancelBtn?.addEventListener('click', () => {
+      modal.remove();
+    });
+
+    alwaysBtn?.addEventListener('click', () => {
+      this.handleRedirectChoice('always');
       modal.remove();
     });
 
@@ -500,14 +518,70 @@ export class AuthUI {
 
   /**
    * Handle redirect choice and execute
-   * @param {string} choice - 'yes' or 'cancel'
+   * @param {string} choice - 'yes', 'always', or 'cancel'
    */
   async handleRedirectChoice(choice) {
     logger.info('Redirect choice made', { choice });
 
     if (choice === 'yes') {
-      // Perform redirect immediately (no settings changes)
-      window.location.href = 'https://dashieapp.com';
+      // Determine target URL based on current environment
+      const targetUrl = this.isDevelopmentSite 
+        ? 'https://dashieapp.com?noredirect=true'
+        : 'https://dev.dashieapp.com?noredirect=true';
+      
+      // Perform redirect with noredirect parameter to prevent infinite loops
+      window.location.href = targetUrl;
+    } else if (choice === 'always') {
+      // Update local settings to enable auto-redirect
+      try {
+        // Get existing local settings or create empty object
+        const localSettings = JSON.parse(localStorage.getItem('dashie-local-settings') || '{}');
+        
+        // Ensure system object exists
+        if (!localSettings.system) {
+          localSettings.system = {};
+        }
+        
+        // Set auto-redirect preferences
+        localSettings.system.autoRedirect = true;
+        localSettings.system.activeSite = this.isDevelopmentSite ? 'prod' : 'dev';
+        
+        // Save to localStorage with the correct key that matches your settings system
+        localStorage.setItem('dashie-local-settings', JSON.stringify(localSettings));
+        
+        logger.info('Auto-redirect enabled in dashie-local-settings', { 
+          targetSite: localSettings.system.activeSite,
+          autoRedirect: localSettings.system.autoRedirect,
+          fullSettings: localSettings
+        });
+        
+        // Also update the main settings if they exist (for compatibility)
+        try {
+          const mainSettings = JSON.parse(localStorage.getItem('dashie-settings') || '{}');
+          if (!mainSettings.system) mainSettings.system = {};
+          mainSettings.system.autoRedirect = true;
+          mainSettings.system.activeSite = this.isDevelopmentSite ? 'prod' : 'dev';
+          localStorage.setItem('dashie-settings', JSON.stringify(mainSettings));
+        } catch (error) {
+          logger.warn('Could not update main settings, continuing with local-only', error);
+        }
+        
+        // Perform the redirect immediately after saving settings
+        const targetUrl = this.isDevelopmentSite 
+          ? 'https://dashieapp.com?noredirect=true'
+          : 'https://dev.dashieapp.com?noredirect=true';
+        
+        window.location.href = targetUrl;
+      } catch (error) {
+        logger.error('Failed to save auto-redirect setting', error);
+        
+        // Fall back to just redirecting once
+        const targetUrl = this.isDevelopmentSite 
+          ? 'https://dashieapp.com?noredirect=true'
+          : 'https://dev.dashieapp.com?noredirect=true';
+        
+        window.location.href = targetUrl;
+      }
     }
     // For cancel, just close modal (already handled in setupRedirectModalHandlers)
   }
@@ -562,7 +636,6 @@ export class AuthUI {
           ` : ''}
           
           <p class="privacy-notice">Your data stays private and secure</p>
-          <p class="platform-notice">Running on ${this.getPlatformDisplayName()}</p>
         </div>
         
         <div class="sign-in-footer">
@@ -626,7 +699,6 @@ export class AuthUI {
           </button>
           
           <p class="privacy-notice">Your data stays private and secure</p>
-          <p class="platform-notice">Running on ${this.getPlatformDisplayName()}</p>
         </div>
         
         <div class="sign-in-footer">

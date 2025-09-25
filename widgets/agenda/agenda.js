@@ -64,13 +64,6 @@ export class AgendaWidget {
       }
     });
 
-    // Listen for widget focus/blur events from parent
-    window.addEventListener('message', (event) => {
-      if (event.data && event.data.type === 'widget-focus') {
-        this.handleFocusChange(event.data.focused);
-      }
-    });
-
     // Listen for modal closed event to restore focus
     window.addEventListener('modal-closed', () => {
       if (this.isFocused) {
@@ -88,18 +81,13 @@ export class AgendaWidget {
       return; // Modal handled the command
     }
 
-    // Handle agenda navigation commands based on focus state
+    // Receiving any command means we're focused - auto-enter selection if not already
+    if (!this.isFocused) {
+      this.handleFocusChange(true);
+    }
+
+    // Handle agenda navigation commands
     switch (action) {
-      case 'focus':
-        // Widget gained focus - auto-enter selection mode
-        this.handleFocusChange(true);
-        break;
-
-      case 'blur':
-        // Widget lost focus - clear selection
-        this.handleFocusChange(false);
-        break;
-
       case 'right':
         if (this.isFocused) {
           this.navigateToNextDay();
@@ -131,7 +119,10 @@ export class AgendaWidget {
         break;
 
       case 'back':
-        // No specific back behavior needed for agenda
+        // Back/escape clears focus (user navigating away from widget)
+        if (this.isFocused) {
+          this.handleFocusChange(false);
+        }
         break;
 
       default:
