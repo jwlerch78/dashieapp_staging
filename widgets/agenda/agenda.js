@@ -108,9 +108,10 @@ export class AgendaWidget {
         }
         break;
 
-      case 'select':
+        case 'enter':
+        console.log('🔧 Select command - isFocused:', this.isFocused, 'selectedIndex:', this.selectedEventIndex, 'eventsLength:', this.chronologicalEvents.length);
         if (this.isFocused && this.selectedEventIndex >= 0) {
-          this.showSelectedEventModal();
+            this.showSelectedEventModal();
         }
         break;
 
