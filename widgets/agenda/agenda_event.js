@@ -1,7 +1,8 @@
-// widgets/agenda/agenda_event.js - Event Modal and Selection Management
-// CHANGE SUMMARY: Initial implementation - handles event selection, modal display, and keyboard navigation
+// widgets/agenda/agenda_event.js - Event Modal and Selection Management  
+// CHANGE SUMMARY: Updated to use unified modal navigation system for consistent d-pad/keyboard navigation
 
 import { createLogger } from '../../js/utils/logger.js';
+import { createModalNavigation } from '../../js/utils/modal-navigation-manager.js';
 
 const logger = createLogger('AgendaEventModal');
 
@@ -10,33 +11,9 @@ export class AgendaEventModal {
     this.isVisible = false;
     this.currentEvent = null;
     this.calendarColors = new Map();
+    this.modalNavigation = null;
     
-    //this.setupKeyboardHandlers();
     logger.info('Agenda event modal initialized');
-  }
-
-  setupKeyboardHandlers() {
-    document.addEventListener('keydown', (e) => {
-      if (!this.isVisible) return;
-
-      // Handle modal keyboard navigation
-      switch (e.code) {
-        case 'Escape':
-        case 'Enter':
-          e.preventDefault();
-          e.stopPropagation();
-          this.hideModal();
-          break;
-        case 'ArrowUp':
-        case 'ArrowDown':
-        case 'ArrowLeft':
-        case 'ArrowRight':
-          // Block navigation when modal is open
-          e.preventDefault();
-          e.stopPropagation();
-          break;
-      }
-    });
   }
 
   updateCalendarColors(calendarColors) {
@@ -65,6 +42,12 @@ export class AgendaEventModal {
 
   hideModal() {
     this.isVisible = false;
+    
+    // Clean up modal navigation
+    if (this.modalNavigation) {
+      this.modalNavigation.destroy();
+      this.modalNavigation = null;
+    }
     
     const modal = document.getElementById('eventModal');
     if (modal) {
@@ -110,7 +93,7 @@ export class AgendaEventModal {
     // Add modal styles
     this.addModalStyles(modal);
 
-    // Event handlers
+    // Set up click handlers
     modal.addEventListener('click', (e) => {
       if (e.target.id === 'modalBackdrop') {
         this.hideModal();
@@ -122,6 +105,22 @@ export class AgendaEventModal {
     });
 
     document.body.appendChild(modal);
+
+    // Set up unified modal navigation
+    this.setupModalNavigation(modal);
+  }
+
+  setupModalNavigation(modal) {
+    // For the event modal, we just have the close button as a focusable element
+    // The modal can be closed with escape or by clicking the close button
+    const buttons = ['modalClose'];
+    
+    this.modalNavigation = createModalNavigation(modal, buttons, {
+      initialFocus: 0, // Focus close button
+      onEscape: () => this.hideModal()
+    });
+
+    logger.debug('Event modal navigation set up with unified system');
   }
 
   addModalStyles(modal) {
@@ -198,9 +197,19 @@ export class AgendaEventModal {
         transition: background-color 0.2s;
       }
 
-      .modal-close:hover {
+      .modal-close:hover,
+      .modal-close:focus {
         background: var(--text-muted, #666);
         color: var(--text-primary, #fff);
+        outline: none;
+      }
+
+      /* TV focus styling for close button */
+      .modal-close:focus {
+        outline: 3px solid #ffaa00 !important;
+        outline-offset: 2px;
+        transform: scale(1.02) !important;
+        box-shadow: 0 0 15px rgba(255, 170, 0, 0.5) !important;
       }
 
       .modal-body {

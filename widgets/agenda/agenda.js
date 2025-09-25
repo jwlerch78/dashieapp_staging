@@ -1,8 +1,8 @@
 // widgets/agenda/agenda.js - Agenda Widget Implementation
-// CHANGE SUMMARY: Added event selection mode with right arrow key, keyboard navigation, and modal integration
+// CHANGE SUMMARY: Re-enabled AgendaEventModal with unified modal navigation system integration
 
 import { createLogger } from '../../js/utils/logger.js';
-//import { AgendaEventModal } from './agenda_event.js';
+import { AgendaEventModal } from './agenda_event.js';
 
 const logger = createLogger('AgendaWidget');
 
@@ -27,8 +27,8 @@ export class AgendaWidget {
        { backgroundColor: '#388e3c', textColor: '#ffffff' }]
     ]);
 
-    // Initialize event modal
-    //this.eventModal = new AgendaEventModal();
+    // Initialize event modal with unified navigation
+    this.eventModal = new AgendaEventModal();
 
     this.init();
   }
@@ -38,8 +38,6 @@ export class AgendaWidget {
     this.updateConnectionStatus('connecting');
     logger.info('Agenda widget initialized');
   }
-
-
 
   setupEventListeners() {
     // Listen for widget-messenger communications
@@ -76,11 +74,9 @@ export class AgendaWidget {
   handleCommand(action) {
     logger.debug('Agenda widget received command', { action, isFocused: this.isFocused });
 
-    // First check if modal should handle the command
-    if (this.eventModal.isVisible && this.eventModal.handleCommand(action)) {
-      return; // Modal handled the command
-    }
-
+    // First check if modal is visible - if so, the unified modal navigation will handle it
+    // We don't need to check this manually anymore since it's handled by the events.js priority system
+    
     // Receiving any command means we're focused - auto-enter selection if not already
     if (!this.isFocused) {
       this.handleFocusChange(true);

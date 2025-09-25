@@ -264,19 +264,6 @@ export class RedirectManager {
         logger.warn('Failed to parse dashie-local-settings', e);
       }
 
-      // Fallback to dashie-settings
-      if (!settings) {
-        try {
-          const mainSettings = localStorage.getItem('dashie-settings');
-          if (mainSettings) {
-            settings = JSON.parse(mainSettings);
-            logger.debug('Loaded dashie-settings for redirect check');
-          }
-        } catch (e) {
-          logger.warn('Failed to parse dashie-settings', e);
-        }
-      }
-
       // If no settings, no redirect needed
       if (!settings || !settings.system) {
         logger.debug('No settings found, no redirect needed');
@@ -382,7 +369,7 @@ export class RedirectManager {
         <h3>Auto-Redirect Disabled</h3>
         <p>This device is set to automatically redirect from <strong>${currentSiteName}</strong> to:</p>
         <p><strong>${targetUrl}</strong></p>
-        <p>You've bypassed this with the ?noredirect parameter.</p>
+        <p></p>
         <p>Would you like to remove the automatic redirect setting?</p>
         
         <div class="redirect-modal-buttons">
@@ -462,26 +449,7 @@ export class RedirectManager {
       } catch (error) {
         logger.warn('Failed to update dashie-local-settings', error);
       }
-
-      // Also remove from dashie-settings for compatibility
-      try {
-        const mainSettings = JSON.parse(localStorage.getItem('dashie-settings') || '{}');
-        if (mainSettings.system) {
-          delete mainSettings.system.autoRedirect;
-          delete mainSettings.system.activeSite;
-          
-          // If system object is now empty, remove it
-          if (Object.keys(mainSettings.system).length === 0) {
-            delete mainSettings.system;
-          }
-          
-          localStorage.setItem('dashie-settings', JSON.stringify(mainSettings));
-          logger.debug('Removed auto-redirect from dashie-settings');
-        }
-      } catch (error) {
-        logger.warn('Failed to update dashie-settings', error);
-      }
-      
+     
       logger.info('Auto-redirect settings successfully removed');
       
       // Show a brief confirmation message
