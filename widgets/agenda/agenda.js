@@ -115,12 +115,16 @@ export class AgendaWidget {
         }
         break;
 
-      case 'back':
-        // Back/escape clears focus (user navigating away from widget)
-        if (this.isFocused) {
-          this.handleFocusChange(false);
-        }
-        break;
+        case 'back':
+        case 'escape':  
+            this.clearSelectionHighlight();
+              // Reset scroll to top
+            const container = document.getElementById('agendaContent');
+            if (container) {
+            container.scrollTop = 0;
+            }
+            this.selectedEventIndex = -1; // Reset index
+            break;
 
       default:
         logger.debug('Unhandled command', { action });
@@ -218,12 +222,31 @@ export class AgendaWidget {
     // Get events for next 14 days
     const agendaEvents = this.getNext14DaysEvents();
     
-    // Store chronological events for navigation
-    this.chronologicalEvents = [...agendaEvents];
-    
+   
     // Group events by day for day navigation
     this.eventsByDay = this.groupEventsByDay(agendaEvents);
+    // Build chronological list in rendering order (fixes navigation order)
+
+    this.chronologicalEvents = [];
+    const dayKeys = Object.keys(this.eventsByDay).sort((a, b) => {
+    return this.eventsByDay[a].date - this.eventsByDay[b].date;
+    });
+
+    dayKeys.forEach(dayKey => {
+    const dayData = this.eventsByDay[dayKey];
     
+    // Add all-day events first (matching rendering order)
+    dayData.allDayEvents.forEach(event => {
+        this.chronologicalEvents.push(event);
+    });
+    
+    // Then add timed events (matching rendering order)  
+    dayData.timedEvents.forEach(event => {
+        this.chronologicalEvents.push(event);
+    });
+    });
+
+
     // Render the agenda
     contentEl.innerHTML = this.renderEventsByDay(this.eventsByDay);
 
@@ -489,47 +512,82 @@ renderEventsByDay(eventsByDay) {
 
   // ==================== FOCUS AND SELECTION METHODS ====================
 
-  handleFocusChange(focused) {
-    const wasFocused = this.isFocused;
-    this.isFocused = focused;
+handleFocusChange(focused) {
+  const wasFocused = this.isFocused;
+  this.isFocused = focused;
 
-    if (focused && !wasFocused) {
-      // Widget gained focus - auto-select first event if available
-      if (this.chronologicalEvents.length > 0) {
-        this.selectedEventIndex = 0;
-        this.updateSelectionHighlight();
-        logger.info('Widget focused - auto-selected first event');
-      }
-    } else if (!focused && wasFocused) {
-      // Widget lost focus - clear selection
-      this.selectedEventIndex = -1;
-      this.clearSelectionHighlight();
-      logger.info('Widget lost focus - cleared selection');
-    }
-  }
-
-  cacheEventElements() {
-    this.eventElements = Array.from(document.querySelectorAll('.event-item'));
-    logger.debug('Cached event elements', { count: this.eventElements.length });
-  }
-
-  navigateSelection(direction) {
-    if (!this.isFocused || this.chronologicalEvents.length === 0) return;
-
-    const newIndex = this.selectedEventIndex + direction;
-    
-    if (newIndex >= 0 && newIndex < this.chronologicalEvents.length) {
-      this.selectedEventIndex = newIndex;
+  if (focused && !wasFocused) {
+    // Widget gained focus - auto-select first event if available
+    if (this.chronologicalEvents.length > 0) {
+      this.selectedEventIndex = 0; // Always start at first event
       this.updateSelectionHighlight();
       this.scrollToSelectedEvent();
-      
-      logger.debug('Navigation selection', { 
-        direction, 
-        newIndex: this.selectedEventIndex,
-        totalEvents: this.chronologicalEvents.length
-      });
+      logger.info('Widget focused - auto-selected first event');
     }
+  } else if (!focused && wasFocused) {
+    // Widget lost focus - clear selection, reset scroll and index
+    this.selectedEventIndex = -1; // Reset index
+    this.clearSelectionHighlight();
+    
+    // Reset scroll to top
+    const container = document.getElementById('agendaContent');
+    if (container) {
+      container.scrollTop = 0;
+    }
+    
+    logger.info('Widget lost focus - cleared selection, reset scroll and index');
   }
+}
+
+    cacheEventElements() {
+        this.eventElements = Array.from(document.querySelectorAll('.event-item'));
+        logger.debug('Cached event elements', { count: this.eventElements.length });
+    }
+
+// Update the navigateSelection method to stop at boundaries:
+navigateSelection(direction) {
+  if (!this.isFocused || this.chronologicalEvents.length === 0) return;
+
+  const oldIndex = this.selectedEventIndex;
+  const newIndex = this.selectedEventIndex + direction;
+  
+  // Stop at boundaries - don't wrap
+  if (newIndex < 0) {
+    logger.debug('Navigation blocked at top boundary', { 
+      direction, 
+      currentIndex: this.selectedEventIndex,
+      totalEvents: this.chronologicalEvents.length
+    });
+    
+    // At top boundary, reset scroll to show day headers
+    const container = document.getElementById('agendaContent');
+    if (container) {
+      container.scrollTop = 0;
+    }
+    return;
+  }
+  
+  if (newIndex >= this.chronologicalEvents.length) {
+    logger.debug('Navigation blocked at bottom boundary', { 
+      direction, 
+      currentIndex: this.selectedEventIndex,
+      totalEvents: this.chronologicalEvents.length
+    });
+    return;
+  }
+
+  this.selectedEventIndex = newIndex;
+
+  logger.debug('Navigation selection', { 
+    direction, 
+    oldIndex,
+    newIndex: this.selectedEventIndex,
+    totalEvents: this.chronologicalEvents.length
+  });
+
+  this.updateSelectionHighlight();
+  this.scrollToSelectedEvent();
+}
 
   navigateToNextDay() {
     if (!this.isFocused || this.chronologicalEvents.length === 0) return;
@@ -609,10 +667,6 @@ renderEventsByDay(eventsByDay) {
       if (eventElement) {
         eventElement.classList.add('selected');
         // Use the same highlight styling as the main navigation system
-        eventElement.style.background = 'var(--text-muted)';
-        eventElement.style.borderRadius = '4px';
-        eventElement.style.padding = '2px 4px';
-        eventElement.style.margin = '1px 0';
       }
     }
   }
@@ -620,10 +674,6 @@ renderEventsByDay(eventsByDay) {
   clearSelectionHighlight() {
     this.eventElements.forEach(element => {
       element.classList.remove('selected');
-      element.style.background = '';
-      element.style.borderRadius = '';
-      element.style.padding = '';
-      element.style.margin = '';
     });
   }
 

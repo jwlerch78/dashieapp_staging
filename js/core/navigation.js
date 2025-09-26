@@ -300,10 +300,23 @@ export function handleBack() {
   if (state.isAsleep || state.confirmDialog) return;
 
   if (state.selectedCell) {
-    // Exit focus mode and hide highlights
-    setSelectedCell(null);
-    hideHighlights();
-    updateFocus();
+    // Send escape to widget before defocusing so it can clean up
+    const iframe = state.selectedCell.querySelector("iframe");
+    if (iframe && iframe.contentWindow) {
+      try {
+        iframe.contentWindow.postMessage({ action: "escape" }, "*");
+        console.log("✓ Sent 'escape' to widget before defocusing");
+      } catch (error) {
+        console.warn("Failed to send escape to widget:", error);
+      }
+    }
+    
+    // Small delay to let widget process the escape, then defocus
+    setTimeout(() => {
+      setSelectedCell(null);
+      hideHighlights();
+      updateFocus();
+    }, 10);
   } else if (state.focus.type === "grid" || state.focus.type === "menu") {
     // Just hide highlights if we're in selection mode
     hideHighlights();

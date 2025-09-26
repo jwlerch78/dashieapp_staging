@@ -84,59 +84,54 @@ export class CalendarEvents {
     return `${title}|${startTime}|${endTime}|${calendarId}`;
   }
 
-  convertToTuiEvents(events) {
-    return events.map((event, i) => {
-      const tuiCalendar = this.tuiCalendars.find(cal => cal.id === event.calendarId) || this.tuiCalendars[0];
-      const start = new Date(event.start.dateTime || event.start.date);
-      let end = new Date(event.end.dateTime || event.end.date);
-      let isAllDay = !!event.start.date;
+  // CHANGE SUMMARY: Removed duplicate all-day event adjustment logic - now handled in calendar-service.js cleanEventData
+// CHANGE SUMMARY: Removed all adjustment logic - data comes pre-normalized from calendar-service.js cleanEventData
+convertToTuiEvents(events) {
+  return events.map((event, i) => {
+    const tuiCalendar = this.tuiCalendars.find(cal => cal.id === event.calendarId) || this.tuiCalendars[0];
+    const start = new Date(event.start.dateTime || event.start.date);
+    const end = new Date(event.end.dateTime || event.end.date);
+    const isAllDay = !!event.start.date;
 
-      // Handle edge case: events that span across days but aren't marked as all-day
-      if (!isAllDay && start.getHours() === end.getHours() && start.toDateString() !== end.toDateString()) {
-        isAllDay = true;
-      } 
-      
-      // Adjust all-day event end time (Google includes the next day, we need to subtract)
-      if (isAllDay) { 
-        end = new Date(end.getTime() - 24 * 60 * 60 * 1000); 
-      }
+    // REMOVED: No more adjustments needed - data comes pre-normalized
+    // Previously: if (isAllDay) { end = new Date(end.getTime() - 24 * 60 * 60 * 1000); }
 
-      return {
-        id: `event-${i}`,
-        calendarId: tuiCalendar.id,
-        title: event.summary || '(No title)',
-        start,
-        end,
-        category: isAllDay ? 'allday' : 'time',
-        backgroundColor: tuiCalendar.backgroundColor,
-        borderColor: tuiCalendar.borderColor,
-        color: tuiCalendar.color,
-        borderRadius: 6,
-        isReadOnly: true,
-        classNames: ['force-opacity'],
-        raw: event
-      };
-    });
-  }
+    return {
+      id: `event-${i}`,
+      calendarId: tuiCalendar.id,
+      title: event.summary || '(No title)',
+      start,
+      end,
+      category: isAllDay ? 'allday' : 'time',
+      backgroundColor: tuiCalendar.backgroundColor,
+      borderColor: tuiCalendar.borderColor,
+      color: tuiCalendar.color,
+      borderRadius: 6,
+      isReadOnly: true,
+      classNames: ['force-opacity'],
+      raw: event
+    };
+  });
+}
 
-  // Utility methods for event analysis
-  getEventsByDay(events, targetDate) {
-    const targetDateString = targetDate.toDateString();
-    return events.filter(event => {
-      const eventStart = new Date(event.start.dateTime || event.start.date);
-      const eventEnd = new Date(event.end.dateTime || event.end.date);
-      
-      // Check if event overlaps with target date
-      if (event.start.date) {
-        // All-day event - check date range
-        const adjustedEnd = new Date(eventEnd.getTime() - 24 * 60 * 60 * 1000);
-        return eventStart <= targetDate && targetDate <= adjustedEnd;
-      } else {
-        // Timed event - check if it's on the same day
-        return eventStart.toDateString() === targetDateString;
-      }
-    });
-  }
+// CLEANED: getEventsByDay with no adjustments needed
+getEventsByDay(events, targetDate) {
+  const targetDateString = targetDate.toDateString();
+  return events.filter(event => {
+    const eventStart = new Date(event.start.dateTime || event.start.date);
+    const eventEnd = new Date(event.end.dateTime || event.end.date);
+    
+    // Check if event overlaps with target date
+    if (event.start.date) {
+      // All-day event - data is pre-normalized, use directly
+      return eventStart <= targetDate && targetDate <= eventEnd;
+    } else {
+      // Timed event - check if it's on the same day
+      return eventStart.toDateString() === targetDateString;
+    }
+  });
+}
+
 
   getEventStatistics(events) {
     const stats = {
