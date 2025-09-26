@@ -1,4 +1,5 @@
 // js/core/navigation.js - Navigation Logic & Focus Management with Timeout System
+// CHANGE SUMMARY: Added escape command to widget on timeout to ensure clean widget defocus
 
 import { state, elements, findWidget, setFocus, setSelectedCell, setCurrentMain } from './state.js';
 
@@ -33,10 +34,24 @@ function hideHighlights() {
   isHighlightVisible = false;
   document.body.classList.add('highlights-hidden');
   
-  // If a widget was focused and timed out, clear the selection
+  // If a widget was focused and timed out, send escape command first then clear the selection
   if (state.selectedCell) {
-    setSelectedCell(null);
-    console.log(`Focused widget timed out - cleared selection`);
+    // Send escape to widget before defocusing so it can clean up (same as handleBack)
+    const iframe = state.selectedCell.querySelector("iframe");
+    if (iframe && iframe.contentWindow) {
+      try {
+        iframe.contentWindow.postMessage({ action: "escape" }, "*");
+        console.log("✓ Sent 'escape' to widget due to timeout before defocusing");
+      } catch (error) {
+        console.warn("Failed to send escape to widget on timeout:", error);
+      }
+    }
+    
+    // Small delay to let widget process the escape, then defocus (same pattern as handleBack)
+    setTimeout(() => {
+      setSelectedCell(null);
+      console.log(`Focused widget timed out - cleared selection after escape command`);
+    }, 10);
   }
   
   // If sidebar is highlighted, close it entirely

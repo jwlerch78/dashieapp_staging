@@ -1,5 +1,5 @@
 // widgets/calendar/calendar-events.js - Event Processing, Deduplication, and Calendar Loading
-// CHANGE SUMMARY: Extracted event handling into separate module with deduplication logic to prevent duplicate events
+// CHANGE SUMMARY: Fixed timezone issues in convertToTuiEvents for all-day events to ensure proper display
 
 import { createLogger } from '../../js/utils/logger.js';
 
@@ -25,6 +25,11 @@ export class CalendarEvents {
     }
     
     calendar.clear();
+
+    // DEBUG: Log all incoming events before conversion
+    calendarData.events.forEach((event, i) => {
+      const isAllDay = !!event.start.date;
+    });
 
     // Events are already deduplicated at the widget level, so just convert them
     const tuiEvents = this.convertToTuiEvents(calendarData.events);
@@ -52,22 +57,10 @@ export class CalendarEvents {
           duplicate: event,
           key: eventKey
         });
-        logger.debug('Duplicate event detected', {
-          title: event.summary,
-          start: event.start.dateTime || event.start.date,
-          originalId: eventMap.get(eventKey).id,
-          duplicateId: event.id
-        });
+
       } else {
         eventMap.set(eventKey, event);
       }
-    }
-
-    if (duplicates.length > 0) {
-      logger.info('Removed duplicate events', {
-        duplicatesFound: duplicates.length,
-        uniqueEvents: eventMap.size
-      });
     }
 
     return Array.from(eventMap.values());
@@ -84,54 +77,95 @@ export class CalendarEvents {
     return `${title}|${startTime}|${endTime}|${calendarId}`;
   }
 
-  // CHANGE SUMMARY: Removed duplicate all-day event adjustment logic - now handled in calendar-service.js cleanEventData
-// CHANGE SUMMARY: Removed all adjustment logic - data comes pre-normalized from calendar-service.js cleanEventData
-convertToTuiEvents(events) {
-  return events.map((event, i) => {
-    const tuiCalendar = this.tuiCalendars.find(cal => cal.id === event.calendarId) || this.tuiCalendars[0];
-    const start = new Date(event.start.dateTime || event.start.date);
-    const end = new Date(event.end.dateTime || event.end.date);
-    const isAllDay = !!event.start.date;
-
-    // REMOVED: No more adjustments needed - data comes pre-normalized
-    // Previously: if (isAllDay) { end = new Date(end.getTime() - 24 * 60 * 60 * 1000); }
-
-    return {
-      id: `event-${i}`,
-      calendarId: tuiCalendar.id,
-      title: event.summary || '(No title)',
-      start,
-      end,
-      category: isAllDay ? 'allday' : 'time',
-      backgroundColor: tuiCalendar.backgroundColor,
-      borderColor: tuiCalendar.borderColor,
-      color: tuiCalendar.color,
-      borderRadius: 6,
-      isReadOnly: true,
-      classNames: ['force-opacity'],
-      raw: event
-    };
-  });
-}
-
-// CLEANED: getEventsByDay with no adjustments needed
-getEventsByDay(events, targetDate) {
-  const targetDateString = targetDate.toDateString();
-  return events.filter(event => {
-    const eventStart = new Date(event.start.dateTime || event.start.date);
-    const eventEnd = new Date(event.end.dateTime || event.end.date);
+  // FIXED: Timezone-safe date parsing for all-day events
+  convertToTuiEvents(events) {
     
-    // Check if event overlaps with target date
-    if (event.start.date) {
-      // All-day event - data is pre-normalized, use directly
-      return eventStart <= targetDate && targetDate <= eventEnd;
-    } else {
-      // Timed event - check if it's on the same day
-      return eventStart.toDateString() === targetDateString;
-    }
-  });
-}
+    const tuiEvents = events.map((event, i) => {
+      const tuiCalendar = this.tuiCalendars.find(cal => cal.id === event.calendarId) || this.tuiCalendars[0];
+      const isAllDay = !!event.start.date;
 
+      let start, end;
+
+      if (isAllDay) {
+        // FIXED: For all-day events, parse date string safely in local timezone
+        // The calendar service has already normalized these dates to the correct display dates
+        const startDateString = event.start.date; // e.g., "2025-10-03"
+        const endDateString = event.end.date; // e.g., "2025-10-03"
+        
+        // Parse as local dates to avoid timezone conversion issues
+        const [startYear, startMonth, startDay] = startDateString.split('-').map(Number);
+        const [endYear, endMonth, endDay] = endDateString.split('-').map(Number);
+        
+        // Create dates at noon local time to avoid any timezone edge cases
+        start = new Date(startYear, startMonth - 1, startDay, 12, 0, 0);
+        end = new Date(endYear, endMonth - 1, endDay, 12, 0, 0);
+        
+        } else {
+        // For timed events, use the existing logic (already works correctly)
+        start = new Date(event.start.dateTime);
+        end = new Date(event.end.dateTime);
+  
+      }
+
+      const tuiEvent = {
+        id: `event-${i}`,
+        calendarId: tuiCalendar.id,
+        title: event.summary || '(No title)',
+        start,
+        end,
+        category: isAllDay ? 'allday' : 'time',
+        backgroundColor: tuiCalendar.backgroundColor,
+        borderColor: tuiCalendar.borderColor,
+        color: tuiCalendar.color,
+        borderRadius: 6,
+        isReadOnly: true,
+        classNames: ['force-opacity'],
+        raw: event
+      };
+
+    
+      return tuiEvent;
+    });
+
+
+
+    // DEBUG: Check for specific date range (Sep 28 - Oct 5)
+    const targetStart = new Date(2025, 8, 28); // Sep 28, 2025
+    const targetEnd = new Date(2025, 9, 5);   // Oct 5, 2025
+    
+    const eventsInRange = tuiEvents.filter(event => {
+      return event.start >= targetStart && event.start <= targetEnd;
+    });
+
+    return tuiEvents;
+  }
+
+  // FIXED: Timezone-safe event filtering for getEventsByDay
+  getEventsByDay(events, targetDate) {
+    const targetDateString = targetDate.toDateString();
+    return events.filter(event => {
+      const isAllDay = !!event.start.date;
+      
+      if (isAllDay) {
+        // FIXED: For all-day events, parse dates safely to avoid timezone issues
+        const startDateString = event.start.date;
+        const endDateString = event.end.date;
+        
+        const [startYear, startMonth, startDay] = startDateString.split('-').map(Number);
+        const [endYear, endMonth, endDay] = endDateString.split('-').map(Number);
+        
+        const eventStart = new Date(startYear, startMonth - 1, startDay, 12, 0, 0);
+        const eventEnd = new Date(endYear, endMonth - 1, endDay, 12, 0, 0);
+        
+        // Check if event overlaps with target date
+        return eventStart <= targetDate && targetDate <= eventEnd;
+      } else {
+        // Timed event - check if it's on the same day
+        const eventStart = new Date(event.start.dateTime);
+        return eventStart.toDateString() === targetDateString;
+      }
+    });
+  }
 
   getEventStatistics(events) {
     const stats = {
@@ -157,8 +191,16 @@ getEventsByDay(events, targetDate) {
       const calendarId = event.calendarId;
       stats.byCalendar[calendarId] = (stats.byCalendar[calendarId] || 0) + 1;
 
-      // Track date range
-      const eventDate = new Date(event.start.dateTime || event.start.date);
+      // Track date range - use same timezone-safe parsing
+      let eventDate;
+      if (isAllDay) {
+        const dateString = event.start.date;
+        const [year, month, day] = dateString.split('-').map(Number);
+        eventDate = new Date(year, month - 1, day, 12, 0, 0);
+      } else {
+        eventDate = new Date(event.start.dateTime);
+      }
+      
       if (!stats.dateRange.earliest || eventDate < stats.dateRange.earliest) {
         stats.dateRange.earliest = eventDate;
       }

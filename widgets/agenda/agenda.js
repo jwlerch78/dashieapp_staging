@@ -1,5 +1,5 @@
 // widgets/agenda/agenda.js - Agenda Widget Implementation
-// CHANGE SUMMARY: Re-enabled AgendaEventModal with unified modal navigation system integration
+// CHANGE SUMMARY: Removed debugging code and simplified time display to show only start time for space efficiency
 
 import { createLogger } from '../../js/utils/logger.js';
 import { AgendaEventModal } from './agenda_event.js';
@@ -74,9 +74,6 @@ export class AgendaWidget {
   handleCommand(action) {
     logger.debug('Agenda widget received command', { action, isFocused: this.isFocused });
 
-    // First check if modal is visible - if so, the unified modal navigation will handle it
-    // We don't need to check this manually anymore since it's handled by the events.js priority system
-    
     // Receiving any command means we're focused - auto-enter selection if not already
     if (!this.isFocused) {
       this.handleFocusChange(true);
@@ -108,23 +105,22 @@ export class AgendaWidget {
         }
         break;
 
-        case 'enter':
-        console.log('🔧 Select command - isFocused:', this.isFocused, 'selectedIndex:', this.selectedEventIndex, 'eventsLength:', this.chronologicalEvents.length);
+      case 'enter':
         if (this.isFocused && this.selectedEventIndex >= 0) {
-            this.showSelectedEventModal();
+          this.showSelectedEventModal();
         }
         break;
 
-        case 'back':
-        case 'escape':  
-            this.clearSelectionHighlight();
-              // Reset scroll to top
-            const container = document.getElementById('agendaContent');
-            if (container) {
-            container.scrollTop = 0;
-            }
-            this.selectedEventIndex = -1; // Reset index
-            break;
+      case 'back':
+      case 'escape':  
+        this.clearSelectionHighlight();
+        // Reset scroll to top
+        const container = document.getElementById('agendaContent');
+        if (container) {
+          container.scrollTop = 0;
+        }
+        this.selectedEventIndex = -1; // Reset index
+        break;
 
       default:
         logger.debug('Unhandled command', { action });
@@ -265,62 +261,80 @@ export class AgendaWidget {
     });
   }
 
-    getNext14DaysEvents() {
+  getNext14DaysEvents() {
     const now = new Date();
-    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Today at 00:00:00
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const fourteenDaysFromNow = new Date(now.getTime() + (14 * 24 * 60 * 60 * 1000));
 
-    // Filter events from start of today through next 14 days (includes past events from today)
+    // Filter events from start of today through next 14 days
     const upcomingEvents = this.calendarData.events.filter(event => {
-        const eventStart = new Date(event.start.dateTime || event.start.date);
-        return eventStart >= startOfToday && eventStart <= fourteenDaysFromNow;
+      const eventStart = new Date(event.start.dateTime || event.start.date);
+      return eventStart >= startOfToday && eventStart <= fourteenDaysFromNow;
     });
 
     // Sort chronologically
     upcomingEvents.sort((a, b) => {
-        const aStart = new Date(a.start.dateTime || a.start.date);
-        const bStart = new Date(b.start.dateTime || b.start.date);
-        return aStart - bStart;
-    });
-
-    logger.debug('Filtered events including today past events', {
-        originalCount: this.calendarData.events.length,
-        filteredCount: upcomingEvents.length
+      const aStart = new Date(a.start.dateTime || a.start.date);
+      const bStart = new Date(b.start.dateTime || b.start.date);
+      return aStart - bStart;
     });
 
     return upcomingEvents;
-    }
+  }
 
+  // Use pre-normalized dates from calendar service directly
   groupEventsByDay(events) {
     const eventsByDay = {};
-
+    
     events.forEach(event => {
-      const eventStart = new Date(event.start.dateTime || event.start.date);
-      const dayKey = eventStart.toDateString(); // "Tue Sep 24 2024"
-
-      if (!eventsByDay[dayKey]) {
-        eventsByDay[dayKey] = {
-          date: eventStart,
-          allDayEvents: [],
-          timedEvents: []
-        };
-      }
-
       const isAllDay = !!event.start.date;
+
       if (isAllDay) {
-        eventsByDay[dayKey].allDayEvents.push(event);
+        // The calendar service has already normalized the dates correctly
+        const startDateString = event.start.date;
+        const endDateString = event.end.date;
+        
+        // Parse as local dates using the date parts directly
+        const [startYear, startMonth, startDay] = startDateString.split('-').map(Number);
+        const [endYear, endMonth, endDay] = endDateString.split('-').map(Number);
+        
+        const startDate = new Date(startYear, startMonth - 1, startDay, 12, 0, 0);
+        const endDate = new Date(endYear, endMonth - 1, endDay, 12, 0, 0);
+        
+        // Add event to all days it spans
+        const currentDate = new Date(startDate);
+        while (currentDate <= endDate) {
+          const dayKey = currentDate.toDateString();
+          
+          if (!eventsByDay[dayKey]) {
+            eventsByDay[dayKey] = {
+              date: new Date(currentDate),
+              allDayEvents: [],
+              timedEvents: []
+            };
+          }
+          
+          eventsByDay[dayKey].allDayEvents.push(event);
+          
+          // Move to next day
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+        
       } else {
+        // For timed events, use the existing logic
+        const eventDateForGrouping = new Date(event.start.dateTime);
+        const dayKey = eventDateForGrouping.toDateString();
+
+        if (!eventsByDay[dayKey]) {
+          eventsByDay[dayKey] = {
+            date: eventDateForGrouping,
+            allDayEvents: [],
+            timedEvents: []
+          };
+        }
+
         eventsByDay[dayKey].timedEvents.push(event);
       }
-    });
-
-    // Sort timed events within each day
-    Object.values(eventsByDay).forEach(dayData => {
-      dayData.timedEvents.sort((a, b) => {
-        const aStart = new Date(a.start.dateTime);
-        const bStart = new Date(b.start.dateTime);
-        return aStart - bStart;
-      });
     });
 
     return eventsByDay;
@@ -430,61 +444,38 @@ renderEventsByDay(eventsByDay) {
     return `<strong>${dayName} ${monthName} ${dayNum}</strong>`;
   }
 
-    renderEvent(event, isAllDay, isPast = false) {
+  renderEvent(event, isAllDay, isPast = false) {
     const calendarColors = this.calendarColors.get(event.calendarId) || 
-        { backgroundColor: '#1976d2', textColor: '#ffffff' };
+      { backgroundColor: '#1976d2', textColor: '#ffffff' };
     
-    const timeDisplay = isAllDay ? 'All day' : this.formatEventTime(event);
+    const timeDisplay = isAllDay ? 'All day' : this.formatEventStartTime(event);
     const pastClass = isPast ? 'event-past' : '';
     const eventClass = isAllDay ? `event-item all-day-event ${pastClass}` : `event-item ${pastClass}`;
 
     return `
-        <div class="${eventClass}" data-event-id="${event.id}">
+      <div class="${eventClass}" data-event-id="${event.id}">
         <div class="event-time">${timeDisplay}</div>
         <div class="event-details">
-            <div class="event-dot" style="background-color: ${calendarColors.backgroundColor}"></div>
-            <div class="event-title">${this.escapeHtml(event.summary || 'No title')}</div>
+          <div class="event-dot" style="background-color: ${calendarColors.backgroundColor}"></div>
+          <div class="event-title">${this.escapeHtml(event.summary || 'No title')}</div>
         </div>
-        </div>
+      </div>
     `;
-    }
+  }
 
-  formatEventTime(event) {
+  formatEventStartTime(event) {
     const startTime = new Date(event.start.dateTime);
-    const endTime = new Date(event.end.dateTime);
-
     const startHour = startTime.getHours();
     const startMinute = startTime.getMinutes();
-    const endHour = endTime.getHours();
-    const endMinute = endTime.getMinutes();
 
     // Format time with smart AM/PM display and hide :00 for even hours
-    const formatTime = (hour, minute, showPeriod = true) => {
-      const period = hour >= 12 ? 'pm' : 'am';
-      const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
-      
-      // Only show minutes if not :00
-      const timeString = minute === 0 ? displayHour.toString() : `${displayHour}:${minute.toString().padStart(2, '0')}`;
-      
-      if (showPeriod) {
-        return `${timeString}${period}`;
-      } else {
-        return timeString;
-      }
-    };
-
-    // Determine if we need to show AM/PM for both times
-    const startPeriod = startHour >= 12 ? 'pm' : 'am';
-    const endPeriod = endHour >= 12 ? 'pm' : 'am';
-    const samePeriod = startPeriod === endPeriod;
-
-    if (samePeriod) {
-      // Same period - show AM/PM only at the end
-      return `${formatTime(startHour, startMinute, false)} - ${formatTime(endHour, endMinute, true)}`;
-    } else {
-      // Different periods - show AM/PM for both
-      return `${formatTime(startHour, startMinute, true)} - ${formatTime(endHour, endMinute, true)}`;
-    }
+    const period = startHour >= 12 ? 'pm' : 'am';
+    const displayHour = startHour === 0 ? 12 : startHour > 12 ? startHour - 12 : startHour;
+    
+    // Only show minutes if not :00
+    const timeString = startMinute === 0 ? displayHour.toString() : `${displayHour}:${startMinute.toString().padStart(2, '0')}`;
+    
+    return `${timeString}${period}`;
   }
 
   updateConnectionStatus(status) {

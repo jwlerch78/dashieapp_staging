@@ -46,63 +46,37 @@ export class CalendarService {
  * @param {Array} events - Raw events from API
  * @returns {Array} Cleaned and standardized events
  */
-// Fix the cleanEventData method in calendar-service.js:
-
-// CHANGE SUMMARY: Normalize ALL all-day events to displayable format upstream - subtract 24hrs from Google's exclusive end dates
+// CHANGE SUMMARY: Production cleanEventData - debug logging removed, data normalization intact
 cleanEventData(events) {
   return events.map(event => {
     const isEffectivelyAllDay = this.isEffectivelyAllDay(event);
 
-    // DEBUG: Log original event data
-    logger.debug('=== PROCESSING EVENT ===', {
-      title: event.summary || 'Untitled Event',
-      isEffectivelyAllDay,
-      hasStartDate: !!event.start.date,
-      originalStart: {
-        date: event.start.date,
-        dateTime: event.start.dateTime,
-        timeZone: event.start.timeZone
-      },
-      originalEnd: {
-        date: event.end.date,
-        dateTime: event.end.dateTime,
-        timeZone: event.end.timeZone
-      }
-    });
-
     // Normalize the event structure
     let normalizedEvent = {
       ...event,
-      // Clean and format description for safe HTML rendering
       description: this.formatEventDescription(event.description),
-      
-      // Add other universal cleaning/formatting
       summary: event.summary || 'Untitled Event',
       location: event.location || '',
       attendees: event.attendees || []
     };
 
-    // NORMALIZE ALL-DAY EVENTS: Convert Google's "exclusive" end date format to "displayable" format
-    // Google's format: end date = actual end + 1 day (exclusive)
-    // Displayable format: end date = actual end date (inclusive)
+    // NORMALIZE GOOGLE ALL-DAY EVENTS: Convert Google's "exclusive" end date to "inclusive"
     if (event.start.date) {
-      // This is already a Google all-day event - convert to displayable format
       const startDate = event.start.date; // Keep as-is
-      const endDateTime = new Date(event.end.date);
       
-      // DEBUG: Log before adjustment
-      logger.debug('BEFORE adjustment for Google all-day event', {
-        title: event.summary,
-        startDate: startDate,
-        endDate: event.end.date,
-        endDateTime: endDateTime.toString(),
-        endDateTimeISO: endDateTime.toISOString(),
-        endDateTimeLocal: endDateTime.toLocaleDateString()
-      });
+      // Parse the date string directly and subtract 1 day properly
+      const endDateParts = event.end.date.split('-');
+      const endYear = parseInt(endDateParts[0]);
+      const endMonth = parseInt(endDateParts[1]) - 1; // Month is 0-indexed
+      const endDay = parseInt(endDateParts[2]);
       
-      // Subtract 24 hours to convert from Google's exclusive format to displayable inclusive format
-      const displayableEndDateTime = new Date(endDateTime.getTime() - 24 * 60 * 60 * 1000);
-      const displayableEndDate = this.formatDateSafe(displayableEndDateTime);
+      // Create date object and subtract 1 day
+      const endDateObj = new Date(endYear, endMonth, endDay);
+      const adjustedEndDateObj = new Date(endDateObj);
+      adjustedEndDateObj.setDate(adjustedEndDateObj.getDate() - 1);
+      
+      // Format back to YYYY-MM-DD
+      const adjustedEndDate = this.formatDateSafe(adjustedEndDateObj);
       
       normalizedEvent.start = {
         date: startDate,
@@ -110,57 +84,31 @@ cleanEventData(events) {
       };
       
       normalizedEvent.end = {
-        date: displayableEndDate,
+        date: adjustedEndDate,
         dateTime: null
       };
-      
-      // DEBUG: Log after adjustment
-      logger.debug('AFTER adjustment for Google all-day event', {
-        title: event.summary,
-        originalGoogleStart: event.start.date,
-        originalGoogleEnd: event.end.date,
-        adjustedStart: normalizedEvent.start.date,
-        adjustedEnd: normalizedEvent.end.date,
-        displayableEndDateTime: displayableEndDateTime.toString(),
-        displayableEndDateTimeISO: displayableEndDateTime.toISOString(),
-        displayableEndDateTimeLocal: displayableEndDateTime.toLocaleDateString()
-      });
     }
-    // NORMALIZE "EFFECTIVELY ALL-DAY" EVENTS: Convert timed events to displayable all-day format
+    // NORMALIZE "EFFECTIVELY ALL-DAY" EVENTS
     else if (isEffectivelyAllDay && !event.start.date) {
-      // This is a timed event that should be treated as all-day
-      // Convert it directly to displayable all-day format (no Google +1 day quirk)
-      
       const startDateTime = new Date(event.start.dateTime);
       const endDateTime = new Date(event.end.dateTime);
       
-      // DEBUG: Log before adjustment
-      logger.debug('BEFORE adjustment for effectively all-day event', {
-        title: event.summary,
-        startDateTime: startDateTime.toString(),
-        endDateTime: endDateTime.toString(),
-        startDateTimeISO: startDateTime.toISOString(),
-        endDateTimeISO: endDateTime.toISOString(),
-        startDateTimeLocal: startDateTime.toLocaleDateString(),
-        endDateTimeLocal: endDateTime.toLocaleDateString()
-      });
-      
-      // Use timezone-safe date extraction
       const startDate = this.formatDateSafe(startDateTime);
       
-      // For displayable format: end date should be the actual last day (inclusive)
-      let endDate;
-      
-      // Check if this spans multiple calendar days
+      // For effectively all-day events, check if they span multiple days
       const startDateOnly = new Date(startDateTime.getFullYear(), startDateTime.getMonth(), startDateTime.getDate());
       const endDateOnly = new Date(endDateTime.getFullYear(), endDateTime.getMonth(), endDateTime.getDate());
       
+      let endDate;
       if (startDateOnly.getTime() === endDateOnly.getTime()) {
-        // Same day event (like 12am-11:59pm) - end date should be same as start date
+        // Same day event - end date same as start date
         endDate = startDate;
       } else {
-        // Multi-day event - end date should be the actual last day (inclusive)
-        endDate = this.formatDateSafe(endDateTime);
+        // Multi-day event - use the actual last day, not Google's +1 format
+        // Subtract 1 day from the end to get the actual last day
+        const actualEndDate = new Date(endDateOnly);
+        actualEndDate.setDate(actualEndDate.getDate() - 1);
+        endDate = this.formatDateSafe(actualEndDate);
       }
       
       normalizedEvent.start = {
@@ -172,36 +120,12 @@ cleanEventData(events) {
         date: endDate,
         dateTime: null
       };
-      
-      // DEBUG: Log after adjustment
-      logger.debug('AFTER adjustment for effectively all-day event', {
-        title: event.summary,
-        originalStartDateTime: event.start.dateTime,
-        originalEndDateTime: event.end.dateTime,
-        adjustedStartDate: normalizedEvent.start.date,
-        adjustedEndDate: normalizedEvent.end.date,
-        startDateOnly: startDateOnly.toString(),
-        endDateOnly: endDateOnly.toString(),
-        isSameDay: startDateOnly.getTime() === endDateOnly.getTime()
-      });
     }
-
-    // DEBUG: Log final result
-    logger.debug('=== FINAL NORMALIZED EVENT ===', {
-      title: normalizedEvent.summary,
-      finalStart: {
-        date: normalizedEvent.start.date,
-        dateTime: normalizedEvent.start.dateTime
-      },
-      finalEnd: {
-        date: normalizedEvent.end.date,
-        dateTime: normalizedEvent.end.dateTime
-      }
-    });
 
     return normalizedEvent;
   });
 }
+
 
 // Helper method for timezone-safe date formatting
 formatDateSafe(date) {
