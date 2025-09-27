@@ -257,11 +257,10 @@ export class SimpleAuth {
    * Exit application (for TV platforms)
    */
   exitApp() {
-    if (this.authUI) {
-      this.authUI.exitApp();
+    if (this.authCoordinator) {
+      this.authCoordinator.exitApp();
     }
   }
-
   /**
    * Get available APIs
    * @returns {Object}
