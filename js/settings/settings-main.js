@@ -1,5 +1,5 @@
-// js/settings/settings-main.js - UPDATED to use modular system
-// Main entry point for settings system
+// js/settings/settings-main.js - STAGE 3: Accept JWT status from main.js
+// CHANGE SUMMARY: Modified autoInitialize to accept JWT status parameter and pass it to settings system
 
 import SimplifiedSettings from './settings-simple-manager.js';
 
@@ -7,23 +7,23 @@ import SimplifiedSettings from './settings-simple-manager.js';
 let settingsInstance = null;
 
 // Initialize the settings system
-export async function initializeSettings() {
+export async function initializeSettings(jwtStatus = 'unknown') {
   if (!settingsInstance) {
-    settingsInstance = new SimplifiedSettings();
-    console.log('⚙️ ✅ Modular settings system initialized');
+    settingsInstance = new SimplifiedSettings(jwtStatus);
+    console.log('⚙️ ✅ Modular settings system initialized with JWT status:', jwtStatus);
   }
   return true;
 }
 
 // Auto-initialize settings system (called from main.js during bootup)
-export async function autoInitialize() {
-  console.log('⚙️ 🚀 Auto-initializing settings system...');
+export async function autoInitialize(jwtStatus = 'unknown') {
+  console.log('⚙️ 🚀 Auto-initializing settings system with JWT status:', jwtStatus);
   
   try {
-    // Initialize the settings system immediately
-    await initializeSettings();
+    // Initialize the settings system with JWT status
+    await initializeSettings(jwtStatus);
     
-    // The SimplifiedSettings constructor will handle waiting for auth and loading settings
+    // The SimplifiedSettings constructor will handle the rest
     console.log('⚙️ ✅ Settings system auto-initialization complete');
     return true;
   } catch (error) {
@@ -32,7 +32,6 @@ export async function autoInitialize() {
     return false;
   }
 }
-
 
 // Show settings (main entry point - called from navigation.js)
 export async function showSettings() {
@@ -62,7 +61,6 @@ export function handleSettingsKeyPress(event) {
   return false;
 }
 
-
 export function getSettingValue(path, defaultValue) {
   if (!settingsInstance?.controller) {
     return defaultValue;
@@ -76,7 +74,6 @@ export function setSettingValue(path, value) {
   }
   return settingsInstance.controller.setSetting(path, value);
 }
-
 
 export async function saveSettings() {
   if (!settingsInstance?.controller) {
@@ -92,7 +89,6 @@ export function getAllSettings() {
   return settingsInstance.controller.getSettings();
 }
 
-
 export function getSleepTimes() {
   return {
     sleepTime: getSettingValue('display.sleepTime', '22:00'),
@@ -106,7 +102,6 @@ export function getPhotosSettings() {
     transitionTime: getSettingValue('photos.transitionTime', 5)
   };
 }
-
 
 // Export aliases for compatibility
 export {

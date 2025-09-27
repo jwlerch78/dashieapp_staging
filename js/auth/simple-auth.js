@@ -1,62 +1,68 @@
-// js/auth/simple-auth.js - Refactored Auth Entry Point
-// CHANGE SUMMARY: Complete rewrite using new modular architecture with auth coordinator, data manager, and widget messenger. Fixed naming conflict between isAuthenticated property and method.
+// js/auth/simple-auth.js - FIXED: Initialize DataManager in manual trigger mode
+// CHANGE SUMMARY: Modified to use DataManager manual trigger mode to prevent early data loading
 
-import { createLogger, configureLogging } from '../utils/logger.js';
-import { LOGGING_CONFIG } from './auth-config.js';
-import { events as eventSystem, EVENTS } from '../utils/event-emitter.js';
-
+import { createLogger } from '../utils/logger.js';
+import { initializeAPIs } from '../apis/api-index.js';
 import { AuthCoordinator } from '../apis/api-auth/auth-coordinator.js';
 import { AuthStorage } from '../apis/api-auth/auth-storage.js';
 import { AuthUI } from '../apis/api-auth/auth-ui.js';
-
-import { initializeAPIs } from '../apis/api-index.js';
 import { DataManager } from '../services/data-manager.js';
 import { WidgetMessenger } from '../services/widget-messenger.js';
-
-// Configure logging system
-configureLogging(LOGGING_CONFIG);
+import { events as eventSystem, EVENTS } from '../utils/event-emitter.js';
 
 const logger = createLogger('SimpleAuth');
 
 /**
- * Simplified authentication wrapper using new modular architecture
- * Provides backward-compatible API while using refactored components
+ * Simplified authentication system - single entry point
+ * Clean interface for authentication, APIs, and data management
  */
 export class SimpleAuth {
   constructor() {
     this.isInitialized = false;
-    this.authenticated = false; // Renamed from isAuthenticated to avoid method conflict
-    
-    // Core components
-    this.authStorage = null;
-    this.authUI = null;
-    this.authCoordinator = null;
+    this.authenticated = false;
     this.apis = null;
     this.dataManager = null;
     this.widgetMessenger = null;
     
-    // Initialize immediately
-    this.init();
-  }
-
-  /**
-   * Initialize the authentication system
-   * @returns {Promise<void>}
-   */
-  async init() {
     logger.info('Initializing Dashie authentication system');
     
     try {
-      // Initialize core auth components
+      // Initialize core auth components in correct order
       this.authStorage = new AuthStorage();
       this.authUI = new AuthUI();
+      // FIXED: Pass storage and UI to AuthCoordinator constructor
       this.authCoordinator = new AuthCoordinator(this.authStorage, this.authUI);
       
-      // Initialize the auth system
+      logger.debug('Auth components initialized successfully');
+    } catch (error) {
+      logger.error('Failed to initialize auth components', error);
+      // Set fallback objects to prevent crashes
+      this.authCoordinator = null;
+      this.authStorage = null;
+      this.authUI = null;
+    }
+    
+    // Auto-initialize
+    setTimeout(() => this.init(), 0);
+  }
+
+  /**
+   * Initialize authentication system
+   * @returns {Promise<void>}
+   */
+  async init() {
+    if (this.isInitialized) {
+      logger.debug('Auth system already initialized');
+      return;
+    }
+
+    try {
+      // Initialize auth coordinator (handles providers and OAuth flows)
       const authResult = await this.authCoordinator.init();
       
       // Check for saved user in localStorage for immediate settings initialization
-      const savedUser = this.authStorage.getSavedUser();
+      // FIXED: Ensure authStorage is available before calling getSavedUser
+      const savedUser = this.authStorage ? this.authStorage.getSavedUser() : null;
       if (savedUser && !authResult.authenticated) {
         // Emit auth ready event even if not fully authenticated
         document.dispatchEvent(new CustomEvent('dashie-auth-ready', {
@@ -109,9 +115,12 @@ export class SimpleAuth {
       // Initialize APIs
       this.apis = initializeAPIs(this.authCoordinator);
       
-      // Initialize data manager
+      // FIXED: Initialize data manager in MANUAL TRIGGER mode
       this.dataManager = new DataManager(this.apis.google);
-      await this.dataManager.init();
+      await this.dataManager.init(true); // true = manual trigger mode
+      
+      // Expose data manager globally for manual triggering
+      window.dataManager = this.dataManager;
       
       // Initialize widget messenger
       this.widgetMessenger = new WidgetMessenger(this.dataManager);
@@ -122,6 +131,25 @@ export class SimpleAuth {
       logger.error('Failed to initialize services', error);
       throw error;
     }
+  }
+
+  /**
+   * Manually trigger data loading (for use after widget registration)
+   * @returns {Promise<void>}
+   */
+  async triggerDataLoading() {
+    if (!this.dataManager) {
+      logger.warn('Data manager not initialized, cannot trigger data loading');
+      return;
+    }
+
+    if (!this.dataManager.isReadyForManualTrigger()) {
+      logger.warn('Data manager not ready for manual trigger');
+      return;
+    }
+
+    logger.info('Triggering manual data loading...');
+    await this.dataManager.triggerDataLoading();
   }
 
   /**
@@ -151,7 +179,6 @@ export class SimpleAuth {
       this.cleanupServices();
     });
 
-
     logger.debug('Event listeners configured');
   }
 
@@ -174,42 +201,50 @@ export class SimpleAuth {
     logger.debug('Services cleaned up');
   }
 
-  // ==================== PUBLIC API (BACKWARD COMPATIBILITY) ====================
-
-  /**
-   * Get current user
-   * @returns {Object|null} Current user data
-   */
-  getUser() {
-    return this.authCoordinator?.getUser() || null;
-  }
+  // ==================== PUBLIC API ====================
 
   /**
    * Check if user is authenticated
-   * @returns {boolean} True if authenticated
+   * @returns {boolean}
    */
-  isUserAuthenticated() {
-    return this.authenticated && this.authCoordinator?.isUserAuthenticated();
+  isAuthenticated() {
+    return this.authenticated && this.authCoordinator?.isAuthenticated;
   }
 
   /**
-   * @deprecated Use isUserAuthenticated() instead
-   * @returns {boolean} True if authenticated
+   * Check if user is authenticated (alternative method name)
+   * @returns {boolean}
    */
-  isAuthenticated() {
-    return this.isUserAuthenticated();
+  isUserAuthenticated() {
+    return this.isAuthenticated();
+  }
+
+  /**
+   * Get current user
+   * @returns {Object|null}
+   */
+  getUser() {
+    return this.authCoordinator?.currentUser || null;
+  }
+
+  /**
+   * Get current user (alternative method name)
+   * @returns {Object|null}
+   */
+  getCurrentUser() {
+    return this.getUser();
   }
 
   /**
    * Get Google access token
-   * @returns {string|null} Current Google access token
+   * @returns {string|null}
    */
   getGoogleAccessToken() {
     return this.authCoordinator?.getGoogleAccessToken() || null;
   }
 
   /**
-   * Sign out current user
+   * Sign out user
    * @returns {Promise<void>}
    */
   async signOut() {
@@ -219,36 +254,22 @@ export class SimpleAuth {
   }
 
   /**
-   * Exit the application
+   * Exit application (for TV platforms)
    */
   exitApp() {
-    if (this.authCoordinator) {
-      this.authCoordinator.exitApp();
+    if (this.authUI) {
+      this.authUI.exitApp();
     }
   }
 
   /**
-   * Force refresh all data
-   * @returns {Promise<void>}
+   * Get available APIs
+   * @returns {Object}
    */
-  async refreshData() {
-    if (this.dataManager) {
-      await this.dataManager.refreshAllData();
-    }
-  }
-
-  /**
-   * Get system status for debugging
-   * @returns {Object} Complete system status
-   */
-  getSystemStatus() {
+  getAPIs() {
     return {
-      isInitialized: this.isInitialized,
-      isAuthenticated: this.authenticated,
-      auth: this.authCoordinator?.getStatus() || null,
-      data: this.dataManager?.getStatus() || null,
-      widgets: this.widgetMessenger?.getStatus() || null,
-      apis: this.apis ? Object.keys(this.apis) : []
+      google: this.apis?.google || null,
+      available: this.apis ? Object.keys(this.apis) : []
     };
   }
 }

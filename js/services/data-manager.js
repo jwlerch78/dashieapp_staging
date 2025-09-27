@@ -1,5 +1,5 @@
-// js/services/data-manager.js - Refactored Data Manager (Orchestrator)
-// CHANGE SUMMARY: Refactored into modular design with CalendarService, DataCache, and auto-loading on auth ready
+// js/services/data-manager.js - FIXED: Remove auto-loading, add manual trigger for widget timing
+// CHANGE SUMMARY: Disabled immediate auto-loading, added manual trigger method for proper widget registration timing
 
 import { createLogger } from '../utils/logger.js';
 import { events as eventSystem, EVENTS } from '../utils/event-emitter.js';
@@ -9,8 +9,8 @@ import { DataCache } from './data-cache.js';
 const logger = createLogger('DataManager');
 
 /**
- * Refactored data manager - orchestrates services and handles auto-loading
- * Much smaller now, focused on coordination rather than implementation
+ * Refactored data manager - orchestrates services with manual trigger option
+ * Fixed auto-loading timing to prevent widget registration issues
  */
 export class DataManager {
   constructor(googleAPIClient) {
@@ -24,6 +24,10 @@ export class DataManager {
     this.cache.initialize('calendar', 5 * 60 * 1000); // 5 minutes
     this.cache.initialize('photos', 30 * 60 * 1000);  // 30 minutes
     
+    // Track manual trigger state
+    this.manualTriggerMode = false;
+    this.authReadyEventReceived = false;
+    
     logger.info('Data manager initialized with modular services', {
       calendarRefreshInterval: '5 min',
       photosRefreshInterval: '30 min'
@@ -31,38 +35,98 @@ export class DataManager {
   }
 
   /**
-   * Initialize with auth-ready auto-loading
+   * Initialize with option for manual trigger mode
+   * @param {boolean} manualTrigger - If true, don't auto-load, wait for manual trigger
    * @returns {Promise<void>}
    */
-  async init() {
-    logger.info('Data manager setting up auto-loading on auth ready');
+  async init(manualTrigger = false) {
+    this.manualTriggerMode = manualTrigger;
     
-    // FIXED: Auto-load calendar data when auth becomes ready
-    eventSystem.auth.onSuccess(async (user) => {
-      logger.info('Auth successful, auto-loading calendar data');
+    if (manualTrigger) {
+      logger.info('Data manager initialized in MANUAL TRIGGER mode - will not auto-load');
       
-      setTimeout(async () => {
-        try {
-          await this.refreshCalendarData(true);
-          logger.success('Auto-loaded calendar data on auth ready');
-        } catch (error) {
-          logger.error('Failed to auto-load calendar data', error);
+      // FIXED: Check if auth is already ready when initializing
+      try {
+        if (this.googleAPI) {
+          const testResult = await this.googleAPI.testAccess();
+          if (testResult.calendar) {
+            logger.info('Auth already ready when DataManager initialized');
+            this.authReadyEventReceived = true;
+          }
         }
-      }, 500); // Small delay to ensure services are ready
-    });
-    
-    // Also try immediate load if already authenticated
-    try {
-      if (this.googleAPI) {
-        const testResult = await this.googleAPI.testAccess();
-        if (testResult.calendar) {
-          logger.info('Already authenticated, loading calendar data immediately');
-          setTimeout(() => this.refreshCalendarData(true), 100);
-        }
+      } catch (error) {
+        logger.debug('Auth not ready yet, will wait for auth event');
       }
-    } catch (error) {
-      logger.debug('Not yet authenticated, waiting for auth ready event');
+      
+      // Set up auth ready listener but don't auto-load
+      eventSystem.auth.onSuccess(async (user) => {
+        logger.info('Auth successful, but manual trigger mode - waiting for explicit trigger');
+        this.authReadyEventReceived = true;
+      });
+      
+    } else {
+      logger.info('Data manager setting up auto-loading on auth ready');
+      
+      // ORIGINAL: Auto-load calendar data when auth becomes ready
+      eventSystem.auth.onSuccess(async (user) => {
+        logger.info('Auth successful, auto-loading calendar data');
+        
+        setTimeout(async () => {
+          try {
+            await this.refreshCalendarData(true);
+            logger.success('Auto-loaded calendar data on auth ready');
+          } catch (error) {
+            logger.error('Failed to auto-load calendar data', error);
+          }
+        }, 500); // Small delay to ensure services are ready
+      });
+      
+      // Also try immediate load if already authenticated
+      try {
+        if (this.googleAPI) {
+          const testResult = await this.googleAPI.testAccess();
+          if (testResult.calendar) {
+            logger.info('Already authenticated, loading calendar data immediately');
+            setTimeout(() => this.refreshCalendarData(true), 100);
+          }
+        }
+      } catch (error) {
+        logger.debug('Not yet authenticated, waiting for auth ready event');
+      }
     }
+  }
+
+  /**
+   * Manually trigger data loading (for use after widget registration)
+   * @returns {Promise<void>}
+   */
+  async triggerDataLoading() {
+    if (!this.manualTriggerMode) {
+      logger.warn('triggerDataLoading called but not in manual trigger mode');
+      return;
+    }
+
+    if (!this.authReadyEventReceived) {
+      logger.warn('triggerDataLoading called but auth not ready yet');
+      return;
+    }
+
+    logger.info('Manual trigger: Starting calendar data loading');
+    
+    try {
+      await this.refreshCalendarData(true);
+      logger.success('Manual trigger: Calendar data loaded successfully');
+    } catch (error) {
+      logger.error('Manual trigger: Failed to load calendar data', error);
+    }
+  }
+
+  /**
+   * Check if manual trigger is ready (auth completed)
+   * @returns {boolean}
+   */
+  isReadyForManualTrigger() {
+    return this.manualTriggerMode && this.authReadyEventReceived;
   }
 
   // ==================== CALENDAR DATA MANAGEMENT ====================
@@ -105,211 +169,80 @@ export class DataManager {
       
       // FIXED: Emit proper events for widget broadcasting
       eventSystem.data.emitLoaded('calendar', freshData);
-            
-      // Schedule next refresh
-      this.cache.scheduleRefresh('calendar', () => this.refreshCalendarData(true));
       
-      // Send to any pending widget requests
-      this.sendDataToPendingRequests('calendar');
+      logger.debug('Calendar data refresh completed', {
+        eventsCount: freshData.events?.length || 0,
+        calendarsCount: freshData.calendars?.length || 0
+      });
       
     } catch (error) {
-      this.cache.setLoading('calendar', false);
+      logger.error('Calendar data refresh failed', error);
       eventSystem.data.emitError('calendar', error);
-      this.sendErrorToPendingRequests('calendar', error.message);
       throw error;
+    } finally {
+      this.cache.setLoading('calendar', false);
     }
   }
 
   /**
-   * Get calendar data (cached or fresh)
-   * @param {boolean} allowStale - Allow returning stale data
-   * @returns {Promise<Object>} Calendar data
+   * Get calendar data from cache
+   * @param {boolean} allowStale - Allow stale data
+   * @returns {Object|null} Calendar data
    */
-  async getCalendarData(allowStale = true) {
-    const cachedData = this.cache.get('calendar', allowStale);
-    
-    if (cachedData) {
-      logger.debug('Returning cached calendar data', {
-        eventsCount: cachedData.events?.length || 0,
-        calendarsCount: cachedData.calendars?.length || 0,
-        isStale: cachedData.isStale
-      });
-      return cachedData;
-    }
-    
-    // Trigger refresh if no cached data and not already loading
-    if (!this.cache.isLoading('calendar')) {
-      this.refreshCalendarData(true);
-    }
-    
-    // Return loading state
-    return {
-      events: [],
-      calendars: [],
-      lastUpdated: null,
-      isLoading: true
-    };
+  getCalendarData(allowStale = true) {
+    return this.cache.get('calendar', allowStale);
   }
 
   // ==================== PHOTOS DATA MANAGEMENT ====================
-  
+
   /**
    * Refresh photos data (placeholder for now)
-   * @param {boolean} force - Force refresh
+   * @param {boolean} force - Force refresh even if data is fresh
    * @returns {Promise<void>}
    */
   async refreshPhotosData(force = false) {
-    if (!force && this.cache.isFresh('photos')) {
-      logger.debug('Photos data is fresh, skipping refresh');
-      return;
-    }
-    
-    if (this.cache.isLoading('photos')) {
-      logger.debug('Photos refresh already in progress');
-      return;
-    }
-
-    this.cache.setLoading('photos', true);
-    
-    try {
-      eventSystem.data.emitLoading('photos');
-      
-      // TODO: Implement photos service when ready
-      const photosData = {
-        albums: [],
-        recentPhotos: [],
-        lastUpdated: Date.now()
-      };
-      
-      this.cache.set('photos', photosData);
-      eventSystem.data.emitLoaded('photos', photosData);
-      
-      this.cache.scheduleRefresh('photos', () => this.refreshPhotosData(true));
-      this.sendDataToPendingRequests('photos');
-      
-    } catch (error) {
-      this.cache.setLoading('photos', false);
-      eventSystem.data.emitError('photos', error);
-      throw error;
-    }
+    logger.debug('Photos data refresh not yet implemented');
+    // TODO: Implement photos refresh using PhotosService
   }
 
   /**
-   * Get photos data
+   * Get photos data from cache
    * @param {boolean} allowStale - Allow stale data
-   * @returns {Promise<Object>} Photos data
+   * @returns {Object|null} Photos data
    */
-  async getPhotosData(allowStale = true) {
-    const cachedData = this.cache.get('photos', allowStale);
-    
-    if (cachedData) {
-      return cachedData;
-    }
-    
-    if (!this.cache.isLoading('photos')) {
-      this.refreshPhotosData(true);
-    }
-    
-    return {
-      albums: [],
-      recentPhotos: [],
-      lastUpdated: null,
-      isLoading: true
-    };
+  getPhotosData(allowStale = true) {
+    return this.cache.get('photos', allowStale);
   }
 
-  // ==================== WIDGET REQUEST HANDLING ====================
-
-  /**
-   * Handle calendar-specific requests
-   * @param {string} requestType - Type of request
-   * @param {Object} params - Request parameters  
-   * @returns {Promise<Object>} Response data
-   */
-  async handleCalendarRequest(requestType, params) {
-    return await this.calendarService.handleCalendarRequest(requestType, params);
-  }
-
-  /**
-   * Handle photos requests (placeholder)
-   * @param {string} requestType - Type of request
-   * @param {Object} params - Request parameters
-   * @returns {Promise<Object>} Response data
-   */
-  async handlePhotosRequest(requestType, params) {
-    // TODO: Implement when photos service is ready
-    return {
-      albums: [],
-      recentPhotos: [],
-      lastUpdated: Date.now()
-    };
-  }
-
-  /**
-   * Send cached data to pending widget requests
-   * @param {string} dataType - Type of data
-   */
-  sendDataToPendingRequests(dataType) {
-    const pendingRequests = this.cache.getPendingRequests(dataType);
-    
-    if (pendingRequests.length > 0) {
-      const data = this.cache.get(dataType, true);
-      logger.debug(`Sending ${dataType} data to ${pendingRequests.length} pending requests`);
-      
-      // TODO: Send to widget messenger for broadcasting
-      // This will be handled by the widget messenger listening to the emitLoaded events
-    }
-  }
-
-  /**
-   * Send error to pending widget requests
-   * @param {string} dataType - Type of data
-   * @param {string} errorMessage - Error message
-   */
-  sendErrorToPendingRequests(dataType, errorMessage) {
-    const pendingRequests = this.cache.getPendingRequests(dataType);
-    
-    if (pendingRequests.length > 0) {
-      logger.debug(`Sending ${dataType} error to ${pendingRequests.length} pending requests`);
-      // TODO: Send error to widget messenger
-    }
-  }
-
-  // ==================== UTILITY METHODS ====================
-
-  /**
-   * Force refresh all data
-   * @returns {Promise<void>}
-   */
-  async refreshAllData() {
-    logger.info('Refreshing all data');
-    
-    await Promise.allSettled([
-      this.refreshCalendarData(true),
-      this.refreshPhotosData(true)
-    ]);
-  }
+  // ==================== CACHE MANAGEMENT ====================
 
   /**
    * Clear all cached data
    */
   clearCache() {
-    logger.info('Clearing all cached data');
-    this.cache.clearAll();
+    this.cache.clear();
+    logger.debug('All cached data cleared');
   }
 
   /**
-   * Get data manager status for debugging
-   * @returns {Object} Status information
+   * Get cache status for debugging
+   * @returns {Object} Cache status
    */
-  getStatus() {
-    const cacheStatus = this.cache.getStatus();
-    
+  getCacheStatus() {
     return {
-      ...cacheStatus,
-      services: {
-        calendar: !!this.calendarService,
-        photos: false // TODO: Update when photos service implemented
+      calendar: {
+        hasData: this.cache.has('calendar'),
+        isFresh: this.cache.isFresh('calendar'),
+        isStale: this.cache.isStale('calendar'),
+        isLoading: this.cache.isLoading('calendar'),
+        lastUpdated: this.cache.getLastUpdated('calendar')
+      },
+      photos: {
+        hasData: this.cache.has('photos'),
+        isFresh: this.cache.isFresh('photos'),
+        isStale: this.cache.isStale('photos'),
+        isLoading: this.cache.isLoading('photos'),
+        lastUpdated: this.cache.getLastUpdated('photos')
       }
     };
   }
