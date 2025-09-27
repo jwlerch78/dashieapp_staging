@@ -1,0 +1,128 @@
+/* css/components/loading-overlay.css - Dashie-styled loading overlay */
+/* CHANGE SUMMARY: Updated to match auth UI modal styling - solid dark backdrop, white content box, 25% smaller logo/tagline */
+
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: #1a1a1a;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: opacity 0.5s ease-out;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+.loading-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.loading-content {
+  background: #FCFCFF;
+  border-radius: 12px;
+  padding: 40px;
+  max-width: 600px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  color: #424242;
+}
+
+.loading-logo {
+  width: 180px; /* Reduced another 20% from 225px */
+  height: auto;
+  margin: 0 auto 1.5rem auto;
+  display: block;
+  opacity: 0.95;
+}
+
+.loading-tagline {
+  font-size: 16px; /* Increased by 2pts from 14px */
+  color: #616161;
+  margin: 0 0 2.5rem 0;
+  font-weight: 400;
+  font-style: italic;
+}
+
+.progress-container {
+  width: 100%;
+  margin-bottom: 1.5rem;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: #e9ecef;
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ff9800 0%, #f57c00 100%);
+  border-radius: 3px;
+  width: 0%;
+  transition: width 0.3s ease-out;
+  box-shadow: 0 1px 3px rgba(255, 152, 0, 0.4);
+}
+
+.progress-text {
+  font-size: 16px;
+  color: #495057;
+  margin-top: 1rem;
+  font-weight: 500;
+  min-height: 1.2em;
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e9ecef;
+  border-radius: 50%;
+  border-top-color: #ff9800;
+  animation: spin 1s ease-in-out infinite;
+  margin-left: 0.5rem;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* TV-optimized styles */
+@media (min-width: 1200px) {
+  .loading-content {
+    max-width: 700px;
+    padding: 50px;
+  }
+  
+  .loading-logo {
+    width: 240px; /* Reduced another 20% from 300px */
+  }
+  
+  .loading-tagline {
+    font-size: 18px; /* Increased by 2pts from 16px */
+  }
+  
+  .progress-bar {
+    height: 8px;
+  }
+  
+  .progress-text {
+    font-size: 18px;
+  }
+}
+
+/* Ensure overlay appears above everything */
+.loading-overlay {
+  position: fixed !important;
+  z-index: 999999 !important;
+}

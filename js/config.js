@@ -2,6 +2,14 @@
 // config.js
 //*****************
 
+
+// Brand tagline (shared between loading overlay and login screens)
+const TAGLINE = "Helping active families manage the chaos";
+
+// Make it globally available like other config values
+window.TAGLINE = TAGLINE;
+
+
 // supabase dev and prod configuration
 const dbConfig = {
     production: {

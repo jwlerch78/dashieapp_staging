@@ -1,11 +1,12 @@
-// js/main.js - App Initialization - REVERTED: Remove failed widget wait, keep JWT status tracking
-// CHANGE SUMMARY: Reverted widget wait placement, kept JWT status tracking and settings improvements
+// js/main.js - App Initialization with Loading Overlay
+// CHANGE SUMMARY: Added loading overlay integration with progress updates throughout initialization sequence
 
 import { initializeEvents } from './core/events.js';
 import { updateFocus, initializeHighlightTimeout } from './core/navigation.js';
 import { renderGrid, renderSidebar } from './ui/grid.js';
 import { autoInitialize } from './settings/settings-main.js';
 import { initializeJWTService } from './apis/api-auth/unified-jwt-service.js';
+import { showLoadingOverlay, updateLoadingProgress, hideLoadingOverlay } from './ui/loading-overlay.js';
 
 // Initialization state tracker
 const initState = {
@@ -55,9 +56,9 @@ async function waitForAuthentication() {
 // APP INITIALIZATION
 // ---------------------
 export async function initializeApp() {
-  console.log("🚀 Initializing Dashie Dashboard...");
-  
   try {
+    console.log("🚀 Initializing Dashie Dashboard...");
+    
     // Set up event listeners
     initializeEvents();
     
@@ -70,59 +71,89 @@ export async function initializeApp() {
     
     console.log("✅ Dashie Dashboard UI initialized successfully!");
     
-    // Wait for authentication to complete
+    // Wait for authentication to complete BEFORE showing loading overlay
     const isAuthenticated = await waitForAuthentication();
     
-    // Determine JWT status
+    // FIXED: Only show loading overlay AFTER authentication is complete
     if (isAuthenticated) {
+      showLoadingOverlay();
+      updateLoadingProgress(10, "Authentication complete");
+      
+      // Determine JWT status
       console.log("🔐 Initializing JWT service after authentication...");
       initState.jwt = 'pending';
+      
+      updateLoadingProgress(25, "Establishing secure connection...");
       
       const jwtReady = await initializeJWTService();
       
       if (jwtReady) {
         console.log("✅ JWT service ready - RLS mode available");
         initState.jwt = 'ready';
+        updateLoadingProgress(50, "Secure connection established");
       } else {
         console.log("⚡ JWT service failed - using direct mode");
         initState.jwt = 'failed';
+        updateLoadingProgress(50, "Using fallback connection");
       }
+      
+      // Pass JWT status to settings initialization
+      console.log("⚙️ Initializing settings system with JWT status:", initState.jwt);
+      initState.settings = 'pending';
+      
+      updateLoadingProgress(60, "Loading your settings...");
+      
+      const settingsReady = await autoInitialize(initState.jwt);
+      
+      if (settingsReady) {
+        console.log("✅ Settings system ready");
+        initState.settings = 'ready';
+        updateLoadingProgress(75, "Settings loaded successfully");
+      } else {
+        console.log("⚠️ Settings system in degraded mode");
+        initState.settings = 'degraded';
+        updateLoadingProgress(75, "Settings loaded with fallback");
+      }
+      
+      // Initialize theme system after settings are ready
+      console.log("🎨 Initializing theme system...");
+      updateLoadingProgress(80, "Applying your theme...");
+      
+      const { initializeThemeSystem } = await import('./core/theme.js');
+      initializeThemeSystem();
+      
+      // Wait for widgets to register, then trigger data loading
+      console.log("🎨 Waiting for widgets to register before triggering data...");
+      updateLoadingProgress(85, "Preparing widgets...");
+      
+      await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second wait
+      
+      updateLoadingProgress(95, "Loading your data...");
+      
+      // Now manually trigger data loading
+      if (window.dashieAuth) {
+        console.log("📊 Triggering data loading after widget registration...");
+        await window.dashieAuth.triggerDataLoading();
+        console.log("📊 Data loading triggered successfully");
+      }
+      
+      initState.widgets = 'ready';
+      
+      // Final completion
+      updateLoadingProgress(100, "Welcome to Dashie!");
+      console.log("🎯 Dashie initialization complete:", initState);
+      
+      // Hide loading overlay after a brief moment
+      setTimeout(() => {
+        hideLoadingOverlay();
+      }, 800);
+      
     } else {
-      console.log("⚡ No authentication - JWT service skipped");
+      console.log("⚡ No authentication - proceeding without overlay");
       initState.jwt = 'skipped';
-    }
-    
-    // Pass JWT status to settings initialization
-    console.log("⚙️ Initializing settings system with JWT status:", initState.jwt);
-    initState.settings = 'pending';
-    
-    const settingsReady = await autoInitialize(initState.jwt);
-    
-    if (settingsReady) {
-      console.log("✅ Settings system ready");
-      initState.settings = 'ready';
-    } else {
-      console.log("⚠️ Settings system in degraded mode");
       initState.settings = 'degraded';
+      initState.widgets = 'ready';
     }
-    
-    // Initialize theme system after settings are ready
-    console.log("🎨 Initializing theme system...");
-    const { initializeThemeSystem } = await import('./core/theme.js');
-    initializeThemeSystem();
-    
-    // FINAL STEP: Wait for widgets to register, then trigger data loading
-    console.log("🎨 Waiting for widgets to register before triggering data...");
-    await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second wait
-    
-    // Now manually trigger data loading
-    if (isAuthenticated && window.dashieAuth) {
-      console.log("📊 Triggering data loading after widget registration...");
-      await window.dashieAuth.triggerDataLoading();
-      console.log("📊 Data loading triggered successfully");
-    }
-    
-    initState.widgets = 'ready';
     
     // Set up auth state listener for when user signs in
     const checkAuthAndUpdate = () => {
@@ -153,10 +184,14 @@ export async function initializeApp() {
       setTimeout(() => clearInterval(authCheckInterval), 30000);
     }
     
-    console.log("🎯 Dashie initialization complete:", initState);
-    
   } catch (error) {
     console.error('❌ Failed to initialize Dashie Dashboard:', error);
+    if (isLoadingOverlayVisible()) {
+      updateLoadingProgress(100, "Initialization failed");
+      setTimeout(() => {
+        hideLoadingOverlay();
+      }, 2000);
+    }
     throw error;
   }
 }
