@@ -6,6 +6,11 @@ import { updateFocus, initializeHighlightTimeout } from './core/navigation.js';
 import { renderGrid, renderSidebar } from './ui/grid.js';
 import { autoInitialize } from './settings/settings-main.js';
 import { initializeThemeSystem } from './core/theme.js';
+import './testing/jwt-phase1-loader.js';
+import './testing/jwt-storage-integration.js';
+import './testing/phase3-simple-loader.js';
+
+
 
 
 // ---------------------
