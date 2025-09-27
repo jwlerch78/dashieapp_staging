@@ -1,5 +1,5 @@
 <!-- widgets/header.html -->
-<!-- CHANGE SUMMARY: Added proper theme integration with early detection, structured logging, and standardized message handling while preserving family name functionality -->
+<!-- CHANGE SUMMARY: Fixed theme handling to support both widget-update and theme-change messages, reduced excessive logging, improved initial theme detection -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -36,7 +36,6 @@
       text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
       transition: color var(--transition-medium), text-shadow var(--transition-medium);
     }
-    
   </style>
 </head>
 <body>
@@ -72,47 +71,50 @@
       detectAndApplyInitialTheme() {
         let initialTheme = 'dark'; // fallback
 
-        // Try to detect theme from body class (applied by early theme loading)
-        if (document.body.classList.contains('theme-light')) {
-          initialTheme = 'light';
-        } else if (document.body.classList.contains('theme-dark')) {
-          initialTheme = 'dark';
-        } else {
-          // Fallback: try localStorage
-          try {
-            const savedTheme = localStorage.getItem('dashie-theme');
-            if (savedTheme && (savedTheme === 'dark' || savedTheme === 'light')) {
-              initialTheme = savedTheme;
-            }
-          } catch (error) {
-            logger.debug('Could not read theme from localStorage, using default');
+        try {
+          // Check URL parameters first
+          const urlParams = new URLSearchParams(window.location.search);
+          if (urlParams.has('theme')) {
+            initialTheme = urlParams.get('theme');
           }
+          // Check parent body class (if in iframe)
+          else if (window.parent !== window) {
+            try {
+              const parentTheme = window.parent.document.body.className.match(/theme-(\w+)/)?.[1];
+              if (parentTheme) {
+                initialTheme = parentTheme;
+              }
+            } catch (e) {
+              // Cross-origin restriction, skip
+            }
+          }
+          // Check localStorage as fallback
+          else {
+            const stored = localStorage.getItem('dashie-theme');
+            if (stored) {
+              initialTheme = stored;
+            }
+          }
+        } catch (error) {
+          // Use default, no need to log
         }
 
         // Apply the detected theme immediately
         this.applyTheme(initialTheme);
         
-        logger.info('Initial theme detected and applied', { theme: initialTheme });
+        logger.info('Initial theme applied', { theme: initialTheme });
       }
 
       setupEventListeners() {
         // Listen for widget-messenger communications
         window.addEventListener('message', (event) => {
-          // Handle navigation commands (single action strings) - not needed for header but keeping pattern
+          // Handle navigation commands (not needed for header but keeping pattern)
           if (event.data && typeof event.data.action === 'string' && !event.data.type) {
             this.handleCommand(event.data.action);
           }
           // Handle message objects with type
           if (event.data && event.data.type) {
             this.handleDataServiceMessage(event.data);
-          }
-        });
-
-        // Legacy settings change listener (for backward compatibility)
-        window.addEventListener('dashie-settings-changed', (event) => {
-          const changes = event.detail;
-          if (changes && changes['family.familyName']) {
-            this.updateFamilyName(changes['family.familyName']);
           }
         });
 
@@ -127,11 +129,9 @@
         });
       }
 
-      // Handle navigation commands (header widget doesn't need navigation but keeping pattern)
+      // Handle navigation commands (header doesn't need navigation)
       handleCommand(action) {
-        logger.debug('Header widget received command', { action });
-        
-        // Header widget doesn't have interactive navigation, but could be extended
+        // Header widget doesn't have interactive navigation
         switch (action) {
           case 'up':
           case 'down':
@@ -141,92 +141,56 @@
           case 'back':
             // No action needed for header widget
             break;
-          default:
-            logger.debug('Unhandled command', { action });
-            break;
         }
       }
 
       handleDataServiceMessage(data) {
-        logger.debug('Header widget received message', { type: data.type, hasPayload: !!data.payload });
-        
         switch (data.type) {
           case 'widget-update':
             if (data.action === 'state-update') {
-              logger.debug('Processing widget state update');
-              
               // Handle family name updates from settings
               if (data.payload?.settings?.['family.familyName']) {
                 this.updateFamilyName(data.payload.settings['family.familyName']);
               }
             }
 
-            // FIXED: Always apply theme from widget-update messages
-            if (data.payload?.theme) {
-              logger.info('Applying theme from widget-update', { 
-                incomingTheme: data.payload.theme, 
-                previousTheme: this.currentTheme 
-              });
+            // FIXED: Handle theme from widget-update messages
+            if (data.payload?.theme && data.payload.theme !== this.currentTheme) {
               this.applyTheme(data.payload.theme);
             }
             break;
             
           case 'theme-change':
-            logger.info('Applying theme change', { theme: data.theme });
+            // FIXED: Handle direct theme change messages
             this.applyTheme(data.theme);
-            break;
-
-          // Legacy message handlers for backward compatibility
-          case 'family-name-update':
-            this.updateFamilyName(data.familyName);
-            break;
-
-          case 'dashie-settings-changed':
-            const changes = data.detail;
-            if (changes && changes['family.familyName']) {
-              this.updateFamilyName(changes['family.familyName']);
-            }
-            break;
-            
-          default:
-            logger.debug('Unhandled message type', { type: data.type });
             break;
         }
       }
 
-      // FIXED: Enhanced theme application with proper logging
+      // FIXED: Consistent theme application
       applyTheme(theme) {
         const previousTheme = this.currentTheme;
         this.currentTheme = theme;
         
-        // Remove any existing theme classes
-        document.body.classList.remove('theme-dark', 'theme-light');
+        // Apply theme class to body
+        document.body.className = `theme-${theme}`;
         
-        // Apply new theme class
-        document.body.classList.add(`theme-${theme}`);
-        
-        logger.info('Theme applied successfully', { 
-          theme, 
-          previousTheme,
-          bodyClasses: document.body.className 
-        });
+        // Only log if theme actually changed
+        if (previousTheme !== theme) {
+          logger.info('Theme applied', { theme, previousTheme });
+        }
       }
 
       async loadFamilyName() {
         try {
-          // Try to load from localStorage first (faster)
+          // Try to load from localStorage first
           const cached = localStorage.getItem('dashie-family-name');
           if (cached) {
             this.updateFamilyName(cached);
-            logger.debug('Family name loaded from cache', { familyName: cached });
           }
-          
-          // Could also try to load from settings system here if needed
-          // For now, we'll rely on the WidgetMessenger to send the current state
-          
         } catch (error) {
-          logger.error('Failed to load family name', { error: error.message });
-          this.updateFamilyName('Dashie');  // This will become "The Dashie Family"
+          // Use default, no need to log
+          this.updateFamilyName('Dashie');
         }
       }
 
@@ -235,29 +199,23 @@
           familyName = 'Dashie';
         }
 
-        // Format as "The [Name] Family" to match original
+        // Format as "The [Name] Family"
         const formattedName = `The ${familyName.trim()} Family`;
         this.currentFamilyName = formattedName;
         const element = document.getElementById('family-name');
         
         if (element) {
-          element.textContent = formattedName;  // Use textContent instead of innerHTML since we're not escaping
+          element.textContent = formattedName;
           
-          // Cache the family name (store the base name, not the formatted version)
+          // Cache the family name
           try {
             localStorage.setItem('dashie-family-name', familyName.trim());
           } catch (error) {
-            logger.debug('Could not cache family name', { error: error.message });
+            // Ignore cache errors
           }
           
           logger.info('Family name updated', { familyName: formattedName });
         }
-      }
-
-      escapeHtml(text) {
-        const div = document.createElement('div');
-        div.textContent = text;
-        return div.innerHTML;
       }
     }
 

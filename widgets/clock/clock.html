@@ -107,40 +107,49 @@
         // Start clock and weather updates
         this.startUpdates();
         
-        logger.info('Clock widget initialized with proper theme detection');
+        logger.info('Clock widget initialized');
       }
 
       // Detect initial theme from DOM or localStorage
       detectAndApplyInitialTheme() {
         let initialTheme = 'dark'; // fallback
 
-        // Try to detect theme from body class (applied by early theme loading)
-        if (document.body.classList.contains('theme-light')) {
-          initialTheme = 'light';
-        } else if (document.body.classList.contains('theme-dark')) {
-          initialTheme = 'dark';
-        } else {
-          // Fallback: try localStorage
-          try {
-            const savedTheme = localStorage.getItem('dashie-theme');
-            if (savedTheme && (savedTheme === 'dark' || savedTheme === 'light')) {
-              initialTheme = savedTheme;
-            }
-          } catch (error) {
-            logger.debug('Could not read theme from localStorage, using default');
+        try {
+          // Check URL parameters first
+          const urlParams = new URLSearchParams(window.location.search);
+          if (urlParams.has('theme')) {
+            initialTheme = urlParams.get('theme');
           }
+          // Check parent body class (if in iframe)
+          else if (window.parent !== window) {
+            try {
+              const parentTheme = window.parent.document.body.className.match(/theme-(\w+)/)?.[1];
+              if (parentTheme) {
+                initialTheme = parentTheme;
+              }
+            } catch (e) {
+              // Cross-origin restriction, skip
+            }
+          }
+          // Check localStorage as fallback
+          else {
+            const stored = localStorage.getItem('dashie-theme');
+            if (stored) {
+              initialTheme = stored;
+            }
+          }
+        } catch (error) {
+          // Use default, no need to log
         }
 
         // Apply the detected theme immediately
         this.applyTheme(initialTheme);
-        
-        logger.info('Initial theme detected and applied', { theme: initialTheme });
       }
 
       setupEventListeners() {
         // Listen for widget-messenger communications
         window.addEventListener('message', (event) => {
-          // Handle navigation commands (single action strings) - clock doesn't need navigation but keeping pattern
+          // Handle navigation commands (not needed for clock but keeping pattern)
           if (event.data && typeof event.data.action === 'string' && !event.data.type) {
             this.handleCommand(event.data.action);
           }
@@ -161,11 +170,9 @@
         });
       }
 
-      // Handle navigation commands (clock widget doesn't need navigation but keeping pattern)
+      // Handle navigation commands (clock doesn't need navigation)
       handleCommand(action) {
-        logger.debug('Clock widget received command', { action });
-        
-        // Clock widget doesn't have interactive navigation, but could be extended
+        // Clock widget doesn't have interactive navigation
         switch (action) {
           case 'up':
           case 'down':
@@ -175,59 +182,37 @@
           case 'back':
             // No action needed for clock widget
             break;
-          default:
-            logger.debug('Unhandled command', { action });
-            break;
         }
       }
 
       handleDataServiceMessage(data) {
-        logger.debug('Clock widget received message', { type: data.type, hasPayload: !!data.payload });
-        
         switch (data.type) {
           case 'widget-update':
-            if (data.action === 'state-update') {
-              logger.debug('Processing widget state update');
-              // Clock widget doesn't need state updates currently
-            }
-
-            // FIXED: Always apply theme from widget-update messages
-            if (data.payload?.theme) {
-              logger.info('Applying theme from widget-update', { 
-                incomingTheme: data.payload.theme, 
-                previousTheme: this.currentTheme 
-              });
+            // FIXED: Handle theme from widget-update messages
+            if (data.payload?.theme && data.payload.theme !== this.currentTheme) {
               this.applyTheme(data.payload.theme);
             }
             break;
             
           case 'theme-change':
-            logger.info('Applying theme change', { theme: data.theme });
+            // FIXED: Handle direct theme change messages
             this.applyTheme(data.theme);
-            break;
-            
-          default:
-            logger.debug('Unhandled message type', { type: data.type });
             break;
         }
       }
 
-      // FIXED: Enhanced theme application with proper logging
+      // FIXED: Consistent theme application
       applyTheme(theme) {
         const previousTheme = this.currentTheme;
         this.currentTheme = theme;
         
-        // Remove any existing theme classes
-        document.body.classList.remove('theme-dark', 'theme-light');
+        // Apply theme class to body
+        document.body.className = `theme-${theme}`;
         
-        // Apply new theme class
-        document.body.classList.add(`theme-${theme}`);
-        
-        logger.info('Theme applied successfully', { 
-          theme, 
-          previousTheme,
-          bodyClasses: document.body.className 
-        });
+        // Only log if theme actually changed
+        if (previousTheme !== theme) {
+          logger.info('Theme applied', { theme, previousTheme });
+        }
       }
 
       startUpdates() {
@@ -250,12 +235,6 @@
           
           const timeString = `${hours}:${minutes} ${ampm}`;
           document.getElementById('time').textContent = timeString;
-          
-          // Log time update only once per minute to avoid spam
-          const seconds = now.getSeconds();
-          if (seconds === 0) {
-            logger.debug('Time updated', { time: timeString });
-          }
         } catch (error) {
           logger.error('Failed to update time', { error: error.message });
         }
@@ -265,7 +244,6 @@
         const url = `https://api.open-meteo.com/v1/forecast?latitude=${this.latitude}&longitude=${this.longitude}&current_weather=true&temperature_unit=fahrenheit`;
         
         try {
-          logger.debug('Fetching weather data');
           const response = await fetch(url);
           
           if (!response.ok) {
@@ -280,7 +258,7 @@
             document.getElementById('temperature').textContent = `${temp}°F`;
             document.getElementById('weather-icon').textContent = this.weatherIcons[weatherCode] || '🌡️';
             
-            logger.info('Weather updated successfully', { 
+            logger.info('Weather updated', { 
               temperature: temp, 
               weatherCode, 
               icon: this.weatherIcons[weatherCode] || '🌡️' 
@@ -290,10 +268,7 @@
           }
           
         } catch (error) {
-          logger.error('Weather fetch error', { 
-            error: error.message,
-            url: url.split('?')[0] // Log URL without query params for privacy
-          });
+          logger.error('Weather fetch error', { error: error.message });
           
           // Set fallback display
           document.getElementById('temperature').textContent = '--°F';
