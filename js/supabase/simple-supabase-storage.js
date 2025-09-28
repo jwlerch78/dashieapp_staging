@@ -115,8 +115,8 @@ export class SimpleSupabaseStorage {
       const { data, error } = await supabase
         .from('user_settings')
         .insert({
-          user_id: testUserId,
-          user_email: 'test@example.com',
+          auth_user_id: testUserId,
+          email: 'test@example.com',
           settings: { test: true },
           updated_at: new Date().toISOString()
         })
@@ -148,7 +148,7 @@ export class SimpleSupabaseStorage {
           await supabase
             .from('user_settings')
             .delete()
-            .eq('user_id', testUserId);
+            .eq('auth_user_id', testUserId);
         }
         console.log('🔓 RLS is DISABLED (INSERT succeeded)');
         return false;
@@ -233,8 +233,8 @@ export class SimpleSupabaseStorage {
     const useJWT = await this.determineAuthMode();
     
     const data = {
-      user_id: this.userId,
-      user_email: this.userEmail,
+      auth_user_id: this.userId,
+      email: this.userEmail,
       settings: settings,
       updated_at: new Date().toISOString()
     };
@@ -257,12 +257,10 @@ export class SimpleSupabaseStorage {
         // Use direct Supabase access
         console.log('📊 Using direct access mode');
         
-        // NOTE: Edge function uses user_email as primary key, direct access uses user_id
-        // This is intentional - RLS policies may be set up differently
         const { data: result, error } = await supabase
           .from('user_settings')
           .upsert(data, {
-            onConflict: 'user_id',
+            onConflict: 'auth_user_id',
             ignoreDuplicates: false
           })
           .select();
@@ -338,12 +336,10 @@ export class SimpleSupabaseStorage {
         // Use direct Supabase access
         console.log('📊 Using direct access mode');
         
-        // NOTE: Edge function uses user_email as primary key, direct access uses user_id
-        // This is intentional - RLS policies may be set up differently
         const { data, error } = await supabase
           .from('user_settings')
           .select('settings')
-          .eq('user_id', this.userId)
+          .eq('auth_user_id', this.userId)
           .single();
 
         if (error) {
@@ -371,7 +367,7 @@ export class SimpleSupabaseStorage {
     try {
       const data = {
         settings: settings,
-        user_id: this.userId,
+        auth_user_id: this.userId,
         timestamp: new Date().toISOString()
       };
       localStorage.setItem(this.localStorageKey, JSON.stringify(data));
@@ -475,7 +471,7 @@ export class SimpleSupabaseStorage {
         event: '*',
         schema: 'public',
         table: 'user_settings',
-        filter: `user_id=eq.${this.userId}`
+        filter: `auth_user_id=eq.${this.userId}`
       }, (payload) => {
         console.log('🔄 Real-time update received:', payload);
         if (payload.new && payload.new.settings) {
@@ -499,7 +495,7 @@ export class SimpleSupabaseStorage {
       const pending = {
         settings: settings,
         timestamp: Date.now(),
-        user_id: this.userId
+        auth_user_id: this.userId
       };
       localStorage.setItem(this.localStorageKey + '-pending', JSON.stringify(pending));
     } catch (error) {
@@ -515,7 +511,7 @@ export class SimpleSupabaseStorage {
       const pendingData = localStorage.getItem(this.localStorageKey + '-pending');
       if (pendingData) {
         const pending = JSON.parse(pendingData);
-        if (pending.user_id === this.userId) {
+        if (pending.auth_user_id === this.userId) {
           await this.saveToSupabase(pending.settings);
           localStorage.removeItem(this.localStorageKey + '-pending');
           console.log('🔄 ✅ Pending settings synced successfully');

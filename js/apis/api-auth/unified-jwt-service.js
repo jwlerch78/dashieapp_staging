@@ -1,5 +1,5 @@
 // js/apis/api-auth/unified-jwt-service.js
-// CHANGE SUMMARY: Unified JWT service replacing Phase 1/2/3 complexity - single service with smart initialization
+// CHANGE SUMMARY: Updated JWT service for proper Supabase auth integration with JWT tokens - maintains compatibility with existing interface
 
 import { createLogger } from '../../utils/logger.js';
 
@@ -7,7 +7,7 @@ const logger = createLogger('UnifiedJWT');
 
 /**
  * Unified JWT Authentication Service
- * Replaces all Phase 1/2/3 complexity with a single, robust service
+ * Now uses proper Supabase JWT tokens for auth integration
  */
 export class UnifiedJWTService {
   constructor() {
@@ -15,10 +15,12 @@ export class UnifiedJWTService {
     this.isReady = false;
     this.edgeFunctionUrl = null;
     this.currentUser = null;
+    this.currentJWT = null;
+    this.jwtExpiry = null;
     this.lastOperationTime = null;
     this.initializationPromise = null;
     
-    logger.info('Unified JWT Service created');
+    logger.info('Unified JWT Service created (Supabase Auth Integration)');
   }
 
   /**
@@ -135,8 +137,9 @@ export class UnifiedJWTService {
       const supabaseUrl = config.supabaseUrl;
       
       if (supabaseUrl) {
-        this.edgeFunctionUrl = `${supabaseUrl}/functions/v1/jwt-verifier`;
-        logger.debug('Edge function URL configured');
+        // Updated to use jwt-auth instead of jwt-verifier
+        this.edgeFunctionUrl = `${supabaseUrl}/functions/v1/jwt-auth`;
+        logger.debug('Edge function URL configured for jwt-auth');
       } else {
         logger.warn('No Supabase URL found in config');
       }
@@ -179,11 +182,18 @@ export class UnifiedJWTService {
 
     logger.debug('✅ Google access token available');
 
-    // Test connection to edge function
-    const connectionTest = await this._testConnection();
+    // Test connection to edge function and get initial JWT
+    const connectionTest = await this._testConnectionAndGetJWT();
     if (!connectionTest.success) {
       logger.debug('❌ Edge function connection test failed', connectionTest);
       return false;
+    }
+
+    // Store the JWT from the test
+    if (connectionTest.jwtToken) {
+      this.currentJWT = connectionTest.jwtToken;
+      this._parseJWTExpiry();
+      logger.debug('✅ JWT token obtained and stored');
     }
 
     logger.success('✅ All JWT requirements met');
@@ -191,10 +201,10 @@ export class UnifiedJWTService {
   }
 
   /**
-   * Test connection to edge function
+   * Test connection to edge function and get JWT token
    * @private
    */
-  async _testConnection() {
+  async _testConnectionAndGetJWT() {
     try {
       const googleAccessToken = this._getGoogleAccessToken();
       if (!googleAccessToken) {
@@ -208,8 +218,8 @@ export class UnifiedJWTService {
 
       const requestBody = {
         googleAccessToken,
-        operation: 'load',
-        userEmail: testEmail
+        operation: 'load'
+        // Note: Removed userEmail - edge function gets it from Google token
       };
 
       const headers = this._getSupabaseHeaders();
@@ -223,12 +233,14 @@ export class UnifiedJWTService {
       if (response.ok) {
         const result = await response.json();
         // Connection is successful if we get a proper response structure
-        // even if no settings are found (that's normal for new users)
         if (result.success !== undefined) {
+          this.currentUser = result.user;
           return { 
             success: true, 
             status: response.status,
-            data: result
+            data: result,
+            jwtToken: result.jwtToken,
+            user: result.user
           };
         } else {
           return { success: false, error: 'Unexpected response format' };
@@ -250,6 +262,63 @@ export class UnifiedJWTService {
     } catch (error) {
       logger.debug('Connection test exception:', error);
       return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Parse JWT expiry from current token
+   * @private
+   */
+  _parseJWTExpiry() {
+    if (!this.currentJWT) return;
+    
+    try {
+      // Decode JWT payload (simple base64 decode, not verifying signature)
+      const payload = JSON.parse(atob(this.currentJWT.split('.')[1]));
+      this.jwtExpiry = payload.exp ? payload.exp * 1000 : null; // Convert to milliseconds
+      
+      if (this.jwtExpiry) {
+        const expiresIn = this.jwtExpiry - Date.now();
+        logger.debug(`JWT expires in ${Math.round(expiresIn / 1000 / 60)} minutes`);
+      }
+    } catch (error) {
+      logger.warn('Failed to parse JWT expiry:', error);
+    }
+  }
+
+  /**
+   * Check if current JWT is expired or will expire soon
+   * @private
+   */
+  _isJWTExpired() {
+    if (!this.jwtExpiry) return true;
+    
+    const now = Date.now();
+    const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
+    
+    return now >= (this.jwtExpiry - bufferTime);
+  }
+
+  /**
+   * Refresh JWT token if needed
+   * @private
+   */
+  async _ensureValidJWT() {
+    if (!this._isJWTExpired()) {
+      return true; // Current JWT is still valid
+    }
+
+    logger.info('🔄 JWT expired or expiring soon, refreshing...');
+    
+    const refreshResult = await this._testConnectionAndGetJWT();
+    if (refreshResult.success) {
+      this.currentJWT = refreshResult.jwtToken;
+      this._parseJWTExpiry();
+      logger.success('✅ JWT refreshed successfully');
+      return true;
+    } else {
+      logger.error('❌ JWT refresh failed:', refreshResult.error);
+      return false;
     }
   }
 
@@ -305,7 +374,7 @@ export class UnifiedJWTService {
     return headers;
   }
 
-  // ====== PUBLIC API METHODS ======
+  // ====== PUBLIC API METHODS (MAINTAINING EXACT COMPATIBILITY) ======
 
   /**
    * Check if JWT service is ready for operations
@@ -316,8 +385,25 @@ export class UnifiedJWTService {
   }
 
   /**
+   * Get current Supabase JWT token (refreshes if needed)
+   * NEW METHOD - not in original
+   */
+  async getSupabaseJWT() {
+    if (!this.isServiceReady()) {
+      throw new Error('JWT service not ready');
+    }
+
+    const isValid = await this._ensureValidJWT();
+    if (!isValid) {
+      throw new Error('Unable to obtain valid JWT token');
+    }
+
+    return this.currentJWT;
+  }
+
+  /**
    * Load user settings via JWT-verified edge function
-   * @param {string} userEmail - User email for loading settings
+   * @param {string} userEmail - User email for loading settings (kept for compatibility)
    * @returns {Promise<Object|null>} User settings or null if not found
    */
   async loadSettings(userEmail) {
@@ -330,6 +416,9 @@ export class UnifiedJWTService {
     logger.info('Loading settings via JWT', { userEmail });
 
     try {
+      // Ensure we have a valid JWT
+      await this._ensureValidJWT();
+
       const googleAccessToken = this._getGoogleAccessToken();
       if (!googleAccessToken) {
         throw new Error('No Google access token available');
@@ -337,8 +426,8 @@ export class UnifiedJWTService {
 
       const requestBody = {
         googleAccessToken,
-        operation: 'load',
-        userEmail
+        operation: 'load'
+        // Note: Removed userEmail - edge function gets it from Google token
       };
 
       const headers = this._getSupabaseHeaders();
@@ -365,7 +454,13 @@ export class UnifiedJWTService {
       });
 
       this.lastOperationTime = Date.now();
-      this.currentUser = result.user;
+      
+      // Update stored user and JWT
+      if (result.user) this.currentUser = result.user;
+      if (result.jwtToken) {
+        this.currentJWT = result.jwtToken;
+        this._parseJWTExpiry();
+      }
 
       return result.settings;
 
@@ -378,7 +473,7 @@ export class UnifiedJWTService {
 
   /**
    * Save user settings via JWT-verified edge function
-   * @param {string} userEmail - User email
+   * @param {string} userEmail - User email (kept for compatibility)
    * @param {Object} settings - Settings data to save
    * @returns {Promise<boolean>} True if save was successful
    */
@@ -395,6 +490,9 @@ export class UnifiedJWTService {
     });
 
     try {
+      // Ensure we have a valid JWT
+      await this._ensureValidJWT();
+
       const googleAccessToken = this._getGoogleAccessToken();
       if (!googleAccessToken) {
         throw new Error('No Google access token available');
@@ -403,8 +501,8 @@ export class UnifiedJWTService {
       const requestBody = {
         googleAccessToken,
         operation: 'save',
-        data: settings,
-        userEmail
+        data: settings
+        // Note: Removed userEmail - edge function gets it from Google token
       };
 
       const headers = this._getSupabaseHeaders();
@@ -431,7 +529,13 @@ export class UnifiedJWTService {
       });
 
       this.lastOperationTime = Date.now();
-      this.currentUser = result.user;
+      
+      // Update stored user and JWT
+      if (result.user) this.currentUser = result.user;
+      if (result.jwtToken) {
+        this.currentJWT = result.jwtToken;
+        this._parseJWTExpiry();
+      }
 
       return result.saved === true;
 
@@ -453,11 +557,15 @@ export class UnifiedJWTService {
       hasEdgeFunction: !!this.edgeFunctionUrl,
       edgeFunctionUrl: this.edgeFunctionUrl,
       hasGoogleToken: !!this._getGoogleAccessToken(),
+      hasSupabaseJWT: !!this.currentJWT,
+      jwtExpiry: this.jwtExpiry,
+      jwtExpired: this._isJWTExpired(),
       lastOperationTime: this.lastOperationTime,
       currentUser: this.currentUser ? {
         id: this.currentUser.id,
         email: this.currentUser.email,
-        name: this.currentUser.name
+        name: this.currentUser.name,
+        provider: this.currentUser.provider
       } : null
     };
   }
@@ -477,7 +585,7 @@ export class UnifiedJWTService {
       };
     }
 
-    return await this._testConnection();
+    return await this._testConnectionAndGetJWT();
   }
 }
 
