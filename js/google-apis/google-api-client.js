@@ -32,7 +32,20 @@ export class GoogleAPIClient {
   }
 
   // Get current access token from auth manager
-  getAccessToken() {
+  async getAccessToken() {
+    // NEW: Try refresh token system first
+    if (window.jwtAuth && window.jwtAuth.isServiceReady()) {
+      try {
+        const result = await window.jwtAuth.getValidToken('google', 'personal');
+        if (result && result.success && result.access_token) {
+          return result.access_token;
+        }
+      } catch (error) {
+        console.warn('⚠️ Refresh token failed, falling back to session token:', error);
+      }
+    }
+    
+    // FALLBACK: Use existing session token method
     return this.authManager.getGoogleAccessToken();
   }
 
@@ -52,7 +65,7 @@ export class GoogleAPIClient {
 
   // NEW: Enhanced request method with retry logic and better error handling
   async makeRequest(endpoint, options = {}) {
-    const token = this.getAccessToken();
+    const token = await this.getAccessToken();
     if (!token) {
       throw new Error('No Google access token available');
     }
@@ -489,7 +502,7 @@ export class GoogleAPIClient {
     };
 
     // First, check if we have a token at all
-    const token = this.getAccessToken();
+    const token = await this.getAccessToken();
     if (!token) {
       results.errors.push('No access token available');
       results.tokenStatus = 'missing';

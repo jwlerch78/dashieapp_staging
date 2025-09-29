@@ -1,5 +1,5 @@
-<!-- widgets/photos/photos.html -->
-<!-- CHANGE SUMMARY: Integrated Supabase storage for photo loading, added upload modal support, preserved all existing display/transition logic -->
+<!-- widgets/photos.html -->
+<!-- CHANGE SUMMARY: Incorporated proper theme handling pattern with early theme detection, structured logging, and standardized message handling following updated header.html example -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -81,192 +81,157 @@
     }
 
     /* Error state styling */
-    .error-message,
-    .empty-message {
-      color: var(--text-secondary);
+    .error-message {
+      color: var(--color-error, #ff6b6b);
       text-align: center;
-      padding: 2rem;
+      padding: 20px;
       font-size: 1.1rem;
       transition: color var(--transition-medium);
     }
 
-    .empty-message {
-      color: var(--text-muted);
+    /* Focus indicator for navigation */
+    body.widget-focused #photo-container {
+      outline: var(--outline-width-focused, 3px) solid var(--outline-focused, #00aaff);
+      outline-offset: var(--outline-offset-widget, 0px);
+      box-shadow: var(--glow-focused, 0 0 25px rgba(0, 170, 255, 0.9), 0 0 55px rgba(0, 170, 255, 0.5));
     }
 
-    /* Widget focus indicator */
-    body.widget-focused #photo-container {
-      outline: 3px solid var(--outline-focused, #00aaff);
-      outline-offset: -3px;
+    /* Responsive adjustments */
+    @media (max-width: 600px) {
+      .loading {
+        font-size: 1rem;
+      }
     }
   </style>
 </head>
 <body>
   <div id="photo-container">
-    <div id="loading" class="loading">
-      <div>Loading photos...</div>
-      <div class="status">📸</div>
+    <div class="loading" id="loading">
+      Loading photos...
+      <div class="status" id="status">○</div>
     </div>
-    <img id="photo-display" src="" alt="Photo" style="display: none;" />
+    
+    <img id="photoImg" src="" alt="Slideshow Photo" style="display: none;">
   </div>
+  
+  <!-- Load config and photos data -->
+  <script src="../../js/config.js"></script>
+  <script src="./photos.js"></script>
 
   <script type="module">
-    import { PhotoStorageService } from '../../js/supabase/photo-storage-service.js';
-    import { PhotoUploadModal } from './photo-upload.js';
+    // Import logger for structured logging
     import { createLogger } from '../../js/utils/logger.js';
-
     const logger = createLogger('PhotosWidget');
 
     class PhotosWidget {
       constructor() {
+        // Initialize widget state
+        this.currentTheme = null;
         this.currentPhotoIndex = 0;
         this.shuffledPhotos = [];
-        this.isTransitioning = false;
         this.autoAdvanceInterval = null;
-        this.transitionTime = 10; // seconds
+        this.transitionTime = 15; // Default 15 seconds
         this.isFocused = false;
-        this.currentTheme = 'dark';
-        this.userId = null;
-        this.storage = null;
-        this.uploadModal = null;
-        this.currentFolder = null; // null = all photos
-
-        // DOM elements
-        this.loadingDiv = document.getElementById('loading');
-        this.photoImg = document.getElementById('photo-display');
-
-        logger.info('PhotosWidget initializing');
-        this.initialize();
+        this.isTransitioning = false;
+        
+        // Get DOM elements
+        this.photoImg = document.getElementById("photoImg");
+        this.photoContainer = document.getElementById("photo-container");
+        this.loadingDiv = document.getElementById("loading");
+        
+        this.init();
       }
 
-      // --- Initialization ---
-      async initialize() {
-        // Send ready signal
-        window.parent.postMessage({ type: 'widget-ready', widget: 'photos' }, '*');
-
-        // Wait for user authentication
-        await this.waitForAuth();
-
-        // Set up message listener
-        window.addEventListener('message', (event) => this.handleMessage(event));
-
-        // Apply initial theme
-        this.applyTheme(this.currentTheme);
-
-        // Load photos from storage
-        await this.initializePhotos();
-
-        logger.info('PhotosWidget initialized');
+      init() {
+        // Apply early theme detection
+        this.detectAndApplyInitialTheme();
+        
+        // Set up event listeners
+        this.setupEventListeners();
+        
+        // Initialize photos
+        this.initializePhotos();
+        
+        logger.info('Photos widget initialized with proper theme detection');
       }
 
-      async waitForAuth() {
-        return new Promise((resolve) => {
-          const checkAuth = () => {
-            // Check if we have user data from parent
-            if (window.dashieUser && window.dashieUser.id) {
-              this.userId = window.dashieUser.id;
-              this.storage = new PhotoStorageService(this.userId);
-              this.uploadModal = new PhotoUploadModal(this.userId);
-              logger.info('Auth received', { userId: this.userId });
-              resolve();
-            } else {
-              setTimeout(checkAuth, 100);
+      // Detect initial theme from DOM or localStorage (following header.html pattern)
+      detectAndApplyInitialTheme() {
+        let initialTheme = 'dark'; // fallback
+
+        // Try to detect theme from body class (applied by early theme loading)
+        if (document.body.classList.contains('theme-light')) {
+          initialTheme = 'light';
+        } else if (document.body.classList.contains('theme-dark')) {
+          initialTheme = 'dark';
+        } else {
+          // Fallback: try localStorage
+          try {
+            const savedTheme = localStorage.getItem('dashie-theme');
+            if (savedTheme && (savedTheme === 'dark' || savedTheme === 'light')) {
+              initialTheme = savedTheme;
             }
-          };
-          checkAuth();
+          } catch (error) {
+            logger.debug('Could not read theme from localStorage, using default');
+          }
+        }
+
+        // Apply the detected theme immediately
+        this.applyTheme(initialTheme);
+        
+        logger.info('Initial theme detected and applied', { theme: initialTheme });
+      }
+
+      setupEventListeners() {
+        // Listen for widget-messenger communications
+        window.addEventListener('message', (event) => {
+          // Handle navigation commands (single action strings) - NEW PATTERN
+          if (event.data && typeof event.data.action === 'string' && !event.data.type) {
+            this.handleCommand(event.data.action);
+          }
+          
+          // Handle data service messages (type objects)
+          if (event.data && event.data.type) {
+            this.handleDataServiceMessage(event.data);
+          }
+        });
+
+        // Send widget ready signal
+        window.addEventListener('load', () => {
+          if (window.parent !== window) {
+            window.parent.postMessage({ 
+              type: 'widget-ready', 
+              widget: 'photos' 
+            }, '*');
+          }
         });
       }
 
-      // --- Message Handling ---
-      handleMessage(event) {
-        const data = event.data;
-
-        // Handle navigation commands
-        if (data && typeof data.action === 'string' && !data.type) {
-          this.handleCommand(data.action);
+      // Apply theme to widget
+      applyTheme(theme) {
+        if (theme === this.currentTheme) {
+          logger.debug('Theme already applied, skipping', { theme });
+          return;
         }
 
-        // Handle data service messages
-        if (data && data.type) {
-          this.handleDataServiceMessage(data);
-        }
-      }
+        logger.info('Applying theme to photos widget', { 
+          from: this.currentTheme, 
+          to: theme 
+        });
 
-      // --- Command Handling with Focus Management ---
-      handleCommand(action) {
-        logger.debug('Photos widget received command', { action });
+        this.currentTheme = theme;
         
-        // AUTO-FOCUS: Detect focus from receiving commands
-        if (!this.isFocused) {
-          this.handleFocusChange(true);
-        }
-        
-        switch(action) {
-          case 'left':
-          case 'right':
-          case 'select':
-            // Open upload modal
-            this.openUploadModal();
-            break;
-          case 'up':
-            this.prevPhoto();
-            break;
-          case 'down':
-            this.nextPhoto();
-            break;
-          case 'back':
-            // CRITICAL: Handle focus loss
-            if (this.isFocused) {
-              this.handleFocusChange(false);
-            }
-            break;
-          default:
-            logger.debug('Photos widget ignoring command', { action });
-            break;
-        }
-      }
-
-      // --- System Message Handling ---
-      handleDataServiceMessage(data) {
-        logger.debug('Photos widget received system message', { type: data.type });
-        
-        switch(data.type) {
-          case 'widget-update':
-            if (data.action === 'state-update' && data.payload) {
-              // Handle theme updates
-              if (data.payload.theme && data.payload.theme !== this.currentTheme) {
-                this.applyTheme(data.payload.theme);
-              }
-            }
-            break;
-            
-          case 'theme-change':
-            this.applyTheme(data.theme);
-            break;
-            
-          case 'update-settings':
-            if (data.photoTransitionTime) {
-              this.updateTransitionTime(data.photoTransitionTime);
-            }
-            break;
-
-          case 'photos-uploaded':
-            // Refresh photos after upload
-            logger.info('Photos uploaded, refreshing display');
-            this.initializePhotos();
-            break;
-            
-          default:
-            logger.debug('Unhandled system message type', { type: data.type });
-            break;
-        }
+        // Theme is automatically applied via CSS variables
+        // Just ensure body has correct class for any theme-specific logic
+        document.body.className = document.body.className.replace(/theme-\w+/, '');
+        document.body.classList.add(`theme-${theme}`);
       }
 
       // --- Focus Management ---
       handleFocusChange(focused) {
         const wasFocused = this.isFocused;
         this.isFocused = focused;
-
+        
         if (focused && !wasFocused) {
           // Widget gained focus - add focus indicator
           document.body.classList.add('widget-focused');
@@ -275,64 +240,6 @@
           // Widget lost focus - remove focus indicator
           document.body.classList.remove('widget-focused');
           logger.debug('Photos widget lost focus');
-        }
-      }
-
-      // --- Theme Management ---
-      applyTheme(theme) {
-        this.currentTheme = theme;
-        document.body.className = `theme-${theme}`;
-        logger.debug('Theme applied', { theme });
-      }
-
-      // --- Upload Modal ---
-      openUploadModal() {
-        logger.info('Opening upload modal');
-        
-        if (this.uploadModal) {
-          // Pause slideshow while modal is open
-          this.stopAutoAdvance();
-          this.uploadModal.open();
-        } else {
-          logger.error('Upload modal not initialized');
-        }
-      }
-
-      // --- Initialize Photos from Storage ---
-      async initializePhotos() {
-        try {
-          if (!this.storage) {
-            logger.warn('Storage not initialized yet');
-            return;
-          }
-
-          logger.info('Loading photos from storage', { folder: this.currentFolder });
-
-          // Get photo URLs (shuffled)
-          const photoUrls = await this.storage.getPhotoUrls(this.currentFolder, true);
-
-          if (photoUrls.length === 0) {
-            logger.warn('No photos available');
-            this.loadingDiv.innerHTML = '<div class="empty-message">No photos yet. Press Enter to upload.</div>';
-            return;
-          }
-
-          this.shuffledPhotos = photoUrls;
-          this.showPhoto(0, false); // First photo without smooth transition
-          
-          // Start auto-advance after a delay
-          setTimeout(() => {
-            this.startAutoAdvance();
-          }, 1000);
-          
-          logger.info('Photos widget initialized', { 
-            totalPhotos: this.shuffledPhotos.length,
-            transitionTime: this.transitionTime 
-          });
-
-        } catch (error) {
-          logger.error('Failed to load photos', error);
-          this.loadingDiv.innerHTML = '<div class="error-message">Failed to load photos. Press Enter to upload.</div>';
         }
       }
 
@@ -411,7 +318,7 @@
           this.showPhoto(this.currentPhotoIndex, false);
         } else {
           // Show error message
-          this.loadingDiv.innerHTML = '<div class="error-message">Failed to load photos</div>';
+          this.loadingDiv.innerHTML = '<div class="error-message">No photos available</div>';
         }
       }
 
@@ -452,6 +359,98 @@
           this.autoAdvanceInterval = null;
           logger.info('Auto-advance stopped');
         }
+      }
+
+      // --- Command Handling with Focus Management ---
+      handleCommand(action) {
+        logger.debug('Photos widget received command', { action });
+        
+        // AUTO-FOCUS: Detect focus from receiving commands
+        if (!this.isFocused) {
+          this.handleFocusChange(true);
+        }
+        
+        switch(action) {
+          case 'right':
+          case 'down':
+            this.nextPhoto();
+            break;
+          case 'left':
+          case 'up':
+            this.prevPhoto();
+            break;
+          case 'select':
+            logger.debug('Enter pressed on photos widget');
+            break;
+          case 'back':
+            // CRITICAL: Handle focus loss
+            if (this.isFocused) {
+              this.handleFocusChange(false);
+            }
+            break;
+          default:
+            logger.debug('Photos widget ignoring command', { action });
+            break;
+        }
+      }
+
+      // --- System Message Handling ---
+      handleDataServiceMessage(data) {
+        logger.debug('Photos widget received system message', { type: data.type });
+        
+        switch(data.type) {
+          case 'widget-update':
+            if (data.action === 'state-update' && data.payload) {
+              // Handle photos data updates if needed
+              if (data.payload.photos) {
+                logger.debug('Processing photos data update');
+                // Could refresh photos here if needed
+              }
+              
+              // Handle theme updates
+              if (data.payload.theme && data.payload.theme !== this.currentTheme) {
+                this.applyTheme(data.payload.theme);
+              }
+            }
+            break;
+            
+          case 'theme-change':
+            this.applyTheme(data.theme);
+            break;
+            
+          case 'update-settings':
+            if (data.photoTransitionTime) {
+              this.updateTransitionTime(data.photoTransitionTime);
+            }
+            break;
+            
+          default:
+            logger.debug('Unhandled system message type', { type: data.type });
+            break;
+        }
+      }
+
+      // --- Initialize Photos ---
+      initializePhotos() {
+        // Check if photos data is available
+        if (typeof photos === 'undefined' || !Array.isArray(photos) || photos.length === 0) {
+          logger.warn('No photos data available, showing placeholder');
+          this.loadingDiv.innerHTML = '<div class="error-message">No photos configured</div>';
+          return;
+        }
+
+        this.shuffledPhotos = this.shuffleArray(photos);
+        this.showPhoto(0, false); // First photo without smooth transition
+        
+        // Start auto-advance after a delay
+        setTimeout(() => {
+          this.startAutoAdvance();
+        }, 1000);
+        
+        logger.info('Photos widget initialized', { 
+          totalPhotos: this.shuffledPhotos.length,
+          transitionTime: this.transitionTime 
+        });
       }
     }
 
