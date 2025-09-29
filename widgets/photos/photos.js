@@ -37,14 +37,11 @@ class PhotosWidget {
    * Initialize widget - wait for authentication and load photos
    */
   async initialize() {
-    // Send ready signal
-    window.parent.postMessage({ type: 'widget-ready', widget: 'photos' }, '*');
+    // Set up event listeners (including ready signal)
+    this.setupEventListeners();
 
     // Wait for user authentication
     await this.waitForAuth();
-
-    // Set up message listener
-    window.addEventListener('message', (event) => this.handleMessage(event));
 
     // Apply initial theme
     this.applyTheme(this.currentTheme);
@@ -56,17 +53,45 @@ class PhotosWidget {
   }
 
   /**
+   * Set up event listeners for message handling
+   */
+  setupEventListeners() {
+    // Listen for widget-messenger communications
+    window.addEventListener('message', (event) => {
+      // Handle navigation commands (single action strings)
+      if (event.data && typeof event.data.action === 'string' && !event.data.type) {
+        this.handleCommand(event.data.action);
+      }
+      // Handle message objects with type
+      if (event.data && event.data.type) {
+        this.handleDataServiceMessage(event.data);
+      }
+    });
+
+    // Signal widget ready
+    window.addEventListener('load', () => {
+      if (window.parent !== window) {
+        window.parent.postMessage({ 
+          type: 'widget-ready', 
+          widget: 'photos' 
+        }, '*');
+      }
+    });
+  }
+
+  /**
    * Wait for authentication data
    */
   async waitForAuth() {
     return new Promise((resolve) => {
       const checkAuth = () => {
-        // Check if we have user data from parent
-        if (window.dashieUser && window.dashieUser.id) {
-          this.userId = window.dashieUser.id;
+        // Check if we have user data from parent window (not iframe)
+        const parentUser = window.parent?.dashieUser;
+        if (parentUser && parentUser.id) {
+          this.userId = parentUser.id;
           this.storage = new PhotoStorageService(this.userId);
-          this.uploadModal = new PhotoUploadModal(this.userId);
-          logger.info('Auth received', { userId: this.userId });
+          // Note: uploadModal will be created lazily when first needed
+          logger.info('Auth received from parent', { userId: this.userId });
           resolve();
         } else {
           setTimeout(checkAuth, 100);
@@ -200,13 +225,20 @@ class PhotosWidget {
   openUploadModal() {
     logger.info('Opening upload modal');
     
-    if (this.uploadModal) {
-      // Pause slideshow while modal is open
-      this.stopAutoAdvance();
-      this.uploadModal.open();
-    } else {
-      logger.error('Upload modal not initialized');
+    // Lazy initialization - create modal only when first needed
+    if (!this.uploadModal) {
+      logger.info('Creating upload modal for first time');
+      try {
+        this.uploadModal = new PhotoUploadModal(this.userId);
+      } catch (error) {
+        logger.error('Failed to create upload modal', error);
+        return;
+      }
     }
+    
+    // Pause slideshow while modal is open
+    this.stopAutoAdvance();
+    this.uploadModal.open();
   }
 
   /**
@@ -377,9 +409,8 @@ class PhotosWidget {
   }
 }
 
-// Initialize widget when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => new PhotosWidget());
-} else {
-  new PhotosWidget();
-}
+// Auto-initialize widget when module loads
+new PhotosWidget();
+
+// Also export for potential external use
+export { PhotosWidget };
