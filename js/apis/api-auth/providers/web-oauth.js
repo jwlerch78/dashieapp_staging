@@ -1,14 +1,18 @@
-// js/apis/api-auth/providers/web-oauth.js - Clean Web OAuth Implementation
-// CHANGE SUMMARY: Extracted from auth-manager.js, added structured logging, cleaned up for code flow with refresh tokens
+// js/apis/api-auth/providers/web-oauth.js
+// CHANGE SUMMARY: Added deferred refresh token storage - integrates with main.js startup sequence for robust token handling
 
 import { createLogger } from '../../../utils/logger.js';
 import { AUTH_CONFIG } from '../../../auth/auth-config.js';
 
 const logger = createLogger('WebOAuth');
 
+// Global storage for pending refresh tokens (to be processed during startup)
+window.pendingRefreshTokens = window.pendingRefreshTokens || [];
+
 /**
  * Web OAuth provider for browser environments
  * Handles Google OAuth flow with authorization code grant for refresh tokens
+ * Now integrates with the robust startup sequence for reliable token storage
  */
 export class WebOAuthProvider {
   constructor() {
@@ -81,7 +85,7 @@ export class WebOAuthProvider {
 
       // Store that we initiated OAuth for security
       sessionStorage.setItem('dashie_oauth_state', Date.now().toString());
-      
+    
       // Redirect to Google
       window.location.href = authUrl;
       
@@ -156,8 +160,11 @@ export class WebOAuthProvider {
         // Get user info
         const userInfo = await this.fetchUserInfo(tokens.access_token);
         
-        // Store tokens
+        // Store tokens in provider
         this.currentTokens = tokens;
+        
+        // **NEW: Queue refresh tokens for deferred storage during startup**
+        this._queueRefreshTokensForStorage(userInfo, tokens);
         
         const authResult = {
           success: true,
@@ -175,7 +182,8 @@ export class WebOAuthProvider {
         logger.auth('web', 'callback_complete', 'success', {
           userId: userInfo.id,
           userEmail: userInfo.email,
-          hasRefreshToken: !!tokens.refresh_token
+          hasRefreshToken: !!tokens.refresh_token,
+          refreshTokenQueued: !!tokens.refresh_token // We now queue refresh tokens for later processing
         });
         
         // Clean up URL
@@ -194,6 +202,67 @@ export class WebOAuthProvider {
     }
 
     return null;
+  }
+
+  /**
+   * Queue refresh tokens for storage during the startup sequence
+   * @private
+   * @param {Object} userInfo - User information from Google
+   * @param {Object} tokens - Token data from OAuth
+   */
+  _queueRefreshTokensForStorage(userInfo, tokens) {
+    try {
+      // Only proceed if we have a refresh token
+      if (!tokens.refresh_token) {
+        logger.warn('No refresh token received - user may need to reauthorize');
+        return;
+      }
+
+      // Prepare token data for storage
+      const tokenData = {
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_at: Date.now() + (tokens.expires_in * 1000), // Convert to timestamp
+        scopes: this.config.scope.split(' '),
+        display_name: `${userInfo.name} (Personal)`,
+        email: userInfo.email,
+        user_id: userInfo.id,
+        issued_at: Date.now(),
+        provider_info: {
+          type: 'web_oauth',
+          client_id: this.config.client_id
+        }
+      };
+
+      // Determine account type (for now, assume 'personal' - can be enhanced later)
+      const accountType = 'personal';
+
+      // Queue for processing during startup sequence
+      const queuedToken = {
+        provider: 'google',
+        accountType,
+        tokenData,
+        userInfo: {
+          email: userInfo.email,
+          name: userInfo.name,
+          id: userInfo.id
+        },
+        timestamp: Date.now()
+      };
+
+      window.pendingRefreshTokens.push(queuedToken);
+
+      logger.success('🔄 Refresh tokens queued for storage during startup', {
+        provider: 'google',
+        accountType,
+        userEmail: userInfo.email,
+        queueSize: window.pendingRefreshTokens.length
+      });
+
+    } catch (error) {
+      logger.error('Failed to queue refresh tokens:', error);
+      // Don't throw - auth should still succeed even if token queuing fails
+    }
   }
 
   /**
@@ -306,7 +375,7 @@ export class WebOAuthProvider {
         },
         body: new URLSearchParams({
           client_id: this.config.client_id,
-          client_secret: AUTH_CONFIG.client_secret,
+          client_secret: AUTH_CONFIG.client_secret_web_oauth,
           refresh_token: refreshToken,
           grant_type: 'refresh_token',
         }),
@@ -401,4 +470,89 @@ export class WebOAuthProvider {
       hasTokens: !!this.currentTokens
     };
   }
+}
+
+// ====== GLOBAL FUNCTION FOR STARTUP SEQUENCE INTEGRATION ======
+
+/**
+ * Process any pending refresh tokens during the startup sequence
+ * This should be called from main.js after JWT service is confirmed ready
+ * @returns {Promise<Array>} Results of token storage operations
+ */
+export async function processPendingRefreshTokens() {
+  if (!window.pendingRefreshTokens || window.pendingRefreshTokens.length === 0) {
+    logger.debug('No pending refresh tokens to process');
+    return [];
+  }
+
+  if (!window.jwtAuth || !window.jwtAuth.isServiceReady()) {
+    logger.error('JWT service not ready for processing pending refresh tokens');
+    return [];
+  }
+
+  logger.info('🔄 Processing pending refresh tokens', {
+    count: window.pendingRefreshTokens.length
+  });
+
+  const results = [];
+
+  for (const queuedToken of window.pendingRefreshTokens) {
+    try {
+      logger.debug('Processing queued refresh token', {
+        provider: queuedToken.provider,
+        accountType: queuedToken.accountType,
+        userEmail: queuedToken.userInfo.email
+      });
+
+      const stored = await window.jwtAuth.storeTokens(
+        queuedToken.provider,
+        queuedToken.accountType,
+        queuedToken.tokenData
+      );
+
+      const result = {
+        success: stored,
+        provider: queuedToken.provider,
+        accountType: queuedToken.accountType,
+        userEmail: queuedToken.userInfo.email,
+        error: stored ? null : 'Storage operation returned false'
+      };
+
+      results.push(result);
+
+      if (stored) {
+        logger.success('✅ Queued refresh token stored successfully', {
+          provider: queuedToken.provider,
+          accountType: queuedToken.accountType,
+          userEmail: queuedToken.userInfo.email
+        });
+      } else {
+        logger.error('❌ Failed to store queued refresh token', result);
+      }
+
+    } catch (error) {
+      const result = {
+        success: false,
+        provider: queuedToken.provider,
+        accountType: queuedToken.accountType,
+        userEmail: queuedToken.userInfo.email,
+        error: error.message
+      };
+
+      results.push(result);
+      logger.error('❌ Error processing queued refresh token:', error);
+    }
+  }
+
+  // Clear the queue after processing
+  const processedCount = window.pendingRefreshTokens.length;
+  window.pendingRefreshTokens = [];
+
+  logger.success('🎯 Pending refresh token processing complete', {
+    processed: processedCount,
+    successful: results.filter(r => r.success).length,
+    failed: results.filter(r => !r.success).length
+  });
+
+  return results;
 }

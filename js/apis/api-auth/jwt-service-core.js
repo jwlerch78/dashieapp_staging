@@ -1,15 +1,15 @@
-// js/apis/api-auth/unified-jwt-service.js
-// CHANGE SUMMARY: Updated JWT service for proper Supabase auth integration with JWT tokens - maintains compatibility with existing interface
+// js/apis/api-auth/jwt-service-core.js
+// CHANGE SUMMARY: Split from unified-jwt-service.js - Core service infrastructure, initialization, and connection management
 
 import { createLogger } from '../../utils/logger.js';
 
 const logger = createLogger('UnifiedJWT');
 
 /**
- * Unified JWT Authentication Service
- * Now uses proper Supabase JWT tokens for auth integration
+ * JWT Service Core - Service lifecycle and infrastructure
+ * Handles initialization, configuration, connection testing, and auth system integration
  */
-export class UnifiedJWTService {
+export class JWTServiceCore {
   constructor() {
     this.isEnabled = false;
     this.isReady = false;
@@ -374,176 +374,12 @@ export class UnifiedJWTService {
     return headers;
   }
 
-  // ====== PUBLIC API METHODS (MAINTAINING EXACT COMPATIBILITY) ======
-
   /**
    * Check if JWT service is ready for operations
    * @returns {boolean}
    */
   isServiceReady() {
     return this.isReady && this.isEnabled && !!this.edgeFunctionUrl;
-  }
-
-  /**
-   * Get current Supabase JWT token (refreshes if needed)
-   * NEW METHOD - not in original
-   */
-  async getSupabaseJWT() {
-    if (!this.isServiceReady()) {
-      throw new Error('JWT service not ready');
-    }
-
-    const isValid = await this._ensureValidJWT();
-    if (!isValid) {
-      throw new Error('Unable to obtain valid JWT token');
-    }
-
-    return this.currentJWT;
-  }
-
-  /**
-   * Load user settings via JWT-verified edge function
-   * @param {string} userEmail - User email for loading settings (kept for compatibility)
-   * @returns {Promise<Object|null>} User settings or null if not found
-   */
-  async loadSettings(userEmail) {
-    if (!this.isServiceReady()) {
-      throw new Error('JWT service not ready for load operation');
-    }
-
-    const timer = logger.startTimer('JWT Load Settings');
-    
-    logger.info('Loading settings via JWT', { userEmail });
-
-    try {
-      // Ensure we have a valid JWT
-      await this._ensureValidJWT();
-
-      const googleAccessToken = this._getGoogleAccessToken();
-      if (!googleAccessToken) {
-        throw new Error('No Google access token available');
-      }
-
-      const requestBody = {
-        googleAccessToken,
-        operation: 'load'
-        // Note: Removed userEmail - edge function gets it from Google token
-      };
-
-      const headers = this._getSupabaseHeaders();
-
-      const response = await fetch(this.edgeFunctionUrl, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(requestBody)
-      });
-
-      const duration = timer();
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`JWT load failed: ${response.status} ${errorText}`);
-      }
-
-      const result = await response.json();
-      
-      logger.success('JWT settings loaded', {
-        success: result.success,
-        hasSettings: !!result.settings,
-        duration
-      });
-
-      this.lastOperationTime = Date.now();
-      
-      // Update stored user and JWT
-      if (result.user) this.currentUser = result.user;
-      if (result.jwtToken) {
-        this.currentJWT = result.jwtToken;
-        this._parseJWTExpiry();
-      }
-
-      return result.settings;
-
-    } catch (error) {
-      timer();
-      logger.error('JWT settings load failed', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Save user settings via JWT-verified edge function
-   * @param {string} userEmail - User email (kept for compatibility)
-   * @param {Object} settings - Settings data to save
-   * @returns {Promise<boolean>} True if save was successful
-   */
-  async saveSettings(userEmail, settings) {
-    if (!this.isServiceReady()) {
-      throw new Error('JWT service not ready for save operation');
-    }
-
-    const timer = logger.startTimer('JWT Save Settings');
-    
-    logger.info('Saving settings via JWT', {
-      userEmail,
-      settingsKeys: settings ? Object.keys(settings) : []
-    });
-
-    try {
-      // Ensure we have a valid JWT
-      await this._ensureValidJWT();
-
-      const googleAccessToken = this._getGoogleAccessToken();
-      if (!googleAccessToken) {
-        throw new Error('No Google access token available');
-      }
-
-      const requestBody = {
-        googleAccessToken,
-        operation: 'save',
-        data: settings
-        // Note: Removed userEmail - edge function gets it from Google token
-      };
-
-      const headers = this._getSupabaseHeaders();
-
-      const response = await fetch(this.edgeFunctionUrl, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(requestBody)
-      });
-
-      const duration = timer();
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`JWT save failed: ${response.status} ${errorText}`);
-      }
-
-      const result = await response.json();
-      
-      logger.success('JWT settings saved', {
-        success: result.success,
-        saved: result.saved,
-        duration
-      });
-
-      this.lastOperationTime = Date.now();
-      
-      // Update stored user and JWT
-      if (result.user) this.currentUser = result.user;
-      if (result.jwtToken) {
-        this.currentJWT = result.jwtToken;
-        this._parseJWTExpiry();
-      }
-
-      return result.saved === true;
-
-    } catch (error) {
-      timer();
-      logger.error('JWT settings save failed', error);
-      throw error;
-    }
   }
 
   /**
@@ -588,14 +424,3 @@ export class UnifiedJWTService {
     return await this._testConnectionAndGetJWT();
   }
 }
-
-// Create and export singleton instance
-export const unifiedJWTService = new UnifiedJWTService();
-
-// Initialize JWT service when module loads
-export async function initializeJWTService() {
-  logger.info('Initializing JWT service from module');
-  return await unifiedJWTService.initialize();
-}
-
-export default unifiedJWTService;

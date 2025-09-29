@@ -1,17 +1,19 @@
-// js/main.js - App Initialization with Loading Overlay
-// CHANGE SUMMARY: Added loading overlay integration with progress updates throughout initialization sequence
+// js/main.js - App Initialization with Loading Overlay and Refresh Token Integration
+// CHANGE SUMMARY: Added refresh token processing integration - processes queued tokens after JWT service is ready
 
 import { initializeEvents } from './core/events.js';
 import { updateFocus, initializeHighlightTimeout } from './core/navigation.js';
 import { renderGrid, renderSidebar } from './ui/grid.js';
 import { autoInitialize } from './settings/settings-main.js';
-import { initializeJWTService } from './apis/api-auth/unified-jwt-service.js';
-import { showLoadingOverlay, updateLoadingProgress, hideLoadingOverlay } from './ui/loading-overlay.js';
+import { initializeJWTService } from './apis/api-auth/jwt-token-operations.js';
+import { processPendingRefreshTokens } from './apis/api-auth/providers/web-oauth.js';
+import { showLoadingOverlay, updateLoadingProgress, hideLoadingOverlay, isLoadingOverlayVisible } from './ui/loading-overlay.js';
 
 // Initialization state tracker
 const initState = {
   auth: 'pending',      // pending -> ready -> failed
   jwt: 'pending',       // pending -> ready -> failed -> skipped
+  tokens: 'pending',    // pending -> ready -> failed -> skipped (NEW)
   settings: 'pending',  // pending -> ready -> degraded
   widgets: 'pending'    // pending -> ready
 };
@@ -52,6 +54,53 @@ async function waitForAuthentication() {
   return false;
 }
 
+/**
+ * Process any refresh tokens that were queued during OAuth callback
+ * @returns {Promise<boolean>} True if processing was successful
+ */
+async function processQueuedRefreshTokens() {
+  console.log('🔄 Processing queued refresh tokens...');
+  initState.tokens = 'pending';
+  
+  try {
+    // Check if there are any pending tokens
+    const pendingCount = window.pendingRefreshTokens?.length || 0;
+    
+    if (pendingCount === 0) {
+      console.log('📝 No pending refresh tokens to process');
+      initState.tokens = 'skipped';
+      return true;
+    }
+    
+    console.log(`📝 Found ${pendingCount} pending refresh token(s) to process`);
+    
+    // Process the queued tokens
+    const results = await processPendingRefreshTokens();
+    
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
+    
+    if (successful > 0) {
+      console.log(`✅ Successfully stored ${successful} refresh token(s)`);
+      initState.tokens = 'ready';
+      return true;
+    } else if (failed > 0) {
+      console.warn(`⚠️ Failed to store ${failed} refresh token(s)`);
+      initState.tokens = 'failed';
+      return false;
+    } else {
+      console.log('📝 No tokens were processed');
+      initState.tokens = 'skipped';
+      return true;
+    }
+    
+  } catch (error) {
+    console.error('❌ Error processing queued refresh tokens:', error);
+    initState.tokens = 'failed';
+    return false;
+  }
+}
+
 // ---------------------
 // APP INITIALIZATION
 // ---------------------
@@ -90,11 +139,30 @@ export async function initializeApp() {
       if (jwtReady) {
         console.log("✅ JWT service ready - RLS mode available");
         initState.jwt = 'ready';
-        updateLoadingProgress(50, "Secure connection established");
+        updateLoadingProgress(40, "Secure connection established");
+        
+        // **NEW: Brief delay to ensure any final token queuing is complete**
+        updateLoadingProgress(42, "Finalizing token queue...");
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // **NEW: Process queued refresh tokens after JWT is ready**
+        updateLoadingProgress(45, "Processing refresh tokens...");
+        
+        const tokensProcessed = await processQueuedRefreshTokens();
+        
+        if (tokensProcessed && initState.tokens === 'ready') {
+          updateLoadingProgress(55, "Refresh tokens stored successfully");
+        } else if (initState.tokens === 'failed') {
+          updateLoadingProgress(55, "Refresh token storage failed");
+        } else {
+          updateLoadingProgress(55, "No refresh tokens to process");
+        }
+        
       } else {
         console.log("⚡ JWT service failed - using direct mode");
         initState.jwt = 'failed';
-        updateLoadingProgress(50, "Using fallback connection");
+        initState.tokens = 'skipped'; // Skip token processing if JWT failed
+        updateLoadingProgress(55, "Using fallback connection");
       }
       
       // Pass JWT status to settings initialization
@@ -139,8 +207,15 @@ export async function initializeApp() {
       
       initState.widgets = 'ready';
       
-      // Final completion
-      updateLoadingProgress(100, "Welcome to Dashie!");
+      // Final completion with enhanced status message
+      let completionMessage = "Welcome to Dashie!";
+      if (initState.tokens === 'ready') {
+        completionMessage = "Welcome to Dashie! (Long-term access enabled)";
+      } else if (initState.tokens === 'failed') {
+        completionMessage = "Welcome to Dashie! (Limited session access)";
+      }
+      
+      updateLoadingProgress(100, completionMessage);
       console.log("🎯 Dashie initialization complete:", initState);
       
       // Hide loading overlay after a brief moment
@@ -151,6 +226,7 @@ export async function initializeApp() {
     } else {
       console.log("⚡ No authentication - proceeding without overlay");
       initState.jwt = 'skipped';
+      initState.tokens = 'skipped';
       initState.settings = 'degraded';
       initState.widgets = 'ready';
     }
@@ -202,6 +278,19 @@ export async function initializeApp() {
  */
 export function getInitializationState() {
   return { ...initState };
+}
+
+/**
+ * Get refresh token storage status (for debugging)
+ * @returns {Object} Refresh token status information
+ */
+export function getRefreshTokenStatus() {
+  return {
+    initState: initState.tokens,
+    pendingCount: window.pendingRefreshTokens?.length || 0,
+    jwtReady: window.jwtAuth?.isServiceReady?.() || false,
+    hasStoreMethod: !!window.jwtAuth?.storeTokens
+  };
 }
 
 // Export for compatibility
