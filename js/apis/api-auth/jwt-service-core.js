@@ -204,32 +204,41 @@ export class JWTServiceCore {
    * Test connection to edge function and get JWT token
    * @private
    */
-  async _testConnectionAndGetJWT() {
-    try {
-      const googleAccessToken = this._getGoogleAccessToken();
-      if (!googleAccessToken) {
-        return { success: false, error: 'No Google access token' };
-      }
+async _testConnectionAndGetJWT() {
+  try {
+    const googleAccessToken = this._getGoogleAccessToken();
+    if (!googleAccessToken) {
+      logger.error('No Google access token available for connection test');
+      return { success: false, error: 'No Google access token' };
+    }
 
-      // Get the actual user email for testing instead of a fake one
-      const authSystem = window.dashieAuth || window.authManager;
-      const user = authSystem?.getUser?.();
-      const testEmail = user?.email || 'connection-test@example.com';
+    // Validate token is not empty string
+    if (typeof googleAccessToken !== 'string' || googleAccessToken.trim().length === 0) {
+      logger.error('Google access token is invalid (empty or non-string)');
+      return { success: false, error: 'Invalid Google access token format' };
+    }
 
-      const requestBody = {
-        googleAccessToken,
-        operation: 'load'
-        // Note: Removed userEmail - edge function gets it from Google token
-      };
+    const requestBody = {
+      googleAccessToken,
+      operation: 'load'
+    };
 
-      const headers = this._getSupabaseHeaders();
-      
-      const response = await fetch(this.edgeFunctionUrl, {
-        method: 'POST',
-        headers: headers,
-        body: JSON.stringify(requestBody)
-      });
+    // Log for debugging (without exposing token)
+    logger.debug('Sending connection test', {
+      hasToken: !!googleAccessToken,
+      tokenLength: googleAccessToken.length,
+      operation: 'load'
+    });
 
+    const headers = this._getSupabaseHeaders();
+    
+    const response = await fetch(this.edgeFunctionUrl, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(requestBody)
+    });
+    
+    // ... rest of the method
       if (response.ok) {
         const result = await response.json();
         // Connection is successful if we get a proper response structure

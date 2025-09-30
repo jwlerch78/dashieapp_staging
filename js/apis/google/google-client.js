@@ -1,5 +1,5 @@
-// js/apis/google/google-client.js - Optimized Google API Client
-// CHANGE SUMMARY: Added optional calendars parameter to getAllCalendarEvents to avoid redundant getCalendarList calls
+// js/apis/google/google-client.js
+// CHANGE SUMMARY: Added refresh token support via window.jwtAuth with automatic fallback to session tokens
 
 import { createLogger } from '../../utils/logger.js';
 import { AUTH_CONFIG, API_CONFIG } from '../../auth/auth-config.js';
@@ -9,6 +9,7 @@ const logger = createLogger('GoogleAPIClient');
 /**
  * Enhanced Google API client with structured logging and retry logic
  * Handles Calendar API and future Photos API integration
+ * NOW with automatic refresh token support via JWT service
  */
 export class GoogleAPIClient {
   constructor(authManager) {
@@ -23,9 +24,30 @@ export class GoogleAPIClient {
 
   /**
    * Get current Google access token from auth manager
-   * @returns {string|null} Access token
+   * ENHANCED: Now tries refresh token system first before falling back to session token
+   * @returns {Promise<string|null>} Access token
    */
-  getAccessToken() {
+  async getAccessToken() {
+    // NEW: Try refresh token system first if available
+    if (window.jwtAuth && window.jwtAuth.isServiceReady()) {
+      try {
+        logger.debug('Attempting to get token via JWT refresh token system');
+        const result = await window.jwtAuth.getValidToken('google', 'personal');
+        
+        if (result && result.success && result.access_token) {
+          if (result.refreshed) {
+            logger.success('✅ Token auto-refreshed via JWT system');
+          } else {
+            logger.debug('Using existing valid token from JWT system');
+          }
+          return result.access_token;
+        }
+      } catch (error) {
+        logger.warn('⚠️ JWT refresh token system failed, falling back to session token', error);
+      }
+    }
+
+    // FALLBACK: Use existing session token method
     if (!this.authManager) {
       logger.warn('No auth manager available for token');
       return null;
@@ -37,6 +59,7 @@ export class GoogleAPIClient {
       return null;
     }
 
+    logger.debug('Using session token from auth manager');
     return token;
   }
 
@@ -47,7 +70,7 @@ export class GoogleAPIClient {
    * @returns {Promise<Object>} API response data
    */
   async makeRequest(endpoint, options = {}) {
-    const accessToken = this.getAccessToken();
+    const accessToken = await this.getAccessToken(); // NOW async!
     if (!accessToken) {
       throw new Error('No access token available for API request');
     }
@@ -80,9 +103,7 @@ export class GoogleAPIClient {
       try {
         logger.debug(`Making API request (attempt ${attempt})`, {
           method,
-          url: url.length > 100 ? url.substring(0, 100) + '...' : url,
-          attempt,
-          maxAttempts: this.config.retryConfig.maxRetries
+          url: url.length > 100 ? url.substring(0, 100) + '...' : url
         });
 
         const requestHeaders = {
@@ -91,58 +112,45 @@ export class GoogleAPIClient {
           ...headers
         };
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-        const response = await fetch(url, {
+        const fetchOptions = {
           method,
           headers: requestHeaders,
-          body: body ? JSON.stringify(body) : null,
-          signal: controller.signal
-        });
+          signal: AbortSignal.timeout(timeout)
+        };
 
-        clearTimeout(timeoutId);
-        const duration = timer();
+        if (body) {
+          fetchOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
+        }
+
+        const response = await fetch(url, fetchOptions);
 
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          const errorText = await response.text();
+          throw new Error(`HTTP ${response.status}: ${errorText}`);
         }
 
         const data = await response.json();
-        
-        logger.success(`API ${method} ${endpoint} - ${response.status} (${duration}ms)`);
-        
+        const duration = timer();
+
+        logger.success(`API request completed`, {
+          method,
+          endpoint,
+          attempt,
+          duration
+        });
+
         return data;
 
       } catch (error) {
         lastError = error;
         
-        // Determine if error is retryable
-        const isRetryable = 
-          error.name === 'TypeError' || // Network errors
-          error.name === 'AbortError' || // Timeout
-          (error.message.includes('HTTP 5')) || // Server errors
-          (error.message.includes('HTTP 429')); // Rate limiting
-
-        logger.error(`API request failed (attempt ${attempt})`, {
-          method,
-          endpoint,
+        logger.warn(`API request attempt ${attempt} failed`, {
           error: error.message,
-          status: error.status,
-          isRetryable,
-          finalAttempt: attempt === this.config.retryConfig.maxRetries
+          endpoint
         });
 
-        // Don't retry on final attempt or non-retryable errors
-        if (attempt === this.config.retryConfig.maxRetries || !isRetryable) {
-          logger.error(`API request failed permanently`, {
-            method,
-            endpoint,
-            finalAttempt: attempt,
-            status: error.status,
-            isRetryable,
-            finalAttempt: attempt === this.config.retryConfig.maxRetries
-          });
+        // Don't retry if it's the last attempt
+        if (attempt >= this.config.retryConfig.maxRetries) {
           break;
         }
 
@@ -152,196 +160,150 @@ export class GoogleAPIClient {
           this.config.retryConfig.maxDelay
         );
 
-        logger.warn(`API request failed, retrying in ${delay}ms`, {
-          method,
-          endpoint,
-          attempt,
-          error: error.message,
-          retryDelay: delay
-        });
-
+        logger.debug(`Retrying after ${delay}ms delay`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
 
-    // If we get here, all retries failed
-    timer(); // Complete timing
-    throw lastError || new Error('All API request attempts failed');
+    // All retries failed
+    timer();
+    logger.error('API request failed after all retries', lastError);
+    throw lastError;
   }
 
-  // ==================== CALENDAR API METHODS ====================
-
   /**
-   * Get list of user's calendars
+   * Get list of calendars
    * @returns {Promise<Array>} Array of calendar objects
    */
   async getCalendarList() {
-    logger.info('Fetching calendar list');
-    
+    logger.debug('Fetching calendar list');
+    const timer = logger.startTimer('Calendar List');
+
     try {
       const data = await this.makeRequest('/calendar/v3/users/me/calendarList');
+      const duration = timer();
+
       const calendars = data.items || [];
       
-      logger.success(`Found ${calendars.length} calendars`);
-      
-      return calendars.map(cal => ({
-        id: cal.id,
-        summary: cal.summary,
-        description: cal.description || '',
-        primary: cal.primary || false,
-        accessRole: cal.accessRole,
-        backgroundColor: cal.backgroundColor,
-        foregroundColor: cal.foregroundColor
-      }));
-      
+      logger.success('Calendar list retrieved', {
+        totalCalendars: calendars.length,
+        duration
+      });
+
+      return calendars;
+
     } catch (error) {
+      timer();
       logger.error('Failed to fetch calendar list', error);
-      throw new Error(`Calendar list fetch failed: ${error.message}`);
+      throw error;
     }
   }
 
   /**
-   * Get events from a specific calendar
+   * Get calendar events for a specific calendar
    * @param {string} calendarId - Calendar ID
-   * @param {string} timeMin - Start time (ISO string)
-   * @param {string} timeMax - End time (ISO string)
+   * @param {Object} timeRange - Time range for events
    * @returns {Promise<Array>} Array of event objects
    */
-  async getCalendarEvents(calendarId, timeMin = null, timeMax = null) {
-    logger.debug(`Fetching events from calendar: ${calendarId}`);
-    
-    const now = new Date();
-    const defaultTimeMin = timeMin || new Date(
-      now.getTime() - (this.config.calendar.monthsBack * 30 * 24 * 60 * 60 * 1000)
-    ).toISOString();
-    const defaultTimeMax = timeMax || new Date(
-      now.getTime() + (this.config.calendar.monthsAhead * 30 * 24 * 60 * 60 * 1000)
-    ).toISOString();
+  async getCalendarEvents(calendarId, timeRange = {}) {
+    logger.debug('Fetching calendar events', { calendarId });
+    const timer = logger.startTimer('Calendar Events');
 
-    const params = new URLSearchParams({
-      timeMin: defaultTimeMin,
-      timeMax: defaultTimeMax,
-      singleEvents: 'true',
-      orderBy: 'startTime',
-      maxResults: this.config.calendar.maxResults.toString()
-    });
-    
     try {
-      const data = await this.makeRequest(
-        `/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`
-      );
-      
+      const now = new Date();
+      const timeMin = timeRange.start || new Date(now.getFullYear(), now.getMonth() - this.config.calendar.monthsBack, 1);
+      const timeMax = timeRange.end || new Date(now.getFullYear(), now.getMonth() + this.config.calendar.monthsAhead + 1, 0);
+
+      const params = new URLSearchParams({
+        calendarId: calendarId,
+        timeMin: timeMin.toISOString(),
+        timeMax: timeMax.toISOString(),
+        maxResults: this.config.calendar.maxResults,
+        singleEvents: 'true',
+        orderBy: 'startTime'
+      });
+
+      const data = await this.makeRequest(`/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`);
+      const duration = timer();
+
       const events = data.items || [];
-      logger.debug(`Found ${events.length} events in calendar ${calendarId}`);
       
-      return events.map(event => ({
-        id: event.id,
-        summary: event.summary || 'No title',
-        description: event.description || '',
-        start: event.start,
-        end: event.end,
-        location: event.location || '',
-        attendees: event.attendees || [],
-        calendarId: calendarId
-      }));
-      
+      logger.success('Calendar events retrieved', {
+        calendarId,
+        eventCount: events.length,
+        duration
+      });
+
+      return events;
+
     } catch (error) {
-      logger.error(`Failed to fetch events from calendar ${calendarId}`, error);
-      throw new Error(`Calendar events fetch failed: ${error.message}`);
+      timer();
+      logger.error('Failed to fetch calendar events', error);
+      throw error;
     }
   }
 
   /**
-   * Get events from all configured calendars
-   * @param {Object} options - Optional configuration
-   * @param {Array} options.calendars - Pre-fetched calendar list (to avoid redundant API call)
-   * @param {Object} options.timeRange - Optional time range override
-   * @returns {Promise<Array>} Array of all events sorted by start time
+   * Get all events from configured calendars
+   * @param {Object} timeRange - Optional time range
+   * @param {Array} calendars - Optional pre-fetched calendar list
+   * @returns {Promise<Array>} Combined array of events from all calendars
    */
-  async getAllCalendarEvents(options = {}) {
+  async getAllCalendarEvents(timeRange = {}, calendars = null) {
     logger.info('Fetching events from all configured calendars');
-    
+    const timer = logger.startTimer('All Calendar Events');
+
     try {
-      // Use provided calendars list or fetch it
-      let calendars = options.calendars;
+      // Get calendar list if not provided
       if (!calendars) {
-        logger.debug('No calendar list provided, fetching from API');
         calendars = await this.getCalendarList();
-      } else {
-        logger.debug('Using provided calendar list to avoid redundant API call');
       }
-      
+
       // Filter to configured calendars
       const targetCalendars = calendars.filter(cal => 
         this.config.calendar.includeCalendars.some(target => 
-          cal.summary.includes(target) || cal.id.includes(target)
+          cal.summary?.includes(target) || cal.id?.includes(target)
         )
       );
-      
-      logger.info(`Fetching from ${targetCalendars.length} configured calendars`, {
-        calendars: targetCalendars.map(cal => cal.summary)
+
+      logger.debug('Fetching events from calendars', {
+        totalCalendars: calendars.length,
+        targetCalendars: targetCalendars.length,
+        calendarNames: targetCalendars.map(c => c.summary)
       });
-      
-      // Fetch events from each calendar concurrently
-      const eventPromises = targetCalendars.map(async calendar => {
-        try {
-          return await this.getCalendarEvents(
-            calendar.id, 
-            options.timeRange?.timeMin, 
-            options.timeRange?.timeMax
-          );
-        } catch (error) {
-          logger.warn(`Failed to fetch from calendar ${calendar.summary}`, error);
-          return []; // Continue with other calendars
-        }
-      });
+
+      // Fetch events from all target calendars in parallel
+      const eventPromises = targetCalendars.map(cal => 
+        this.getCalendarEvents(cal.id, timeRange)
+          .catch(error => {
+            logger.warn(`Failed to fetch events for calendar ${cal.summary}`, error);
+            return []; // Return empty array on error
+          })
+      );
 
       const eventArrays = await Promise.all(eventPromises);
       const allEvents = eventArrays.flat();
-      
-      // Sort all events by start time
-      allEvents.sort((a, b) => {
-        const aStart = new Date(a.start.dateTime || a.start.date);
-        const bStart = new Date(b.start.dateTime || b.start.date);
-        return aStart - bStart;
+
+      const duration = timer();
+
+      logger.success('All calendar events retrieved', {
+        calendarCount: targetCalendars.length,
+        totalEvents: allEvents.length,
+        duration
       });
-      
-      logger.success(`Total events fetched: ${allEvents.length}`);
+
       return allEvents;
-      
+
     } catch (error) {
+      timer();
       logger.error('Failed to fetch all calendar events', error);
-      throw new Error(`All calendar events fetch failed: ${error.message}`);
+      throw error;
     }
   }
 
-  // ==================== FUTURE: PHOTOS API METHODS ====================
-  // These methods will be implemented when Photos API integration is added
-
   /**
-   * Get photo albums (placeholder for future implementation)
-   * @returns {Promise<Array>} Array of album objects
-   */
-  async getPhotoAlbums() {
-    logger.warn('Photos API not yet implemented');
-    return [];
-  }
-
-  /**
-   * Get recent photos (placeholder for future implementation) 
-   * @param {number} count - Number of photos to fetch
-   * @returns {Promise<Array>} Array of photo objects
-   */
-  async getRecentPhotos(count = 10) {
-    logger.warn('Photos API not yet implemented');
-    return [];
-  }
-
-  // ==================== TESTING & HEALTH CHECK METHODS ====================
-
-  /**
-   * Test API access and return capabilities
-   * @returns {Promise<Object>} Test results object
+   * Test API access and connectivity
+   * @returns {Promise<Object>} Test results
    */
   async testAccess() {
     logger.info('Testing Google API access');
@@ -383,7 +345,7 @@ export class GoogleAPIClient {
       results.calendar = false;
       results.errors.push(`Calendar API: ${error.message}`);
       
-      if (error.status === 401) {
+      if (error.message.includes('401')) {
         results.tokenStatus = 'expired';
         logger.error('Google Calendar API: Token expired or invalid');
       } else {

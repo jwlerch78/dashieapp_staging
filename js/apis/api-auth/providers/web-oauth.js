@@ -1,5 +1,5 @@
 // js/apis/api-auth/providers/web-oauth.js
-// CHANGE SUMMARY: Added deferred refresh token storage - integrates with main.js startup sequence for robust token handling
+// CHANGE SUMMARY: Fixed scope field - changed from 'scopes' array to 'scope' string to match edge function expectations
 
 import { createLogger } from '../../../utils/logger.js';
 import { AUTH_CONFIG } from '../../../auth/auth-config.js';
@@ -183,7 +183,7 @@ export class WebOAuthProvider {
           userId: userInfo.id,
           userEmail: userInfo.email,
           hasRefreshToken: !!tokens.refresh_token,
-          refreshTokenQueued: !!tokens.refresh_token // We now queue refresh tokens for later processing
+          refreshTokenQueued: !!tokens.refresh_token
         });
         
         // Clean up URL
@@ -219,11 +219,12 @@ export class WebOAuthProvider {
       }
 
       // Prepare token data for storage
+      // FIXED: Changed 'scopes' array to 'scope' string to match edge function expectations
       const tokenData = {
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
-        expires_at: Date.now() + (tokens.expires_in * 1000), // Convert to timestamp
-        scopes: this.config.scope.split(' '),
+        expires_in: tokens.expires_in || 3600,
+        scope: this.config.scope, // FIXED: Send as string, not array
         display_name: `${userInfo.name} (Personal)`,
         email: userInfo.email,
         user_id: userInfo.id,
@@ -256,6 +257,7 @@ export class WebOAuthProvider {
         provider: 'google',
         accountType,
         userEmail: userInfo.email,
+        scopeCount: this.config.scope.split(' ').length,
         queueSize: window.pendingRefreshTokens.length
       });
 
@@ -316,35 +318,31 @@ export class WebOAuthProvider {
   }
 
   /**
-   * Fetch user information from Google using access token
+   * Fetch user information from Google
    * @param {string} accessToken - Google access token
-   * @returns {Promise<Object>} User information object
+   * @returns {Promise<Object>} User information
    */
   async fetchUserInfo(accessToken) {
-    logger.debug('Fetching user info from Google');
+    logger.debug('Fetching user information from Google');
     
-    const timer = logger.startTimer('User Info Fetch');
+    const timer = logger.startTimer('Fetch User Info');
     
     try {
-      const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-        headers: {
-          'Authorization': `Bearer ${accessToken}`
-        }
-      });
+      const response = await fetch(
+        `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${accessToken}`
+      );
 
       const duration = timer();
 
       if (!response.ok) {
-        throw new Error(`Google API error: ${response.status} ${response.statusText}`);
+        throw new Error(`Failed to fetch user info: ${response.status}`);
       }
 
       const userInfo = await response.json();
       
-      logger.success('User info retrieved', {
+      logger.success('User info fetched successfully', {
         userId: userInfo.id,
-        userName: userInfo.name,
         userEmail: userInfo.email,
-        hasPicture: !!userInfo.picture,
         duration
       });
 
@@ -353,16 +351,16 @@ export class WebOAuthProvider {
     } catch (error) {
       timer();
       logger.error('Failed to fetch user info', error);
-      throw new Error(`Failed to get user information: ${error.message}`);
+      throw error;
     }
   }
 
   /**
-   * Refresh access token using stored refresh token
-   * @param {string} refreshToken - Google refresh token
-   * @returns {Promise<Object>} New token response
+   * Refresh access token using refresh token
+   * @param {string} refreshToken - Refresh token
+   * @returns {Promise<Object>} New tokens
    */
-  async refreshToken(refreshToken) {
+  async refreshAccessToken(refreshToken) {
     logger.debug('Refreshing access token');
     
     const timer = logger.startTimer('Token Refresh');
@@ -390,11 +388,8 @@ export class WebOAuthProvider {
 
       const tokens = await response.json();
       
-      // Update stored tokens
-      this.currentTokens = { ...this.currentTokens, ...tokens };
-      
-      logger.success('Token refresh successful', {
-        hasNewAccessToken: !!tokens.access_token,
+      logger.success('Token refreshed successfully', {
+        hasAccessToken: !!tokens.access_token,
         expiresIn: tokens.expires_in,
         duration
       });

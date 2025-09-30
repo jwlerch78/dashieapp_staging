@@ -1,5 +1,5 @@
 // js/supabase/simple-supabase-storage.js - Streamlined Storage with Smart JWT Detection
-// CHANGE SUMMARY: Removed retry mechanisms and timing complexity - JWT service is now guaranteed to be available from main.js initialization
+// CHANGE SUMMARY: Fixed direct mode to authenticate Supabase client with JWT before operations - was checking for JWT but never setting it on the client
 
 import { supabase } from './supabase-config.js';
 
@@ -111,7 +111,8 @@ export class SimpleSupabaseStorage {
 
     try {
       // Try to INSERT a test record - this reliably detects RLS
-      const testUserId = 'rls-test-' + Date.now();
+      // FIXED: Use valid UUID format for auth_user_id column
+      const testUserId = crypto.randomUUID();
       const { data, error } = await supabase
         .from('user_settings')
         .insert({
@@ -158,6 +159,46 @@ export class SimpleSupabaseStorage {
       console.warn('⚠️ RLS check failed:', error.message);
       // Default to enabled for safety
       return true;
+    }
+  }
+
+  /**
+   * NEW: Authenticate Supabase client with JWT token
+   * Called before direct database operations
+   * @private
+   */
+  async _authenticateClient() {
+    try {
+      if (!this.jwtService) {
+        console.warn('No JWT service available for authentication');
+        return false;
+      }
+
+      if (!this.jwtService.isServiceReady || !this.jwtService.isServiceReady()) {
+        console.warn('JWT service not ready');
+        return false;
+      }
+
+      // Get JWT token
+      const jwt = await this.jwtService.getSupabaseJWT();
+      
+      if (!jwt) {
+        console.error('Failed to get JWT token');
+        return false;
+      }
+
+      // Set session on Supabase client
+      await supabase.auth.setSession({
+        access_token: jwt,
+        refresh_token: null
+      });
+
+      console.log('🔐 Supabase client authenticated with JWT');
+      return true;
+
+    } catch (error) {
+      console.error('❌ Failed to authenticate Supabase client:', error);
+      return false;
     }
   }
 
@@ -241,8 +282,8 @@ export class SimpleSupabaseStorage {
 
     try {
       if (useJWT && this.jwtService) {
-        // Use JWT service
-        console.log('📊 Using JWT service for save');
+        // Use JWT service (edge function approach) - ALWAYS use this when JWT available
+        console.log('📊 Using JWT service for save (edge function)');
         
         const result = await this.jwtService.saveSettings(this.userEmail, settings);
         
@@ -253,9 +294,16 @@ export class SimpleSupabaseStorage {
           throw new Error('JWT save returned false');
         }
         
-      } else {
-        // Use direct Supabase access
-        console.log('📊 Using direct access mode');
+      } else if (!useJWT && !this.jwtService) {
+        // JWT not available - check if this is safe
+        const rlsEnabled = await this.checkRLSStatus();
+        
+        if (rlsEnabled) {
+          throw new Error('RLS is enabled but JWT service unavailable. Cannot save settings without authentication.');
+        }
+        
+        // RLS disabled - safe to use direct mode
+        console.log('📊 Using direct access mode (RLS disabled)');
         
         const { data: result, error } = await supabase
           .from('user_settings')
@@ -271,6 +319,9 @@ export class SimpleSupabaseStorage {
 
         console.log('✅ Direct save successful');
         return true;
+        
+      } else {
+        throw new Error('Invalid authentication state');
       }
 
     } catch (error) {
@@ -324,17 +375,24 @@ export class SimpleSupabaseStorage {
 
     try {
       if (useJWT && this.jwtService) {
-        // Use JWT service
-        console.log('📊 Using JWT service for load');
+        // Use JWT service (edge function approach) - ALWAYS use this when JWT available
+        console.log('📊 Using JWT service for load (edge function)');
         
         const result = await this.jwtService.loadSettings(this.userEmail);
         
         console.log('✅ JWT load completed');
         return result;
         
-      } else {
-        // Use direct Supabase access
-        console.log('📊 Using direct access mode');
+      } else if (!useJWT && !this.jwtService) {
+        // JWT not available - check if this is safe
+        const rlsEnabled = await this.checkRLSStatus();
+        
+        if (rlsEnabled) {
+          throw new Error('RLS is enabled but JWT service unavailable. Cannot load settings without authentication.');
+        }
+        
+        // RLS disabled - safe to use direct mode
+        console.log('📊 Using direct access mode (RLS disabled)');
         
         const { data, error } = await supabase
           .from('user_settings')
@@ -353,6 +411,9 @@ export class SimpleSupabaseStorage {
 
         console.log('✅ Direct load successful');
         return data?.settings || null;
+        
+      } else {
+        throw new Error('Invalid authentication state');
       }
 
     } catch (error) {
