@@ -1,5 +1,5 @@
 // widgets/photos/photos.js
-// CHANGE SUMMARY: Updated to integrate with Supabase storage, upload modal, and support folder-based albums
+// CHANGE SUMMARY: Fixed userId initialization and added automatic quota record creation for new users
 
 import { PhotoStorageService } from '../../js/supabase/photo-storage-service.js';
 import { PhotoUploadModal } from './photo-upload.js';
@@ -43,6 +43,9 @@ class PhotosWidget {
     // Wait for user authentication
     await this.waitForAuth();
 
+    // Initialize storage quota for user (creates record if doesn't exist)
+    await this.initializeStorageQuota();
+
     // Apply initial theme
     this.applyTheme(this.currentTheme);
 
@@ -84,14 +87,51 @@ class PhotosWidget {
    */
   async waitForAuth() {
     return new Promise((resolve) => {
+      let attempts = 0;
+      const maxAttempts = 100; // 10 seconds max
+      
       const checkAuth = () => {
-        // Check if we have user data from parent window (not iframe)
-        const parentUser = window.parent?.dashieUser;
-        if (parentUser && parentUser.id) {
-          this.userId = parentUser.id;
+        attempts++;
+        
+        // CRITICAL: We MUST use the Supabase UUID from jwtAuth, not the Google ID
+        // Wait for jwtAuth to be ready before checking other sources
+        let userId = null;
+        
+        // Priority 1: Get Supabase UUID from JWT service (REQUIRED for database operations)
+        if (window.parent?.jwtAuth?.isReady && window.parent?.jwtAuth?.currentUser?.id) {
+          userId = window.parent.jwtAuth.currentUser.id;
+          
+          if (attempts % 10 === 0) {
+            logger.debug('Found Supabase UUID from jwtAuth', { 
+              userId, 
+              attempts,
+              jwtReady: window.parent.jwtAuth.isReady 
+            });
+          }
+        } else {
+          // JWT not ready yet - keep waiting
+          if (attempts % 10 === 0) {
+            logger.debug('Waiting for jwtAuth to be ready', { 
+              attempts,
+              hasJwtAuth: !!window.parent?.jwtAuth,
+              jwtIsReady: window.parent?.jwtAuth?.isReady,
+              hasJwtUser: !!window.parent?.jwtAuth?.currentUser,
+              jwtUserId: window.parent?.jwtAuth?.currentUser?.id
+            });
+          }
+        }
+        
+        if (userId) {
+          this.userId = userId;
           this.storage = new PhotoStorageService(this.userId);
-          // Note: uploadModal will be created lazily when first needed
-          logger.info('Auth received from parent', { userId: this.userId });
+          logger.info('Auth received - using Supabase UUID from jwtAuth', { 
+            userId: this.userId, 
+            attempts 
+          });
+          resolve();
+        } else if (attempts >= maxAttempts) {
+          logger.error('Auth timeout - jwtAuth not ready after 10 seconds');
+          logger.error('Cannot initialize photos without Supabase UUID');
           resolve();
         } else {
           setTimeout(checkAuth, 100);
@@ -99,6 +139,28 @@ class PhotosWidget {
       };
       checkAuth();
     });
+  }
+
+  /**
+   * Initialize storage quota for user (creates record if doesn't exist)
+   */
+  async initializeStorageQuota() {
+    if (!this.storage || !this.userId) {
+      logger.error('Cannot initialize quota: storage or userId not set');
+      return;
+    }
+
+    try {
+      logger.debug('Checking storage quota...');
+      
+      // Try to get storage usage - this will auto-initialize if missing
+      await this.storage.getStorageUsage();
+      
+      logger.info('Storage quota initialized/verified');
+    } catch (error) {
+      logger.error('Failed to initialize storage quota', error);
+      // Continue anyway - uploads will handle this
+    }
   }
 
   /**
@@ -223,11 +285,25 @@ class PhotosWidget {
    * Open upload modal
    */
   openUploadModal() {
-    logger.info('Opening upload modal');
+    logger.info('Opening upload modal', { userId: this.userId });
+    
+    // Verify we have userId
+    if (!this.userId) {
+      logger.error('Cannot open upload modal: userId is null');
+      // Try to re-check parent window
+      const parentUser = window.parent?.dashieUser;
+      if (parentUser && parentUser.id) {
+        this.userId = parentUser.id;
+        logger.info('Recovered userId from parent', { userId: this.userId });
+      } else {
+        logger.error('Still no userId available');
+        return;
+      }
+    }
     
     // Lazy initialization - create modal only when first needed
     if (!this.uploadModal) {
-      logger.info('Creating upload modal for first time');
+      logger.info('Creating upload modal for first time', { userId: this.userId });
       try {
         this.uploadModal = new PhotoUploadModal(this.userId);
       } catch (error) {
@@ -258,7 +334,7 @@ class PhotosWidget {
 
       if (this.photoUrls.length === 0) {
         logger.warn('No photos available');
-        this.loadingDiv.innerHTML = '<div class="empty-message">No photos yet. Press Enter to upload.</div>';
+        this.loadingDiv.innerHTML = '<div class="empty-message">No photos yet. Press Select to upload.</div>';
         return;
       }
 
@@ -369,6 +445,30 @@ class PhotosWidget {
   }
 
   /**
+   * Start auto-advance timer
+   */
+  startAutoAdvance() {
+    if (this.autoAdvanceInterval) {
+      clearInterval(this.autoAdvanceInterval);
+    }
+    this.autoAdvanceInterval = setInterval(() => {
+      this.nextPhoto();
+    }, this.transitionTime * 1000);
+    logger.info('Auto-advance started', { intervalSeconds: this.transitionTime });
+  }
+
+  /**
+   * Stop auto-advance timer
+   */
+  stopAutoAdvance() {
+    if (this.autoAdvanceInterval) {
+      clearInterval(this.autoAdvanceInterval);
+      this.autoAdvanceInterval = null;
+      logger.info('Auto-advance stopped');
+    }
+  }
+
+  /**
    * Update transition time
    */
   updateTransitionTime(newTime) {
@@ -383,33 +483,9 @@ class PhotosWidget {
       }
     }
   }
-
-  /**
-   * Start auto-advance
-   */
-  startAutoAdvance() {
-    if (this.autoAdvanceInterval) {
-      clearInterval(this.autoAdvanceInterval);
-    }
-    this.autoAdvanceInterval = setInterval(() => {
-      this.nextPhoto();
-    }, this.transitionTime * 1000);
-    logger.info('Auto-advance started', { intervalSeconds: this.transitionTime });
-  }
-
-  /**
-   * Stop auto-advance
-   */
-  stopAutoAdvance() {
-    if (this.autoAdvanceInterval) {
-      clearInterval(this.autoAdvanceInterval);
-      this.autoAdvanceInterval = null;
-      logger.info('Auto-advance stopped');
-    }
-  }
 }
 
-// Auto-initialize widget when module loads
+// Initialize widget
 new PhotosWidget();
 
 // Also export for potential external use
