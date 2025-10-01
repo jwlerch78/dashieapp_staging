@@ -58,17 +58,20 @@ export class PhotoStorageService {
       }
 
       // Create authenticated client with JWT in headers
-      this.authenticatedClient = createClient(
-        supabaseUrl,
-        supabaseAnonKey,
-        {
-          global: {
-            headers: {
-              Authorization: `Bearer ${jwtToken}`
-            }
+     this.authenticatedClient = createClient(
+      supabaseUrl,
+      supabaseAnonKey,
+      {
+        global: {
+          headers: {
+            Authorization: `Bearer ${jwtToken}`
           }
+        },
+        auth: {
+          persistSession: false  // <-- ADD THIS LINE
         }
-      );
+      }
+    );
 
       logger.debug('Created authenticated Supabase client for storage');
       return this.authenticatedClient;

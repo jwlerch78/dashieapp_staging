@@ -1,5 +1,5 @@
 // js/apis/api-auth/jwt-token-operations.js
-// CHANGE SUMMARY: Removed automatic Supabase authentication - Supabase client should use RLS with our JWT in headers, not auth.setSession()
+// CHANGE SUMMARY: Added token caching and request deduplication to prevent parallel API calls from making duplicate token requests
 
 import { JWTServiceCore } from './jwt-service-core.js';
 import { createLogger } from '../../utils/logger.js';
@@ -12,11 +12,54 @@ const logger = createLogger('UnifiedJWT');
  */
 export class JWTTokenOperations extends JWTServiceCore {
   
+  constructor() {
+    super();
+    
+    // Token request deduplication
+    this.tokenCache = new Map();
+    this.inFlightRequests = new Map();
+    this.CACHE_BUFFER_MS = 5 * 60 * 1000; // 5 minute buffer
+  }
+
   /**
    * NOTE: We do NOT authenticate the Supabase client with auth.setSession()
    * because that expects Supabase's own auth JWT format.
    * Instead, our custom JWT should be passed in headers for RLS verification.
    */
+
+  // ====== CACHE HELPER METHODS ======
+
+  _getTokenCacheKey(provider, accountType) {
+    return `${provider}_${accountType}`;
+  }
+
+  _getCachedToken(provider, accountType) {
+    const key = this._getTokenCacheKey(provider, accountType);
+    const cached = this.tokenCache.get(key);
+    
+    if (!cached) return null;
+    
+    const now = Date.now();
+    const expiresAt = new Date(cached.expires_at).getTime();
+    
+    if (now < expiresAt - this.CACHE_BUFFER_MS) {
+      logger.debug('Using cached token', { provider, accountType });
+      return cached;
+    }
+    
+    this.tokenCache.delete(key);
+    return null;
+  }
+
+  _cacheToken(provider, accountType, tokenData) {
+    const key = this._getTokenCacheKey(provider, accountType);
+    this.tokenCache.set(key, {
+      access_token: tokenData.access_token,
+      expires_at: tokenData.expires_at,
+      scopes: tokenData.scopes,
+      cached_at: Date.now()
+    });
+  }
 
   // ====== MULTI-ACCOUNT TOKEN MANAGEMENT METHODS ======
 
@@ -73,6 +116,15 @@ export class JWTTokenOperations extends JWTServiceCore {
 
       this.lastOperationTime = Date.now();
 
+      // Cache the newly stored token
+      if (result.success && tokenData.access_token) {
+        this._cacheToken(provider, accountType, {
+          access_token: tokenData.access_token,
+          expires_at: tokenData.expires_at || new Date(Date.now() + 3600 * 1000).toISOString(),
+          scopes: tokenData.scopes || tokenData.scope?.split(' ') || []
+        });
+      }
+
       return result;
 
     } catch (error) {
@@ -84,59 +136,98 @@ export class JWTTokenOperations extends JWTServiceCore {
 
   /**
    * Get valid OAuth token (refresh if needed)
+   * WITH DEDUPLICATION: Multiple simultaneous requests share the same fetch
    */
   async getValidToken(provider = 'google', accountType = 'personal') {
     if (!this.isServiceReady()) {
       throw new Error('JWT service not ready for get token operation');
     }
 
+    // Check cache first
+    const cached = this._getCachedToken(provider, accountType);
+    if (cached) {
+      return {
+        success: true,
+        access_token: cached.access_token,
+        expires_at: cached.expires_at,
+        scopes: cached.scopes,
+        refreshed: false,
+        cached: true
+      };
+    }
+
+    // Check if request already in flight
+    const key = this._getTokenCacheKey(provider, accountType);
+    const inFlight = this.inFlightRequests.get(key);
+    
+    if (inFlight) {
+      logger.debug('Waiting for in-flight token request', { provider, accountType });
+      return await inFlight;
+    }
+
+    // Start new request
     const timer = logger.startTimer('JWT Get Valid Token');
     
+    const requestPromise = (async () => {
+      try {
+        await this._ensureValidJWT();
+        const googleAccessToken = this._getGoogleAccessToken();
+        if (!googleAccessToken) {
+          throw new Error('No Google access token available');
+        }
+
+        const requestBody = {
+          googleAccessToken,
+          operation: 'get_valid_token',
+          provider,
+          account_type: accountType
+        };
+
+        const response = await fetch(this.edgeFunctionUrl, {
+          method: 'POST',
+          headers: this._getSupabaseHeaders(),
+          body: JSON.stringify(requestBody)
+        });
+
+        const duration = timer();
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`JWT get token failed: ${response.status} ${errorText}`);
+        }
+
+        const result = await response.json();
+        
+        logger.success('JWT token retrieved/refreshed', {
+          success: result.success,
+          refreshed: result.refreshed,
+          provider,
+          accountType,
+          duration
+        });
+
+        this.lastOperationTime = Date.now();
+
+        // Cache the result
+        if (result.success && result.access_token) {
+          this._cacheToken(provider, accountType, result);
+        }
+
+        return result;
+
+      } catch (error) {
+        timer();
+        logger.error('JWT get token failed', error);
+        throw error;
+      }
+    })();
+
+    this.inFlightRequests.set(key, requestPromise);
+
     try {
-      await this._ensureValidJWT();
-      const googleAccessToken = this._getGoogleAccessToken();
-      if (!googleAccessToken) {
-        throw new Error('No Google access token available');
-      }
-
-      const requestBody = {
-        googleAccessToken,
-        operation: 'get_valid_token',
-        provider,
-        account_type: accountType
-      };
-
-      const response = await fetch(this.edgeFunctionUrl, {
-        method: 'POST',
-        headers: this._getSupabaseHeaders(),
-        body: JSON.stringify(requestBody)
-      });
-
-      const duration = timer();
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`JWT get token failed: ${response.status} ${errorText}`);
-      }
-
-      const result = await response.json();
-      
-      logger.success('JWT token retrieved/refreshed', {
-        success: result.success,
-        refreshed: result.refreshed,
-        provider,
-        accountType,
-        duration
-      });
-
-      this.lastOperationTime = Date.now();
-
-      return result;
-
-    } catch (error) {
-      timer();
-      logger.error('JWT get token failed', error);
-      throw error;
+      return await requestPromise;
+    } finally {
+      this.inFlightRequests.delete(key);
     }
   }
 
@@ -185,6 +276,10 @@ export class JWTTokenOperations extends JWTServiceCore {
       });
 
       this.lastOperationTime = Date.now();
+
+      // Clear from cache
+      const key = this._getTokenCacheKey(provider, accountType);
+      this.tokenCache.delete(key);
 
       return result;
 

@@ -1,3 +1,6 @@
+<!-- widgets/clock.html -->
+<!-- CHANGE SUMMARY: Fixed theme change detection in applyTheme() to prevent redundant applications, simplified logging to reduce noise - only logs relevant updates -->
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -182,27 +185,25 @@
       }
 
       handleDataServiceMessage(data) {
-        logger.debug('Clock widget received message', { type: data.type, hasPayload: !!data.payload });
-        
         switch (data.type) {
           case 'widget-update':
             if (data.action === 'state-update') {
-              logger.debug('Processing widget state update');
-              // Clock widget doesn't need state updates currently
-            }
-
-            // FIXED: Always apply theme from widget-update messages
-            if (data.payload?.theme) {
-              logger.info('Applying theme from widget-update', { 
-                incomingTheme: data.payload.theme, 
-                previousTheme: this.currentTheme 
-              });
-              this.applyTheme(data.payload.theme);
+              // Check if this update contains anything relevant to clock widget
+              const hasTheme = data.payload?.theme;
+              
+              // Only log if update is relevant
+              if (hasTheme) {
+                logger.debug('Processing relevant state update', { hasTheme });
+              }
+              
+              // Apply theme from widget-update messages
+              if (hasTheme) {
+                this.applyTheme(data.payload.theme);
+              }
             }
             break;
             
           case 'theme-change':
-            logger.info('Applying theme change', { theme: data.theme });
             this.applyTheme(data.theme);
             break;
             
@@ -212,8 +213,13 @@
         }
       }
 
-      // FIXED: Enhanced theme application with proper logging
+      // FIXED: Only apply theme if it actually changed
       applyTheme(theme) {
+        // Skip if theme hasn't changed - prevents redundant applications
+        if (this.currentTheme === theme) {
+          return;
+        }
+        
         const previousTheme = this.currentTheme;
         this.currentTheme = theme;
         
