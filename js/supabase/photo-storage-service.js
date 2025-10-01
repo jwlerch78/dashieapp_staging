@@ -1,5 +1,5 @@
 // js/supabase/photo-storage-service.js
-// CHANGE SUMMARY: Initial implementation - Photo storage service with upload, folder management, and RLS integration
+// CHANGE SUMMARY: Fixed JWT check to use isReady property instead of isServiceReady() method - matches SimpleSupabaseStorage pattern
 
 import { supabase } from './supabase-config.js';
 import { createLogger } from '../utils/logger.js';
@@ -8,7 +8,7 @@ const logger = createLogger('PhotoStorage');
 
 /**
  * PhotoStorageService - Handles photo uploads, folder management, and storage operations
- * Integrates with existing RLS/JWT architecture
+ * Integrates with existing RLS/JWT architecture (matches settings pattern)
  */
 export class PhotoStorageService {
   constructor(userId, jwtService = null) {
@@ -18,6 +18,51 @@ export class PhotoStorageService {
     this.defaultFolder = 'all-photos';
     
     logger.info('PhotoStorageService initialized', { userId });
+  }
+
+  // ==================== JWT AUTHENTICATION ====================
+
+  /**
+   * Initialize JWT authentication before database operations
+   * Follows exact pattern from SimpleSupabaseStorage (settings)
+   */
+  async initializeAuth() {
+    try {
+      // Get JWT service from parent if in iframe, otherwise use window
+      const jwtService = this.jwtService || window.parent?.jwtAuth || window.jwtAuth;
+      
+      if (!jwtService) {
+        logger.warn('No JWT service available for authentication');
+        return false;
+      }
+
+      // Check if JWT service is ready - use isReady property not isServiceReady()
+      if (!jwtService.isReady) {
+        logger.warn('JWT service not ready');
+        return false;
+      }
+
+      // Get Supabase JWT token (use the jwtService we just found, not this.jwtService)
+      const jwt = await jwtService.getSupabaseJWT();
+      
+      if (!jwt) {
+        logger.error('Failed to get JWT token');
+        return false;
+      }
+
+      // Set session on Supabase client
+      await supabase.auth.setSession({
+        access_token: jwt,
+        refresh_token: null
+      });
+
+      logger.debug('JWT authentication initialized for photo operations');
+      return true;
+
+    } catch (error) {
+      logger.error('Failed to initialize JWT auth for photos', error);
+      return false;
+    }
   }
 
   /**
@@ -67,6 +112,8 @@ export class PhotoStorageService {
    * @returns {Promise<Array<{name: string, photoCount: number}>>}
    */
   async listFolders() {
+    await this.initializeAuth(); // JWT auth before DB operation
+    
     try {
       logger.debug('Listing folders for user', { userId: this.userId });
 
@@ -130,6 +177,8 @@ export class PhotoStorageService {
    * @returns {Promise<Array<{success: boolean, filename: string, path?: string, error?: string}>>}
    */
   async uploadPhotos(files, folder = null, onProgress = null) {
+    await this.initializeAuth(); // JWT auth before operations
+    
     const targetFolder = folder || this.defaultFolder;
     const fileArray = Array.from(files);
     const results = [];
@@ -191,6 +240,8 @@ export class PhotoStorageService {
    * @returns {Promise<{success: boolean, filename: string, path: string}>}
    */
   async uploadSinglePhoto(file, folder) {
+    // Note: Auth already initialized in uploadPhotos() caller
+    
     try {
       // Generate unique filename to avoid collisions
       const timestamp = Date.now();
@@ -240,6 +291,8 @@ export class PhotoStorageService {
    * Save photo metadata to database
    */
   async savePhotoMetadata(metadata) {
+    // Note: Auth already initialized in uploadPhotos() caller
+    
     const { error } = await supabase
       .from('user_photos')
       .insert({
@@ -278,6 +331,8 @@ export class PhotoStorageService {
    * @returns {Promise<Array<{id: string, path: string, filename: string, uploadedAt: Date}>>}
    */
   async listPhotos(folder = null, limit = 100) {
+    await this.initializeAuth(); // JWT auth before DB operation
+    
     try {
       logger.debug('Listing photos', { folder, limit });
 
@@ -317,6 +372,8 @@ export class PhotoStorageService {
    * @returns {Promise<Array<string>>} Array of signed URLs
    */
   async getPhotoUrls(folder = null, shuffle = false) {
+    await this.initializeAuth(); // JWT auth before operations
+    
     try {
       const photos = await this.listPhotos(folder);
       
@@ -375,6 +432,8 @@ export class PhotoStorageService {
    * @returns {Promise<{used: number, quota: number, tier: string, percentUsed: number}>}
    */
   async getStorageUsage() {
+    await this.initializeAuth(); // JWT auth before DB operation
+    
     try {
       const { data, error } = await supabase
         .from('user_storage_quota')
@@ -417,6 +476,8 @@ export class PhotoStorageService {
    * Initialize quota record for user
    */
   async initializeQuota() {
+    // Note: Auth already initialized in getStorageUsage() caller
+    
     const { error } = await supabase
       .from('user_storage_quota')
       .insert({
@@ -436,6 +497,8 @@ export class PhotoStorageService {
    * @returns {Promise<boolean>}
    */
   async checkQuota(additionalBytes) {
+    // Note: Auth already initialized in uploadPhotos() caller
+    
     try {
       const usage = await this.getStorageUsage();
       const wouldExceed = (usage.used + additionalBytes) > usage.quota;
