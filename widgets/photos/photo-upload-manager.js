@@ -1,4 +1,4 @@
-// js/widgets/photos/photo-upload-manager.js
+// js/modals/photo-upload-manager.js
 // CHANGE SUMMARY: New parent-level upload manager - handles photo upload modal and coordinates with PhotoDataService
 
 import { createLogger } from '../../js/utils/logger.js';
@@ -56,9 +56,16 @@ export class PhotoUploadManager {
     this.setupMessageListener();
 
     // Integrate with modal navigation system
-    if (window.dashieModalManager) {
-      window.dashieModalManager.registerModal(this.modal, () => this.close());
-      logger.debug('Registered with modal navigation system');
+    // Note: Skip if dashieModalManager.registerModal expects specific parameters
+    if (window.dashieModalManager && typeof window.dashieModalManager.registerModal === 'function') {
+      try {
+        // Pass modal element and close callback
+        // If registerModal needs focusable elements array, provide empty array for now
+        window.dashieModalManager.registerModal(this.modal, () => this.close(), []);
+        logger.debug('Registered with modal navigation system');
+      } catch (error) {
+        logger.warn('Failed to register with modal navigation, continuing anyway', error);
+      }
     }
   }
 

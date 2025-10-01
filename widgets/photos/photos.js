@@ -1,15 +1,13 @@
 // widgets/photos/photos.js
-// CHANGE SUMMARY: Fixed userId initialization and added automatic quota record creation for new users
+// CHANGE SUMMARY: Refactored to parent-managed pattern - widget displays photos from parent, requests upload modal via message instead of handling internally
 
-import { PhotoStorageService } from '../../js/supabase/photo-storage-service.js';
-import { PhotoUploadModal } from './photo-upload.js';
 import { createLogger } from '../../js/utils/logger.js';
 
 const logger = createLogger('PhotosWidget');
 
 /**
- * PhotosWidget - Displays slideshow from Supabase storage
- * Opens upload modal on left/right/select
+ * PhotosWidget - Displays slideshow from parent-provided photo data
+ * Sends upload requests to parent instead of handling uploads internally
  */
 class PhotosWidget {
   constructor() {
@@ -20,9 +18,6 @@ class PhotosWidget {
     this.transitionTime = 10; // seconds
     this.isFocused = false;
     this.currentTheme = 'dark';
-    this.userId = null;
-    this.storage = null;
-    this.uploadModal = null;
     this.currentFolder = null; // null = all photos
 
     // DOM elements
@@ -34,25 +29,24 @@ class PhotosWidget {
   }
 
   /**
-   * Initialize widget - wait for authentication and load photos
+   * Initialize widget - set up listeners and signal ready
    */
   async initialize() {
-    // Set up event listeners (including ready signal)
+    // Set up event listeners
     this.setupEventListeners();
-
-    // Wait for user authentication
-    await this.waitForAuth();
-
-    // Initialize storage quota for user (creates record if doesn't exist)
-    await this.initializeStorageQuota();
 
     // Apply initial theme
     this.applyTheme(this.currentTheme);
 
-    // Load photos
-    await this.loadPhotos();
+    // Signal ready to parent (will receive photo data via widget-update)
+    if (window.parent !== window) {
+      window.parent.postMessage({ 
+        type: 'widget-ready', 
+        widget: 'photos' 
+      }, '*');
+    }
 
-    logger.info('PhotosWidget initialized');
+    logger.info('PhotosWidget initialized - waiting for photo data from parent');
   }
 
   /**
@@ -70,114 +64,6 @@ class PhotosWidget {
         this.handleDataServiceMessage(event.data);
       }
     });
-
-    // Signal widget ready
-    window.addEventListener('load', () => {
-      if (window.parent !== window) {
-        window.parent.postMessage({ 
-          type: 'widget-ready', 
-          widget: 'photos' 
-        }, '*');
-      }
-    });
-  }
-
-  /**
-   * Wait for authentication data
-   */
-  async waitForAuth() {
-    return new Promise((resolve) => {
-      let attempts = 0;
-      const maxAttempts = 100; // 10 seconds max
-      
-      const checkAuth = () => {
-        attempts++;
-        
-        // CRITICAL: We MUST use the Supabase UUID from jwtAuth, not the Google ID
-        // Wait for jwtAuth to be ready before checking other sources
-        let userId = null;
-        
-        // Priority 1: Get Supabase UUID from JWT service (REQUIRED for database operations)
-        if (window.parent?.jwtAuth?.isReady && window.parent?.jwtAuth?.currentUser?.id) {
-          userId = window.parent.jwtAuth.currentUser.id;
-          
-          if (attempts % 10 === 0) {
-            logger.debug('Found Supabase UUID from jwtAuth', { 
-              userId, 
-              attempts,
-              jwtReady: window.parent.jwtAuth.isReady 
-            });
-          }
-        } else {
-          // JWT not ready yet - keep waiting
-          if (attempts % 10 === 0) {
-            logger.debug('Waiting for jwtAuth to be ready', { 
-              attempts,
-              hasJwtAuth: !!window.parent?.jwtAuth,
-              jwtIsReady: window.parent?.jwtAuth?.isReady,
-              hasJwtUser: !!window.parent?.jwtAuth?.currentUser,
-              jwtUserId: window.parent?.jwtAuth?.currentUser?.id
-            });
-          }
-        }
-        
-        if (userId) {
-          this.userId = userId;
-          this.storage = new PhotoStorageService(this.userId);
-          logger.info('Auth received - using Supabase UUID from jwtAuth', { 
-            userId: this.userId, 
-            attempts 
-          });
-          resolve();
-        } else if (attempts >= maxAttempts) {
-          logger.error('Auth timeout - jwtAuth not ready after 10 seconds');
-          logger.error('Cannot initialize photos without Supabase UUID');
-          resolve();
-        } else {
-          setTimeout(checkAuth, 100);
-        }
-      };
-      checkAuth();
-    });
-  }
-
-  /**
-   * Initialize storage quota for user (creates record if doesn't exist)
-   */
-  async initializeStorageQuota() {
-    if (!this.storage || !this.userId) {
-      logger.error('Cannot initialize quota: storage or userId not set');
-      return;
-    }
-
-    try {
-      logger.debug('Checking storage quota...');
-      
-      // Try to get storage usage - this will auto-initialize if missing
-      await this.storage.getStorageUsage();
-      
-      logger.info('Storage quota initialized/verified');
-    } catch (error) {
-      logger.error('Failed to initialize storage quota', error);
-      // Continue anyway - uploads will handle this
-    }
-  }
-
-  /**
-   * Handle messages from parent
-   */
-  handleMessage(event) {
-    const data = event.data;
-
-    // Handle navigation commands
-    if (data && typeof data.action === 'string' && !data.type) {
-      this.handleCommand(data.action);
-    }
-
-    // Handle data service messages
-    if (data && data.type) {
-      this.handleDataServiceMessage(data);
-    }
   }
 
   /**
@@ -194,9 +80,10 @@ class PhotosWidget {
     switch (action) {
       case 'left':
       case 'right':
+      case 'enter':
       case 'select':
-        // Open upload modal
-        this.openUploadModal();
+        // Request upload modal from parent
+        this.requestUploadModal();
         break;
       case 'up':
         this.prevPhoto();
@@ -217,7 +104,26 @@ class PhotosWidget {
   }
 
   /**
-   * Handle data service messages
+   * Request upload modal from parent
+   */
+  requestUploadModal() {
+    logger.info('Requesting upload modal from parent');
+    
+    if (window.parent !== window) {
+      window.parent.postMessage({
+        type: 'request-upload-modal',
+        widget: 'photos'
+      }, '*');
+      
+      // Pause slideshow while modal will be open
+      this.stopAutoAdvance();
+    } else {
+      logger.error('Cannot request upload modal - no parent window');
+    }
+  }
+
+  /**
+   * Handle data service messages from parent
    */
   handleDataServiceMessage(data) {
     logger.debug('Photos widget received system message', { type: data.type });
@@ -225,6 +131,14 @@ class PhotosWidget {
     switch (data.type) {
       case 'widget-update':
         if (data.action === 'state-update' && data.payload) {
+          // Handle photo data updates
+          if (data.payload.photos) {
+            logger.info('Received photo data from parent', {
+              count: data.payload.photos.urls?.length || 0
+            });
+            this.loadPhotosFromParent(data.payload.photos);
+          }
+          
           // Handle theme updates
           if (data.payload.theme && data.payload.theme !== this.currentTheme) {
             this.applyTheme(data.payload.theme);
@@ -243,14 +157,51 @@ class PhotosWidget {
         break;
 
       case 'photos-uploaded':
-        // Refresh photos after upload
-        logger.info('Photos uploaded, refreshing display');
-        this.loadPhotos();
+        // Photos were uploaded - parent will send updated data via widget-update
+        logger.info('Photos uploaded notification received');
+        // Restart slideshow if it was paused
+        if (this.photoUrls.length > 0 && !this.autoAdvanceInterval) {
+          this.startAutoAdvance();
+        }
         break;
 
       default:
         logger.debug('Unhandled system message type', { type: data.type });
         break;
+    }
+  }
+
+  /**
+   * Load photos from parent-provided data
+   */
+  loadPhotosFromParent(photoData) {
+    try {
+      this.photoUrls = photoData.urls || [];
+      this.currentFolder = photoData.folder || null;
+
+      if (this.photoUrls.length === 0) {
+        logger.warn('No photos available');
+        this.loadingDiv.innerHTML = '<div class="empty-message">No photos yet. Press Enter to upload.</div>';
+        this.loadingDiv.style.display = 'block';
+        this.photoImg.style.display = 'none';
+        return;
+      }
+
+      logger.success('Photos loaded from parent', { count: this.photoUrls.length });
+
+      // Show first photo
+      this.currentPhotoIndex = 0;
+      this.showPhoto(0, false);
+
+      // Start auto-advance
+      setTimeout(() => {
+        this.startAutoAdvance();
+      }, 1000);
+
+    } catch (error) {
+      logger.error('Failed to load photos from parent', error);
+      this.loadingDiv.innerHTML = '<div class="error-message">Failed to load photos</div>';
+      this.loadingDiv.style.display = 'block';
     }
   }
 
@@ -279,80 +230,6 @@ class PhotosWidget {
     this.currentTheme = theme;
     document.body.className = `theme-${theme}`;
     logger.debug('Theme applied', { theme });
-  }
-
-  /**
-   * Open upload modal
-   */
-  openUploadModal() {
-    logger.info('Opening upload modal', { userId: this.userId });
-    
-    // Verify we have userId
-    if (!this.userId) {
-      logger.error('Cannot open upload modal: userId is null');
-      // Try to re-check parent window
-      const parentUser = window.parent?.dashieUser;
-      if (parentUser && parentUser.id) {
-        this.userId = parentUser.id;
-        logger.info('Recovered userId from parent', { userId: this.userId });
-      } else {
-        logger.error('Still no userId available');
-        return;
-      }
-    }
-    
-    // Lazy initialization - create modal only when first needed
-    if (!this.uploadModal) {
-      logger.info('Creating upload modal for first time', { userId: this.userId });
-      try {
-        this.uploadModal = new PhotoUploadModal(this.userId);
-      } catch (error) {
-        logger.error('Failed to create upload modal', error);
-        return;
-      }
-    }
-    
-    // Pause slideshow while modal is open
-    this.stopAutoAdvance();
-    this.uploadModal.open();
-  }
-
-  /**
-   * Load photos from storage
-   */
-  async loadPhotos() {
-    try {
-      if (!this.storage) {
-        logger.warn('Storage not initialized yet');
-        return;
-      }
-
-      logger.info('Loading photos from storage', { folder: this.currentFolder });
-
-      // Get photo URLs (shuffled)
-      this.photoUrls = await this.storage.getPhotoUrls(this.currentFolder, true);
-
-      if (this.photoUrls.length === 0) {
-        logger.warn('No photos available');
-        this.loadingDiv.innerHTML = '<div class="empty-message">No photos yet. Press Select to upload.</div>';
-        return;
-      }
-
-      logger.success('Photos loaded', { count: this.photoUrls.length });
-
-      // Show first photo
-      this.currentPhotoIndex = 0;
-      this.showPhoto(0, false);
-
-      // Start auto-advance
-      setTimeout(() => {
-        this.startAutoAdvance();
-      }, 1000);
-
-    } catch (error) {
-      logger.error('Failed to load photos', error);
-      this.loadingDiv.innerHTML = '<div class="error-message">Failed to load photos</div>';
-    }
   }
 
   /**
@@ -427,6 +304,8 @@ class PhotosWidget {
     } else {
       // Show error message
       this.loadingDiv.innerHTML = '<div class="error-message">Failed to load photos</div>';
+      this.loadingDiv.style.display = 'block';
+      this.photoImg.style.display = 'none';
     }
   }
 
@@ -434,6 +313,7 @@ class PhotosWidget {
    * Navigate to next photo
    */
   nextPhoto() {
+    if (this.photoUrls.length === 0) return;
     this.showPhoto(this.currentPhotoIndex + 1);
   }
 
@@ -441,6 +321,7 @@ class PhotosWidget {
    * Navigate to previous photo
    */
   prevPhoto() {
+    if (this.photoUrls.length === 0) return;
     this.showPhoto(this.currentPhotoIndex - 1);
   }
 
@@ -448,12 +329,16 @@ class PhotosWidget {
    * Start auto-advance timer
    */
   startAutoAdvance() {
+    if (this.photoUrls.length === 0) return;
+    
     if (this.autoAdvanceInterval) {
       clearInterval(this.autoAdvanceInterval);
     }
+    
     this.autoAdvanceInterval = setInterval(() => {
       this.nextPhoto();
     }, this.transitionTime * 1000);
+    
     logger.info('Auto-advance started', { intervalSeconds: this.transitionTime });
   }
 
@@ -477,7 +362,7 @@ class PhotosWidget {
       logger.info('Updated transition time', { transitionTime: this.transitionTime });
 
       // Restart auto-advance with new timing
-      if (this.autoAdvanceInterval) {
+      if (this.autoAdvanceInterval && this.photoUrls.length > 0) {
         clearInterval(this.autoAdvanceInterval);
         this.startAutoAdvance();
       }
