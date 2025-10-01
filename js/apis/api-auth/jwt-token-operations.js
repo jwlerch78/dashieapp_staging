@@ -1,5 +1,5 @@
 // js/apis/api-auth/jwt-token-operations.js
-// CHANGE SUMMARY: Split from unified-jwt-service.js - All token operations including refresh token management and settings
+// CHANGE SUMMARY: Removed automatic Supabase authentication - Supabase client should use RLS with our JWT in headers, not auth.setSession()
 
 import { JWTServiceCore } from './jwt-service-core.js';
 import { createLogger } from '../../utils/logger.js';
@@ -12,7 +12,13 @@ const logger = createLogger('UnifiedJWT');
  */
 export class JWTTokenOperations extends JWTServiceCore {
   
-  // ====== NEW: MULTI-ACCOUNT TOKEN MANAGEMENT METHODS ======
+  /**
+   * NOTE: We do NOT authenticate the Supabase client with auth.setSession()
+   * because that expects Supabase's own auth JWT format.
+   * Instead, our custom JWT should be passed in headers for RLS verification.
+   */
+
+  // ====== MULTI-ACCOUNT TOKEN MANAGEMENT METHODS ======
 
   /**
    * Store OAuth tokens for multi-account support
@@ -66,11 +72,6 @@ export class JWTTokenOperations extends JWTServiceCore {
       });
 
       this.lastOperationTime = Date.now();
-      if (result.user) this.currentUser = result.user;
-      if (result.jwtToken) {
-        this.currentJWT = result.jwtToken;
-        this._parseJWTExpiry();
-      }
 
       return result;
 
@@ -82,11 +83,11 @@ export class JWTTokenOperations extends JWTServiceCore {
   }
 
   /**
-   * Get valid access token for account (auto-refreshes if expired)
+   * Get valid OAuth token (refresh if needed)
    */
   async getValidToken(provider = 'google', accountType = 'personal') {
     if (!this.isServiceReady()) {
-      throw new Error('JWT service not ready for get valid token operation');
+      throw new Error('JWT service not ready for get token operation');
     }
 
     const timer = logger.startTimer('JWT Get Valid Token');
@@ -115,44 +116,39 @@ export class JWTTokenOperations extends JWTServiceCore {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`JWT get valid token failed: ${response.status} ${errorText}`);
+        throw new Error(`JWT get token failed: ${response.status} ${errorText}`);
       }
 
       const result = await response.json();
       
-      logger.success('JWT valid token retrieved', {
+      logger.success('JWT token retrieved/refreshed', {
         success: result.success,
+        refreshed: result.refreshed,
         provider,
         accountType,
-        refreshed: result.refreshed,
         duration
       });
 
       this.lastOperationTime = Date.now();
-      if (result.user) this.currentUser = result.user;
-      if (result.jwtToken) {
-        this.currentJWT = result.jwtToken;
-        this._parseJWTExpiry();
-      }
 
       return result;
 
     } catch (error) {
       timer();
-      logger.error('JWT get valid token failed', error);
+      logger.error('JWT get token failed', error);
       throw error;
     }
   }
 
   /**
-   * List all stored token accounts
+   * Delete refresh token from secure storage
    */
-  async listTokenAccounts() {
+  async deleteRefreshToken(provider = 'google', accountType = 'personal') {
     if (!this.isServiceReady()) {
-      throw new Error('JWT service not ready for list accounts operation');
+      throw new Error('JWT service not ready for delete token operation');
     }
 
-    const timer = logger.startTimer('JWT List Token Accounts');
+    const timer = logger.startTimer('JWT Delete Refresh Token');
     
     try {
       await this._ensureValidJWT();
@@ -163,66 +159,7 @@ export class JWTTokenOperations extends JWTServiceCore {
 
       const requestBody = {
         googleAccessToken,
-        operation: 'list_accounts'
-      };
-
-      const response = await fetch(this.edgeFunctionUrl, {
-        method: 'POST',
-        headers: this._getSupabaseHeaders(),
-        body: JSON.stringify(requestBody)
-      });
-
-      const duration = timer();
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`JWT list accounts failed: ${response.status} ${errorText}`);
-      }
-
-      const result = await response.json();
-      
-      logger.success('JWT token accounts listed', {
-        success: result.success,
-        accountCount: result.accounts?.length || 0,
-        duration
-      });
-
-      this.lastOperationTime = Date.now();
-      if (result.user) this.currentUser = result.user;
-      if (result.jwtToken) {
-        this.currentJWT = result.jwtToken;
-        this._parseJWTExpiry();
-      }
-
-      return result.accounts || [];
-
-    } catch (error) {
-      timer();
-      logger.error('JWT list token accounts failed', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Remove a stored token account
-   */
-  async removeTokenAccount(provider = 'google', accountType = 'personal') {
-    if (!this.isServiceReady()) {
-      throw new Error('JWT service not ready for remove account operation');
-    }
-
-    const timer = logger.startTimer('JWT Remove Token Account');
-    
-    try {
-      await this._ensureValidJWT();
-      const googleAccessToken = this._getGoogleAccessToken();
-      if (!googleAccessToken) {
-        throw new Error('No Google access token available');
-      }
-
-      const requestBody = {
-        googleAccessToken,
-        operation: 'remove_account',
+        operation: 'delete_refresh_token',
         provider,
         account_type: accountType
       };
@@ -237,71 +174,12 @@ export class JWTTokenOperations extends JWTServiceCore {
 
       if (!response.ok) {
         const errorText = await response.text();
-        throw new Error(`JWT remove account failed: ${response.status} ${errorText}`);
+        throw new Error(`JWT delete token failed: ${response.status} ${errorText}`);
       }
 
       const result = await response.json();
       
-      logger.success('JWT token account removed', {
-        success: result.success,
-        removed: result.removed,
-        duration
-      });
-
-      this.lastOperationTime = Date.now();
-      if (result.user) this.currentUser = result.user;
-      if (result.jwtToken) {
-        this.currentJWT = result.jwtToken;
-        this._parseJWTExpiry();
-      }
-
-      return result.removed === true;
-
-    } catch (error) {
-      timer();
-      logger.error('JWT remove token account failed', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Manually refresh an OAuth token using refresh token
-   */
-  async refreshToken(refreshToken) {
-    if (!this.isServiceReady()) {
-      throw new Error('JWT service not ready for refresh token operation');
-    }
-
-    const timer = logger.startTimer('JWT Refresh Token');
-    
-    try {
-      if (!refreshToken) {
-        throw new Error('Refresh token is required');
-      }
-
-      const requestBody = {
-        operation: 'refresh_token',
-        data: {
-          refresh_token: refreshToken
-        }
-      };
-
-      const response = await fetch(this.edgeFunctionUrl, {
-        method: 'POST',
-        headers: this._getSupabaseHeaders(),
-        body: JSON.stringify(requestBody)
-      });
-
-      const duration = timer();
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`JWT refresh token failed: ${response.status} ${errorText}`);
-      }
-
-      const result = await response.json();
-      
-      logger.success('JWT token refreshed', {
+      logger.success('JWT refresh token deleted', {
         success: result.success,
         duration
       });
@@ -319,7 +197,6 @@ export class JWTTokenOperations extends JWTServiceCore {
 
   /**
    * Get current Supabase JWT token (refreshes if needed)
-   * NEW METHOD - not in original
    */
   async getSupabaseJWT() {
     if (!this.isServiceReady()) {
@@ -360,7 +237,6 @@ export class JWTTokenOperations extends JWTServiceCore {
       const requestBody = {
         googleAccessToken,
         operation: 'load'
-        // Note: Removed userEmail - edge function gets it from Google token
       };
 
       const headers = this._getSupabaseHeaders();
@@ -387,40 +263,29 @@ export class JWTTokenOperations extends JWTServiceCore {
       });
 
       this.lastOperationTime = Date.now();
-      
-      // Update stored user and JWT
-      if (result.user) this.currentUser = result.user;
-      if (result.jwtToken) {
-        this.currentJWT = result.jwtToken;
-        this._parseJWTExpiry();
-      }
 
-      return result.settings;
+      return result;
 
     } catch (error) {
       timer();
-      logger.error('JWT settings load failed', error);
+      logger.error('JWT load failed', error);
       throw error;
     }
   }
 
   /**
    * Save user settings via JWT-verified edge function
-   * @param {string} userEmail - User email (kept for compatibility)
-   * @param {Object} settings - Settings data to save
-   * @returns {Promise<boolean>} True if save was successful
+   * @param {Object} settings - Settings object to save
+   * @returns {Promise<Object>} Result with success status
    */
-  async saveSettings(userEmail, settings) {
+  async saveSettings(settings) {
     if (!this.isServiceReady()) {
       throw new Error('JWT service not ready for save operation');
     }
 
     const timer = logger.startTimer('JWT Save Settings');
     
-    logger.info('Saving settings via JWT', {
-      userEmail,
-      settingsKeys: settings ? Object.keys(settings) : []
-    });
+    logger.info('Saving settings via JWT');
 
     try {
       // Ensure we have a valid JWT
@@ -434,8 +299,7 @@ export class JWTTokenOperations extends JWTServiceCore {
       const requestBody = {
         googleAccessToken,
         operation: 'save',
-        data: settings
-        // Note: Removed userEmail - edge function gets it from Google token
+        settings: settings
       };
 
       const headers = this._getSupabaseHeaders();
@@ -457,36 +321,47 @@ export class JWTTokenOperations extends JWTServiceCore {
       
       logger.success('JWT settings saved', {
         success: result.success,
-        saved: result.saved,
         duration
       });
 
       this.lastOperationTime = Date.now();
-      
-      // Update stored user and JWT
-      if (result.user) this.currentUser = result.user;
-      if (result.jwtToken) {
-        this.currentJWT = result.jwtToken;
-        this._parseJWTExpiry();
-      }
 
-      return result.saved === true;
+      return result;
 
     } catch (error) {
       timer();
-      logger.error('JWT settings save failed', error);
+      logger.error('JWT save failed', error);
       throw error;
     }
   }
 }
 
-// Create and export singleton instance
-export const unifiedJWTService = new JWTTokenOperations();
-
-// Initialize JWT service when module loads
+/**
+ * Initialize JWT Service - Main entry point called from main.js
+ * @returns {Promise<boolean>} True if JWT service is ready
+ */
 export async function initializeJWTService() {
-  logger.info('Initializing JWT service from module');
-  return await unifiedJWTService.initialize();
+  try {
+    logger.info('Starting JWT Service initialization');
+    
+    // Create service instance if it doesn't exist
+    if (!window.jwtAuth) {
+      window.jwtAuth = new JWTTokenOperations();
+    }
+    
+    // Initialize the service
+    const isReady = await window.jwtAuth.initialize();
+    
+    if (isReady) {
+      logger.success('JWT Service initialized successfully');
+    } else {
+      logger.warn('JWT Service initialization completed but not ready (auth may not be available)');
+    }
+    
+    return isReady;
+    
+  } catch (error) {
+    logger.error('JWT Service initialization failed', error);
+    return false;
+  }
 }
-
-export default unifiedJWTService;

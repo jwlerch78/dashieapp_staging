@@ -1,5 +1,5 @@
 // js/supabase/photo-storage-service.js
-// CHANGE SUMMARY: Fixed JWT check to use isReady property instead of isServiceReady() method - matches SimpleSupabaseStorage pattern
+// CHANGE SUMMARY: Removed _authenticateClient() method - global Supabase authentication now handled by JWT service initialization
 
 import { supabase } from './supabase-config.js';
 import { createLogger } from '../utils/logger.js';
@@ -8,7 +8,7 @@ const logger = createLogger('PhotoStorage');
 
 /**
  * PhotoStorageService - Handles photo uploads, folder management, and storage operations
- * Integrates with existing RLS/JWT architecture (matches settings pattern)
+ * NOTE: Assumes global Supabase client is already authenticated by JWT service
  */
 export class PhotoStorageService {
   constructor(userId, jwtService = null) {
@@ -17,52 +17,11 @@ export class PhotoStorageService {
     this.bucketName = 'photos';
     this.defaultFolder = 'all-photos';
     
-    logger.info('PhotoStorageService initialized', { userId });
-  }
-
-  // ==================== JWT AUTHENTICATION ====================
-
-  /**
-   * Initialize JWT authentication before database operations
-   * Follows exact pattern from SimpleSupabaseStorage (settings)
-   */
-  async initializeAuth() {
-    try {
-      // Get JWT service from parent if in iframe, otherwise use window
-      const jwtService = this.jwtService || window.parent?.jwtAuth || window.jwtAuth;
-      
-      if (!jwtService) {
-        logger.warn('No JWT service available for authentication');
-        return false;
-      }
-
-      // Check if JWT service is ready - use isReady property not isServiceReady()
-      if (!jwtService.isReady) {
-        logger.warn('JWT service not ready');
-        return false;
-      }
-
-      // Get Supabase JWT token (use the jwtService we just found, not this.jwtService)
-      const jwt = await jwtService.getSupabaseJWT();
-      
-      if (!jwt) {
-        logger.error('Failed to get JWT token');
-        return false;
-      }
-
-      // Set session on Supabase client
-      await supabase.auth.setSession({
-        access_token: jwt,
-        refresh_token: null
-      });
-
-      logger.debug('JWT authentication initialized for photo operations');
-      return true;
-
-    } catch (error) {
-      logger.error('Failed to initialize JWT auth for photos', error);
-      return false;
-    }
+    logger.info('PhotoStorageService initialized', { 
+      userId, 
+      hasJwtService: !!this.jwtService,
+      supabaseAuthenticated: this.jwtService?.isSupabaseAuthenticated?.() || false
+    });
   }
 
   /**
@@ -112,8 +71,6 @@ export class PhotoStorageService {
    * @returns {Promise<Array<{name: string, photoCount: number}>>}
    */
   async listFolders() {
-    await this.initializeAuth(); // JWT auth before DB operation
-    
     try {
       logger.debug('Listing folders for user', { userId: this.userId });
 
@@ -177,8 +134,6 @@ export class PhotoStorageService {
    * @returns {Promise<Array<{success: boolean, filename: string, path?: string, error?: string}>>}
    */
   async uploadPhotos(files, folder = null, onProgress = null) {
-    await this.initializeAuth(); // JWT auth before operations
-    
     const targetFolder = folder || this.defaultFolder;
     const fileArray = Array.from(files);
     const results = [];
@@ -196,38 +151,23 @@ export class PhotoStorageService {
       throw new Error('Storage quota exceeded. Cannot upload photos.');
     }
 
+    // Upload files one at a time
     for (let i = 0; i < fileArray.length; i++) {
       const file = fileArray[i];
-      
-      try {
-        // Report progress
-        if (onProgress) {
-          const percent = Math.round(((i + 1) / fileArray.length) * 100);
-          onProgress(percent, file.name, i + 1, fileArray.length);
-        }
+      const result = await this.uploadSinglePhoto(file, targetFolder);
+      results.push(result);
 
-        // Convert HEIC if needed (client-side conversion placeholder)
-        const processedFile = await this.processImageFile(file);
-
-        // Upload to storage
-        const result = await this.uploadSinglePhoto(processedFile, targetFolder);
-        results.push(result);
-
-      } catch (error) {
-        logger.error('Failed to upload file', { filename: file.name, error });
-        results.push({
-          success: false,
-          filename: file.name,
-          error: error.message
-        });
+      // Update progress
+      if (onProgress) {
+        const percent = Math.round(((i + 1) / fileArray.length) * 100);
+        onProgress(percent, file.name, i + 1, fileArray.length);
       }
     }
 
     const successCount = results.filter(r => r.success).length;
     logger.success('Bulk upload complete', { 
-      total: fileArray.length,
-      successful: successCount,
-      failed: fileArray.length - successCount
+      total: fileArray.length, 
+      successful: successCount 
     });
 
     return results;
@@ -235,81 +175,74 @@ export class PhotoStorageService {
 
   /**
    * Upload a single photo
-   * @param {File} file 
-   * @param {string} folder 
-   * @returns {Promise<{success: boolean, filename: string, path: string}>}
+   * @param {File} file - File to upload
+   * @param {string} folder - Destination folder
+   * @returns {Promise<{success: boolean, filename: string, path?: string, error?: string}>}
    */
   async uploadSinglePhoto(file, folder) {
-    // Note: Auth already initialized in uploadPhotos() caller
-    
     try {
-      // Generate unique filename to avoid collisions
-      const timestamp = Date.now();
-      const uniqueFilename = `${timestamp}-${file.name}`;
-      const storagePath = this.buildStoragePath(folder, uniqueFilename);
+      logger.debug('Uploading photo', { filename: file.name, size: file.size, folder });
 
-      logger.debug('Uploading photo', { 
-        filename: file.name, 
-        path: storagePath,
-        size: file.size 
-      });
+      // Process file (HEIC conversion if needed)
+      const processedFile = await this.processFile(file);
 
-      // Upload to Supabase Storage
-      const { data, error } = await supabase.storage
+      // Generate storage path
+      const storagePath = this.buildStoragePath(folder, processedFile.name);
+
+      // Upload to storage bucket
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from(this.bucketName)
-        .upload(storagePath, file, {
+        .upload(storagePath, processedFile, {
           cacheControl: '3600',
           upsert: false
         });
 
-      if (error) throw error;
+      if (uploadError) throw uploadError;
 
-      // Save metadata to database
-      await this.savePhotoMetadata({
-        storage_path: storagePath,
-        folder_name: folder,
-        filename: uniqueFilename,
-        mime_type: file.type,
-        file_size: file.size
-      });
+      logger.debug('File uploaded to storage', { path: storagePath });
 
-      logger.success('Photo uploaded', { filename: file.name, path: storagePath });
+      // Record in database
+      const { error: dbError } = await supabase
+        .from('user_photos')
+        .insert({
+          auth_user_id: this.userId,
+          storage_path: storagePath,
+          filename: processedFile.name,
+          folder_name: folder,
+          file_size: processedFile.size,
+          mime_type: processedFile.type
+        });
+
+      if (dbError) throw dbError;
+
+      // Update storage quota
+      await this.updateQuotaUsage(processedFile.size);
+
+      logger.success('Photo uploaded successfully', { filename: processedFile.name });
 
       return {
         success: true,
-        filename: file.name,
+        filename: processedFile.name,
         path: storagePath
       };
 
     } catch (error) {
-      logger.error('Upload failed', { filename: file.name, error });
-      throw error;
+      logger.error('Photo upload failed', { filename: file.name, error });
+      return {
+        success: false,
+        filename: file.name,
+        error: error.message
+      };
     }
   }
 
   /**
-   * Save photo metadata to database
-   */
-  async savePhotoMetadata(metadata) {
-    // Note: Auth already initialized in uploadPhotos() caller
-    
-    const { error } = await supabase
-      .from('user_photos')
-      .insert({
-        auth_user_id: this.userId,
-        ...metadata
-      });
-
-    if (error) throw error;
-  }
-
-  /**
-   * Process image file (HEIC conversion placeholder)
+   * Process file before upload (HEIC conversion, etc.)
    * @param {File} file 
    * @returns {Promise<File>}
    */
-  async processImageFile(file) {
-    // Check if HEIC/HEIF
+  async processFile(file) {
+    // Check if HEIC/HEIF format
     const isHEIC = /\.(heic|heif)$/i.test(file.name);
     
     if (isHEIC) {
@@ -331,8 +264,6 @@ export class PhotoStorageService {
    * @returns {Promise<Array<{id: string, path: string, filename: string, uploadedAt: Date}>>}
    */
   async listPhotos(folder = null, limit = 100) {
-    await this.initializeAuth(); // JWT auth before DB operation
-    
     try {
       logger.debug('Listing photos', { folder, limit });
 
@@ -372,8 +303,6 @@ export class PhotoStorageService {
    * @returns {Promise<Array<string>>} Array of signed URLs
    */
   async getPhotoUrls(folder = null, shuffle = false) {
-    await this.initializeAuth(); // JWT auth before operations
-    
     try {
       const photos = await this.listPhotos(folder);
       
@@ -432,8 +361,6 @@ export class PhotoStorageService {
    * @returns {Promise<{used: number, quota: number, tier: string, percentUsed: number}>}
    */
   async getStorageUsage() {
-    await this.initializeAuth(); // JWT auth before DB operation
-    
     try {
       const { data, error } = await supabase
         .from('user_storage_quota')
@@ -476,8 +403,6 @@ export class PhotoStorageService {
    * Initialize quota record for user
    */
   async initializeQuota() {
-    // Note: Auth already initialized in getStorageUsage() caller
-    
     const { error } = await supabase
       .from('user_storage_quota')
       .insert({
@@ -492,13 +417,43 @@ export class PhotoStorageService {
   }
 
   /**
+   * Update quota usage after upload
+   * @param {number} bytesAdded 
+   */
+  async updateQuotaUsage(bytesAdded) {
+    try {
+      // Get current usage
+      const { data: currentData } = await supabase
+        .from('user_storage_quota')
+        .select('bytes_used')
+        .eq('auth_user_id', this.userId)
+        .single();
+
+      const currentUsage = currentData?.bytes_used || 0;
+      const newUsage = currentUsage + bytesAdded;
+
+      // Update usage
+      const { error } = await supabase
+        .from('user_storage_quota')
+        .update({ bytes_used: newUsage })
+        .eq('auth_user_id', this.userId);
+
+      if (error) throw error;
+
+      logger.debug('Quota updated', { added: bytesAdded, newTotal: newUsage });
+
+    } catch (error) {
+      logger.error('Failed to update quota', error);
+      // Don't throw - quota update failure shouldn't break uploads
+    }
+  }
+
+  /**
    * Check if upload would exceed quota
    * @param {number} additionalBytes 
    * @returns {Promise<boolean>}
    */
   async checkQuota(additionalBytes) {
-    // Note: Auth already initialized in uploadPhotos() caller
-    
     try {
       const usage = await this.getStorageUsage();
       const wouldExceed = (usage.used + additionalBytes) > usage.quota;

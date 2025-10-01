@@ -1,28 +1,45 @@
-// js/modals/photo-upload-manager.js
-// CHANGE SUMMARY: New parent-level upload manager - handles photo upload modal and coordinates with PhotoDataService
+// widgets/photos/photo-upload-manager.js
+// CHANGE SUMMARY: Created manager to handle photo upload modal iframe with proper userId passing via postMessage
 
 import { createLogger } from '../../js/utils/logger.js';
 
 const logger = createLogger('PhotoUploadManager');
 
 /**
- * PhotoUploadManager - Manages photo upload modal in parent window
- * Creates iframe for upload UI, handles file uploads via PhotoDataService
- * Follows same pattern as other parent-managed modals
+ * PhotoUploadManager - Manages the photo upload modal iframe
+ * Handles loading the iframe, passing userId, and coordinating with modal navigation
  */
 export class PhotoUploadManager {
   constructor(photoDataService) {
     this.photoDataService = photoDataService;
-    this.modal = null;
     this.modalIframe = null;
+    this.modalContainer = null;
     this.isOpen = false;
-    this.messageListener = null;
+    this.iframeReady = false;
     
     logger.info('PhotoUploadManager initialized');
+    
+    // Listen for messages from the upload modal iframe
+    this.setupMessageListener();
+  }
+
+  setupMessageListener() {
+    window.addEventListener('message', (event) => {
+      const data = event.data;
+      
+      if (data?.type === 'upload-modal-ready') {
+        logger.debug('Upload modal iframe signaled ready');
+        this.iframeReady = true;
+        this.sendInitializationData();
+      } else if (data?.type === 'close-upload-modal') {
+        logger.debug('Upload modal requested close');
+        this.close();
+      }
+    });
   }
 
   /**
-   * Open upload modal (creates iframe)
+   * Open the photo upload modal
    */
   async open() {
     if (this.isOpen) {
@@ -32,246 +49,208 @@ export class PhotoUploadManager {
 
     logger.info('Opening photo upload modal');
     this.isOpen = true;
+    this.iframeReady = false;
+
+    // Create modal container and iframe
+    this.createModal();
+
+    // Register with modal navigation manager (without buttons initially)
+    // The iframe will handle its own internal navigation
+    try {
+      if (window.dashieModalManager) {
+        // Register the container so the modal manager knows a modal is active
+        // We pass an empty buttons array since navigation is handled inside the iframe
+        window.dashieModalManager.registerModal(this.modalContainer, {
+          buttons: [],
+          horizontalNavigation: false,
+          onEscape: () => this.close()
+        });
+        logger.debug('Registered with modal navigation manager');
+      } else {
+        logger.warn('Modal navigation manager not found');
+      }
+    } catch (error) {
+      logger.warn('Failed to register with modal navigation, continuing anyway', error);
+    }
+  }
+
+  /**
+   * Create the modal DOM structure with iframe
+   */
+  createModal() {
+    // Remove existing modal if present
+    const existing = document.getElementById('photoUploadModalContainer');
+    if (existing) {
+      existing.remove();
+    }
 
     // Create modal container
-    this.modal = document.createElement('div');
-    this.modal.className = 'dashie-modal photo-upload-modal';
-    this.modal.innerHTML = `
-      <div class="dashie-modal-content">
-        <iframe 
-          id="photo-upload-iframe"
-          src="widgets/photos/photo-upload.html" 
-          sandbox="allow-scripts allow-same-origin"
-          style="width: 100%; height: 100%; border: none;">
-        </iframe>
-      </div>
-    `;
-
-    document.body.appendChild(this.modal);
+    const container = document.createElement('div');
+    container.id = 'photoUploadModalContainer';
+    container.className = 'photo-upload-modal-container';
     
-    // Get iframe reference
-    this.modalIframe = this.modal.querySelector('iframe');
-
-    // Set up message listener for iframe communication
-    this.setupMessageListener();
-
-    // Integrate with modal navigation system
-    // Note: Skip if dashieModalManager.registerModal expects specific parameters
-    if (window.dashieModalManager && typeof window.dashieModalManager.registerModal === 'function') {
-      try {
-        // Pass modal element and close callback
-        // If registerModal needs focusable elements array, provide empty array for now
-        window.dashieModalManager.registerModal(this.modal, () => this.close(), []);
-        logger.debug('Registered with modal navigation system');
-      } catch (error) {
-        logger.warn('Failed to register with modal navigation, continuing anyway', error);
-      }
-    }
+    // Create backdrop
+    const backdrop = document.createElement('div');
+    backdrop.className = 'photo-upload-backdrop';
+    backdrop.addEventListener('click', () => this.close());
+    
+    // Create iframe wrapper
+    const wrapper = document.createElement('div');
+    wrapper.className = 'photo-upload-iframe-wrapper';
+    
+    // Create iframe with proper sandbox attributes
+    const iframe = document.createElement('iframe');
+    iframe.id = 'photoUploadIframe';
+    iframe.src = 'widgets/photos/photo-upload.html';
+    iframe.className = 'photo-upload-iframe';
+    // Sandbox attributes: allow-same-origin for accessing parent, allow-scripts for functionality,
+    // allow-modals for prompt/alert, allow-forms for file input
+    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-modals allow-forms');
+    iframe.setAttribute('title', 'Photo Upload Modal');
+    
+    wrapper.appendChild(iframe);
+    container.appendChild(backdrop);
+    container.appendChild(wrapper);
+    
+    // Add styles
+    this.addModalStyles();
+    
+    // Add to document
+    document.body.appendChild(container);
+    
+    this.modalContainer = container;
+    this.modalIframe = iframe;
+    
+    logger.debug('Modal container and iframe created');
   }
 
   /**
-   * Set up message listener for iframe communication
+   * Send initialization data to the iframe once it's ready
    */
-  setupMessageListener() {
-    // Remove old listener if exists
-    if (this.messageListener) {
-      window.removeEventListener('message', this.messageListener);
+  sendInitializationData() {
+    if (!this.iframeReady || !this.modalIframe) {
+      logger.warn('Cannot send initialization data - iframe not ready');
+      return;
     }
 
-    this.messageListener = async (event) => {
-      // Only handle messages from our iframe
-      if (event.source !== this.modalIframe?.contentWindow) {
+    // Get the Supabase UUID from JWT auth
+    const userId = window.jwtAuth?.currentUser?.id;
+    
+    if (!userId) {
+      logger.error('Cannot send initialization data - no userId available');
+      // Try to get from photoDataService as fallback
+      if (this.photoDataService?.userId) {
+        logger.info('Using userId from photoDataService', { userId: this.photoDataService.userId });
+      } else {
+        logger.error('No userId available from any source');
         return;
       }
+    }
 
-      const { type, data } = event.data;
-      
-      logger.debug('Received message from upload iframe', { type });
+    // Get current theme
+    const theme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
 
-      switch (type) {
-        case 'upload-files':
-          await this.handleUpload(data.files, data.folder);
-          break;
-          
-        case 'close-upload-modal':
-          this.close();
-          break;
-          
-        case 'get-storage-usage':
-          await this.handleStorageUsageRequest(event.source);
-          break;
-          
-        case 'get-folders':
-          await this.handleFoldersRequest(event.source);
-          break;
-          
-        default:
-          logger.debug('Unhandled message type', { type });
-      }
+    // Send initialization message to iframe
+    const initMessage = {
+      type: 'init-upload-modal',
+      userId: userId || this.photoDataService?.userId,
+      theme: theme
     };
 
-    window.addEventListener('message', this.messageListener);
-    logger.debug('Message listener set up');
+    logger.info('Sending initialization data to iframe', { userId: initMessage.userId, theme });
+    
+    this.modalIframe.contentWindow.postMessage(initMessage, '*');
   }
 
   /**
-   * Handle storage usage request from iframe
+   * Add modal styles to document
    */
-  async handleStorageUsageRequest(source) {
-    try {
-      const usage = await this.photoDataService.getStorageUsage();
-      
-      source.postMessage({
-        type: 'storage-usage-response',
-        usage
-      }, '*');
-      
-      logger.debug('Sent storage usage to iframe', usage);
-      
-    } catch (error) {
-      logger.error('Failed to get storage usage', error);
-      
-      source.postMessage({
-        type: 'storage-usage-error',
-        error: error.message
-      }, '*');
+  addModalStyles() {
+    // Check if styles already exist
+    if (document.getElementById('photo-upload-modal-styles')) {
+      return;
     }
-  }
 
-  /**
-   * Handle folders list request from iframe
-   */
-  async handleFoldersRequest(source) {
-    try {
-      const folders = await this.photoDataService.listFolders();
-      
-      source.postMessage({
-        type: 'folders-response',
-        folders
-      }, '*');
-      
-      logger.debug('Sent folders to iframe', { count: folders.length });
-      
-    } catch (error) {
-      logger.error('Failed to get folders', error);
-      
-      source.postMessage({
-        type: 'folders-error',
-        error: error.message
-      }, '*');
-    }
-  }
-
-  /**
-   * Handle file upload from iframe
-   */
-  async handleUpload(filesData, folder) {
-    logger.info('Handling upload request', { 
-      fileCount: filesData.length, 
-      folder 
-    });
-
-    try {
-      // Convert base64 file data back to File objects
-      const files = filesData.map(fd => {
-        const blob = this.base64ToBlob(fd.data, fd.type);
-        return new File([blob], fd.name, { type: fd.type });
-      });
-
-      // Upload via photo data service (has JWT/RLS authentication)
-      const results = await this.photoDataService.uploadPhotos(
-        files, 
-        folder,
-        (percent, filename, current, total) => {
-          // Send progress updates back to iframe
-          if (this.modalIframe?.contentWindow) {
-            this.modalIframe.contentWindow.postMessage({
-              type: 'upload-progress',
-              percent,
-              filename,
-              current,
-              total
-            }, '*');
-          }
-        }
-      );
-
-      // Send completion notification to iframe
-      if (this.modalIframe?.contentWindow) {
-        this.modalIframe.contentWindow.postMessage({
-          type: 'upload-complete',
-          results
-        }, '*');
+    const style = document.createElement('style');
+    style.id = 'photo-upload-modal-styles';
+    style.textContent = `
+      .photo-upload-modal-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
       }
 
-      const successCount = results.filter(r => r.success).length;
-      logger.success('Upload complete', { 
-        total: results.length,
-        successful: successCount,
-        failed: results.length - successCount
-      });
-
-    } catch (error) {
-      logger.error('Upload failed', error);
-      
-      // Send error notification to iframe
-      if (this.modalIframe?.contentWindow) {
-        this.modalIframe.contentWindow.postMessage({
-          type: 'upload-error',
-          error: error.message
-        }, '*');
+      .photo-upload-backdrop {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(4px);
       }
-    }
+
+      .photo-upload-iframe-wrapper {
+        position: relative;
+        z-index: 1;
+        width: 90%;
+        max-width: 500px;
+        max-height: 90vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .photo-upload-iframe {
+        width: 100%;
+        height: auto;
+        min-height: 400px;
+        max-height: 90vh;
+        border: none;
+        border-radius: 12px;
+        background: white;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+
+      body.theme-dark .photo-upload-iframe {
+        background: #1a1a1a;
+      }
+    `;
+
+    document.head.appendChild(style);
+    logger.debug('Modal styles added');
   }
 
   /**
-   * Convert base64 string to Blob
-   */
-  base64ToBlob(base64, mimeType) {
-    const byteString = atob(base64.split(',')[1]);
-    const ab = new ArrayBuffer(byteString.length);
-    const ia = new Uint8Array(ab);
-    
-    for (let i = 0; i < byteString.length; i++) {
-      ia[i] = byteString.charCodeAt(i);
-    }
-    
-    return new Blob([ab], { type: mimeType });
-  }
-
-  /**
-   * Close modal
+   * Close the modal
    */
   close() {
-    if (!this.isOpen) return;
+    if (!this.isOpen) {
+      return;
+    }
 
     logger.info('Closing photo upload modal');
-    
-    // Remove message listener
-    if (this.messageListener) {
-      window.removeEventListener('message', this.messageListener);
-      this.messageListener = null;
+    this.isOpen = false;
+    this.iframeReady = false;
+
+    // Unregister from modal navigation
+    if (window.dashieModalManager && window.dashieModalManager.hasActiveModal()) {
+      window.dashieModalManager.unregisterModal();
     }
 
     // Remove modal from DOM
-    if (this.modal) {
-      this.modal.remove();
-      this.modal = null;
+    if (this.modalContainer) {
+      this.modalContainer.remove();
+      this.modalContainer = null;
       this.modalIframe = null;
     }
 
-    this.isOpen = false;
-
-    // Unregister from modal navigation
-    if (window.dashieModalManager) {
-      window.dashieModalManager.unregisterModal();
-    }
-  }
-
-  /**
-   * Check if modal is open
-   */
-  isModalOpen() {
-    return this.isOpen;
+    logger.debug('Photo upload modal closed');
   }
 }

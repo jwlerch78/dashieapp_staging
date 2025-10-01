@@ -1,5 +1,5 @@
-// js/supabase/simple-supabase-storage.js - Streamlined Storage with Smart JWT Detection
-// CHANGE SUMMARY: Fixed direct mode to authenticate Supabase client with JWT before operations - was checking for JWT but never setting it on the client
+// js/supabase/simple-supabase-storage.js
+// CHANGE SUMMARY: Removed isSupabaseAuthenticated check - JWT service no longer authenticates Supabase client directly
 
 import { supabase } from './supabase-config.js';
 
@@ -28,7 +28,8 @@ export class SimpleSupabaseStorage {
   }
 
   /**
-   * Determine and configure authentication mode - OPTIMIZED VERSION
+   * Determine and configure authentication mode
+   * NOTE: JWT service provides authentication via edge functions, not direct Supabase client auth
    * @returns {Promise<boolean>} true if JWT mode, false if direct mode
    */
   async determineAuthMode() {
@@ -39,11 +40,11 @@ export class SimpleSupabaseStorage {
     console.log('🔍 Determining optimal storage mode...');
 
     try {
-      // OPTIMIZATION: Check JWT first - if available, use it regardless of RLS status
+      // Check if JWT service is available
       const jwtAvailable = this.checkJWTAvailabilitySync();
 
       if (jwtAvailable) {
-        // JWT is ready - use it without testing RLS
+        // JWT is ready - use edge function mode
         this.jwtMode = true;
         this.jwtService = window.jwtAuth;
         console.log('✅ JWT mode selected (JWT service ready)');
@@ -86,8 +87,6 @@ export class SimpleSupabaseStorage {
    * @returns {boolean}
    */
   checkJWTAvailabilitySync() {
-    // Quick synchronous check - no async connection testing needed
-    // The JWT service already tested its connection during initialization
     if (!window.jwtAuth) {
       console.log('❌ JWT service not found at window.jwtAuth');
       return false;
@@ -111,7 +110,6 @@ export class SimpleSupabaseStorage {
 
     try {
       // Try to INSERT a test record - this reliably detects RLS
-      // FIXED: Use valid UUID format for auth_user_id column
       const testUserId = crypto.randomUUID();
       const { data, error } = await supabase
         .from('user_settings')
@@ -162,73 +160,6 @@ export class SimpleSupabaseStorage {
     }
   }
 
-  /**
-   * NEW: Authenticate Supabase client with JWT token
-   * Called before direct database operations
-   * @private
-   */
-  async _authenticateClient() {
-    try {
-      if (!this.jwtService) {
-        console.warn('No JWT service available for authentication');
-        return false;
-      }
-
-      if (!this.jwtService.isServiceReady || !this.jwtService.isServiceReady()) {
-        console.warn('JWT service not ready');
-        return false;
-      }
-
-      // Get JWT token
-      const jwt = await this.jwtService.getSupabaseJWT();
-      
-      if (!jwt) {
-        console.error('Failed to get JWT token');
-        return false;
-      }
-
-      // Set session on Supabase client
-      await supabase.auth.setSession({
-        access_token: jwt,
-        refresh_token: null
-      });
-
-      console.log('🔐 Supabase client authenticated with JWT');
-      return true;
-
-    } catch (error) {
-      console.error('❌ Failed to authenticate Supabase client:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Manually test JWT connection (for debugging/testing only)
-   */
-  async testJWTConnection() {
-    console.log('🧪 Manual JWT connection test...');
-
-    if (!this.checkJWTAvailabilitySync()) {
-      return { success: false, error: 'JWT service not available' };
-    }
-
-    try {
-      const testResult = await window.jwtAuth.testConnection();
-      
-      if (testResult && testResult.success) {
-        console.log('✅ JWT connection test passed');
-        return { success: true, result: testResult };
-      } else {
-        console.log('❌ JWT connection test failed:', testResult);
-        return { success: false, error: testResult?.error || 'Connection test failed' };
-      }
-
-    } catch (error) {
-      console.warn('⚠️ JWT connection test failed:', error.message);
-      return { success: false, error: error.message };
-    }
-  }
-
   // ====== MAIN SAVE/LOAD METHODS ======
 
   /**
@@ -243,90 +174,19 @@ export class SimpleSupabaseStorage {
     }
 
     try {
-      // Save to cloud first
-      await this.saveToSupabase(settings);
-      
-      // Update local cache on success
-      this.saveToLocalStorage(settings);
-      
-      console.log('☁️ Settings saved to Supabase and local storage');
-      return true;
-      
-    } catch (error) {
-      console.warn('☁️ Supabase save failed, using local storage:', error);
-      
-      // Fallback to local storage
-      return this.saveToLocalStorage(settings);
-    }
-  }
+      await this.determineAuthMode();
 
-  /**
-   * Save to Supabase with automatic mode selection
-   */
-  async saveToSupabase(settings) {
-    if (!this.userId) {
-      throw new Error('Cannot save settings: No user ID');
-    }
-
-    console.log('📊 Saving to Supabase...');
-
-    // Determine authentication mode
-    const useJWT = await this.determineAuthMode();
-    
-    const data = {
-      auth_user_id: this.userId,
-      email: this.userEmail,
-      settings: settings,
-      updated_at: new Date().toISOString()
-    };
-
-    try {
-      if (useJWT && this.jwtService) {
-        // Use JWT service (edge function approach) - ALWAYS use this when JWT available
-        console.log('📊 Using JWT service for save (edge function)');
-        
-        const result = await this.jwtService.saveSettings(this.userEmail, settings);
-        
-        if (result) {
-          console.log('✅ JWT save successful');
-          return true;
-        } else {
-          throw new Error('JWT save returned false');
-        }
-        
-      } else if (!useJWT && !this.jwtService) {
-        // JWT not available - check if this is safe
-        const rlsEnabled = await this.checkRLSStatus();
-        
-        if (rlsEnabled) {
-          throw new Error('RLS is enabled but JWT service unavailable. Cannot save settings without authentication.');
-        }
-        
-        // RLS disabled - safe to use direct mode
-        console.log('📊 Using direct access mode (RLS disabled)');
-        
-        const { data: result, error } = await supabase
-          .from('user_settings')
-          .upsert(data, {
-            onConflict: 'auth_user_id',
-            ignoreDuplicates: false
-          })
-          .select();
-
-        if (error) {
-          throw new Error(`Supabase error: ${error.message}`);
-        }
-
-        console.log('✅ Direct save successful');
-        return true;
-        
+      if (this.jwtMode) {
+        console.log('🔐 Using JWT mode for save');
+        return await this.saveViaJWT(settings);
       } else {
-        throw new Error('Invalid authentication state');
+        console.log('⚡ Using direct mode for save');
+        return await this.saveDirect(settings);
       }
 
     } catch (error) {
-      console.error('❌ Supabase save failed:', error.message);
-      throw error;
+      console.error('❌ Cloud save failed, falling back to localStorage:', error);
+      return this.saveToLocalStorage(settings);
     }
   }
 
@@ -337,190 +197,208 @@ export class SimpleSupabaseStorage {
     console.log('📖 Loading settings for user:', this.userId);
     
     try {
-      // Try cloud first if online
-      if (this.isOnline) {
-        const cloudSettings = await this.loadFromSupabase();
-        if (cloudSettings) {
-          // Update local cache with cloud data
-          this.saveToLocalStorage(cloudSettings);
-          console.log('☁️ Settings loaded from Supabase');
-          return cloudSettings;
-        }
+      await this.determineAuthMode();
+
+      if (this.jwtMode) {
+        console.log('🔐 Using JWT mode for load');
+        return await this.loadViaJWT();
+      } else {
+        console.log('⚡ Using direct mode for load');
+        return await this.loadDirect();
       }
+
     } catch (error) {
-      console.warn('☁️ Supabase load failed, using local storage:', error);
+      console.error('❌ Cloud load failed, falling back to localStorage:', error);
+      return this.loadFromLocalStorage();
     }
-
-    // Fallback to local storage
-    const localSettings = this.loadFromLocalStorage();
-    if (localSettings) {
-      console.log('💾 Settings loaded from local storage');
-      return localSettings;
-    }
-
-    console.log('🆕 No saved settings found, using defaults');
-    return null;
   }
 
-  /**
-   * Load from Supabase with automatic mode selection
-   */
-  async loadFromSupabase() {
-    if (!this.userId) return null;
+  // ====== JWT MODE METHODS (using edge functions) ======
 
-    console.log('📊 Loading from Supabase...');
-
-    // Determine authentication mode
-    const useJWT = await this.determineAuthMode();
-
+  async saveViaJWT(settings) {
+    console.log('🔐 Saving settings via JWT-verified edge function');
+    
     try {
-      if (useJWT && this.jwtService) {
-        // Use JWT service (edge function approach) - ALWAYS use this when JWT available
-        console.log('📊 Using JWT service for load (edge function)');
-        
-        const result = await this.jwtService.loadSettings(this.userEmail);
-        
-        console.log('✅ JWT load completed');
-        return result;
-        
-      } else if (!useJWT && !this.jwtService) {
-        // JWT not available - check if this is safe
-        const rlsEnabled = await this.checkRLSStatus();
-        
-        if (rlsEnabled) {
-          throw new Error('RLS is enabled but JWT service unavailable. Cannot load settings without authentication.');
-        }
-        
-        // RLS disabled - safe to use direct mode
-        console.log('📊 Using direct access mode (RLS disabled)');
-        
-        const { data, error } = await supabase
-          .from('user_settings')
-          .select('settings')
-          .eq('auth_user_id', this.userId)
-          .single();
-
-        if (error) {
-          if (error.code === 'PGRST116') {
-            console.log('🔍 No settings found for user');
-            return null;
-          }
-          
-          throw new Error(`Supabase error: ${error.message}`);
-        }
-
-        console.log('✅ Direct load successful');
-        return data?.settings || null;
-        
+      const result = await this.jwtService.saveSettings(settings);
+      
+      if (result.success) {
+        console.log('✅ JWT save successful');
+        // Also save to localStorage as backup
+        this.saveToLocalStorage(settings);
+        return true;
       } else {
-        throw new Error('Invalid authentication state');
+        throw new Error('JWT save returned success: false');
       }
 
     } catch (error) {
-      console.error('❌ Supabase load failed:', error.message);
+      console.error('❌ JWT save failed:', error);
       throw error;
     }
+  }
+
+  async loadViaJWT() {
+    console.log('🔐 Loading settings via JWT-verified edge function');
+    
+    try {
+      const result = await this.jwtService.loadSettings(this.userEmail);
+      
+      if (result.success && result.settings) {
+        console.log('✅ JWT load successful');
+        // Save to localStorage for offline access
+        this.saveToLocalStorage(result.settings);
+        return result.settings;
+      } else {
+        console.log('📝 No settings found in JWT mode, checking localStorage');
+        return this.loadFromLocalStorage();
+      }
+
+    } catch (error) {
+      console.error('❌ JWT load failed:', error);
+      throw error;
+    }
+  }
+
+  // ====== DIRECT MODE METHODS (direct database access) ======
+
+  async saveDirect(settings) {
+    console.log('⚡ Saving settings via direct database access');
+    
+    const settingsData = {
+      auth_user_id: this.userId,
+      email: this.userEmail,
+      settings: settings,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await supabase
+      .from('user_settings')
+      .upsert(settingsData, {
+        onConflict: 'auth_user_id'
+      });
+
+    if (error) {
+      console.error('❌ Direct save failed:', error);
+      throw error;
+    }
+
+    console.log('✅ Direct save successful');
+    // Also save to localStorage as backup
+    this.saveToLocalStorage(settings);
+    return true;
+  }
+
+  async loadDirect() {
+    console.log('⚡ Loading settings via direct database access');
+    
+    const { data, error } = await supabase
+      .from('user_settings')
+      .select('settings')
+      .eq('auth_user_id', this.userId)
+      .single();
+
+    if (error) {
+      if (error.code === 'PGRST116') {
+        console.log('📝 No settings found in database, checking localStorage');
+        return this.loadFromLocalStorage();
+      }
+      console.error('❌ Direct load failed:', error);
+      throw error;
+    }
+
+    if (data && data.settings) {
+      console.log('✅ Direct load successful');
+      // Save to localStorage for offline access
+      this.saveToLocalStorage(data.settings);
+      return data.settings;
+    }
+
+    console.log('📝 No settings in database, checking localStorage');
+    return this.loadFromLocalStorage();
   }
 
   // ====== LOCAL STORAGE METHODS ======
 
   saveToLocalStorage(settings) {
     try {
-      const data = {
+      const settingsData = {
         settings: settings,
-        auth_user_id: this.userId,
-        timestamp: new Date().toISOString()
+        savedAt: Date.now(),
+        auth_user_id: this.userId
       };
-      localStorage.setItem(this.localStorageKey, JSON.stringify(data));
+      localStorage.setItem(this.localStorageKey, JSON.stringify(settingsData));
+      console.log('💾 Settings saved to localStorage');
       return true;
     } catch (error) {
-      console.error('💾 ❌ Local storage save failed:', error);
+      console.error('❌ localStorage save failed:', error);
       return false;
     }
   }
 
   loadFromLocalStorage() {
     try {
-      const data = localStorage.getItem(this.localStorageKey);
-      if (!data) return null;
+      const stored = localStorage.getItem(this.localStorageKey);
+      if (!stored) {
+        console.log('📝 No settings in localStorage');
+        return null;
+      }
+
+      const settingsData = JSON.parse(stored);
       
-      const parsed = JSON.parse(data);
-      return parsed.settings;
+      // Verify it's for the current user
+      if (settingsData.auth_user_id !== this.userId) {
+        console.log('⚠️ localStorage settings are for different user, ignoring');
+        return null;
+      }
+
+      console.log('💾 Settings loaded from localStorage');
+      return settingsData.settings;
+      
     } catch (error) {
-      console.error('💾 ❌ Local storage load failed:', error);
+      console.error('❌ localStorage load failed:', error);
       return null;
     }
   }
 
-  syncPendingChanges() {
-    // Future: implement pending changes sync when coming back online
-    console.log('🔄 Online - sync pending changes (not implemented yet)');
-  }
+  // ====== STATUS & TESTING METHODS ======
 
-  // ====== STATUS AND DEBUGGING ======
-
-  /**
-   * Get current storage status
-   * @returns {Object} Status information
-   */
   getStatus() {
     return {
       userId: this.userId,
       userEmail: this.userEmail,
-      jwtMode: this.jwtMode,
-      hasJWTService: !!this.jwtService,
       isOnline: this.isOnline,
-      jwtServiceReady: this.jwtService ? this.jwtService.isServiceReady?.() : false
+      jwtMode: this.jwtMode,
+      hasJwtService: !!this.jwtService,
+      jwtReady: this.jwtService ? this.jwtService.isServiceReady?.() : false
     };
   }
 
-  /**
-   * Manually test the current configuration
-   */
   async testConfiguration() {
     console.log('🧪 Testing current storage configuration...');
     
     const status = this.getStatus();
     console.table(status);
     
-    // Test mode determination
     try {
       const mode = await this.determineAuthMode();
       console.log('✅ Mode determination successful:', mode ? 'JWT' : 'Direct');
       
-      const result = {
+      return {
         success: true,
         mode: mode ? 'JWT' : 'Direct',
-        status,
-        optimized: true // Flag to show this is the optimized version
+        status
       };
-
-      // If JWT mode, optionally test connection (for debugging)
-      if (mode && this.jwtService) {
-        console.log('🔧 Testing JWT connection (optional)...');
-        const jwtTest = await this.testJWTConnection();
-        result.jwtConnectionTest = jwtTest;
-      }
-      
-      return result;
     } catch (error) {
       console.error('❌ Configuration test failed:', error);
       return {
         success: false,
         error: error.message,
-        status,
-        optimized: true
+        status
       };
     }
   }
 
   // ====== REAL-TIME SYNC METHODS ======
 
-  /**
-   * Subscribe to real-time changes from Supabase
-   * @param {Function} callback - Called when settings change
-   * @returns {Function} Unsubscribe function
-   */
   subscribeToChanges(callback) {
     if (!this.userId) return null;
 
@@ -547,10 +425,6 @@ export class SimpleSupabaseStorage {
     };
   }
 
-  /**
-   * Mark settings for retry when offline
-   * @param {Object} settings - Settings to retry
-   */
   markForRetry(settings) {
     try {
       const pending = {
@@ -564,48 +438,20 @@ export class SimpleSupabaseStorage {
     }
   }
 
-  /**
-   * Sync pending changes when coming back online
-   */
   async syncPendingChanges() {
     try {
       const pendingData = localStorage.getItem(this.localStorageKey + '-pending');
-      if (pendingData) {
-        const pending = JSON.parse(pendingData);
-        if (pending.auth_user_id === this.userId) {
-          await this.saveToSupabase(pending.settings);
-          localStorage.removeItem(this.localStorageKey + '-pending');
-          console.log('🔄 ✅ Pending settings synced successfully');
-        }
+      if (!pendingData) return;
+
+      const pending = JSON.parse(pendingData);
+      
+      if (pending.auth_user_id === this.userId) {
+        console.log('🔄 Syncing pending changes from localStorage');
+        await this.saveSettings(pending.settings);
+        localStorage.removeItem(this.localStorageKey + '-pending');
       }
     } catch (error) {
-      console.warn('🔄 ❌ Failed to sync pending settings:', error);
-    }
-  }
-
-  /**
-   * Force JWT mode activation (for debugging/testing)
-   */
-  async activateJWTMode() {
-    console.log('🔄 Manually activating JWT mode...');
-    
-    try {
-      // Reset mode determination
-      this.jwtMode = null;
-      
-      // Force mode determination
-      const result = await this.determineAuthMode();
-      
-      console.log('📊 Manual activation result:', {
-        jwtMode: result,
-        status: this.getStatus()
-      });
-      
-      return result;
-      
-    } catch (error) {
-      console.error('❌ Manual JWT activation failed:', error);
-      throw error;
+      console.warn('Failed to sync pending changes:', error);
     }
   }
 }
