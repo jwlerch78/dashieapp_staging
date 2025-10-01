@@ -23,20 +23,30 @@ export class PhotoUploadManager {
     this.setupMessageListener();
   }
 
-  setupMessageListener() {
-    window.addEventListener('message', (event) => {
-      const data = event.data;
-      
-      if (data?.type === 'upload-modal-ready') {
-        logger.debug('Upload modal iframe signaled ready');
-        this.iframeReady = true;
-        this.sendInitializationData();
-      } else if (data?.type === 'close-upload-modal') {
-        logger.debug('Upload modal requested close');
-        this.close();
+setupMessageListener() {
+  window.addEventListener('message', (event) => {
+    const data = event.data;
+    
+    if (data?.type === 'upload-modal-ready') {
+      logger.debug('Upload modal iframe signaled ready');
+      this.iframeReady = true;
+      this.sendInitializationData();
+    } else if (data?.type === 'close-upload-modal') {
+      logger.debug('Upload modal requested close');
+      this.close();
+    } else if (data?.type === 'photos-uploaded') {
+      logger.info('Photos uploaded - triggering data refresh');
+      // Trigger DataManager to refresh photos so they appear immediately
+      if (window.dataManager) {
+        window.dataManager.refreshPhotosData(true).catch(err => {
+          logger.error('Failed to refresh photos after upload', err);
+        });
+      } else {
+        logger.warn('DataManager not available for photo refresh');
       }
-    });
-  }
+    }
+  });
+}
 
   /**
    * Open the photo upload modal

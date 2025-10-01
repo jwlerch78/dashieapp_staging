@@ -657,19 +657,19 @@
         logger.debug('Theme applied', { theme });
       }
 
-      notifyPhotosWidget() {
-        // Find photos widget iframe and send refresh message
-        const photosIframe = window.parent.document.querySelector('iframe[src*="photos"]');
-        if (photosIframe && photosIframe.contentWindow) {
-          photosIframe.contentWindow.postMessage({
+        notifyPhotosWidget() {
+        // Notify parent to refresh photo data (not the widget directly)
+        if (window.parent !== window) {
+            window.parent.postMessage({
             type: 'photos-uploaded',
+            folder: this.currentFolder,
             source: 'photo-upload'
-          }, '*');
-          logger.debug('Sent refresh message to photos widget');
+            }, '*');
+            logger.debug('Sent photos-uploaded message to parent');
         } else {
-          logger.warn('Could not find photos widget iframe');
+            logger.warn('Could not notify parent - no parent window');
         }
-      }
+        }
 
       close() {
         logger.info('Closing upload modal');
