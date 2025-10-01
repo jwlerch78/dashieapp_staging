@@ -30,7 +30,6 @@ export class WidgetMessenger {
     this.setupEventListeners();
     this.setupMessageListener();
     
-    logger.info('Widget messenger initialized with deduplication');
   }
 
   // Check for existing auth state and theme
@@ -45,7 +44,7 @@ export class WidgetMessenger {
     try {
       const currentTheme = localStorage.getItem('dashie-theme') || 'dark';
       this.currentState.theme = currentTheme;
-      logger.debug('WidgetMessenger loaded current theme:', currentTheme);
+
     } catch (error) {
       this.currentState.theme = 'dark';
     }
@@ -82,17 +81,12 @@ export class WidgetMessenger {
 
     // Listen for theme changes
     eventSystem.on(EVENTS.THEME_CHANGED, (themeData) => {
-      logger.info('Theme change event received', themeData);
       const oldTheme = this.currentState.theme;
       this.currentState.theme = themeData.theme;
       
       // Only broadcast if theme actually changed
       if (oldTheme !== themeData.theme && this.widgets.size > 0) {
-        logger.info('Broadcasting theme change to widgets', { 
-          from: oldTheme, 
-          to: themeData.theme,
-          widgetCount: this.widgets.size 
-        });
+
         this.broadcastCurrentState();
       } else if (oldTheme === themeData.theme) {
         logger.debug('Theme unchanged, skipping broadcast', { theme: themeData.theme });
@@ -110,7 +104,6 @@ export class WidgetMessenger {
       if (!event.data || !event.data.type) return;
 
       const messageData = event.data;
-      logger.widget('receive', messageData.type, messageData.widget || 'unknown');
 
       switch (messageData.type) {
         case 'widget-ready':
@@ -140,12 +133,6 @@ export class WidgetMessenger {
     // Update current state
     this.currentState[dataType] = data;
   
-    logger.info(`State updated: ${dataType}`, {
-      eventsCount: data.events?.length,
-      albumsCount: data.albums?.length,
-      lastUpdated: data.lastUpdated
-    });
-
     // Broadcast current state with deduplication
     this.broadcastCurrentState();
   }
@@ -182,14 +169,6 @@ export class WidgetMessenger {
       }
     });
 
-    logger.info('State broadcast completed', {
-      sent: broadcastCount,
-      skipped: skippedCount,
-      hasCalendar: !!this.currentState.calendar,
-      hasPhotos: !!this.currentState.photos,
-      authReady: this.currentState.auth.ready,
-      theme: this.currentState.theme
-    });
   }
 
   /**
@@ -294,10 +273,6 @@ export class WidgetMessenger {
 
     this.widgets.set(event.source, widgetInfo);
     
-    logger.success(`Widget ready: ${widgetInfo.name}`, {
-      totalWidgets: this.widgets.size
-    });
-
     // Send current state to the new widget (always send to new widgets)
     this.sendCurrentStateToWidget(event.source, widgetInfo.name);
     
@@ -338,12 +313,6 @@ export class WidgetMessenger {
     // Update last sent state for this widget
     this.updateLastSentState(targetWindow);
     
-    logger.debug(`Sent current state to ${widgetName}`, {
-      hasCalendar: !!this.currentState.calendar,
-      hasPhotos: !!this.currentState.photos,
-      authReady: this.currentState.auth.ready,
-      theme: this.currentState.theme
-    });
   }
 
   /**
@@ -360,9 +329,6 @@ export class WidgetMessenger {
     try {
       targetWindow.postMessage(message, '*');
       
-      logger.widget('send', message.type, this.getWidgetName(targetWindow), {
-        action: message.action
-      });
       
     } catch (error) {
       logger.error('Failed to send message to widget', {

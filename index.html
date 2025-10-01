@@ -50,24 +50,8 @@
     <!-- Preload auth system (FIXED: Absolute path) -->
     <script type="module" src="/js/auth/simple-auth.js"></script>
     
-<!-- Add this debug script before the main.js import -->
-<script type="module">
-    
-    import('/js/main.js').then((module) => {
-
-        // Try multiple possible export names
-        const initFn = module.initializeApp || module.default || module.init;
-        
-        if (initFn && typeof initFn === 'function') {
-            initFn();
-        } else {
-            console.error('🔍 DEBUG: No valid initialization function found in main.js');
-            console.log('🔍 DEBUG: Available exports:', Object.keys(module));
-        }
-    }).catch(error => {
-        console.error('🔍 DEBUG: Failed to load main application:', error);
-    });
-</script>
+<!-- Main application entry point -->
+<script type="module" src="/js/main.js"></script>
 
 
 </body>
