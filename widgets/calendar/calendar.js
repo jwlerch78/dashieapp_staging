@@ -1,5 +1,5 @@
 // widgets/calendar/calendar.js - Main Calendar Widget Class
-// CHANGE SUMMARY: Minimal theme support - added currentTheme property, detectAndApplyInitialTheme(), enhanced handleDataServiceMessage() for theme, and applyTheme() method. No other changes.
+// CHANGE SUMMARY: Fixed theme change detection in applyTheme() to prevent redundant applications, simplified logging to reduce noise - only logs relevant updates
 
 import { createLogger } from '../../js/utils/logger.js';
 import { CalendarConfig } from './calendar-config.js';
@@ -81,7 +81,6 @@ export class CalendarWidget {
     // Apply the detected theme immediately
     this.applyTheme(initialTheme);
     
-    logger.info('Initial theme detected and applied', { theme: initialTheme });
   }
 
   setupKeyboardControls() {
@@ -152,45 +151,35 @@ export class CalendarWidget {
 
   // Message handling for widget-messenger system
   handleDataServiceMessage(data) {
-    logger.debug('Calendar widget received message', { type: data.type, hasPayload: !!data.payload });
-    
     switch (data.type) {
       case 'widget-update':
-        logger.info('Processing widget-update', { action: data.action });
-        logger.debug('Payload structure', data.payload);
-        logger.info('Calendar data available', { hasCalendarData: !!data.payload?.calendar });
-        
-        if (data.action === 'state-update' && data.payload?.calendar) {
-          logger.success('Calendar data details', {
-            eventsCount: data.payload.calendar.events?.length,
-            calendarsCount: data.payload.calendar.calendars?.length,
-            lastUpdated: data.payload.calendar.lastUpdated
-          });
+        if (data.action === 'state-update') {
+          // Check if this update contains anything relevant to calendar widget
+          const hasCalendarData = data.payload?.calendar;
+          const hasTheme = data.payload?.theme;
           
-          this.handleCalendarData({
-            events: data.payload.calendar.events || [],
-            calendars: data.payload.calendar.calendars || [],
-            lastUpdated: data.payload.calendar.lastUpdated
-          });
-        } else if (data.action === 'state-update' && !data.payload?.calendar) {
-          logger.warn('No calendar data in payload', { 
-            payloadKeys: Object.keys(data.payload || {}),
-            hasPayload: !!data.payload 
-          });
-        }
-        
-        // ADDED: Handle theme updates
-        if (data.payload?.theme && data.payload.theme !== this.currentTheme) {
-          logger.info('Applying theme from widget-update', { 
-            incomingTheme: data.payload.theme, 
-            previousTheme: this.currentTheme 
-          });
-          this.applyTheme(data.payload.theme);
+          // Only log if update is relevant
+          if (hasCalendarData || hasTheme) {
+            logger.debug('Processing relevant state update', { hasCalendarData, hasTheme });
+          }
+          
+          // Handle calendar data updates
+          if (hasCalendarData) {
+            this.handleCalendarData({
+              events: data.payload.calendar.events || [],
+              calendars: data.payload.calendar.calendars || [],
+              lastUpdated: data.payload.calendar.lastUpdated
+            });
+          }
+          
+          // Handle theme updates
+          if (hasTheme) {
+            this.applyTheme(data.payload.theme);
+          }
         }
         break;
         
       case 'theme-change':
-        logger.info('Applying theme change', { theme: data.theme });
         this.applyTheme(data.theme);
         break;
         
@@ -511,18 +500,16 @@ export class CalendarWidget {
     this.changeView(this.viewCycle[newIndex]);
   }
 
-  // ADDED: Theme application method
+  /**
+   * Apply theme - FIXED: Only apply if theme actually changed
+   */
   applyTheme(theme) {
-    if (theme === this.currentTheme) {
-      logger.debug('Theme already applied, skipping', { theme });
+    // Skip if theme hasn't changed - prevents redundant applications
+    if (this.currentTheme === theme) {
       return;
     }
 
-    logger.info('Applying theme to calendar widget', { 
-      from: this.currentTheme, 
-      to: theme 
-    });
-
+    const previousTheme = this.currentTheme;
     this.currentTheme = theme;
     
     // Apply theme classes for CSS variables to work
@@ -531,7 +518,6 @@ export class CalendarWidget {
     document.documentElement.classList.add(`theme-${theme}`);
     document.body.classList.add(`theme-${theme}`);
     
-    logger.info('Theme applied successfully', { theme });
   }
 }
 

@@ -134,8 +134,10 @@ export class JWTTokenOperations extends JWTServiceCore {
     }
   }
 
-  /**
+/**
    * Get valid OAuth token (refresh if needed)
+   * UPDATED: Now uses Supabase JWT for authentication instead of Google token
+   * This enables automatic refresh even when Google session token has expired
    * WITH DEDUPLICATION: Multiple simultaneous requests share the same fetch
    */
   async getValidToken(provider = 'google', accountType = 'personal') {
@@ -170,22 +172,27 @@ export class JWTTokenOperations extends JWTServiceCore {
     
     const requestPromise = (async () => {
       try {
+        // CRITICAL CHANGE: Use Supabase JWT for authentication, not Google token
+        // This allows the refresh to work even when the Google session token has expired
         await this._ensureValidJWT();
-        const googleAccessToken = this._getGoogleAccessToken();
-        if (!googleAccessToken) {
-          throw new Error('No Google access token available');
+
+        if (!this.currentJWT) {
+          throw new Error('No Supabase JWT available');
         }
 
         const requestBody = {
-          googleAccessToken,
           operation: 'get_valid_token',
           provider,
           account_type: accountType
         };
 
+        // CRITICAL: Pass Supabase JWT in Authorization header (not in body)
+        // Edge function will validate this JWT and use it to identify the user
+        const headers = this._getSupabaseHeaders(true); // true = use JWT auth
+
         const response = await fetch(this.edgeFunctionUrl, {
           method: 'POST',
-          headers: this._getSupabaseHeaders(),
+          headers: headers,
           body: JSON.stringify(requestBody)
         });
 

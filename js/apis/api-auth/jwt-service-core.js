@@ -1,5 +1,5 @@
 // js/apis/api-auth/jwt-service-core.js
-// CHANGE SUMMARY: Split from unified-jwt-service.js - Core service infrastructure, initialization, and connection management
+// CHANGE SUMMARY: Allow expired Google tokens through - edge function can validate them via tokeninfo API to enable automatic token refresh
 
 import { createLogger } from '../../utils/logger.js';
 
@@ -57,62 +57,56 @@ export class JWTServiceCore {
         this.isEnabled = true;
         this.isReady = true;
         
-        // Make globally available BEFORE logging success
-        window.jwtAuth = this;
-        
-        logger.success('✅ JWT Service ready and enabled');
-        logger.debug('JWT Service exposed at window.jwtAuth');
+        // Make globally available
+        logger.success('✅ Auth system ready and authenticated');
         return true;
       } else {
         logger.info('⚡ JWT Service initialized but not enabled (requirements not met)');
-        
-        // Still expose for debugging, but mark as not ready
-        window.jwtAuth = this;
-        logger.debug('JWT Service exposed at window.jwtAuth (not ready)');
         return false;
       }
-
+      
     } catch (error) {
-      logger.error('❌ JWT Service initialization failed', error);
+      logger.error('JWT Service initialization failed', error);
       return false;
     }
   }
 
   /**
-   * Wait for auth system to be available AND authenticated
+   * Wait for authentication system to be ready
    * @private
    */
   async _waitForAuthSystem() {
-    const maxWait = 15000; // 15 seconds max (increased for OAuth flow)
-    const checkInterval = 200; // Check every 200ms
+    logger.debug('Waiting for authentication system...');
+    
+    const maxWaitTime = 30000; // 30 seconds
+    const checkInterval = 100; // Check every 100ms
     const startTime = Date.now();
-
-    logger.debug('Waiting for auth system and authentication...');
-
-    while (Date.now() - startTime < maxWait) {
-      if (this._isAuthSystemReady()) {
-        logger.success('Auth system ready and authenticated');
-        return;
+    
+    while (Date.now() - startTime < maxWaitTime) {
+      if (await this._isAuthReady()) {
+        logger.success('✅ Auth system ready');
+        return true;
       }
-      
       await new Promise(resolve => setTimeout(resolve, checkInterval));
     }
-
-    logger.warn('Auth system not fully ready within timeout, proceeding anyway');
+    
+    logger.warn('⏱️ Timeout waiting for auth system');
+    return false;
   }
 
   /**
-   * Check if auth system is ready AND user is authenticated
+   * Check if auth system is ready with user authentication
    * @private
    */
-  _isAuthSystemReady() {
+  async _isAuthReady() {
     const authSystem = window.dashieAuth || window.authManager;
     
-    if (!authSystem) return false;
+    if (!authSystem) {
+      return false;
+    }
     
-    // CRITICAL: Must be both initialized AND authenticated
     if (authSystem.isAuthenticated && authSystem.isAuthenticated()) {
-      // Also verify we can get a Google access token
+      // Auth system is authenticated, check if we have a Google access token
       const token = this._getGoogleAccessToken();
       if (token) {
         logger.debug('Auth system ready with Google token');
@@ -150,6 +144,7 @@ export class JWTServiceCore {
 
   /**
    * Check if all requirements are met for JWT operations
+   * UPDATED: Now accepts expired tokens since edge function can validate them
    * @private
    */
   async _checkRequirements() {
@@ -161,7 +156,7 @@ export class JWTServiceCore {
       return false;
     }
 
-    // Must have Google access token
+    // Try to get Google access token (even if expired)
     const googleToken = this._getGoogleAccessToken();
     if (!googleToken) {
       logger.debug('❌ No Google access token available');
@@ -180,12 +175,24 @@ export class JWTServiceCore {
       return false;
     }
 
-    logger.debug('✅ Google access token available');
+    // UPDATED: Allow expired tokens through!
+    // Google's tokeninfo API can validate even expired tokens to identify the user
+    // The edge function will then use the refresh token to get a new access token
+    logger.debug('✅ Google access token available (may be expired - edge function will validate)');
 
     // Test connection to edge function and get initial JWT
     const connectionTest = await this._testConnectionAndGetJWT();
     if (!connectionTest.success) {
       logger.debug('❌ Edge function connection test failed', connectionTest);
+      
+      // UPDATED: If connection failed, check if it's because token expired
+      // If so, this is actually OK - we'll recover on next operation
+      if (connectionTest.error && connectionTest.error.includes('401')) {
+        logger.info('⚠️ Initial connection failed with 401 (token expired), but refresh token system should recover automatically');
+        // Still return true - the system can recover using refresh tokens
+        return true;
+      }
+      
       return false;
     }
 
@@ -204,41 +211,40 @@ export class JWTServiceCore {
    * Test connection to edge function and get JWT token
    * @private
    */
-async _testConnectionAndGetJWT() {
-  try {
-    const googleAccessToken = this._getGoogleAccessToken();
-    if (!googleAccessToken) {
-      logger.error('No Google access token available for connection test');
-      return { success: false, error: 'No Google access token' };
-    }
+  async _testConnectionAndGetJWT() {
+    try {
+      const googleAccessToken = this._getGoogleAccessToken();
+      if (!googleAccessToken) {
+        logger.error('No Google access token available for connection test');
+        return { success: false, error: 'No Google access token' };
+      }
 
-    // Validate token is not empty string
-    if (typeof googleAccessToken !== 'string' || googleAccessToken.trim().length === 0) {
-      logger.error('Google access token is invalid (empty or non-string)');
-      return { success: false, error: 'Invalid Google access token format' };
-    }
+      // Validate token is not empty string
+      if (typeof googleAccessToken !== 'string' || googleAccessToken.trim().length === 0) {
+        logger.error('Google access token is invalid (empty or non-string)');
+        return { success: false, error: 'Invalid Google access token format' };
+      }
 
-    const requestBody = {
-      googleAccessToken,
-      operation: 'load'
-    };
+      const requestBody = {
+        googleAccessToken,
+        operation: 'load'
+      };
 
-    // Log for debugging (without exposing token)
-    logger.debug('Sending connection test', {
-      hasToken: !!googleAccessToken,
-      tokenLength: googleAccessToken.length,
-      operation: 'load'
-    });
+      // Log for debugging (without exposing token)
+      logger.debug('Sending connection test', {
+        hasToken: !!googleAccessToken,
+        tokenLength: googleAccessToken.length,
+        operation: 'load'
+      });
 
-    const headers = this._getSupabaseHeaders();
-    
-    const response = await fetch(this.edgeFunctionUrl, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(requestBody)
-    });
-    
-    // ... rest of the method
+      const headers = this._getSupabaseHeaders();
+      
+      const response = await fetch(this.edgeFunctionUrl, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(requestBody)
+      });
+      
       if (response.ok) {
         const result = await response.json();
         // Connection is successful if we get a proper response structure
@@ -362,9 +368,10 @@ async _testConnectionAndGetJWT() {
 
   /**
    * Get Supabase authentication headers
+   * @param {boolean} useJWT - Whether to use Supabase JWT instead of anon key
    * @private
    */
-  _getSupabaseHeaders() {
+  _getSupabaseHeaders(useJWT = false) {
     const supabaseConfig = window.currentDbConfig || {};
     const supabaseAnonKey = supabaseConfig.supabaseAnonKey || 
                            supabaseConfig.supabaseKey || 
@@ -375,7 +382,14 @@ async _testConnectionAndGetJWT() {
       'Content-Type': 'application/json',
     };
     
-    if (supabaseAnonKey) {
+    if (useJWT && this.currentJWT) {
+      // Use Supabase JWT for operations that need user authentication
+      headers['Authorization'] = `Bearer ${this.currentJWT}`;
+      if (supabaseAnonKey) {
+        headers['apikey'] = supabaseAnonKey;
+      }
+    } else if (supabaseAnonKey) {
+      // Use anon key for initial authentication
       headers['Authorization'] = `Bearer ${supabaseAnonKey}`;
       headers['apikey'] = supabaseAnonKey;
     }

@@ -1,5 +1,5 @@
 // widgets/agenda/agenda.js - Agenda Widget Implementation
-// CHANGE SUMMARY: Removed debugging code and simplified time display to show only start time for space efficiency
+// CHANGE SUMMARY: Fixed theme change detection in applyTheme() to prevent redundant applications, simplified logging to reduce noise - only logs relevant updates
 
 import { createLogger } from '../../js/utils/logger.js';
 import { AgendaEventModal } from './agenda_event.js';
@@ -11,7 +11,7 @@ export class AgendaWidget {
     this.calendarData = { events: [], calendars: [], lastUpdated: null };
     this.isDataLoaded = false;
     this.connectionStatus = 'connecting';
-    this.currentTheme = 'dark';
+    this.currentTheme = null;
 
     // Event selection state - now auto-enters selection mode when focused
     this.isFocused = false;
@@ -35,8 +35,36 @@ export class AgendaWidget {
 
   init() {
     this.setupEventListeners();
+    this.detectAndApplyInitialTheme();
     this.updateConnectionStatus('connecting');
-    logger.info('Agenda widget initialized');
+  }
+
+  /**
+   * Detect initial theme from DOM or localStorage
+   */
+  detectAndApplyInitialTheme() {
+    let initialTheme = 'dark'; // fallback
+
+    // Try to detect theme from body class (applied by early theme loading)
+    if (document.body.classList.contains('theme-light')) {
+      initialTheme = 'light';
+    } else if (document.body.classList.contains('theme-dark')) {
+      initialTheme = 'dark';
+    } else {
+      // Fallback: try localStorage
+      try {
+        const savedTheme = localStorage.getItem('dashie-theme');
+        if (savedTheme && (savedTheme === 'dark' || savedTheme === 'light')) {
+          initialTheme = savedTheme;
+        }
+      } catch (error) {
+        logger.debug('Could not read theme from localStorage, using default');
+      }
+    }
+
+    // Apply the detected theme immediately
+    this.applyTheme(initialTheme);
+    
   }
 
   setupEventListeners() {
@@ -129,32 +157,35 @@ export class AgendaWidget {
   }
 
   handleDataServiceMessage(data) {
-    logger.debug('Agenda widget received message', { type: data.type, hasPayload: !!data.payload });
-    
     switch (data.type) {
       case 'widget-update':
-        if (data.action === 'state-update' && data.payload?.calendar) {
-          logger.success('Calendar data received', {
-            eventsCount: data.payload.calendar.events?.length,
-            calendarsCount: data.payload.calendar.calendars?.length,
-            lastUpdated: data.payload.calendar.lastUpdated
-          });
+        if (data.action === 'state-update') {
+          // Check if this update contains anything relevant to agenda widget
+          const hasCalendarData = data.payload?.calendar;
+          const hasTheme = data.payload?.theme;
           
-          this.handleCalendarData({
-            events: data.payload.calendar.events || [],
-            calendars: data.payload.calendar.calendars || [],
-            lastUpdated: data.payload.calendar.lastUpdated
-          });
-        }
-
-        // Handle theme updates
-        if (data.payload?.theme && data.payload.theme !== this.currentTheme) {
-          this.applyTheme(data.payload.theme);
+          // Only log if update is relevant
+          if (hasCalendarData || hasTheme) {
+            logger.debug('Processing relevant state update', { hasCalendarData, hasTheme });
+          }
+          
+          // Handle calendar data updates
+          if (hasCalendarData) {
+            this.handleCalendarData({
+              events: data.payload.calendar.events || [],
+              calendars: data.payload.calendar.calendars || [],
+              lastUpdated: data.payload.calendar.lastUpdated
+            });
+          }
+          
+          // Handle theme updates
+          if (hasTheme) {
+            this.applyTheme(data.payload.theme);
+          }
         }
         break;
         
       case 'theme-change':
-        logger.info('Applying theme change', { theme: data.theme });
         this.applyTheme(data.theme);
         break;
         
@@ -218,30 +249,28 @@ export class AgendaWidget {
     // Get events for next 14 days
     const agendaEvents = this.getNext14DaysEvents();
     
-   
     // Group events by day for day navigation
     this.eventsByDay = this.groupEventsByDay(agendaEvents);
+    
     // Build chronological list in rendering order (fixes navigation order)
-
     this.chronologicalEvents = [];
     const dayKeys = Object.keys(this.eventsByDay).sort((a, b) => {
-    return this.eventsByDay[a].date - this.eventsByDay[b].date;
+      return this.eventsByDay[a].date - this.eventsByDay[b].date;
     });
 
     dayKeys.forEach(dayKey => {
-    const dayData = this.eventsByDay[dayKey];
-    
-    // Add all-day events first (matching rendering order)
-    dayData.allDayEvents.forEach(event => {
+      const dayData = this.eventsByDay[dayKey];
+      
+      // Add all-day events first (matching rendering order)
+      dayData.allDayEvents.forEach(event => {
         this.chronologicalEvents.push(event);
-    });
-    
-    // Then add timed events (matching rendering order)  
-    dayData.timedEvents.forEach(event => {
+      });
+      
+      // Then add timed events (matching rendering order)  
+      dayData.timedEvents.forEach(event => {
         this.chronologicalEvents.push(event);
+      });
     });
-    });
-
 
     // Render the agenda
     contentEl.innerHTML = this.renderEventsByDay(this.eventsByDay);
@@ -340,100 +369,98 @@ export class AgendaWidget {
     return eventsByDay;
   }
 
-// Replace the renderEventsByDay method with this fixed version:
-renderEventsByDay(eventsByDay) {
-  const now = new Date();
-  const today = new Date();
-  const todayKey = today.toDateString();
-  
-  // Always ensure today is included, even if no events
-  if (!eventsByDay[todayKey]) {
-    eventsByDay[todayKey] = {
-      date: today,
-      allDayEvents: [],
-      timedEvents: []
-    };
-  }
-
-  const dayKeys = Object.keys(eventsByDay).sort((a, b) => {
-    return eventsByDay[a].date - eventsByDay[b].date;
-  });
-
-  if (dayKeys.length === 0) {
-    return '<div class="no-events">No events in the next 14 days</div>';
-  }
-
-  return dayKeys.map(dayKey => {
-    const dayData = eventsByDay[dayKey];
-    const isToday = dayKey === todayKey;
-    const dayHeader = this.formatDayHeader(dayData.date);
+  renderEventsByDay(eventsByDay) {
+    const now = new Date();
+    const today = new Date();
+    const todayKey = today.toDateString();
     
-    let eventsHtml = '';
-    
-    // Render all-day events first
-    dayData.allDayEvents.forEach(event => {
-      eventsHtml += this.renderEvent(event, true, false); // All-day events are never "past"
+    // Always ensure today is included, even if no events
+    if (!eventsByDay[todayKey]) {
+      eventsByDay[todayKey] = {
+        date: today,
+        allDayEvents: [],
+        timedEvents: []
+      };
+    }
+
+    const dayKeys = Object.keys(eventsByDay).sort((a, b) => {
+      return eventsByDay[a].date - eventsByDay[b].date;
     });
-    
-    // For today, we need to insert the current time indicator at the right position
-    if (isToday && dayData.timedEvents.length > 0) {
-      let timeIndicatorInserted = false;
+
+    if (dayKeys.length === 0) {
+      return '<div class="no-events">No events in the next 14 days</div>';
+    }
+
+    return dayKeys.map(dayKey => {
+      const dayData = eventsByDay[dayKey];
+      const isToday = dayKey === todayKey;
+      const dayHeader = this.formatDayHeader(dayData.date);
       
-      dayData.timedEvents.forEach(event => {
-        const isPast = this.isEventPast(event, now);
+      let eventsHtml = '';
+      
+      // Render all-day events first
+      dayData.allDayEvents.forEach(event => {
+        eventsHtml += this.renderEvent(event, true, false); // All-day events are never "past"
+      });
+      
+      // For today, we need to insert the current time indicator at the right position
+      if (isToday && dayData.timedEvents.length > 0) {
+        let timeIndicatorInserted = false;
         
-        // Insert current time indicator after the last past event (before first future event)
-        if (!timeIndicatorInserted && !isPast) {
+        dayData.timedEvents.forEach(event => {
+          const isPast = this.isEventPast(event, now);
+          
+          // Insert current time indicator after the last past event (before first future event)
+          if (!timeIndicatorInserted && !isPast) {
+            eventsHtml += this.renderCurrentTimeIndicator(now);
+            timeIndicatorInserted = true;
+          }
+          
+          eventsHtml += this.renderEvent(event, false, isPast);
+        });
+        
+        // If all events are past, add the indicator at the end
+        if (!timeIndicatorInserted) {
           eventsHtml += this.renderCurrentTimeIndicator(now);
-          timeIndicatorInserted = true;
         }
-        
-        eventsHtml += this.renderEvent(event, false, isPast);
-      });
-      
-      // If all events are past, add the indicator at the end
-      if (!timeIndicatorInserted) {
-        eventsHtml += this.renderCurrentTimeIndicator(now);
+      } else {
+        // Not today, just render timed events normally
+        dayData.timedEvents.forEach(event => {
+          const isPast = this.isEventPast(event, now);
+          eventsHtml += this.renderEvent(event, false, isPast);
+        });
       }
-    } else {
-      // Not today, just render timed events normally
-      dayData.timedEvents.forEach(event => {
-        const isPast = this.isEventPast(event, now);
-        eventsHtml += this.renderEvent(event, false, isPast);
-      });
-    }
 
-    // Show "No events today" if today has no events
-    if (!eventsHtml && isToday) {
-      eventsHtml = '<div class="no-events">No events today</div>';
-    } else if (!eventsHtml) {
-      eventsHtml = '<div class="no-events">No events</div>';
-    }
+      // Show "No events today" if today has no events
+      if (!eventsHtml && isToday) {
+        eventsHtml = '<div class="no-events">No events today</div>';
+      } else if (!eventsHtml) {
+        eventsHtml = '<div class="no-events">No events</div>';
+      }
 
-    return `
-      <div class="day-section">
-        <div class="day-header">${dayHeader}</div>
-        <div class="events-list">
-          ${eventsHtml}
+      return `
+        <div class="day-section">
+          <div class="day-header">${dayHeader}</div>
+          <div class="events-list">
+            ${eventsHtml}
+          </div>
         </div>
+      `;
+    }).join('');
+  }
+
+  renderCurrentTimeIndicator(now) {
+    return `
+      <div class="current-time-indicator">
+        <div class="current-time-line"></div>
       </div>
     `;
-  }).join('');
-}
+  }
 
-    renderCurrentTimeIndicator(now) {
-    return `
-        <div class="current-time-indicator">
-        <div class="current-time-line"></div>
-        </div>
-    `;
-    }
-
-    isEventPast(event, now) {
+  isEventPast(event, now) {
     const eventEnd = new Date(event.end?.dateTime);
     return eventEnd <= now;
-    }
-
+  }
 
   formatDayHeader(date) {
     // Format like "**Tuesday Sep 23**"
@@ -488,11 +515,24 @@ renderEventsByDay(eventsByDay) {
     logger.debug('Connection status updated', { status });
   }
 
+  /**
+   * Apply theme - FIXED: Only apply if theme actually changed
+   */
   applyTheme(theme) {
-    this.currentTheme = theme;
-    document.body.className = `theme-${theme}`;
+    // Skip if theme hasn't changed - prevents redundant applications
+    if (this.currentTheme === theme) {
+      return;
+    }
     
-    logger.info('Theme applied', { theme });
+    const previousTheme = this.currentTheme;
+    this.currentTheme = theme;
+    
+    // Remove any existing theme classes
+    document.body.classList.remove('theme-dark', 'theme-light');
+    
+    // Apply new theme class
+    document.body.classList.add(`theme-${theme}`);
+    
   }
 
   escapeHtml(text) {
@@ -503,82 +543,79 @@ renderEventsByDay(eventsByDay) {
 
   // ==================== FOCUS AND SELECTION METHODS ====================
 
-handleFocusChange(focused) {
-  const wasFocused = this.isFocused;
-  this.isFocused = focused;
+  handleFocusChange(focused) {
+    const wasFocused = this.isFocused;
+    this.isFocused = focused;
 
-  if (focused && !wasFocused) {
-    // Widget gained focus - auto-select first event if available
-    if (this.chronologicalEvents.length > 0) {
-      this.selectedEventIndex = 0; // Always start at first event
-      this.updateSelectionHighlight();
-      this.scrollToSelectedEvent();
-      logger.info('Widget focused - auto-selected first event');
+    if (focused && !wasFocused) {
+      // Widget gained focus - auto-select first event if available
+      if (this.chronologicalEvents.length > 0) {
+        this.selectedEventIndex = 0; // Always start at first event
+        this.updateSelectionHighlight();
+        this.scrollToSelectedEvent();
+      }
+    } else if (!focused && wasFocused) {
+      // Widget lost focus - clear selection, reset scroll and index
+      this.selectedEventIndex = -1; // Reset index
+      this.clearSelectionHighlight();
+      
+      // Reset scroll to top
+      const container = document.getElementById('agendaContent');
+      if (container) {
+        container.scrollTop = 0;
+      }
+      
     }
-  } else if (!focused && wasFocused) {
-    // Widget lost focus - clear selection, reset scroll and index
-    this.selectedEventIndex = -1; // Reset index
-    this.clearSelectionHighlight();
-    
-    // Reset scroll to top
-    const container = document.getElementById('agendaContent');
-    if (container) {
-      container.scrollTop = 0;
-    }
-    
-    logger.info('Widget lost focus - cleared selection, reset scroll and index');
   }
-}
 
-    cacheEventElements() {
-        this.eventElements = Array.from(document.querySelectorAll('.event-item'));
-        logger.debug('Cached event elements', { count: this.eventElements.length });
+  cacheEventElements() {
+    this.eventElements = Array.from(document.querySelectorAll('.event-item'));
+    logger.debug('Cached event elements', { count: this.eventElements.length });
+  }
+
+  navigateSelection(direction) {
+    if (!this.isFocused || this.chronologicalEvents.length === 0) return;
+
+    const oldIndex = this.selectedEventIndex;
+    const newIndex = this.selectedEventIndex + direction;
+    
+    // Stop at boundaries - don't wrap
+    if (newIndex < 0) {
+      logger.debug('Navigation blocked at top boundary', { 
+        direction, 
+        currentIndex: this.selectedEventIndex,
+        totalEvents: this.chronologicalEvents.length
+      });
+      
+      // At top boundary, reset scroll to show day headers
+      const container = document.getElementById('agendaContent');
+      if (container) {
+        container.scrollTop = 0;
+      }
+      return;
+    }
+    
+    if (newIndex >= this.chronologicalEvents.length) {
+      logger.debug('Navigation blocked at bottom boundary', { 
+        direction, 
+        currentIndex: this.selectedEventIndex,
+        totalEvents: this.chronologicalEvents.length
+      });
+      return;
     }
 
-// Update the navigateSelection method to stop at boundaries:
-navigateSelection(direction) {
-  if (!this.isFocused || this.chronologicalEvents.length === 0) return;
+    this.selectedEventIndex = newIndex;
 
-  const oldIndex = this.selectedEventIndex;
-  const newIndex = this.selectedEventIndex + direction;
-  
-  // Stop at boundaries - don't wrap
-  if (newIndex < 0) {
-    logger.debug('Navigation blocked at top boundary', { 
+    logger.debug('Navigation selection', { 
       direction, 
-      currentIndex: this.selectedEventIndex,
+      oldIndex,
+      newIndex: this.selectedEventIndex,
       totalEvents: this.chronologicalEvents.length
     });
-    
-    // At top boundary, reset scroll to show day headers
-    const container = document.getElementById('agendaContent');
-    if (container) {
-      container.scrollTop = 0;
-    }
-    return;
+
+    this.updateSelectionHighlight();
+    this.scrollToSelectedEvent();
   }
-  
-  if (newIndex >= this.chronologicalEvents.length) {
-    logger.debug('Navigation blocked at bottom boundary', { 
-      direction, 
-      currentIndex: this.selectedEventIndex,
-      totalEvents: this.chronologicalEvents.length
-    });
-    return;
-  }
-
-  this.selectedEventIndex = newIndex;
-
-  logger.debug('Navigation selection', { 
-    direction, 
-    oldIndex,
-    newIndex: this.selectedEventIndex,
-    totalEvents: this.chronologicalEvents.length
-  });
-
-  this.updateSelectionHighlight();
-  this.scrollToSelectedEvent();
-}
 
   navigateToNextDay() {
     if (!this.isFocused || this.chronologicalEvents.length === 0) return;
@@ -602,7 +639,6 @@ navigateSelection(direction) {
       this.selectedEventIndex = nextDayIndex;
       this.updateSelectionHighlight();
       this.scrollToSelectedEvent();
-      logger.info('Navigated to next day', { newIndex: this.selectedEventIndex });
     }
   }
 
@@ -644,7 +680,7 @@ navigateSelection(direction) {
 
     this.updateSelectionHighlight();
     this.scrollToSelectedEvent();
-    logger.info('Navigated to previous day', { newIndex: this.selectedEventIndex });
+
   }
 
   updateSelectionHighlight() {
@@ -678,10 +714,7 @@ navigateSelection(direction) {
       // Show the modal
       this.eventModal.showModal(selectedEvent);
       
-      logger.info('Showing event modal', { 
-        eventTitle: selectedEvent.summary,
-        eventIndex: this.selectedEventIndex 
-      });
+
     }
   }
 

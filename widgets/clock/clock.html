@@ -110,7 +110,6 @@
         // Start clock and weather updates
         this.startUpdates();
         
-        logger.info('Clock widget initialized with proper theme detection');
       }
 
       // Detect initial theme from DOM or localStorage
@@ -137,7 +136,6 @@
         // Apply the detected theme immediately
         this.applyTheme(initialTheme);
         
-        logger.info('Initial theme detected and applied', { theme: initialTheme });
       }
 
       setupEventListeners() {
@@ -229,11 +227,6 @@
         // Apply new theme class
         document.body.classList.add(`theme-${theme}`);
         
-        logger.info('Theme applied successfully', { 
-          theme, 
-          previousTheme,
-          bodyClasses: document.body.className 
-        });
       }
 
       startUpdates() {

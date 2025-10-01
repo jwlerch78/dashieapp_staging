@@ -24,7 +24,6 @@ class PhotosWidget {
     this.loadingDiv = document.getElementById('loading');
     this.photoImg = document.getElementById('photo-display');
 
-    logger.info('PhotosWidget initializing');
     this.initialize();
   }
 
@@ -45,8 +44,6 @@ class PhotosWidget {
         widget: 'photos' 
       }, '*');
     }
-
-    logger.info('PhotosWidget initialized - waiting for photo data from parent');
   }
 
   /**
@@ -75,7 +72,6 @@ class PhotosWidget {
     // Apply the detected theme immediately
     this.applyTheme(initialTheme);
     
-    logger.info('Initial theme detected and applied', { theme: initialTheme });
   }
 
   /**
@@ -262,11 +258,6 @@ class PhotosWidget {
     // Apply new theme class
     document.body.classList.add(`theme-${theme}`);
     
-    logger.info('Theme applied successfully', { 
-      theme, 
-      previousTheme,
-      bodyClasses: document.body.className 
-    });
   }
 
   /**
