@@ -1,0 +1,53 @@
+<!-- widgets/dcal/dcal.html -->
+<!-- CHANGE SUMMARY: Initial dcal widget - custom calendar replacing TUI, weekly view only -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashie Calendar Widget</title>
+  
+  <!-- Import theme variables from parent -->
+  <link rel="stylesheet" href="../css/core/variables.css">
+  
+  <!-- Dashie Calendar Widget Styles -->
+  <link rel="stylesheet" href="dcal.css">
+</head>
+<body>
+  <div id="calendar-container">
+    <div class="loading" id="loading">
+      Loading calendar...
+      <div class="status" id="status">○</div>
+    </div>
+    
+    <div class="calendar-header" id="calendarHeader" style="display: none;">
+      <div class="calendar-title" id="calendarTitle">Loading...</div>
+      <div class="calendar-mode" id="calendarMode">Week</div>
+    </div>
+    
+    <div id="calendar" style="display: none;">
+      <!-- Weekly view will be rendered here -->
+    </div>
+    
+    <div class="command-indicator" id="commandIndicator">
+      ← → Week
+    </div>
+  </div>
+  
+  <!-- Dashie Calendar Widget Logic -->
+  <script type="module" src="dcal.js"></script>
+  
+  <script>
+    // Widget ready signal
+    window.addEventListener('load', () => {
+      if (window.parent !== window) {
+        window.parent.postMessage({ 
+          type: 'widget-ready', 
+          widget: 'dcal' 
+        }, '*');
+      }
+    });
+  </script>
+</body>
+</html>
