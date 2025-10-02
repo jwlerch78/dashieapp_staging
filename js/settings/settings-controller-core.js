@@ -207,7 +207,8 @@ export class SettingsControllerCore {
         members: []
       },
       system: {
-        refreshInterval: 30
+        refreshInterval: 30,
+        calendarRefreshInterval: 5  // Minutes between automatic calendar refreshes (UI control added later)
         // NOTE: autoRedirect and debugMode will come from localStorage
       },
       version: '2.0.0',

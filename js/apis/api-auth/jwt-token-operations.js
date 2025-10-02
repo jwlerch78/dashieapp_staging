@@ -18,7 +18,7 @@ export class JWTTokenOperations extends JWTServiceCore {
     // Token request deduplication
     this.tokenCache = new Map();
     this.inFlightRequests = new Map();
-    this.CACHE_BUFFER_MS = 5 * 60 * 1000; // 5 minute buffer
+    this.CACHE_BUFFER_MS = 10 * 60 * 1000; // 10 minute buffer
   }
 
   /**

@@ -25,6 +25,7 @@ let photoUploadManager = null;
 /**
  * Wait for authentication to complete before proceeding
  * FIXED: No timeout - device flow can take minutes to complete
+ * Does NOT show loading overlay - that happens after auth completes
  */
 async function waitForAuthentication() {
   const checkInterval = 500; // Check every 500ms
@@ -46,11 +47,10 @@ async function waitForAuthentication() {
       }
     }
     
-    // Update progress message every 60 seconds while waiting
+    // Log progress every 60 seconds (no UI update - device flow has its own UI)
     if (elapsedSeconds % 60 === 0 && elapsedSeconds > 0) {
       const minutes = Math.floor(elapsedSeconds / 60);
       const timeStr = minutes > 1 ? `${minutes} minutes` : `${minutes} minute`;
-      updateLoadingProgress(5, `Waiting for sign-in... (${timeStr})`);
       console.log(`🔐 Still waiting for authentication (${timeStr} elapsed)...`);
     }
     
@@ -131,10 +131,6 @@ function initializePhotoUploadManager() {
 async function initializeApp() {
   console.log('🚀 Initializing Dashie Dashboard...');
   
-  // FIXED: Show loading overlay IMMEDIATELY before anything else
-  showLoadingOverlay();
-  updateLoadingProgress(0, 'Starting up...');
-  
   // Initialize basic UI and navigation
   initializeEvents();
   initializeHighlightTimeout();
@@ -143,19 +139,19 @@ async function initializeApp() {
   updateFocus(1, 1);
   
   console.log('✅ Dashie Dashboard UI initialized successfully!');
-  updateLoadingProgress(5, 'Waiting for sign-in...');
   
   // FIXED: Wait for authentication without timeout (device flow needs time)
+  // Device flow shows its own UI, so no loading overlay yet
   const authSuccessful = await waitForAuthentication();
   
   if (!authSuccessful) {
     // This should never happen now since we removed the timeout
     console.error('❌ Authentication failed unexpectedly');
-    updateLoadingProgress(100, 'Authentication failed - please reload');
     return;
   }
   
-  // Update progress after auth completes
+  // FIXED: Show loading overlay AFTER authentication completes
+  showLoadingOverlay();
   updateLoadingProgress(10, 'Authentication complete');
   
   // Initialize JWT service
