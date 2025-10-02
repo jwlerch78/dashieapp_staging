@@ -1,5 +1,5 @@
 // js/main.js
-// CHANGE SUMMARY: Added comprehensive startup orchestration with dependency validation gates to prevent premature data loading
+// CHANGE SUMMARY: Event-based widget registration with direct postMessage listening + photo upload manager retry logic
 
 import { initializeEvents } from './core/events.js';
 import { updateFocus, initializeHighlightTimeout } from './core/navigation.js';
@@ -9,6 +9,7 @@ import { initializeJWTService } from './apis/api-auth/jwt-token-operations.js';
 import { processPendingRefreshTokens } from './apis/api-auth/providers/web-oauth.js';
 import { PhotoUploadManager } from '../widgets/photos/photo-upload-manager.js';
 import { showLoadingOverlay, updateLoadingProgress, hideLoadingOverlay, isLoadingOverlayVisible } from './ui/loading-overlay.js';
+import { WidgetRegistrationCoordinator } from './core/widget-registration-coordinator.js';
 
 // Initialization state tracker
 const initState = {
@@ -22,6 +23,9 @@ const initState = {
 
 // Global photo upload manager instance
 let photoUploadManager = null;
+
+// Widget registration coordinator - created at start so it listens to direct postMessages
+let widgetCoordinator = null;
 
 /**
  * Wait for authentication to complete before proceeding
@@ -201,24 +205,39 @@ async function processQueuedRefreshTokens() {
 }
 
 /**
- * Initialize Photo Upload Manager
- * Called after data manager and JWT are ready
+ * Initialize Photo Upload Manager with retry logic
+ * Called after data manager is ready, with retry if photo service not yet initialized
  */
-function initializePhotoUploadManager() {
-  try {
-    if (window.dataManager?.photoService?.isReady()) {
-      photoUploadManager = new PhotoUploadManager(window.dataManager.photoService);
-      window.photoUploadManager = photoUploadManager;
-      console.log('📸 Photo upload manager initialized');
-      return true;
-    } else {
-      console.warn('⚠️ Photo service not ready, upload manager not initialized');
-      return false;
+async function initializePhotoUploadManager() {
+  const maxRetries = 5;
+  const retryDelay = 1000; // 1 second
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      if (window.dataManager?.photoService?.isReady()) {
+        photoUploadManager = new PhotoUploadManager(window.dataManager.photoService);
+        window.photoUploadManager = photoUploadManager;
+        console.log('📸 Photo upload manager initialized', {
+          attempt
+        });
+        return true;
+      } else {
+        console.log(`⏳ Photo service not ready yet (attempt ${attempt}/${maxRetries}), waiting...`);
+        
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        }
+      }
+    } catch (error) {
+      console.error('❌ Failed to initialize photo upload manager:', error);
+      if (attempt === maxRetries) {
+        return false;
+      }
     }
-  } catch (error) {
-    console.error('❌ Failed to initialize photo upload manager:', error);
-    return false;
   }
+  
+  console.warn('⚠️ Photo upload manager not initialized after retries - photo service may still be initializing');
+  return false;
 }
 
 /**
@@ -226,6 +245,10 @@ function initializePhotoUploadManager() {
  */
 async function initializeApp() {
   console.log('🚀 Starting Dashie initialization sequence...');
+  
+  // CRITICAL: Create widget coordinator FIRST so it listens to postMessages
+  // Coordinator now listens directly to postMessages, not eventSystem
+  widgetCoordinator = new WidgetRegistrationCoordinator();
   
   // Initialize events and navigation
   initializeEvents();
@@ -336,11 +359,27 @@ async function initializeApp() {
   console.log('🎨 Initializing theme system...');
   updateLoadingProgress(80, 'Applying your theme...');
   
-  // Wait for widgets to register before triggering data
+  // EVENT-BASED: Wait for widgets to register by listening to their postMessages
   console.log('🎨 Waiting for widgets to register...');
   updateLoadingProgress(85, 'Preparing widgets...');
   
-  await new Promise(resolve => setTimeout(resolve, 2000));
+  const widgetResults = await widgetCoordinator.waitForWidgets(null, {
+    timeout: 10000,   // 10 seconds for Fire TV (slow device)
+    minWaitTime: 500  // Min 500ms even if all ready quickly
+  });
+  
+  if (widgetResults.success) {
+    console.log('✅ All required widgets registered', {
+      widgets: widgetResults.registered,
+      duration: widgetResults.duration
+    });
+  } else {
+    console.warn('⚠️ Some widgets did not register in time', {
+      registered: widgetResults.registered,
+      timedOut: widgetResults.timedOut,
+      duration: widgetResults.duration
+    });
+  }
   
   // NEW: Validate all services are ready before data loading
   updateLoadingProgress(90, 'Validating services...');
@@ -372,8 +411,12 @@ async function initializeApp() {
     // Continue anyway - user can manually refresh
   }
   
-  // Initialize Photo Upload Manager AFTER data manager is ready
-  initializePhotoUploadManager();
+  // UPDATED: Initialize Photo Upload Manager with retry logic
+  const uploadManagerReady = await initializePhotoUploadManager();
+  
+  if (!uploadManagerReady) {
+    console.warn('⚠️ Photo upload functionality may not be available yet');
+  }
   
   // Complete initialization
   const loadingMessage = initState.tokens === 'ready' 
