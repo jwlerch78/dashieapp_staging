@@ -1,5 +1,5 @@
 // js/main.js - App Initialization with Photo Upload Manager Integration
-// CHANGE SUMMARY: Added PhotoUploadManager initialization and widget message listener for upload requests
+// CHANGE SUMMARY: Fixed initialization sequence - show overlay immediately, removed auth timeout for device flow, updated progress messages
 
 import { initializeEvents } from './core/events.js';
 import { updateFocus, initializeHighlightTimeout } from './core/navigation.js';
@@ -7,7 +7,7 @@ import { renderGrid, renderSidebar } from './ui/grid.js';
 import { autoInitialize } from './settings/settings-main.js';
 import { initializeJWTService } from './apis/api-auth/jwt-token-operations.js';
 import { processPendingRefreshTokens } from './apis/api-auth/providers/web-oauth.js';
-import { PhotoUploadManager } from '../widgets/photos/photo-upload-manager.js'; // NEW
+import { PhotoUploadManager } from '../widgets/photos/photo-upload-manager.js';
 import { showLoadingOverlay, updateLoadingProgress, hideLoadingOverlay, isLoadingOverlayVisible } from './ui/loading-overlay.js';
 
 // Initialization state tracker
@@ -24,16 +24,16 @@ let photoUploadManager = null;
 
 /**
  * Wait for authentication to complete before proceeding
+ * FIXED: No timeout - device flow can take minutes to complete
  */
 async function waitForAuthentication() {
-  const maxWait = 30000;
-  const checkInterval = 200;
-  const startTime = Date.now();
-
+  const checkInterval = 500; // Check every 500ms
+  let elapsedSeconds = 0;
+  
   console.log('🔐 Waiting for authentication to complete...');
   initState.auth = 'pending';
 
-  while (Date.now() - startTime < maxWait) {
+  while (true) {
     const authSystem = window.dashieAuth || window.authManager;
     
     if (authSystem && authSystem.isAuthenticated && authSystem.isAuthenticated()) {
@@ -43,17 +43,20 @@ async function waitForAuthentication() {
         console.log('✅ Authentication complete with Google token');
         initState.auth = 'ready';
         return true;
-      } else {
-        console.log('🔐 Authenticated but waiting for Google token...');
       }
     }
     
+    // Update progress message every 60 seconds while waiting
+    if (elapsedSeconds % 60 === 0 && elapsedSeconds > 0) {
+      const minutes = Math.floor(elapsedSeconds / 60);
+      const timeStr = minutes > 1 ? `${minutes} minutes` : `${minutes} minute`;
+      updateLoadingProgress(5, `Waiting for sign-in... (${timeStr})`);
+      console.log(`🔐 Still waiting for authentication (${timeStr} elapsed)...`);
+    }
+    
     await new Promise(resolve => setTimeout(resolve, checkInterval));
+    elapsedSeconds += checkInterval / 1000;
   }
-
-  console.warn('⚠️ Authentication timeout - proceeding without JWT');
-  initState.auth = 'failed';
-  return false;
 }
 
 /**
@@ -81,6 +84,7 @@ async function processQueuedRefreshTokens() {
     
     if (successCount > 0) {
       console.log(`✅ Successfully stored ${successCount} refresh token(s)`);
+      
       if (failCount > 0) {
         console.warn(`⚠️ ${failCount} refresh token(s) failed to store`);
       }
@@ -122,9 +126,14 @@ function initializePhotoUploadManager() {
 
 /**
  * Main app initialization
+ * FIXED: Show loading overlay immediately, no auth timeout
  */
 async function initializeApp() {
   console.log('🚀 Initializing Dashie Dashboard...');
+  
+  // FIXED: Show loading overlay IMMEDIATELY before anything else
+  showLoadingOverlay();
+  updateLoadingProgress(0, 'Starting up...');
   
   // Initialize basic UI and navigation
   initializeEvents();
@@ -134,53 +143,54 @@ async function initializeApp() {
   updateFocus(1, 1);
   
   console.log('✅ Dashie Dashboard UI initialized successfully!');
+  updateLoadingProgress(5, 'Waiting for sign-in...');
   
-  // Wait for authentication to complete
+  // FIXED: Wait for authentication without timeout (device flow needs time)
   const authSuccessful = await waitForAuthentication();
   
   if (!authSuccessful) {
-    console.error('❌ Authentication failed or timed out');
+    // This should never happen now since we removed the timeout
+    console.error('❌ Authentication failed unexpectedly');
+    updateLoadingProgress(100, 'Authentication failed - please reload');
     return;
   }
   
-  // Show loading overlay AFTER auth is ready
-  showLoadingOverlay();
+  // Update progress after auth completes
   updateLoadingProgress(10, 'Authentication complete');
   
   // Initialize JWT service
   console.log('🔐 Initializing JWT service after authentication...');
   updateLoadingProgress(25, 'Establishing secure connection...');
   
-// Find this section in main.js (around line 155-165):
-try {
-  const jwtReady = await initializeJWTService();
-  
-  if (jwtReady) {
-    console.log('✅ JWT service ready - RLS mode available');
-    initState.jwt = 'ready';
-    updateLoadingProgress(40, 'Secure connection established');
+  try {
+    const jwtReady = await initializeJWTService();
     
-    // NEW: Initialize SimpleAuth services now that JWT is ready
-    if (window.dashieAuth && window.dashieAuth.authenticated) {
-      console.log('🔧 Initializing services now that JWT is ready...');
-      try {
-        await window.dashieAuth.initializeServices();
-        console.log('✅ Services initialized with valid JWT token');
-      } catch (error) {
-        console.error('❌ Failed to initialize services:', error);
-        // Continue anyway - some functionality may be degraded
+    if (jwtReady) {
+      console.log('✅ JWT service ready - RLS mode available');
+      initState.jwt = 'ready';
+      updateLoadingProgress(40, 'Secure connection established');
+      
+      // Initialize SimpleAuth services now that JWT is ready
+      if (window.dashieAuth && window.dashieAuth.authenticated) {
+        console.log('🔧 Initializing services now that JWT is ready...');
+        try {
+          await window.dashieAuth.initializeServices();
+          console.log('✅ Services initialized with valid JWT token');
+        } catch (error) {
+          console.error('❌ Failed to initialize services:', error);
+          // Continue anyway - some functionality may be degraded
+        }
       }
+    } else {
+      console.warn('⚠️ JWT service not ready - will use direct mode');
+      initState.jwt = 'failed';
+      updateLoadingProgress(40, 'Secure connection unavailable');
     }
-  } else {
-    console.warn('⚠️ JWT service not ready - will use direct mode');
+  } catch (error) {
+    console.error('❌ JWT service initialization failed:', error);
     initState.jwt = 'failed';
-    updateLoadingProgress(40, 'Secure connection unavailable');
+    updateLoadingProgress(40, 'Secure connection failed');
   }
-} catch (error) {
-  console.error('❌ JWT service initialization failed:', error);
-  initState.jwt = 'failed';
-  updateLoadingProgress(40, 'Secure connection failed');
-}
   
   // Process refresh tokens if JWT is ready
   updateLoadingProgress(42, 'Finalizing token queue...');
