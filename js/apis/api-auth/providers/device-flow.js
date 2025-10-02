@@ -17,7 +17,7 @@ export class DeviceFlowProvider {
       client_secret: AUTH_CONFIG.client_secret_device_flow,
       device_code_endpoint: 'https://oauth2.googleapis.com/device/code',
       token_endpoint: 'https://oauth2.googleapis.com/token',
-      scope: 'openid email profile https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/photoslibrary.readonly'
+      scope: 'openid email profile https://www.googleapis.com/auth/calendar.readonly'
     };
     
     this.pollInterval = null;
