@@ -1,5 +1,5 @@
 // js/apis/api-auth/jwt-token-operations.js
-// CHANGE SUMMARY: Added invalidateTokenCache() method to clear cached tokens on 401 errors - enables forced refresh from google-client.js
+// CHANGE SUMMARY: Added automatic settings reload after token refresh to ensure localStorage gets updated with new token
 
 import { JWTServiceCore } from './jwt-service-core.js';
 import { createLogger } from '../../utils/logger.js';
@@ -81,6 +81,32 @@ export class JWTTokenOperations extends JWTServiceCore {
     return hadCache;
   }
 
+  /**
+   * NEW: Reload settings from database to update localStorage after token refresh
+   * This ensures localStorage gets the latest tokens after a refresh
+   * @private
+   */
+  async _reloadSettingsAfterTokenRefresh() {
+    try {
+      logger.info('🔄 Reloading settings after token refresh to update localStorage');
+      
+      // Load fresh settings from database
+      const result = await this.loadSettings();
+      
+      if (result.success && result.settings) {
+        // The loadSettings call will automatically save to localStorage via SimpleSupabaseStorage
+        logger.success('✅ Settings reloaded and localStorage updated with refreshed token');
+        return true;
+      } else {
+        logger.warn('⚠️ Settings reload returned no data after token refresh');
+        return false;
+      }
+    } catch (error) {
+      logger.error('❌ Failed to reload settings after token refresh', error);
+      return false;
+    }
+  }
+
   // ====== MULTI-ACCOUNT TOKEN MANAGEMENT METHODS ======
 
   /**
@@ -156,8 +182,7 @@ export class JWTTokenOperations extends JWTServiceCore {
 
   /**
    * Get valid OAuth token (refresh if needed)
-   * UPDATED: Now uses Supabase JWT for authentication instead of Google token
-   * This enables automatic refresh even when Google session token has expired
+   * UPDATED: Now triggers settings reload after token refresh to update localStorage
    * WITH DEDUPLICATION: Multiple simultaneous requests share the same fetch
    */
   async getValidToken(provider = 'google', accountType = 'personal') {
@@ -181,83 +206,108 @@ export class JWTTokenOperations extends JWTServiceCore {
     // Check if there's already a request in flight for this token
     const key = this._getTokenCacheKey(provider, accountType);
     if (this.inFlightRequests.has(key)) {
-      logger.debug('Reusing in-flight token request', { provider, accountType });
+      logger.debug('Token request already in flight, waiting...', { provider, accountType });
       return await this.inFlightRequests.get(key);
     }
 
-    // Create new request
-    const requestPromise = (async () => {
-      const timer = logger.startTimer('JWT Get Valid Token');
-      
-      try {
-        await this._ensureValidJWT();
-
-        if (!this.currentJWT) {
-          throw new Error('No Supabase JWT available');
-        }
-
-        const requestBody = {
-          operation: 'get_valid_token',
-          provider,
-          account_type: accountType
-        };
-
-        // Use Supabase JWT in Authorization header
-        const headers = this._getSupabaseHeaders(true); // true = use JWT auth
-
-        const response = await fetch(this.edgeFunctionUrl, {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify(requestBody)
-        });
-
-        const duration = timer();
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`JWT get token failed: ${response.status} ${errorText}`);
-        }
-
-        const result = await response.json();
-        
-        if (!result.success) {
-          throw new Error(result.error || 'Failed to get valid token');
-        }
-
-        logger.success('JWT valid token retrieved', {
-          provider,
-          accountType,
-          refreshed: result.refreshed,
-          duration
-        });
-
-        this.lastOperationTime = Date.now();
-
-        // Cache the token
-        if (result.access_token) {
-          this._cacheToken(provider, accountType, result);
-        }
-
-        return result;
-
-      } catch (error) {
-        timer();
-        logger.error('JWT get token failed', error);
-        throw error;
-      }
-    })();
-
+    // Start new request and store promise
+    const requestPromise = this._fetchValidToken(provider, accountType);
     this.inFlightRequests.set(key, requestPromise);
 
     try {
-      return await requestPromise;
+      const result = await requestPromise;
+      return result;
     } finally {
+      // Clean up in-flight request
       this.inFlightRequests.delete(key);
     }
   }
 
   /**
-   * List all token accounts for current user
+   * Internal method to fetch valid token (with refresh if needed)
+   * @private
+   */
+  async _fetchValidToken(provider, accountType) {
+    const timer = logger.startTimer('JWT Get Valid Token');
+    
+    try {
+      await this._ensureValidJWT();
+
+      if (!this.currentJWT) {
+        throw new Error('No Supabase JWT available');
+      }
+
+      const requestBody = {
+        operation: 'get_valid_token',
+        provider,
+        account_type: accountType
+      };
+
+      // Use Supabase JWT in Authorization header
+      const headers = this._getSupabaseHeaders(true);
+
+      const response = await fetch(this.edgeFunctionUrl, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(requestBody)
+      });
+
+      const duration = timer();
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`JWT get valid token failed: ${response.status} ${errorText}`);
+      }
+
+      const result = await response.json();
+      
+      // Check if token was refreshed
+      const wasRefreshed = result.refreshed === true;
+      
+      logger.success('JWT valid token retrieved', {
+        provider,
+        accountType,
+        refreshed: wasRefreshed,
+        duration
+      });
+
+      this.lastOperationTime = Date.now();
+
+      // Cache the token
+      if (result.access_token) {
+        this._cacheToken(provider, accountType, {
+          access_token: result.access_token,
+          expires_at: result.expires_at,
+          scopes: result.scopes
+        });
+      }
+
+      // CRITICAL FIX: If token was refreshed, reload settings to update localStorage
+      if (wasRefreshed) {
+        logger.info('🔄 Token was refreshed - triggering settings reload to update localStorage');
+        // Do this in background, don't block the token return
+        this._reloadSettingsAfterTokenRefresh().catch(err => {
+          logger.error('Background settings reload failed', err);
+        });
+      }
+
+      return {
+        success: true,
+        access_token: result.access_token,
+        expires_at: result.expires_at,
+        scopes: result.scopes,
+        refreshed: wasRefreshed
+      };
+
+    } catch (error) {
+      timer();
+      logger.error('JWT get valid token failed', error);
+      throw error;
+    }
+  }
+
+  /**
+   * List all stored token accounts
    */
   async listTokenAccounts() {
     if (!this.isServiceReady()) {
@@ -294,7 +344,8 @@ export class JWTTokenOperations extends JWTServiceCore {
       const result = await response.json();
       
       logger.success('JWT accounts listed', {
-        accountCount: result.accounts?.length || 0,
+        success: result.success,
+        count: result.accounts?.length || 0,
         duration
       });
 
@@ -357,7 +408,7 @@ export class JWTTokenOperations extends JWTServiceCore {
 
       this.lastOperationTime = Date.now();
 
-      // Clear from cache
+      // Clear cache for this account
       const key = this._getTokenCacheKey(provider, accountType);
       this.tokenCache.delete(key);
 
@@ -366,65 +417,6 @@ export class JWTTokenOperations extends JWTServiceCore {
     } catch (error) {
       timer();
       logger.error('JWT remove account failed', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Delete refresh token from secure storage
-   */
-  async deleteRefreshToken(provider = 'google', accountType = 'personal') {
-    if (!this.isServiceReady()) {
-      throw new Error('JWT service not ready for delete token operation');
-    }
-
-    const timer = logger.startTimer('JWT Delete Refresh Token');
-    
-    try {
-      await this._ensureValidJWT();
-      const googleAccessToken = this._getGoogleAccessToken();
-      if (!googleAccessToken) {
-        throw new Error('No Google access token available');
-      }
-
-      const requestBody = {
-        googleAccessToken,
-        operation: 'delete_refresh_token',
-        provider,
-        account_type: accountType
-      };
-
-      const response = await fetch(this.edgeFunctionUrl, {
-        method: 'POST',
-        headers: this._getSupabaseHeaders(),
-        body: JSON.stringify(requestBody)
-      });
-
-      const duration = timer();
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`JWT delete token failed: ${response.status} ${errorText}`);
-      }
-
-      const result = await response.json();
-      
-      logger.success('JWT refresh token deleted', {
-        success: result.success,
-        duration
-      });
-
-      this.lastOperationTime = Date.now();
-
-      // Clear from cache
-      const key = this._getTokenCacheKey(provider, accountType);
-      this.tokenCache.delete(key);
-
-      return result;
-
-    } catch (error) {
-      timer();
-      logger.error('JWT delete token failed', error);
       throw error;
     }
   }
@@ -447,7 +439,7 @@ export class JWTTokenOperations extends JWTServiceCore {
   }
 
   /**
-   * Manually refresh a token using refresh token
+   * Manually refresh a specific refresh token
    */
   async refreshToken(refreshToken) {
     if (!this.isServiceReady()) {

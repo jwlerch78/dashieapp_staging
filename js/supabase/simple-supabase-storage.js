@@ -1,5 +1,5 @@
 // js/supabase/simple-supabase-storage.js
-// CHANGE SUMMARY: Removed isSupabaseAuthenticated check - JWT service no longer authenticates Supabase client directly
+// CHANGE SUMMARY: Fixed localStorage key to always use 'dashie-settings' without userId suffix; ensures settings with tokens are saved after database load
 
 import { supabase } from './supabase-config.js';
 
@@ -7,7 +7,7 @@ export class SimpleSupabaseStorage {
   constructor(userId, userEmail = null) {
     this.userId = userId;
     this.userEmail = userEmail;
-    this.localStorageKey = 'dashie-settings';
+    this.localStorageKey = 'dashie-settings'; // FIXED: Always use same key, no userId suffix
     this.isOnline = navigator.onLine;
     
     // JWT configuration - determined once on first use
@@ -15,6 +15,7 @@ export class SimpleSupabaseStorage {
     this.jwtService = null;
     
     console.log('📦 SimpleSupabaseStorage initialized for user:', userId);
+    console.log('📦 Using localStorage key:', this.localStorageKey);
     
     // Listen for online/offline status
     window.addEventListener('online', () => {
@@ -68,15 +69,14 @@ export class SimpleSupabaseStorage {
         console.warn('⚠️ RLS is enabled but JWT service unavailable!');
         console.warn('⚠️ This will likely cause database access errors.');
         console.warn('💡 Consider disabling RLS or ensuring JWT service is properly configured.');
-        console.log('⚠️ Fallback to direct mode (will likely fail with RLS enabled)');
       } else {
-        console.log('⚡ Direct mode selected (RLS disabled)');
+        console.log('⚡ Direct database mode selected (RLS disabled)');
       }
 
       return this.jwtMode;
 
     } catch (error) {
-      console.warn('⚠️ Mode determination failed, defaulting to direct mode:', error.message);
+      console.error('❌ Mode determination failed:', error);
       this.jwtMode = false;
       return false;
     }
@@ -84,58 +84,42 @@ export class SimpleSupabaseStorage {
 
   /**
    * Check if JWT service is available (synchronous check)
-   * @returns {boolean}
    */
   checkJWTAvailabilitySync() {
     if (!window.jwtAuth) {
-      console.log('❌ JWT service not found at window.jwtAuth');
+      console.log('❌ window.jwtAuth not found');
       return false;
     }
 
-    if (!window.jwtAuth.isServiceReady || !window.jwtAuth.isServiceReady()) {
-      console.log('❌ JWT service not ready');
+    if (typeof window.jwtAuth.isServiceReady !== 'function') {
+      console.log('❌ window.jwtAuth.isServiceReady is not a function');
       return false;
     }
 
+    const isReady = window.jwtAuth.isServiceReady();
     console.log('✅ JWT service is available and ready');
-    return true;
+    return isReady;
   }
 
   /**
-   * Check if RLS is enabled on the user_settings table
-   * @returns {Promise<boolean>}
+   * Check if RLS (Row Level Security) is enabled
    */
   async checkRLSStatus() {
-    console.log('🔍 Checking RLS status...');
-
     try {
-      // Try to INSERT a test record - this reliably detects RLS
-      const testUserId = crypto.randomUUID();
+      const testUserId = 'test-rls-check-' + Date.now();
+      
       const { data, error } = await supabase
         .from('user_settings')
         .insert({
           auth_user_id: testUserId,
           email: 'test@example.com',
-          settings: { test: true },
-          updated_at: new Date().toISOString()
+          settings: { test: true }
         })
         .select();
 
-      console.log('📊 RLS detection results:', {
-        error: error?.message,
-        data: data
-      });
-
-      // Check for explicit RLS policy violations
       if (error) {
-        const rlsError = error.message.includes('row-level security') || 
-                        error.message.includes('policy') ||
-                        error.message.includes('insufficient privilege') ||
-                        error.code === 'PGRST116' || // PostgREST RLS violation
-                        error.code === '42501'; // PostgreSQL insufficient privilege
-
-        if (rlsError) {
-          console.log('🔒 RLS is ENABLED (detected via policy violation)');
+        if (error.code === '42501' || error.message?.includes('row-level security')) {
+          console.log('🔒 RLS is ENABLED (INSERT blocked by RLS)');
           return true;
         } else {
           console.log('❌ INSERT failed for other reason:', error.message);
@@ -244,7 +228,7 @@ export class SimpleSupabaseStorage {
       
       if (result.success && result.settings) {
         console.log('✅ JWT load successful');
-        // Save to localStorage for offline access
+        // CRITICAL: Save to localStorage immediately with correct key
         this.saveToLocalStorage(result.settings);
         return result.settings;
       } else {
@@ -320,13 +304,28 @@ export class SimpleSupabaseStorage {
 
   saveToLocalStorage(settings) {
     try {
-      const settingsData = {
-        settings: settings,
-        savedAt: Date.now(),
-        auth_user_id: this.userId
-      };
-      localStorage.setItem(this.localStorageKey, JSON.stringify(settingsData));
-      console.log('💾 Settings saved to localStorage');
+      // FIXED: Save directly to the settings object without wrapper
+      // This matches what SettingsController expects
+      
+      // DEBUG: Log what we're about to save
+      console.log('💾 [DEBUG] Saving to localStorage:', {
+        key: this.localStorageKey,
+        hasTokenAccounts: !!settings?.tokenAccounts,
+        tokenAccountKeys: settings?.tokenAccounts ? Object.keys(settings.tokenAccounts) : [],
+        googlePersonalToken: settings?.tokenAccounts?.google?.personal?.access_token?.slice(-10) || 'none'
+      });
+      
+      localStorage.setItem(this.localStorageKey, JSON.stringify(settings));
+      
+      // DEBUG: Verify what was actually saved
+      const verification = localStorage.getItem(this.localStorageKey);
+      const parsed = JSON.parse(verification);
+      console.log('💾 [DEBUG] Verified saved data:', {
+        hasTokenAccounts: !!parsed?.tokenAccounts,
+        googlePersonalToken: parsed?.tokenAccounts?.google?.personal?.access_token?.slice(-10) || 'none'
+      });
+      
+      console.log('💾 Settings saved to localStorage key:', this.localStorageKey);
       return true;
     } catch (error) {
       console.error('❌ localStorage save failed:', error);
@@ -342,16 +341,9 @@ export class SimpleSupabaseStorage {
         return null;
       }
 
-      const settingsData = JSON.parse(stored);
-      
-      // Verify it's for the current user
-      if (settingsData.auth_user_id !== this.userId) {
-        console.log('⚠️ localStorage settings are for different user, ignoring');
-        return null;
-      }
-
+      const settings = JSON.parse(stored);
       console.log('💾 Settings loaded from localStorage');
-      return settingsData.settings;
+      return settings;
       
     } catch (error) {
       console.error('❌ localStorage load failed:', error);
@@ -368,7 +360,8 @@ export class SimpleSupabaseStorage {
       isOnline: this.isOnline,
       jwtMode: this.jwtMode,
       hasJwtService: !!this.jwtService,
-      jwtReady: this.jwtService ? this.jwtService.isServiceReady?.() : false
+      jwtReady: this.jwtService ? this.jwtService.isServiceReady?.() : false,
+      localStorageKey: this.localStorageKey
     };
   }
 
@@ -414,6 +407,8 @@ export class SimpleSupabaseStorage {
       }, (payload) => {
         console.log('🔄 Real-time update received:', payload);
         if (payload.new && payload.new.settings) {
+          // Save to localStorage when real-time update comes in
+          this.saveToLocalStorage(payload.new.settings);
           callback(payload.new.settings);
         }
       })

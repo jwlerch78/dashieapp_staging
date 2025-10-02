@@ -759,14 +759,15 @@
                 const listResult = await window.jwtAuth.listTokenAccounts();
                 const listDuration = Date.now() - listStart;
 
-                result.checks.listSuccessful = Array.isArray(listResult);
-                result.details.accountCount = listResult?.length || 0;
-                result.details.accounts = listResult;
+                const accounts = Array.isArray(listResult) ? listResult : listResult?.accounts;
+                result.checks.listSuccessful = Array.isArray(accounts);
+                result.details.accountCount = accounts?.length || 0;
+                result.details.accounts = listResult; // Show full response for debugging
                 result.details.listDuration = `${listDuration}ms`;
 
-                result.success = Array.isArray(listResult);
+                result.success = Array.isArray(accounts);
                 result.message = result.success ? 
-                    `✅ Found ${listResult.length} token account(s) (${listDuration}ms)` :
+                    `✅ Found ${accounts.length} token account(s) (${listDuration}ms)` :
                     `⚠️ List operation completed but returned unexpected format`;
 
             } catch (error) {

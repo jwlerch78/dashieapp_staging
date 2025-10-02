@@ -151,23 +151,36 @@ async function initializeApp() {
   console.log('🔐 Initializing JWT service after authentication...');
   updateLoadingProgress(25, 'Establishing secure connection...');
   
-  try {
-    const jwtReady = await initializeJWTService();
+// Find this section in main.js (around line 155-165):
+try {
+  const jwtReady = await initializeJWTService();
+  
+  if (jwtReady) {
+    console.log('✅ JWT service ready - RLS mode available');
+    initState.jwt = 'ready';
+    updateLoadingProgress(40, 'Secure connection established');
     
-    if (jwtReady) {
-      console.log('✅ JWT service ready - RLS mode available');
-      initState.jwt = 'ready';
-      updateLoadingProgress(40, 'Secure connection established');
-    } else {
-      console.warn('⚠️ JWT service not ready - will use direct mode');
-      initState.jwt = 'failed';
-      updateLoadingProgress(40, 'Secure connection unavailable');
+    // NEW: Initialize SimpleAuth services now that JWT is ready
+    if (window.dashieAuth && window.dashieAuth.authenticated) {
+      console.log('🔧 Initializing services now that JWT is ready...');
+      try {
+        await window.dashieAuth.initializeServices();
+        console.log('✅ Services initialized with valid JWT token');
+      } catch (error) {
+        console.error('❌ Failed to initialize services:', error);
+        // Continue anyway - some functionality may be degraded
+      }
     }
-  } catch (error) {
-    console.error('❌ JWT service initialization failed:', error);
+  } else {
+    console.warn('⚠️ JWT service not ready - will use direct mode');
     initState.jwt = 'failed';
-    updateLoadingProgress(40, 'Secure connection failed');
+    updateLoadingProgress(40, 'Secure connection unavailable');
   }
+} catch (error) {
+  console.error('❌ JWT service initialization failed:', error);
+  initState.jwt = 'failed';
+  updateLoadingProgress(40, 'Secure connection failed');
+}
   
   // Process refresh tokens if JWT is ready
   updateLoadingProgress(42, 'Finalizing token queue...');

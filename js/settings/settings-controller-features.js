@@ -81,8 +81,10 @@ export class SettingsControllerFeatures {
     target[lastKey] = value;
   }
 
-  // Save settings to database with local-only filtering
-  async saveSettings() {
+  // DEBUG PATCH: Add this to settings-controller-features.js saveSettings() method
+// Find the saveSettings() method and replace with this version:
+
+async saveSettings() {
   if (!this.isDirty) {
     return true;
   }
@@ -92,8 +94,24 @@ export class SettingsControllerFeatures {
 
   // ALWAYS save to localStorage first (primary storage)
   try {
+    // DEBUG: Log what SettingsController is about to save
+    console.log('⚙️ [DEBUG] SettingsController saving to localStorage:', {
+      hasTokenAccounts: !!this.currentSettings?.tokenAccounts,
+      googlePersonalToken: this.currentSettings?.tokenAccounts?.google?.personal?.access_token?.slice(-10) || 'none',
+      settingsKeys: Object.keys(this.currentSettings)
+    });
+    
     localStorage.setItem('dashie-settings', JSON.stringify(this.currentSettings));
     console.log('⚙️ 💾 Settings saved to localStorage');
+    
+    // DEBUG: Verify what was actually saved
+    const verification = localStorage.getItem('dashie-settings');
+    const parsed = JSON.parse(verification);
+    console.log('⚙️ [DEBUG] Verified SettingsController saved data:', {
+      hasTokenAccounts: !!parsed?.tokenAccounts,
+      googlePersonalToken: parsed?.tokenAccounts?.google?.personal?.access_token?.slice(-10) || 'none'
+    });
+    
     this.isDirty = false;
   } catch (error) {
     console.error('⚙️ ❌ Failed to save to localStorage:', error);
@@ -105,6 +123,12 @@ export class SettingsControllerFeatures {
     try {
       // Filter out local-only settings before saving to database
       const databaseSettings = this.filterOutLocalOnlySettings(this.currentSettings);
+      
+      // DEBUG: Check if tokens are being filtered out
+      console.log('⚙️ [DEBUG] Saving to Supabase:', {
+        hasTokenAccountsInFiltered: !!databaseSettings?.tokenAccounts,
+        filteredKeys: Object.keys(databaseSettings)
+      });
       
       await this.storage.saveSettings(databaseSettings);
       console.log('⚙️ ☁️ Settings also saved to Supabase');

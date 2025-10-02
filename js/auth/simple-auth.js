@@ -47,91 +47,120 @@ export class SimpleAuth {
   }
 
   /**
-   * Initialize authentication system
-   * @returns {Promise<void>}
-   */
-  async init() {
-    if (this.isInitialized) {
-      logger.debug('Auth system already initialized');
-      return;
-    }
+ * Initialize authentication system
+ * NOTE: This now only handles auth, NOT service initialization
+ * Call initializeServices() separately after JWT is ready
+ * @returns {Promise<void>}
+ */
+async init() {
+  if (this.isInitialized) {
+    logger.debug('Auth system already initialized');
+    return;
+  }
 
-    try {
-      // Initialize auth coordinator (handles providers and OAuth flows)
-      const authResult = await this.authCoordinator.init();
-      
-      // Check for saved user in localStorage for immediate settings initialization
-      // FIXED: Ensure authStorage is available before calling getSavedUser
-      const savedUser = this.authStorage ? this.authStorage.getSavedUser() : null;
-      if (savedUser && !authResult.authenticated) {
-        // Emit auth ready event even if not fully authenticated
-        document.dispatchEvent(new CustomEvent('dashie-auth-ready', {
-          detail: { 
-            authenticated: false,
-            user: savedUser,
-            fromStorage: true
-          }
-        }));
-      }
-
-      if (authResult.authenticated) {
-        this.authenticated = true;
-        await this.initializeServices();
-      }
-      
-      // Set up event listeners
-      this.setupEventListeners();
-      
-      this.isInitialized = true;
-      
-      logger.success('Dashie authentication system initialized', {
-        authenticated: this.authenticated,
-        userId: this.authCoordinator.currentUser?.id
-      });
-      
-      // Emit auth ready event for main.js
+  try {
+    // Initialize auth coordinator (handles providers and OAuth flows)
+    const authResult = await this.authCoordinator.init();
+    
+    // Check for saved user in localStorage for immediate settings initialization
+    const savedUser = this.authStorage ? this.authStorage.getSavedUser() : null;
+    if (savedUser && !authResult.authenticated) {
+      // Emit auth ready event even if not fully authenticated
       document.dispatchEvent(new CustomEvent('dashie-auth-ready', {
         detail: { 
-          authenticated: this.authenticated,
-          user: this.authCoordinator.currentUser 
+          authenticated: false,
+          user: savedUser,
+          fromStorage: true
         }
       }));
-      
-    } catch (error) {
-      logger.error('Failed to initialize authentication system', error);
-      this.isInitialized = true; // Mark as initialized even on error
-      throw error;
     }
-  }
 
-  /**
-   * Initialize services after successful authentication
-   * @returns {Promise<void>}
-   */
-  async initializeServices() {
-    logger.info('Initializing authenticated services');
-    
-    try {
-      // Initialize APIs
-      this.apis = initializeAPIs(this.authCoordinator);
-      
-      // FIXED: Initialize data manager in MANUAL TRIGGER mode
-      this.dataManager = new DataManager(this.apis.google);
-      await this.dataManager.init(true); // true = manual trigger mode
-      
-      // Expose data manager globally for manual triggering
-      window.dataManager = this.dataManager;
-      
-      // Initialize widget messenger
-      this.widgetMessenger = new WidgetMessenger(this.dataManager);
-           
-      logger.success('All services initialized successfully');
-      
-    } catch (error) {
-      logger.error('Failed to initialize services', error);
-      throw error;
+    if (authResult.authenticated) {
+      this.authenticated = true;
+      // REMOVED: await this.initializeServices();
+      // Services will be initialized by main.js AFTER JWT is ready
+      logger.info('✅ Authentication complete - services will be initialized after JWT is ready');
     }
+    
+    // Set up event listeners
+    this.setupEventListeners();
+    
+    this.isInitialized = true;
+    
+    logger.success('Dashie authentication system initialized', {
+      authenticated: this.authenticated,
+      userId: this.authCoordinator.currentUser?.id,
+      servicesInitialized: false // Will be initialized separately
+    });
+    
+    // Emit auth ready event for main.js
+    document.dispatchEvent(new CustomEvent('dashie-auth-ready', {
+      detail: { 
+        authenticated: this.authenticated,
+        user: this.authCoordinator.currentUser 
+      }
+    }));
+    
+  } catch (error) {
+    logger.error('Failed to initialize authentication system', error);
+    this.isInitialized = true; // Mark as initialized even on error
+    throw error;
   }
+}
+
+// CRITICAL FIX for simple-auth.js initializeServices() method
+// CHANGE SUMMARY: Added JWT token wait before DataManager initialization to prevent using stale tokens
+
+/**
+ * Initialize services after successful authentication
+ * @returns {Promise<void>}
+ */
+async initializeServices() {
+  logger.info('Initializing authenticated services');
+  
+  try {
+    // CRITICAL: Wait for JWT to retrieve a valid token BEFORE initializing DataManager
+    // This prevents DataManager from using the stale token from dashie-user
+    if (window.jwtAuth && window.jwtAuth.isServiceReady()) {
+      logger.info('⏳ Waiting for JWT to retrieve valid token before service initialization...');
+      try {
+        const tokenResult = await window.jwtAuth.getValidToken('google', 'personal');
+        if (tokenResult && tokenResult.success && tokenResult.access_token) {
+          logger.success('✅ JWT token ready - safe to initialize services', {
+            tokenEnding: tokenResult.access_token.slice(-10),
+            refreshed: tokenResult.refreshed
+          });
+        } else {
+          logger.warn('⚠️ JWT token retrieval returned unexpected result, proceeding anyway', tokenResult);
+        }
+      } catch (error) {
+        logger.warn('⚠️ JWT token retrieval failed, proceeding with service initialization anyway', error);
+      }
+    } else {
+      logger.warn('⚠️ JWT service not ready, proceeding without JWT token wait');
+    }
+    
+    // Initialize APIs
+    this.apis = initializeAPIs(this.authCoordinator);
+    
+    // FIXED: Initialize data manager in MANUAL TRIGGER mode
+    // Now safe to call - JWT has already retrieved the valid token
+    this.dataManager = new DataManager(this.apis.google);
+    await this.dataManager.init(true); // true = manual trigger mode
+    
+    // Expose data manager globally for manual triggering
+    window.dataManager = this.dataManager;
+    
+    // Initialize widget messenger
+    this.widgetMessenger = new WidgetMessenger(this.dataManager);
+         
+    logger.success('All services initialized successfully');
+    
+  } catch (error) {
+    logger.error('Failed to initialize services', error);
+    throw error;
+  }
+} 
 
   /**
    * Manually trigger data loading (for use after widget registration)
