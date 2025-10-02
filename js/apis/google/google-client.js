@@ -1,5 +1,5 @@
 // js/apis/google/google-client.js
-// CHANGE SUMMARY: Added 401 retry logic with token cache invalidation and force refresh - preserves all existing retry/rate-limiting functionality
+// CHANGE SUMMARY: Replaced silent token fallback with explicit dependency check and fail-fast error handling
 
 import { createLogger } from '../../utils/logger.js';
 import { AUTH_CONFIG, API_CONFIG } from '../../auth/auth-config.js';
@@ -23,53 +23,89 @@ export class GoogleAPIClient {
   }
 
   /**
-   * Get current Google access token from auth manager
-   * ENHANCED: Now tries refresh token system first before falling back to session token
+   * Wait for JWT service to be ready with timeout
+   * @private
+   * @param {number} timeoutMs - Timeout in milliseconds
+   * @returns {Promise<boolean>} True if JWT is ready
+   * @throws {Error} If timeout reached or JWT never becomes ready
+   */
+  async _waitForJWTService(timeoutMs = 10000) {
+    const startTime = Date.now();
+    
+    logger.debug('Waiting for JWT service to be ready...', { timeoutMs });
+    
+    while (Date.now() - startTime < timeoutMs) {
+      if (window.jwtAuth && window.jwtAuth.isServiceReady()) {
+        logger.success('JWT service is ready');
+        return true;
+      }
+      
+      // Check every 100ms
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    throw new Error(`JWT service not ready after ${timeoutMs}ms timeout`);
+  }
+
+  /**
+   * Get current Google access token - FAIL FAST approach
+   * No silent fallbacks - either return valid token or throw clear error
    * @param {boolean} forceRefresh - Force token refresh, bypassing cache
-   * @returns {Promise<string|null>} Access token
+   * @returns {Promise<string>} Access token
+   * @throws {Error} If unable to obtain valid token
    */
   async getAccessToken(forceRefresh = false) {
-    // NEW: Try refresh token system first if available
-    if (window.jwtAuth && window.jwtAuth.isServiceReady()) {
+    // CRITICAL: Wait for JWT service to be ready
+    if (!window.jwtAuth || !window.jwtAuth.isServiceReady()) {
+      logger.warn('JWT service not immediately available, waiting...');
       try {
-        if (forceRefresh) {
-          logger.info('🔄 Force refresh requested - invalidating token cache');
-          // Invalidate cache by clearing it for this account
-          if (window.jwtAuth.invalidateTokenCache) {
-            await window.jwtAuth.invalidateTokenCache('google', 'personal');
-          }
-        }
-        
-        logger.debug('Attempting to get token via JWT refresh token system');
-        const result = await window.jwtAuth.getValidToken('google', 'personal');
-        
-        if (result && result.success && result.access_token) {
-          if (result.refreshed || forceRefresh) {
-            logger.success('✅ Token auto-refreshed via JWT system');
-          } else {
-            logger.debug('Using existing valid token from JWT system');
-          }
-          return result.access_token;
-        }
+        await this._waitForJWTService(10000);
       } catch (error) {
-        logger.warn('⚠️ JWT refresh token system failed, falling back to session token', error);
+        logger.error('JWT service failed to become ready', error);
+        throw new Error('JWT service not available - cannot obtain valid token. System may still be initializing.');
       }
     }
 
-    // FALLBACK: Use existing session token method
-    if (!this.authManager) {
-      logger.warn('No auth manager available for token');
-      return null;
+    // Force refresh if requested
+    if (forceRefresh) {
+      logger.info('🔄 Force refresh requested - invalidating token cache');
+      if (window.jwtAuth.invalidateTokenCache) {
+        await window.jwtAuth.invalidateTokenCache('google', 'personal');
+      }
     }
-
-    const token = this.authManager.getGoogleAccessToken();
-    if (!token) {
-      logger.warn('No Google access token available');
-      return null;
+    
+    // Get token from JWT service
+    logger.debug('Requesting token from JWT refresh token system');
+    
+    let result;
+    try {
+      result = await window.jwtAuth.getValidToken('google', 'personal');
+    } catch (error) {
+      logger.error('JWT token retrieval failed', error);
+      throw new Error(`Failed to retrieve token from JWT service: ${error.message}`);
     }
-
-    logger.debug('Using session token from auth manager');
-    return token;
+    
+    // Validate result
+    if (!result) {
+      throw new Error('JWT service returned null/undefined result');
+    }
+    
+    if (!result.success) {
+      throw new Error(`JWT service reported failure: ${result.error || 'Unknown error'}`);
+    }
+    
+    if (!result.access_token) {
+      throw new Error('JWT service returned success but no access_token provided');
+    }
+    
+    // Success!
+    if (result.refreshed || forceRefresh) {
+      logger.success('✅ Token auto-refreshed via JWT system');
+    } else {
+      logger.debug('Using existing valid token from JWT system');
+    }
+    
+    return result.access_token;
   }
 
   /**
@@ -200,8 +236,13 @@ export class GoogleAPIClient {
     }
 
     // All retries failed
-    timer();
-    logger.error('API request failed after all retries', lastError);
+    const duration = timer();
+    logger.error(`All ${this.config.retryConfig.maxRetries} attempts failed`, {
+      endpoint,
+      totalDuration: duration,
+      finalError: lastError.message
+    });
+
     throw lastError;
   }
 
@@ -277,7 +318,7 @@ export class GoogleAPIClient {
     }
   }
 
-/**
+  /**
    * Get all events from configured calendars
    * @param {Object} options - Options object
    * @param {Object} options.timeRange - Optional time range

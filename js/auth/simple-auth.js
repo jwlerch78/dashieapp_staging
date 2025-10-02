@@ -1,5 +1,5 @@
-// js/auth/simple-auth.js - FIXED: Initialize DataManager in manual trigger mode
-// CHANGE SUMMARY: Modified to use DataManager manual trigger mode to prevent early data loading
+// js/auth/simple-auth.js
+// CHANGE SUMMARY: Replaced silent JWT token fallback with explicit dependency check and fail-fast error handling in initializeServices()
 
 import { createLogger } from '../utils/logger.js';
 import { initializeAPIs } from '../apis/api-index.js';
@@ -108,43 +108,81 @@ async init() {
   }
 }
 
-// CRITICAL FIX for simple-auth.js initializeServices() method
-// CHANGE SUMMARY: Added JWT token wait before DataManager initialization to prevent using stale tokens
+  /**
+   * Wait for JWT service to be ready with timeout
+   * @private
+   * @param {number} timeoutMs - Timeout in milliseconds
+   * @returns {Promise<boolean>} True if JWT is ready
+   * @throws {Error} If timeout reached or JWT never becomes ready
+   */
+  async _waitForJWTService(timeoutMs = 10000) {
+    const startTime = Date.now();
+    
+    logger.debug('Waiting for JWT service to be ready...', { timeoutMs });
+    
+    while (Date.now() - startTime < timeoutMs) {
+      if (window.jwtAuth && window.jwtAuth.isServiceReady()) {
+        logger.success('JWT service is ready');
+        return true;
+      }
+      
+      // Check every 100ms
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    throw new Error(`JWT service not ready after ${timeoutMs}ms timeout`);
+  }
 
 /**
- * Initialize services after successful authentication
+ * Initialize services after successful authentication - FAIL FAST approach
+ * No silent fallbacks - either services initialize with valid token or throw clear error
  * @returns {Promise<void>}
+ * @throws {Error} If JWT token cannot be obtained or services fail to initialize
  */
 async initializeServices() {
   logger.info('Initializing authenticated services');
   
   try {
-    // CRITICAL: Wait for JWT to retrieve a valid token BEFORE initializing DataManager
-    // This prevents DataManager from using the stale token from dashie-user
-    if (window.jwtAuth && window.jwtAuth.isServiceReady()) {
-      logger.info('⏳ Waiting for JWT to retrieve valid token before service initialization...');
-      try {
-        const tokenResult = await window.jwtAuth.getValidToken('google', 'personal');
-        if (tokenResult && tokenResult.success && tokenResult.access_token) {
-          logger.success('✅ JWT token ready - safe to initialize services', {
-            tokenEnding: tokenResult.access_token.slice(-10),
-            refreshed: tokenResult.refreshed
-          });
-        } else {
-          logger.warn('⚠️ JWT token retrieval returned unexpected result, proceeding anyway', tokenResult);
-        }
-      } catch (error) {
-        logger.warn('⚠️ JWT token retrieval failed, proceeding with service initialization anyway', error);
-      }
-    } else {
-      logger.warn('⚠️ JWT service not ready, proceeding without JWT token wait');
+    // CRITICAL: Wait for JWT service to be ready
+    if (!window.jwtAuth || !window.jwtAuth.isServiceReady()) {
+      logger.warn('JWT service not immediately available, waiting...');
+      await this._waitForJWTService(10000);
     }
+
+    // CRITICAL: Get valid token before initializing services
+    logger.info('⏳ Retrieving valid token before service initialization...');
+    
+    let tokenResult;
+    try {
+      tokenResult = await window.jwtAuth.getValidToken('google', 'personal');
+    } catch (error) {
+      logger.error('JWT token retrieval failed', error);
+      throw new Error(`Cannot initialize services: Failed to retrieve valid token - ${error.message}`);
+    }
+    
+    // Validate token result
+    if (!tokenResult) {
+      throw new Error('Cannot initialize services: JWT service returned null/undefined token result');
+    }
+    
+    if (!tokenResult.success) {
+      throw new Error(`Cannot initialize services: JWT service reported failure - ${tokenResult.error || 'Unknown error'}`);
+    }
+    
+    if (!tokenResult.access_token) {
+      throw new Error('Cannot initialize services: JWT service returned success but no access_token provided');
+    }
+    
+    // Token is valid - proceed with initialization
+    logger.success('✅ JWT token ready - safe to initialize services', {
+      tokenEnding: tokenResult.access_token.slice(-10),
+      refreshed: tokenResult.refreshed
+    });
     
     // Initialize APIs
     this.apis = initializeAPIs(this.authCoordinator);
     
-    // FIXED: Initialize data manager in MANUAL TRIGGER mode
-    // Now safe to call - JWT has already retrieved the valid token
+    // Initialize data manager in MANUAL TRIGGER mode
     this.dataManager = new DataManager(this.apis.google);
     await this.dataManager.init(true); // true = manual trigger mode
     

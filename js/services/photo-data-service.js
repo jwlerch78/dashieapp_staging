@@ -1,5 +1,5 @@
 // js/services/photo-data-service.js
-// CHANGE SUMMARY: New parent-level photo service - manages all photo data loading and uploads with JWT/RLS (matches calendar-service pattern)
+// CHANGE SUMMARY: Added periodic refresh timer (50 min) to regenerate signed URLs with fresh JWTs before 1-hour expiry
 
 import { createLogger } from '../utils/logger.js';
 import { PhotoStorageService } from '../supabase/photo-storage-service.js';
@@ -18,6 +18,7 @@ export class PhotoDataService {
     this.currentPhotos = null;
     this.lastRefresh = null;
     this.isInitialized = false;
+    this.refreshInterval = null; // Timer for periodic URL refresh
   }
 
   /**
@@ -76,11 +77,58 @@ export class PhotoDataService {
         folder: folder || 'all' 
       });
 
+      // Start periodic refresh timer to regenerate signed URLs before they expire
+      this._startPeriodicRefresh();
+
       return this.currentPhotos;
 
     } catch (error) {
       logger.error('Failed to load photos', error);
       throw error;
+    }
+  }
+
+  /**
+   * Start periodic refresh timer to regenerate signed URLs with fresh JWTs
+   * Signed URLs expire after 1 hour, so we refresh at 50 minutes
+   * @private
+   */
+  _startPeriodicRefresh() {
+    // Clear any existing timer
+    this._stopPeriodicRefresh();
+
+    // Refresh every 50 minutes (3000 seconds) - before 1-hour JWT expiry
+    const REFRESH_INTERVAL = 50 * 60 * 1000; // 50 minutes in milliseconds
+
+    this.refreshInterval = setInterval(async () => {
+      try {
+        logger.info('🔄 Periodic photo URL refresh (50-minute timer)');
+        
+        // Reload photos with same folder setting to get fresh signed URLs
+        const folder = this.currentPhotos?.folder || null;
+        await this.loadPhotos(folder, false); // Don't shuffle on refresh
+        
+        // Broadcast updated URLs to widgets
+        eventSystem.data.emitLoaded('photos', this.currentPhotos);
+        
+        logger.success('✅ Photo URLs refreshed successfully');
+      } catch (error) {
+        logger.error('❌ Periodic photo refresh failed', error);
+      }
+    }, REFRESH_INTERVAL);
+
+    logger.debug('Photo refresh timer started (50-minute interval)');
+  }
+
+  /**
+   * Stop the periodic refresh timer
+   * @private
+   */
+  _stopPeriodicRefresh() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+      this.refreshInterval = null;
+      logger.debug('Photo refresh timer stopped');
     }
   }
 

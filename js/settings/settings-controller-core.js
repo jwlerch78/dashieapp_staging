@@ -1,5 +1,5 @@
-// js/settings/settings-controller-core.js - Core settings functionality
-// Core initialization, auth, and basic settings management
+// js/settings/settings-controller-core.js
+// CHANGE SUMMARY: Added localStorage staleness validation to prevent using outdated settings with expired tokens
 
 export class SettingsControllerCore {
   constructor() {
@@ -35,8 +35,52 @@ export class SettingsControllerCore {
     this.handleBeforeUnload = this.handleBeforeUnload.bind(this);
   }
 
+  /**
+   * Check if localStorage settings are stale
+   * Settings are considered stale if they're older than 1 hour
+   * @private
+   * @returns {boolean} True if settings are stale or invalid
+   */
+  _isLocalStorageStale() {
+    try {
+      const saved = localStorage.getItem('dashie-settings');
+      if (!saved) {
+        console.log('⚙️ No localStorage settings found');
+        return true;
+      }
+      
+      const settings = JSON.parse(saved);
+      
+      // Check if settings have lastModified timestamp
+      if (!settings.lastModified) {
+        console.warn('⚙️ localStorage settings missing lastModified timestamp - treating as stale');
+        return true;
+      }
+      
+      // Check age (1 hour = 3600000ms)
+      const age = Date.now() - settings.lastModified;
+      const ONE_HOUR = 60 * 60 * 1000;
+      const isStale = age > ONE_HOUR;
+      
+      if (isStale) {
+        console.warn('⚙️ localStorage settings are stale', {
+          ageMinutes: Math.round(age / 60000),
+          lastModified: new Date(settings.lastModified).toISOString()
+        });
+      } else {
+        console.log('⚙️ localStorage settings are fresh', {
+          ageMinutes: Math.round(age / 60000)
+        });
+      }
+      
+      return isStale;
+      
+    } catch (error) {
+      console.error('⚙️ Error checking localStorage staleness:', error);
+      return true; // Treat as stale on error
+    }
+  }
 
-  // ADD THIS NEW METHOD somewhere in the class
   loadSettingsFromLocalStorage() {
     try {
       const saved = localStorage.getItem('dashie-settings');
@@ -52,7 +96,6 @@ export class SettingsControllerCore {
     }
   }
 
-  // ADD THIS NEW METHOD:
   saveToLocalStorage() {
     try {
       localStorage.setItem('dashie-settings', JSON.stringify(this.currentSettings));
@@ -62,41 +105,50 @@ export class SettingsControllerCore {
     }
   }
 
-
-  // Initialize with auth detection and error handling
+  /**
+   * Initialize with auth detection and error handling - FAIL FAST approach
+   * Validates localStorage staleness before using cached settings
+   */
   async init() {
     try {
       console.log('⚙️ Initializing Settings Controller...');
-      this.loadSettingsFromLocalStorage();
-
-
+      
       // Wait for auth to be ready with timeout
       const currentUser = await this.waitForAuth();
       
-    if (!currentUser) {
-      console.warn('⚙️ No authenticated user, using localStorage only');
-      
-      // Load from localStorage first, then fallback to defaults
-      try {
-        const savedSettings = localStorage.getItem('dashie-settings');
-        if (savedSettings) {
-          this.currentSettings = { ...this.getDefaultSettings(), ...JSON.parse(savedSettings) };
-          console.log('⚙️ 📱 Loaded settings from localStorage');
-        } else {
+      if (!currentUser) {
+        console.warn('⚙️ No authenticated user detected');
+        
+        // CRITICAL: Check if localStorage settings are stale before using them
+        const isStale = this._isLocalStorageStale();
+        
+        if (isStale) {
+          console.warn('⚙️ localStorage settings are stale - using defaults until database sync available');
           this.currentSettings = this.getDefaultSettings();
-          console.log('⚙️ Using default settings (no localStorage found)');
+          console.log('⚙️ Using default settings (localStorage stale or unavailable)');
+        } else {
+          // Settings are fresh - safe to use
+          try {
+            const savedSettings = localStorage.getItem('dashie-settings');
+            if (savedSettings) {
+              this.currentSettings = { ...this.getDefaultSettings(), ...JSON.parse(savedSettings) };
+              console.log('⚙️ 📱 Loaded fresh settings from localStorage');
+            } else {
+              this.currentSettings = this.getDefaultSettings();
+              console.log('⚙️ Using default settings (no localStorage found)');
+            }
+          } catch (error) {
+            console.error('⚙️ Failed to load from localStorage:', error);
+            this.currentSettings = this.getDefaultSettings();
+          }
         }
-      } catch (error) {
-        console.error('⚙️ Failed to load from localStorage:', error);
-        this.currentSettings = this.getDefaultSettings();
+        
+        this.isInitialized = true;
+        this.mergeLocalOnlySettings();
+        await this.applyLoadedSettings();
+        
+        return true;
       }
-      
-      this.isInitialized = true;
-      this.mergeLocalOnlySettings();
-      await this.applyLoadedSettings();
-      
-      return true;
-    }
 
       console.log('⚙️ Found authenticated user:', currentUser.email);
 
@@ -105,6 +157,7 @@ export class SettingsControllerCore {
       this.storage = new SimpleSupabaseStorage(currentUser.id, currentUser.email);
       
       // Load settings from database/local storage
+      // Storage class handles its own localStorage validation
       const loadedSettings = await this.storage.loadSettings();
       this.currentSettings = loadedSettings || this.getDefaultSettings(currentUser.email);
       

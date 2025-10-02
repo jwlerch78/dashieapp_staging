@@ -1,5 +1,5 @@
 // js/apis/api-auth/auth-storage.js - Enhanced User Data Persistence with Simple Interface
-// CHANGE SUMMARY: Removed supabaseAuthId from all storage operations - now only in dashie_supabase_jwt
+// CHANGE SUMMARY: Removed dashie-google-token localStorage key - token now stored only in dashie-user.googleAccessToken (single source of truth)
 
 import { createLogger } from '../../utils/logger.js';
 import { events as eventSystem, EVENTS } from '../../utils/event-emitter.js';
@@ -8,11 +8,11 @@ const logger = createLogger('AuthStorage');
 
 /**
  * Enhanced user authentication storage - uses original interface with improved functionality
+ * Token storage consolidated to dashie-user object only (removed duplicate dashie-google-token)
  */
 export class AuthStorage {
   constructor() {
-    this.storageKey = 'dashie-user';  // Original storage key
-    this.tokenKey = 'dashie-google-token';
+    this.storageKey = 'dashie-user';  // Original storage key for user + token
     this.currentUser = null;
     this.googleAccessToken = null;
     
@@ -25,7 +25,7 @@ export class AuthStorage {
    */
   loadStoredData() {
     try {
-      // Load user data
+      // Load user data (includes googleAccessToken)
       const userData = localStorage.getItem(this.storageKey);
       if (userData) {
         const parsedUser = JSON.parse(userData);
@@ -33,25 +33,15 @@ export class AuthStorage {
         // Enhanced validation
         if (this.isValidUser(parsedUser)) {
           this.currentUser = parsedUser;
+          this.googleAccessToken = parsedUser.googleAccessToken || null;
           logger.debug('User data loaded from storage:', this.currentUser?.email);
+          
+          if (this.googleAccessToken) {
+            logger.debug('Google token loaded from user object');
+          }
         } else {
           logger.warn('Stored user data is invalid, clearing');
           this.clearSavedUser();
-        }
-      }
-
-      // Load Google token data
-      const tokenData = localStorage.getItem(this.tokenKey);
-      if (tokenData) {
-        const parsedToken = JSON.parse(tokenData);
-        
-        // Enhanced token validation
-        if (this.isValidToken(parsedToken)) {
-          this.googleAccessToken = parsedToken.access_token;
-          logger.debug('Google token loaded from storage');
-        } else {
-          logger.warn('Stored Google token is invalid, clearing');
-          this.clearGoogleToken();
         }
       }
 
@@ -80,32 +70,8 @@ export class AuthStorage {
   }
 
   /**
-   * Validate token data
-   */
-  isValidToken(tokenData) {
-    if (!tokenData || typeof tokenData !== 'object') return false;
-    
-    // Must have access token
-    if (!tokenData.access_token) return false;
-    
-    // Check expiry if available
-    if (tokenData.expires_at && tokenData.expires_at < Date.now()) {
-      logger.debug('Token has expired');
-      return false;
-    }
-    
-    // Check if token is too old (1 day for safety)
-    if (tokenData.issued_at && (Date.now() - tokenData.issued_at) > 24 * 60 * 60 * 1000) {
-      logger.debug('Token is too old (>1 day)');
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
    * Save user data - original method name
-   * UPDATED: No longer accepts or stores supabaseAuthId
+   * UPDATED: Token stored in user object, no separate storage
    */
   saveUser(userData) {
     try {
@@ -119,13 +85,14 @@ export class AuthStorage {
         name: userData.name,
         picture: userData.picture,
         authMethod: userData.authMethod,
-        googleAccessToken: userData.googleAccessToken,
+        googleAccessToken: userData.googleAccessToken || this.googleAccessToken,
         savedAt: Date.now(),
         lastSeen: Date.now()
       };
 
       localStorage.setItem(this.storageKey, JSON.stringify(enhancedUserData));
       this.currentUser = enhancedUserData;
+      this.googleAccessToken = enhancedUserData.googleAccessToken;
 
       logger.info('User data saved:', userData.email);
       
@@ -139,7 +106,8 @@ export class AuthStorage {
   }
 
   /**
-   * Store Google token with enhanced metadata
+   * Store Google token
+   * UPDATED: Stores in user object, not separate key
    */
   storeGoogleToken(token) {
     try {
@@ -147,19 +115,18 @@ export class AuthStorage {
         throw new Error('No token provided');
       }
 
-      // Enhanced token data (no user_id reference)
-      const tokenData = {
-        access_token: token,
-        issued_at: Date.now(),
-        expires_at: Date.now() + (55 * 60 * 1000) // 55 minutes
-      };
-
-      localStorage.setItem(this.tokenKey, JSON.stringify(tokenData));
       this.googleAccessToken = token;
 
-      logger.info('Google token stored');
+      // Update the user object with new token
+      if (this.currentUser) {
+        this.currentUser.googleAccessToken = token;
+        this.currentUser.lastSeen = Date.now();
+        localStorage.setItem(this.storageKey, JSON.stringify(this.currentUser));
+      }
+
+      logger.info('Google token stored in user object');
       
-      eventSystem.emit(EVENTS.TOKEN_STORED, { tokenData });
+      eventSystem.emit(EVENTS.TOKEN_STORED, { token });
       
       return true;
     } catch (error) {
@@ -196,29 +163,23 @@ export class AuthStorage {
 
   /**
    * Get Google access token
+   * UPDATED: Returns from user object directly
    */
   getGoogleToken() {
-    if (!this.googleAccessToken) return null;
-
-    // Re-validate token from storage
-    try {
-      const tokenData = localStorage.getItem(this.tokenKey);
-      if (tokenData) {
-        const parsedToken = JSON.parse(tokenData);
-        if (this.isValidToken(parsedToken)) {
-          return parsedToken.access_token;
-        } else {
-          logger.warn('Google token validation failed, clearing');
-          this.clearGoogleToken();
-          return null;
-        }
+    // Return token from current user object
+    if (this.currentUser?.googleAccessToken) {
+      // Validate token age (reject if > 1 day old)
+      const tokenAge = Date.now() - (this.currentUser.savedAt || 0);
+      if (tokenAge > 24 * 60 * 60 * 1000) {
+        logger.warn('Google token is too old (>1 day), clearing');
+        this.clearGoogleToken();
+        return null;
       }
-    } catch (error) {
-      logger.error('Token validation error:', error);
-      this.clearGoogleToken();
+      
+      return this.currentUser.googleAccessToken;
     }
 
-    return null;
+    return this.googleAccessToken || null;
   }
 
   /**
@@ -228,6 +189,7 @@ export class AuthStorage {
     try {
       localStorage.removeItem(this.storageKey);
       this.currentUser = null;
+      this.googleAccessToken = null;
       logger.info('User data cleared');
       
       eventSystem.emit(EVENTS.USER_CLEARED);
@@ -238,12 +200,19 @@ export class AuthStorage {
 
   /**
    * Clear Google token
+   * UPDATED: Clears from user object
    */
   clearGoogleToken() {
     try {
-      localStorage.removeItem(this.tokenKey);
       this.googleAccessToken = null;
-      logger.info('Google token cleared');
+      
+      // Remove token from user object but keep user data
+      if (this.currentUser) {
+        this.currentUser.googleAccessToken = null;
+        localStorage.setItem(this.storageKey, JSON.stringify(this.currentUser));
+      }
+      
+      logger.info('Google token cleared from user object');
       
       eventSystem.emit(EVENTS.TOKEN_CLEARED);
     } catch (error) {
@@ -258,7 +227,6 @@ export class AuthStorage {
     logger.info('Clearing all authentication data');
     
     this.clearSavedUser();
-    this.clearGoogleToken();
     
     eventSystem.emit(EVENTS.AUTH_CLEARED);
   }

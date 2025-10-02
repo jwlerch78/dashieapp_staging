@@ -1,5 +1,5 @@
-// js/main.js - App Initialization with Photo Upload Manager Integration
-// CHANGE SUMMARY: Fixed initialization sequence - show overlay immediately, removed auth timeout for device flow, updated progress messages
+// js/main.js
+// CHANGE SUMMARY: Added comprehensive startup orchestration with dependency validation gates to prevent premature data loading
 
 import { initializeEvents } from './core/events.js';
 import { updateFocus, initializeHighlightTimeout } from './core/navigation.js';
@@ -16,7 +16,8 @@ const initState = {
   jwt: 'pending',
   tokens: 'pending',
   settings: 'pending',
-  widgets: 'pending'
+  widgets: 'pending',
+  servicesReady: 'pending' // NEW: Track overall service readiness
 };
 
 // Global photo upload manager instance
@@ -51,7 +52,7 @@ async function waitForAuthentication() {
     if (elapsedSeconds % 60 === 0 && elapsedSeconds > 0) {
       const minutes = Math.floor(elapsedSeconds / 60);
       const timeStr = minutes > 1 ? `${minutes} minutes` : `${minutes} minute`;
-      console.log(`🔐 Still waiting for authentication (${timeStr} elapsed)...`);
+      console.log(`⏳ Still waiting for authentication (${timeStr} elapsed)...`);
     }
     
     await new Promise(resolve => setTimeout(resolve, checkInterval));
@@ -60,44 +61,140 @@ async function waitForAuthentication() {
 }
 
 /**
- * Process any refresh tokens that were queued during OAuth callback
+ * NEW: Comprehensive service readiness validation
+ * Ensures all dependencies are ready before attempting data load
+ * @returns {Promise<boolean>} True if all services ready, false otherwise
+ */
+async function ensureServicesReady() {
+  console.log('🔍 Validating service readiness before data load...');
+  updateLoadingProgress(90, 'Validating services...');
+  
+  const checks = {
+    auth: false,
+    jwt: false,
+    token: false,
+    dataManager: false
+  };
+  
+  try {
+    // Check 1: Auth system ready
+    const authSystem = window.dashieAuth || window.authManager;
+    if (!authSystem || !authSystem.isAuthenticated()) {
+      console.error('❌ Auth system not authenticated');
+      return false;
+    }
+    checks.auth = true;
+    console.log('✅ Auth system ready');
+    
+    // Check 2: JWT service ready (with wait)
+    if (!window.jwtAuth || !window.jwtAuth.isServiceReady()) {
+      console.warn('⚠️ JWT service not immediately ready, waiting up to 10 seconds...');
+      
+      const startTime = Date.now();
+      const timeout = 10000; // 10 seconds
+      
+      while (Date.now() - startTime < timeout) {
+        if (window.jwtAuth?.isServiceReady()) {
+          console.log('✅ JWT service became ready');
+          checks.jwt = true;
+          break;
+        }
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+      
+      if (!checks.jwt) {
+        console.error('❌ JWT service failed to become ready after 10 seconds');
+        initState.servicesReady = 'failed';
+        return false;
+      }
+    } else {
+      checks.jwt = true;
+      console.log('✅ JWT service ready');
+    }
+    
+    // Check 3: Valid token available
+    console.log('🔑 Validating token availability...');
+    try {
+      const tokenResult = await window.jwtAuth.getValidToken('google', 'personal');
+      
+      if (!tokenResult) {
+        throw new Error('JWT service returned null/undefined');
+      }
+      
+      if (!tokenResult.success) {
+        throw new Error(`JWT service reported failure: ${tokenResult.error || 'Unknown error'}`);
+      }
+      
+      if (!tokenResult.access_token) {
+        throw new Error('No access_token in successful response');
+      }
+      
+      checks.token = true;
+      console.log('✅ Valid token confirmed', {
+        tokenEnding: tokenResult.access_token.slice(-10),
+        refreshed: tokenResult.refreshed
+      });
+      
+    } catch (error) {
+      console.error('❌ Token validation failed:', error.message);
+      initState.servicesReady = 'failed';
+      return false;
+    }
+    
+    // Check 4: DataManager initialized
+    if (!window.dataManager) {
+      console.error('❌ DataManager not initialized');
+      initState.servicesReady = 'failed';
+      return false;
+    }
+    checks.dataManager = true;
+    console.log('✅ DataManager ready');
+    
+    // All checks passed
+    console.log('🎯 All service readiness checks passed:', checks);
+    initState.servicesReady = 'ready';
+    return true;
+    
+  } catch (error) {
+    console.error('❌ Service readiness validation failed:', error);
+    initState.servicesReady = 'failed';
+    return false;
+  }
+}
+
+/**
+ * Process queued refresh tokens with proper error handling
  */
 async function processQueuedRefreshTokens() {
   console.log('🔄 Processing queued refresh tokens...');
-  initState.tokens = 'pending';
   
   try {
-    const pendingCount = window.pendingRefreshTokens?.length || 0;
-    
-    if (pendingCount === 0) {
-      console.log('📝 No pending refresh tokens to process');
+    if (!window.pendingRefreshTokens || window.pendingRefreshTokens.length === 0) {
+      console.log('⏭️ No pending refresh tokens to process');
       initState.tokens = 'skipped';
-      return true;
+      return false;
     }
-    
-    console.log(`📝 Found ${pendingCount} pending refresh token(s) to process`);
     
     const results = await processPendingRefreshTokens();
     
-    const successCount = results.filter(r => r.success).length;
-    const failCount = results.length - successCount;
+    const successful = results.filter(r => r.success).length;
+    const failed = results.filter(r => !r.success).length;
     
-    if (successCount > 0) {
-      console.log(`✅ Successfully stored ${successCount} refresh token(s)`);
-      
-      if (failCount > 0) {
-        console.warn(`⚠️ ${failCount} refresh token(s) failed to store`);
-      }
+    if (successful > 0) {
+      console.log(`✅ Processed ${successful} refresh token(s) successfully`);
       initState.tokens = 'ready';
       return true;
-    } else {
-      console.error(`❌ Failed to store any refresh tokens (${failCount} failed)`);
+    } else if (failed > 0) {
+      console.error(`❌ Failed to process ${failed} refresh token(s)`);
       initState.tokens = 'failed';
       return false;
     }
     
+    initState.tokens = 'skipped';
+    return false;
+    
   } catch (error) {
-    console.error('❌ Error processing refresh tokens:', error);
+    console.error('❌ Refresh token processing error:', error);
     initState.tokens = 'failed';
     return false;
   }
@@ -125,22 +222,23 @@ function initializePhotoUploadManager() {
 }
 
 /**
- * Main app initialization
- * FIXED: Show loading overlay immediately, no auth timeout
+ * Main initialization sequence
  */
 async function initializeApp() {
-  console.log('🚀 Initializing Dashie Dashboard...');
+  console.log('🚀 Starting Dashie initialization sequence...');
   
-  // Initialize basic UI and navigation
+  // Initialize events and navigation
   initializeEvents();
   initializeHighlightTimeout();
+  
+  // Render UI immediately (auth handles visibility)
   renderGrid();
   renderSidebar();
-  updateFocus(1, 1);
+  updateFocus(0, 0);
   
-  console.log('✅ Dashie Dashboard UI initialized successfully!');
+  console.log('✅ UI rendered, waiting for authentication...');
   
-  // FIXED: Wait for authentication without timeout (device flow needs time)
+  // Wait for authentication without timeout (device flow needs time)
   // Device flow shows its own UI, so no loading overlay yet
   const authSuccessful = await waitForAuthentication();
   
@@ -150,7 +248,7 @@ async function initializeApp() {
     return;
   }
   
-  // FIXED: Show loading overlay AFTER authentication completes
+  // Show loading overlay AFTER authentication completes
   showLoadingOverlay();
   updateLoadingProgress(10, 'Authentication complete');
   
@@ -169,12 +267,23 @@ async function initializeApp() {
       // Initialize SimpleAuth services now that JWT is ready
       if (window.dashieAuth && window.dashieAuth.authenticated) {
         console.log('🔧 Initializing services now that JWT is ready...');
+        updateLoadingProgress(45, 'Initializing services...');
+        
         try {
           await window.dashieAuth.initializeServices();
           console.log('✅ Services initialized with valid JWT token');
+          updateLoadingProgress(50, 'Services ready');
         } catch (error) {
           console.error('❌ Failed to initialize services:', error);
-          // Continue anyway - some functionality may be degraded
+          updateLoadingProgress(50, 'Service initialization failed');
+          // Don't continue - services must be initialized
+          initState.servicesReady = 'failed';
+          
+          // Show error to user
+          updateLoadingProgress(100, 'Initialization failed - please refresh');
+          await new Promise(resolve => setTimeout(resolve, 3000));
+          hideLoadingOverlay();
+          return;
         }
       }
     } else {
@@ -189,28 +298,28 @@ async function initializeApp() {
   }
   
   // Process refresh tokens if JWT is ready
-  updateLoadingProgress(42, 'Finalizing token queue...');
+  updateLoadingProgress(52, 'Processing tokens...');
   
   if (initState.jwt === 'ready') {
-    updateLoadingProgress(45, 'Processing refresh tokens...');
+    updateLoadingProgress(55, 'Processing refresh tokens...');
     const tokensProcessed = await processQueuedRefreshTokens();
     
     if (tokensProcessed && initState.tokens === 'ready') {
-      updateLoadingProgress(55, 'Refresh tokens stored successfully');
+      updateLoadingProgress(60, 'Refresh tokens stored successfully');
     } else if (initState.tokens === 'skipped') {
-      updateLoadingProgress(55, 'No refresh tokens to process');
+      updateLoadingProgress(60, 'No refresh tokens to process');
     } else {
-      updateLoadingProgress(55, 'Refresh token processing failed');
+      updateLoadingProgress(60, 'Refresh token processing failed');
     }
   } else {
     console.log('⏭️ Skipping refresh token processing (JWT not ready)');
     initState.tokens = 'skipped';
-    updateLoadingProgress(55, 'Skipping token processing');
+    updateLoadingProgress(60, 'Skipping token processing');
   }
   
   // Initialize settings system
   console.log(`⚙️ Initializing settings system with JWT status: ${initState.jwt}`);
-  updateLoadingProgress(60, 'Loading your settings...');
+  updateLoadingProgress(65, 'Loading your settings...');
   
   try {
     await autoInitialize(initState.jwt);
@@ -228,16 +337,40 @@ async function initializeApp() {
   updateLoadingProgress(80, 'Applying your theme...');
   
   // Wait for widgets to register before triggering data
-  console.log('🎨 Waiting for widgets to register before triggering data...');
+  console.log('🎨 Waiting for widgets to register...');
   updateLoadingProgress(85, 'Preparing widgets...');
   
   await new Promise(resolve => setTimeout(resolve, 2000));
   
-  // Now trigger data loading
-  updateLoadingProgress(95, 'Loading your data...');
-  console.log('📊 Triggering data loading after widget registration...');
-  await window.dashieAuth.triggerDataLoading();
-  console.log('📊 Data loading triggered successfully');
+  // NEW: Validate all services are ready before data loading
+  updateLoadingProgress(90, 'Validating services...');
+  console.log('🔍 Ensuring all services ready before data load...');
+  
+  const servicesReady = await ensureServicesReady();
+  
+  if (!servicesReady) {
+    console.error('❌ Service readiness validation failed - cannot proceed with data loading');
+    updateLoadingProgress(100, 'Initialization incomplete - some features may not work');
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    hideLoadingOverlay();
+    
+    // Still mark as authenticated so UI is visible, but with degraded functionality
+    document.body.classList.add('authenticated');
+    console.log('⚠️ App started in degraded mode');
+    return;
+  }
+  
+  // Services are ready - proceed with data loading
+  updateLoadingProgress(92, 'Loading your data...');
+  console.log('📊 All services validated - triggering data loading...');
+  
+  try {
+    await window.dashieAuth.triggerDataLoading();
+    console.log('✅ Data loading completed successfully');
+  } catch (error) {
+    console.error('❌ Data loading failed:', error);
+    // Continue anyway - user can manually refresh
+  }
   
   // Initialize Photo Upload Manager AFTER data manager is ready
   initializePhotoUploadManager();
@@ -259,6 +392,7 @@ async function initializeApp() {
     jwt: initState.jwt,
     tokens: initState.tokens,
     settings: initState.settings,
+    servicesReady: initState.servicesReady,
     widgets: initState.widgets
   });
   
