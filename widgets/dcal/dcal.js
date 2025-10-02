@@ -251,25 +251,19 @@ export class DCalWidget {
     }
 
     // Deduplicate events
-    const deduplicatedEvents = this.events.deduplicateEvents(data.events || []);
-    
-    logger.info('Event deduplication complete', {
-      originalCount: data.events?.length || 0,
-      deduplicatedCount: deduplicatedEvents.length,
-      duplicatesRemoved: (data.events?.length || 0) - deduplicatedEvents.length
-    });
+    const events = data.events || [];
+
 
     // Store deduplicated calendar data
     this.calendarData = {
-      events: deduplicatedEvents,
+      events: events,
       calendars: data.calendars || [],
       lastUpdated: data.lastUpdated
     };
     
     this.isDataLoaded = true;
     this.updateConnectionStatus('connected');
-    this.config.updateCalendars(this.calendarData.calendars);
-    this.events.updateCalendars(this.calendarData.calendars);
+    this.updateCalendarConfigurations();
     
     // Update last updated timestamp
     this.lastUpdatedTimestamp = Date.now();
@@ -282,11 +276,31 @@ export class DCalWidget {
     this.showCalendar();
     this.updateCalendarHeader();
     
-    logger.info('Calendar data loaded', {
-      events: deduplicatedEvents.length,
-      calendars: this.calendarData.calendars.length
-    });
   }
+
+    updateCalendarConfigurations() {
+    // Merge Google's actual colors if provided by the centralized service
+    const updatedCalendars = this.GOOGLE_CALENDARS.map((cal) => {
+        const remoteCal = this.calendarData.calendars.find(rc => rc.id === cal.id || rc.summary === cal.summary);
+        return {
+        id: cal.id,
+        name: cal.summary,
+        backgroundColor: remoteCal?.backgroundColor || cal.color,
+        borderColor: remoteCal?.backgroundColor || cal.color,
+        color: remoteCal?.foregroundColor || cal.textColor
+        };
+    });
+
+    // Update configurations in helper modules
+    this.config.updateCalendars(updatedCalendars);
+    this.events.updateCalendars(updatedCalendars);
+    this.weekly.updateCalendars(updatedCalendars);
+    
+    logger.debug('Calendar configurations updated with Google colors', {
+        calendars: updatedCalendars
+    });
+    }
+
 
   updateConnectionStatus(status) {
     this.connectionStatus = status;

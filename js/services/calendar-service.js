@@ -235,8 +235,10 @@ async refreshCalendarData(options = {}) {
     logger.info('Processing raw events through transformEvents', {
       rawEventsCount: rawEvents.length
     });
+
     
     const transformedEvents = this.transformEvents(rawEvents);
+
     
     logger.info('Events transformed and normalized', {
       originalCount: rawEvents.length,
@@ -293,16 +295,53 @@ async refreshCalendarData(options = {}) {
    * @returns {Array} Transformed events
    */
   transformEvents(events) {
-    // Clean the events first, then add display transformations
+    // Clean the events first
     const cleanedEvents = this.cleanEventData(events);
     
-    return cleanedEvents.map(event => ({
+    // ADDED: Deduplicate based on content, not event IDs
+    const deduplicated = this.deduplicateEvents(cleanedEvents);
+    
+    return deduplicated.map(event => ({
       ...event,
-      // Add any calendar-specific fields or transformations
       displayTitle: event.summary || '(No title)',
       isAllDay: !!event.start.date,
       startTime: new Date(event.start.dateTime || event.start.date),
       endTime: new Date(event.end.dateTime || event.end.date)
     }));
   }
+
+/**
+ * Deduplicate events based on content (title, start, end, calendar)
+ * Catches duplicate events with different Google IDs
+ * @param {Array} events - Events to deduplicate
+ * @returns {Array} Deduplicated events
+ */
+deduplicateEvents(events) {
+  const eventMap = new Map();
+
+  for (const event of events) {
+    const title = (event.summary || '').trim().toLowerCase();
+    const startTime = event.start?.dateTime || event.start?.date || '';
+    const endTime = event.end?.dateTime || event.end?.date || '';
+    const calendarId = event.calendarId || '';
+    
+    const identifier = `${calendarId}::${title}::${startTime}::${endTime}`;
+    
+    if (!eventMap.has(identifier)) {
+      eventMap.set(identifier, event);
+    }
+  }
+
+  const deduplicated = Array.from(eventMap.values());
+
+  logger.info('Event deduplication in CalendarService', {
+    originalCount: events.length,
+    deduplicatedCount: deduplicated.length,
+    duplicatesRemoved: events.length - deduplicated.length
+  });
+
+  return deduplicated;
+}
+
+
 }

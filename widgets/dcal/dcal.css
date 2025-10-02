@@ -1,5 +1,5 @@
 /* widgets/dcal/dcal.css - Dashie Calendar Widget Styles */
-/* CHANGE SUMMARY: Fixed all-day label position, removed day header borders, tightened all-day spacing, fixed time label alignment */
+/* CHANGE SUMMARY: Fixed all-day label alignment with events container, reduced font sizes by ~20%, reduced vertical spacing by ~30% in event grid */
 
 html, body {
   height: 100%;
@@ -112,7 +112,7 @@ html, body {
 .allday-header {
   display: grid;
   grid-template-columns: 60px repeat(7, 1fr);
-  grid-template-rows: auto auto;
+  grid-template-rows: auto;
   border-bottom: 1px solid rgba(153, 153, 153, 0.3);
   flex-shrink: 0;
 }
@@ -140,7 +140,7 @@ html, body {
   grid-row: 1;
 }
 
-/* Second row: "All day" label + blank space for events */
+/* "All day" label (now inside events container, first grid column) */
 .allday-label {
   background: transparent;
   display: flex;
@@ -152,8 +152,6 @@ html, body {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   grid-column: 1;
-  grid-row: 2;
-  height: 24px;
 }
 
 .day-number {
@@ -193,7 +191,7 @@ html, body {
   flex: 1;
   display: grid;
   grid-template-columns: 60px 1fr;
-  min-height: 28px;
+  min-height: 20px;
   position: relative;
 }
 
@@ -205,18 +203,28 @@ html, body {
 .allday-events-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  grid-auto-rows: 18px;
+  grid-auto-rows: 14px;
   gap: 1px 0;
   padding: 2px 0;
   position: relative;
+  grid-column: 2;
+  /* Account for scrollbar by making gridlines slightly shorter */
+  margin-right: 8px;
+  background: repeating-linear-gradient(
+    to right,
+    transparent,
+    transparent calc((100% / 7) - 1px),
+    rgba(153, 153, 153, 0.2) calc((100% / 7) - 1px),
+    rgba(153, 153, 153, 0.2) calc(100% / 7)
+  );
 }
 
 .allday-event {
   background: var(--accent-blue, #007bff);
   color: white;
-  padding: 1px 8px;
+  padding: 1px 6px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 9px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -257,9 +265,9 @@ html, body {
 }
 
 .time-slot {
-  height: 60px;
+  height: 30px;
   padding: 0 8px;
-  font-size: 11px;
+  font-size: 9px;
   color: var(--text-secondary, #ccc);
   text-align: right;
   box-sizing: border-box;
@@ -288,7 +296,7 @@ html, body {
 }
 
 .hour-line {
-  height: 60px;
+  height: 30px;
   border-bottom: 1px solid rgba(153, 153, 153, 0.2);
   box-sizing: border-box;
 }
@@ -302,7 +310,7 @@ html, body {
   color: white;
   padding: 2px 4px;
   border-radius: 4px;
-  font-size: 11px;
+  font-size: 9px;
   overflow: hidden;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -386,11 +394,11 @@ html, body {
   }
   
   .event {
-    font-size: 11px;
-    padding: 1px 4px;
+    font-size: 8px;
+    padding: 1px 3px;
   }
   
   .time-slot {
-    font-size: 10px;
+    font-size: 8px;
   }
-}
+}   
