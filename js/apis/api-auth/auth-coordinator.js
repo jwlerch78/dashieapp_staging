@@ -1,5 +1,5 @@
 // js/apis/api-auth/auth-coordinator.js - Central Authentication Orchestrator
-// CHANGE SUMMARY: Fixed OAuth redirect handling - WebOAuth signIn() redirects instead of returning result, added proper error handling for undefined result
+// CHANGE SUMMARY: Removed supabaseAuthId from all operations - now only accessed via window.jwtAuth.getSupabaseUserId()
 
 import { createLogger } from '../../utils/logger.js';
 import { getPlatformDetector } from '../../utils/platform-detector.js';
@@ -102,7 +102,7 @@ export class AuthCoordinator {
       
       if (this.isAuthenticated) {
         logger.success('Found existing authentication', {
-          userId: this.currentUser?.id,
+          userEmail: this.currentUser?.email,
           authMethod: this.currentUser?.authMethod
         });
         
@@ -169,7 +169,7 @@ export class AuthCoordinator {
     const savedUser = this.storage.getSavedUser();
     if (savedUser) {
       logger.info('Found saved user data', {
-        userId: savedUser.id,
+        userEmail: savedUser.email,
         authMethod: savedUser.authMethod,
         hasGoogleToken: !!savedUser.googleAccessToken
       });
@@ -183,7 +183,6 @@ export class AuthCoordinator {
       const nativeUser = this.providers.native_android.getCurrentUser();
       if (nativeUser) {
         logger.info('Found existing native user', {
-          userId: nativeUser.id,
           userEmail: nativeUser.email
         });
         
@@ -215,9 +214,10 @@ export class AuthCoordinator {
         // Check if initialization completed authentication (e.g., OAuth callback)
         if (result && result.success && result.user) {
           logger.success(`Provider ${providerName} completed authentication during init`);
+          
           this.setAuthenticatedUser(result.user, provider);
           
-          // IMPORTANT: Save the user data when auth completes during init
+          // Save the user data when auth completes during init
           this.storage.saveUser(this.currentUser);
         }
       }
@@ -258,146 +258,142 @@ export class AuthCoordinator {
     return null;
   }
 
-// CHANGE SUMMARY: Updated signIn method to handle both Promise-based and callback-based auth providers
-
-/**
- * Start authentication flow
- * @param {string} [providerName] - Specific provider to use, or auto-select
- * @returns {Promise<Object>} Auth result
- */
-async signIn(providerName = null) {
-  const selectedProvider = providerName || this.getRecommendedProvider();
-  
-  if (!selectedProvider) {
-    throw new Error('No authentication provider available');
-  }
-
-  const provider = this.providers[selectedProvider];
-  if (!provider) {
-    throw new Error(`Provider ${selectedProvider} not available`);
-  }
-
-  logger.auth('coordinator', 'sign_in_start', 'pending', {
-    provider: selectedProvider,
-    platform: this.platform.platform
-  });
-
-  try {
-    this.ui.hideSignInPrompt();
+  /**
+   * Start authentication flow
+   * @param {string} [providerName] - Specific provider to use, or auto-select
+   * @returns {Promise<Object>} Auth result
+   */
+  async signIn(providerName = null) {
+    const selectedProvider = providerName || this.getRecommendedProvider();
     
-    // Handle native Android provider (callback-based, like old code)
-    if (selectedProvider === 'native_android') {
-      logger.debug('Using callback-based native Android auth');
-      
-      return new Promise((resolve, reject) => {
-        // Set up one-time callback handler
-        const originalHandler = window.handleNativeAuth;
-        
-        const authTimeout = setTimeout(() => {
-          // Restore original handler on timeout
-          window.handleNativeAuth = originalHandler;
-          reject(new Error('Native authentication timeout'));
-        }, 30000); // 30 second timeout
-        
-        window.handleNativeAuth = (result) => {
-          // Clear timeout and restore handler
-          clearTimeout(authTimeout);
-          window.handleNativeAuth = originalHandler;
-          
-          if (result.success && result.user) {
-            this.setAuthenticatedUser(result.user, provider);
-            this.storage.saveUser(this.currentUser);
-            events.auth.emitSuccess(this.currentUser);
-            
-            logger.auth('coordinator', 'sign_in_complete', 'success', {
-              provider: selectedProvider,
-              userId: result.user.id,
-              userEmail: result.user.email
-            });
-
-            resolve({ success: true, user: this.currentUser });
-          } else {
-            const error = result.error || 'Native authentication failed';
-            
-            logger.auth('coordinator', 'sign_in_complete', 'error', {
-              provider: selectedProvider,
-              error: error
-            });
-            
-            if (error !== 'Sign-in was cancelled') {
-              reject(new Error(error));
-            } else {
-              reject(new Error('CANCELLED'));
-            }
-          }
-        };
-        
-        // Trigger the native sign-in (no Promise returned)
-        try {
-          provider.signIn(); // Simple synchronous call like old code
-        } catch (error) {
-          // Restore handler on error
-          clearTimeout(authTimeout);
-          window.handleNativeAuth = originalHandler;
-          reject(new Error(`Native sign-in trigger failed: ${error.message}`));
-        }
-      });
+    if (!selectedProvider) {
+      throw new Error('No authentication provider available');
     }
-    
-    // Handle Promise-based providers (web_oauth, device_flow)
-    const result = await provider.signIn();
-    
-    // Handle WebOAuth redirect case
-    if (selectedProvider === 'web_oauth' && result === undefined) {
-      logger.debug('WebOAuth redirect initiated, authentication will complete on callback');
-      return { success: true, redirected: true, message: 'Redirecting to Google OAuth...' };
-    }
-    
-    // Handle normal Promise-based auth results
-    if (result && result.success && result.user) {
-      this.setAuthenticatedUser(result.user, provider);
-      this.storage.saveUser(this.currentUser);
-      
-      events.auth.emitSuccess(this.currentUser);
-      
-      logger.auth('coordinator', 'sign_in_complete', 'success', {
-        provider: selectedProvider,
-        userId: result.user.id,
-        userEmail: result.user.email
-      });
 
-      return { success: true, user: this.currentUser };
-    } else if (result && result.error) {
-      throw new Error(result.error);
-    } else {
-      logger.warn('Unexpected auth result format', { result, provider: selectedProvider });
-      throw new Error('Authentication failed - unexpected result format');
+    const provider = this.providers[selectedProvider];
+    if (!provider) {
+      throw new Error(`Provider ${selectedProvider} not available`);
     }
-    
-  } catch (error) {
-    logger.auth('coordinator', 'sign_in_complete', 'error', {
+
+    logger.auth('coordinator', 'sign_in_start', 'pending', {
       provider: selectedProvider,
-      error: error.message
+      platform: this.platform.platform
     });
 
-    // Handle cancellation gracefully
-    if (error.message === 'CANCELLED') {
-      this.showAuthUI(); // Show UI again
-      return { success: false, cancelled: true };
-    }
+    try {
+      this.ui.hideSignInPrompt();
+      
+      // Handle native Android provider (callback-based, like old code)
+      if (selectedProvider === 'native_android') {
+        logger.debug('Using callback-based native Android auth');
+        
+        return new Promise((resolve, reject) => {
+          // Set up one-time callback handler
+          const originalHandler = window.handleNativeAuth;
+          
+          const authTimeout = setTimeout(() => {
+            // Restore original handler on timeout
+            window.handleNativeAuth = originalHandler;
+            reject(new Error('Native authentication timeout'));
+          }, 30000); // 30 second timeout
+          
+          window.handleNativeAuth = (result) => {
+            // Clear timeout and restore handler
+            clearTimeout(authTimeout);
+            window.handleNativeAuth = originalHandler;
+            
+            if (result.success && result.user) {
+              this.setAuthenticatedUser(result.user, provider);
+              this.storage.saveUser(this.currentUser);
+              events.auth.emitSuccess(this.currentUser);
+              
+              logger.auth('coordinator', 'sign_in_complete', 'success', {
+                provider: selectedProvider,
+                userEmail: result.user.email
+              });
 
-    // Handle Fire TV fallback
-    if (this.platform.platform === 'fire_tv' && selectedProvider === 'native_android') {
-      logger.info('Native auth failed on Fire TV, trying device flow');
-      return await this.signIn('device_flow');
-    }
+              resolve({ success: true, user: this.currentUser });
+            } else {
+              const error = result.error || 'Native authentication failed';
+              
+              logger.auth('coordinator', 'sign_in_complete', 'error', {
+                provider: selectedProvider,
+                error: error
+              });
+              
+              if (error !== 'Sign-in was cancelled') {
+                reject(new Error(error));
+              } else {
+                reject(new Error('CANCELLED'));
+              }
+            }
+          };
+          
+          // Trigger the native sign-in (no Promise returned)
+          try {
+            provider.signIn(); // Simple synchronous call like old code
+          } catch (error) {
+            // Restore handler on error
+            clearTimeout(authTimeout);
+            window.handleNativeAuth = originalHandler;
+            reject(new Error(`Native sign-in trigger failed: ${error.message}`));
+          }
+        });
+      }
+      
+      // Handle Promise-based providers (web_oauth, device_flow)
+      const result = await provider.signIn();
+      
+      // Handle WebOAuth redirect case
+      if (selectedProvider === 'web_oauth' && result === undefined) {
+        logger.debug('WebOAuth redirect initiated, authentication will complete on callback');
+        return { success: true, redirected: true, message: 'Redirecting to Google OAuth...' };
+      }
+      
+      // Handle normal Promise-based auth results
+      if (result && result.success && result.user) {
+        this.setAuthenticatedUser(result.user, provider);
+        this.storage.saveUser(this.currentUser);
+        
+        events.auth.emitSuccess(this.currentUser);
+        
+        logger.auth('coordinator', 'sign_in_complete', 'success', {
+          provider: selectedProvider,
+          userEmail: result.user.email
+        });
 
-    events.auth.emitFailure(error);
-    this.ui.showAuthError(error.message);
-    
-    throw error;
+        return { success: true, user: this.currentUser };
+      } else if (result && result.error) {
+        throw new Error(result.error);
+      } else {
+        logger.warn('Unexpected auth result format', { result, provider: selectedProvider });
+        throw new Error('Authentication failed - unexpected result format');
+      }
+      
+    } catch (error) {
+      logger.auth('coordinator', 'sign_in_complete', 'error', {
+        provider: selectedProvider,
+        error: error.message
+      });
+
+      // Handle cancellation gracefully
+      if (error.message === 'CANCELLED') {
+        this.showAuthUI(); // Show UI again
+        return { success: false, cancelled: true };
+      }
+
+      // Handle Fire TV fallback
+      if (this.platform.platform === 'fire_tv' && selectedProvider === 'native_android') {
+        logger.info('Native auth failed on Fire TV, trying device flow');
+        return await this.signIn('device_flow');
+      }
+
+      events.auth.emitFailure(error);
+      this.ui.showAuthError(error.message);
+      
+      throw error;
+    }
   }
-}
 
   /**
    * Sign out current user
@@ -405,7 +401,7 @@ async signIn(providerName = null) {
    */
   async signOut() {
     logger.auth('coordinator', 'sign_out', 'pending', {
-      userId: this.currentUser?.id,
+      userEmail: this.currentUser?.email,
       provider: this.currentProvider?.getProviderInfo?.()?.name
     });
 
@@ -445,12 +441,18 @@ async signIn(providerName = null) {
 
   /**
    * Set authenticated user and update state
+   * UPDATED: No longer accepts or stores supabaseAuthId
    * @param {Object} userData - User data object
    * @param {Object} provider - Auth provider instance
    */
   setAuthenticatedUser(userData, provider) {
+    // Build user object with explicit fields
     this.currentUser = {
-      ...userData,
+      email: userData.email,
+      name: userData.name,
+      picture: userData.picture,
+      authMethod: userData.authMethod,
+      googleAccessToken: userData.googleAccessToken,
       signedInAt: Date.now()
     };
     
@@ -462,7 +464,6 @@ async signIn(providerName = null) {
     }
     
     logger.success('User authentication state updated', {
-      userId: userData.id,
       userEmail: userData.email,
       authMethod: userData.authMethod,
       hasGoogleToken: !!userData.googleAccessToken
@@ -501,7 +502,6 @@ async signIn(providerName = null) {
     logger.info('Creating WebView mock user');
     
     const mockUser = {
-      id: 'webview-user-' + Date.now(),
       name: 'Dashie User',
       email: 'user@dashie.app',
       picture: 'icons/icon-profile-round.svg',
@@ -565,6 +565,8 @@ async signIn(providerName = null) {
         // Update current user with new token
         if (this.currentUser && newTokens.access_token) {
           this.currentUser.googleAccessToken = newTokens.access_token;
+          
+          // Save updated user data
           this.storage.saveUser(this.currentUser);
         }
         
@@ -599,7 +601,6 @@ async signIn(providerName = null) {
     return {
       isAuthenticated: this.isAuthenticated,
       currentUser: this.currentUser ? {
-        id: this.currentUser.id,
         email: this.currentUser.email,
         authMethod: this.currentUser.authMethod
       } : null,

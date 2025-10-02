@@ -180,7 +180,6 @@ export class WebOAuthProvider {
         };
         
         logger.auth('web', 'callback_complete', 'success', {
-          userId: userInfo.id,
           userEmail: userInfo.email,
           hasRefreshToken: !!tokens.refresh_token,
           refreshTokenQueued: !!tokens.refresh_token
@@ -339,12 +338,6 @@ export class WebOAuthProvider {
       }
 
       const userInfo = await response.json();
-      
-      logger.success('User info fetched successfully', {
-        userId: userInfo.id,
-        userEmail: userInfo.email,
-        duration
-      });
 
       return userInfo;
       

@@ -1,5 +1,5 @@
 // js/apis/api-auth/auth-storage.js - Enhanced User Data Persistence with Simple Interface
-// CHANGE SUMMARY: Simplified to use original method names and storage keys, enhanced validation and token management, removed unnecessary complexity
+// CHANGE SUMMARY: Removed supabaseAuthId from all storage operations - now only in dashie_supabase_jwt
 
 import { createLogger } from '../../utils/logger.js';
 import { events as eventSystem, EVENTS } from '../../utils/event-emitter.js';
@@ -67,8 +67,8 @@ export class AuthStorage {
   isValidUser(userData) {
     if (!userData || typeof userData !== 'object') return false;
     
-    // Must have required fields
-    if (!userData.id || !userData.email || !userData.name) return false;
+    // Must have required fields - email is primary identifier
+    if (!userData.email || !userData.name) return false;
     
     // Check if data is too old (7 days)
     if (userData.savedAt && (Date.now() - userData.savedAt) > 7 * 24 * 60 * 60 * 1000) {
@@ -105,16 +105,21 @@ export class AuthStorage {
 
   /**
    * Save user data - original method name
+   * UPDATED: No longer accepts or stores supabaseAuthId
    */
   saveUser(userData) {
     try {
-      if (!userData || !userData.id) {
-        throw new Error('Invalid user data');
+      if (!userData || !userData.email) {
+        throw new Error('Invalid user data - email required');
       }
 
       // Enhanced user data with timestamp
       const enhancedUserData = {
-        ...userData,
+        email: userData.email,
+        name: userData.name,
+        picture: userData.picture,
+        authMethod: userData.authMethod,
+        googleAccessToken: userData.googleAccessToken,
         savedAt: Date.now(),
         lastSeen: Date.now()
       };
@@ -142,12 +147,11 @@ export class AuthStorage {
         throw new Error('No token provided');
       }
 
-      // Enhanced token data
+      // Enhanced token data (no user_id reference)
       const tokenData = {
         access_token: token,
         issued_at: Date.now(),
-        expires_at: Date.now() + (55 * 60 * 1000), // 55 minutes
-        user_id: this.currentUser?.id
+        expires_at: Date.now() + (55 * 60 * 1000) // 55 minutes
       };
 
       localStorage.setItem(this.tokenKey, JSON.stringify(tokenData));
@@ -266,7 +270,7 @@ export class AuthStorage {
     const user = this.getSavedUser();
     const token = this.getGoogleToken();
     
-    const isAuth = !!(user && user.id && token);
+    const isAuth = !!(user && user.email && token);
     
     if (isAuth) {
       logger.debug('User authentication validated');

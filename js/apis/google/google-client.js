@@ -1,5 +1,5 @@
 // js/apis/google/google-client.js
-// CHANGE SUMMARY: Added refresh token support via window.jwtAuth with automatic fallback to session tokens
+// CHANGE SUMMARY: Added 401 retry logic with token cache invalidation and force refresh - preserves all existing retry/rate-limiting functionality
 
 import { createLogger } from '../../utils/logger.js';
 import { AUTH_CONFIG, API_CONFIG } from '../../auth/auth-config.js';
@@ -25,17 +25,26 @@ export class GoogleAPIClient {
   /**
    * Get current Google access token from auth manager
    * ENHANCED: Now tries refresh token system first before falling back to session token
+   * @param {boolean} forceRefresh - Force token refresh, bypassing cache
    * @returns {Promise<string|null>} Access token
    */
-  async getAccessToken() {
+  async getAccessToken(forceRefresh = false) {
     // NEW: Try refresh token system first if available
     if (window.jwtAuth && window.jwtAuth.isServiceReady()) {
       try {
+        if (forceRefresh) {
+          logger.info('🔄 Force refresh requested - invalidating token cache');
+          // Invalidate cache by clearing it for this account
+          if (window.jwtAuth.invalidateTokenCache) {
+            await window.jwtAuth.invalidateTokenCache('google', 'personal');
+          }
+        }
+        
         logger.debug('Attempting to get token via JWT refresh token system');
         const result = await window.jwtAuth.getValidToken('google', 'personal');
         
         if (result && result.success && result.access_token) {
-          if (result.refreshed) {
+          if (result.refreshed || forceRefresh) {
             logger.success('✅ Token auto-refreshed via JWT system');
           } else {
             logger.debug('Using existing valid token from JWT system');
@@ -65,12 +74,14 @@ export class GoogleAPIClient {
 
   /**
    * Make authenticated API request with retry logic and rate limiting
+   * ENHANCED: Now detects 401 errors and triggers token refresh before general retry logic
    * @param {string} endpoint - API endpoint (relative to baseUrl)
    * @param {Object} options - Request options
+   * @param {boolean} isRetryAfter401 - Internal flag to prevent infinite 401 retry loops
    * @returns {Promise<Object>} API response data
    */
-  async makeRequest(endpoint, options = {}) {
-    const accessToken = await this.getAccessToken(); // NOW async!
+  async makeRequest(endpoint, options = {}, isRetryAfter401 = false) {
+    const accessToken = await this.getAccessToken();
     if (!accessToken) {
       throw new Error('No access token available for API request');
     }
@@ -123,6 +134,29 @@ export class GoogleAPIClient {
         }
 
         const response = await fetch(url, fetchOptions);
+
+        // NEW: Handle 401 Unauthorized specifically - token expired or revoked
+        if (response.status === 401 && !isRetryAfter401) {
+          logger.warn('⚠️ Received 401 Unauthorized - token expired or revoked');
+          timer(); // Stop the timer
+          
+          try {
+            logger.info('🔄 Attempting token refresh and retry');
+            // Force a token refresh, bypassing cache
+            const newToken = await this.getAccessToken(true);
+            
+            if (newToken) {
+              logger.info('✅ Token refreshed, retrying request');
+              // Retry the request once with the new token
+              return await this.makeRequest(endpoint, options, true);
+            } else {
+              throw new Error('Failed to obtain refreshed token after 401 error');
+            }
+          } catch (refreshError) {
+            logger.error('❌ Token refresh failed after 401', refreshError);
+            throw new Error(`Authentication failed: ${refreshError.message}`);
+          }
+        }
 
         if (!response.ok) {
           const errorText = await response.text();
