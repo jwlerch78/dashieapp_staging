@@ -68,7 +68,9 @@ export class PhotoStorageService {
           }
         },
         auth: {
-          persistSession: false  // <-- ADD THIS LINE
+          persistSession: false,
+          autoRefreshToken: false,  // ADD THIS
+          detectSessionInUrl: false  // ADD THIS
         }
       }
     );

@@ -277,18 +277,22 @@ export class GoogleAPIClient {
     }
   }
 
-  /**
+/**
    * Get all events from configured calendars
-   * @param {Object} timeRange - Optional time range
-   * @param {Array} calendars - Optional pre-fetched calendar list
+   * @param {Object} options - Options object
+   * @param {Object} options.timeRange - Optional time range
+   * @param {Array} options.calendars - Optional pre-fetched calendar list
    * @returns {Promise<Array>} Combined array of events from all calendars
    */
-  async getAllCalendarEvents(timeRange = {}, calendars = null) {
+  async getAllCalendarEvents(options = {}) {
+    const { timeRange = {}, calendars: providedCalendars = null } = options;
+    
     logger.info('Fetching events from all configured calendars');
     const timer = logger.startTimer('All Calendar Events');
 
     try {
       // Get calendar list if not provided
+      let calendars = providedCalendars;
       if (!calendars) {
         calendars = await this.getCalendarList();
       }
@@ -307,8 +311,13 @@ export class GoogleAPIClient {
       });
 
       // Fetch events from all target calendars in parallel
+      // FIXED: Add calendarId to each event
       const eventPromises = targetCalendars.map(cal => 
         this.getCalendarEvents(cal.id, timeRange)
+          .then(events => events.map(event => ({ 
+            ...event, 
+            calendarId: cal.id 
+          })))
           .catch(error => {
             logger.warn(`Failed to fetch events for calendar ${cal.summary}`, error);
             return []; // Return empty array on error

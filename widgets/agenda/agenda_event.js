@@ -476,15 +476,20 @@ setupModalNavigation(modal) {
   }
 
   getCalendarDisplayName(calendarId) {
-    // Simple display name extraction - can be enhanced later
-    if (calendarId.includes('@gmail.com')) {
-      return calendarId.split('@')[0];
-    } else if (calendarId.includes('@group.calendar.google.com')) {
-      // For group calendars, we'd ideally get the name from calendar metadata
-      return 'Work Calendar'; // Placeholder - should come from calendar data
+      // Handle undefined or null calendarId
+      if (!calendarId) {
+        return 'Unknown Calendar';
+      }
+      
+      // Simple display name extraction - can be enhanced later
+      if (calendarId.includes('@gmail.com')) {
+        return calendarId.split('@')[0];
+      } else if (calendarId.includes('@group.calendar.google.com')) {
+        // For group calendars, we'd ideally get the name from calendar metadata
+        return 'Work Calendar'; // Placeholder - should come from calendar data
+      }
+      return calendarId;
     }
-    return calendarId;
-  }
 
   escapeHtml(text) {
     if (!text) return '';
