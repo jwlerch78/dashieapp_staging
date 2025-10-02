@@ -1,5 +1,5 @@
 // widgets/dcal/dcal-weekly.js - Weekly View Rendering Module
-// CHANGE SUMMARY: Fixed week title format, all-day event spanning, time label alignment
+// CHANGE SUMMARY: Separated all-day label from day headers, implemented stacking logic for overlapping all-day events, kept all existing methods
 
 import { createLogger } from '../../js/utils/logger.js';
 
@@ -24,7 +24,7 @@ export class DCalWeekly {
     this.calculateWeekDates();
     this.render();
     this.setOptimalScrollPosition();
-    this.startNowIndicator();
+    this.updateNowIndicator(); // Just update once, no timer
   }
 
   setDate(date) {
@@ -79,13 +79,14 @@ export class DCalWeekly {
     calendarContainer.innerHTML = `
       <div class="allday-section">
         <div class="allday-header">
-          <div class="allday-label">All day</div>
+          <div class="day-header-spacer"></div>
           ${this.renderDayHeaders()}
+          <div class="allday-label">All day</div>
         </div>
         <div class="allday-events-container">
           <div class="allday-events-spacer"></div>
           <div class="allday-events-grid" id="alldayEventsGrid">
-            <!-- All-day events rendered as absolute positioned elements -->
+            <!-- All-day events rendered with proper stacking -->
           </div>
         </div>
       </div>
@@ -108,8 +109,8 @@ export class DCalWeekly {
       const isToday = date.toDateString() === today.toDateString();
       return `
         <div class="day-header ${isToday ? 'today' : ''}" id="dayHeader${index}">
-          <div class="day-name">${dayNames[index]}</div>
           <div class="day-number">${date.getDate()}</div>
+          <div class="day-name">${dayNames[index]}</div>
         </div>
       `;
     }).join('');
@@ -162,22 +163,24 @@ export class DCalWeekly {
       alldayGrid.innerHTML = '';
     }
 
-    // Render each event
+    // Separate all-day and timed events
+    const allDayEvents = [];
+    const timedEvents = [];
+
     calendarData.events.forEach(event => {
-      this.renderEvent(event);
+      const isAllDay = !!(event.start?.date && !event.start?.dateTime);
+      if (isAllDay) {
+        allDayEvents.push(event);
+      } else {
+        timedEvents.push(event);
+      }
     });
 
-    logger.info('Events rendered in weekly view', { 
-      eventCount: calendarData.events.length 
-    });
-  }
+    // Render all-day events with stacking logic
+    this.renderAllDayEvents(allDayEvents);
 
-  renderEvent(event) {
-    const isAllDay = !!(event.start?.date && !event.start?.dateTime);
-    
-    if (isAllDay) {
-      this.renderAllDayEvent(event);
-    } else {
+    // Render timed events
+    timedEvents.forEach(event => {
       const eventStart = new Date(event.start.dateTime);
       const dayIndex = this.weekDates.findIndex(date => 
         date.toDateString() === eventStart.toDateString()
@@ -186,7 +189,16 @@ export class DCalWeekly {
       if (dayIndex !== -1) {
         this.renderTimedEvent(event, dayIndex, eventStart);
       }
-    }
+    });
+
+    logger.info('Events rendered in weekly view', { 
+      eventCount: calendarData.events.length,
+      allDayCount: allDayEvents.length,
+      timedCount: timedEvents.length
+    });
+    
+    // Update now indicator when events are rendered
+    this.updateNowIndicator();
   }
 
   parseAllDayDate(dateStr) {
@@ -194,52 +206,135 @@ export class DCalWeekly {
     return new Date(year, month - 1, day, 0, 0, 0);
   }
 
-  renderAllDayEvent(event) {
+  renderAllDayEvents(allDayEvents) {
     const alldayGrid = document.getElementById('alldayEventsGrid');
     if (!alldayGrid) return;
 
-    // Parse start and end dates
-    const eventStart = this.parseAllDayDate(event.start.date);
-    const eventEnd = this.parseAllDayDate(event.end.date);
-    
-    // Find which day columns this event spans
-    const startDayIndex = this.weekDates.findIndex(date => 
-      date.toDateString() === eventStart.toDateString()
-    );
-    
-    if (startDayIndex === -1) return; // Event not in this week
-    
-    // Calculate span (how many days)
-    let spanDays = 1;
-    const dayAfterStart = new Date(eventStart);
-    dayAfterStart.setDate(dayAfterStart.getDate() + 1);
-    
-    while (dayAfterStart < eventEnd && startDayIndex + spanDays < 7) {
-      spanDays++;
-      dayAfterStart.setDate(dayAfterStart.getDate() + 1);
-    }
+    // Process events and determine their positions
+    const eventRows = []; // Array of arrays, each inner array is a row of events
 
-    // Create event element positioned absolutely
-    const eventElement = document.createElement('div');
-    eventElement.className = 'allday-event';
-    eventElement.textContent = event.summary || 'Untitled Event';
-    eventElement.title = event.summary || 'Untitled Event';
-    eventElement.dataset.eventId = event.id;
-    eventElement.dataset.calendarId = event.calendarId || '';
-    
-    // Position: grid column starts at column 2 (after spacer), each day is 1 column
-    // Span from left edge of start day to right edge of end day
-    const gridColumnStart = startDayIndex + 2; // +1 for spacer, +1 for CSS grid indexing
-    const gridColumnEnd = gridColumnStart + spanDays;
-    
-    eventElement.style.gridColumn = `${gridColumnStart} / ${gridColumnEnd}`;
-    eventElement.style.gridRow = '1'; // For now, single row (will need stacking logic later)
-    
-    eventElement.addEventListener('click', () => {
-      this.selectEvent(event.id);
+    allDayEvents.forEach(event => {
+      // Parse start and end dates - MATCHING TUI CALENDAR LOGIC
+      const startDateString = event.start.date;
+      const endDateString = event.end.date;
+      
+      logger.debug('Processing all-day event', {
+        summary: event.summary,
+        startDate: startDateString,
+        endDate: endDateString
+      });
+      
+      const [startYear, startMonth, startDay] = startDateString.split('-').map(Number);
+      const [endYear, endMonth, endDay] = endDateString.split('-').map(Number);
+      
+      // Create dates at noon local time to avoid timezone issues
+      let eventStart = new Date(startYear, startMonth - 1, startDay, 12, 0, 0);
+      let eventEnd = new Date(endYear, endMonth - 1, endDay, 12, 0, 0);
+      
+      // CRITICAL: Google Calendar end dates are EXCLUSIVE
+      // Single day: start="2025-10-02", end="2025-10-03" -> display on Oct 2 only
+      // Multi day: start="2025-10-02", end="2025-10-05" -> display Oct 2, 3, 4
+      if (startDateString !== endDateString) {
+        // Multi-day: subtract 1 day from end to get actual last day
+        eventEnd = new Date(eventEnd.getTime() - 24 * 60 * 60 * 1000);
+      } else {
+        // Single day: start and end are same, no adjustment needed
+      }
+      
+     
+      const startDayIndex = this.weekDates.findIndex(date => 
+        date.toDateString() === eventStart.toDateString()
+      );
+      
+      if (startDayIndex === -1) {
+        logger.debug('Event not in this week', { summary: event.summary });
+        return; // Event not in this week
+      }
+      
+      // Calculate span: count days from start to end (inclusive)
+      let spanDays = 0;
+      let current = new Date(eventStart);
+      
+      while (current <= eventEnd && startDayIndex + spanDays < 7) {
+        spanDays++;
+        current.setDate(current.getDate() + 1);
+      }
+      
+      logger.debug('Calculated span', {
+        summary: event.summary,
+        startDayIndex,
+        spanDays,
+        endDayIndex: startDayIndex + spanDays - 1
+      });
+
+      const eventInfo = {
+        event,
+        startDayIndex,
+        spanDays,
+        endDayIndex: startDayIndex + spanDays - 1
+      };
+
+      // Find the first row where this event doesn't overlap with existing events
+      let placed = false;
+      for (let rowIndex = 0; rowIndex < eventRows.length; rowIndex++) {
+        const row = eventRows[rowIndex];
+        let hasOverlap = false;
+
+        for (const existingEvent of row) {
+          // Check if events overlap in day range
+          if (!(eventInfo.endDayIndex < existingEvent.startDayIndex || 
+                eventInfo.startDayIndex > existingEvent.endDayIndex)) {
+            hasOverlap = true;
+            break;
+          }
+        }
+
+        if (!hasOverlap) {
+          row.push(eventInfo);
+          placed = true;
+          break;
+        }
+      }
+
+      // If no row found, create a new row
+      if (!placed) {
+        eventRows.push([eventInfo]);
+      }
     });
-    
-    alldayGrid.appendChild(eventElement);
+
+    // Render events
+    eventRows.forEach((row, rowIndex) => {
+      row.forEach(eventInfo => {
+        const { event, startDayIndex, spanDays } = eventInfo;
+        
+        const eventElement = document.createElement('div');
+        eventElement.className = 'allday-event';
+        eventElement.textContent = event.summary || 'Untitled Event';
+        eventElement.title = event.summary || 'Untitled Event';
+        eventElement.dataset.eventId = event.id;
+        eventElement.dataset.calendarId = event.calendarId || '';
+        
+        // Grid columns: 1-7 for the days (no spacer offset needed in the grid itself)
+        const gridColumnStart = startDayIndex + 1;
+        const gridColumnEnd = gridColumnStart + spanDays;
+        
+        logger.debug('Rendering all-day event', {
+          summary: event.summary,
+          gridColumnStart,
+          gridColumnEnd,
+          gridRow: rowIndex + 1
+        });
+        
+        eventElement.style.gridColumn = `${gridColumnStart} / ${gridColumnEnd}`;
+        eventElement.style.gridRow = `${rowIndex + 1}`;
+        
+        eventElement.addEventListener('click', () => {
+          this.selectEvent(event.id);
+        });
+        
+        alldayGrid.appendChild(eventElement);
+      });
+    });
   }
 
   renderTimedEvent(event, dayIndex, eventStart) {
@@ -295,7 +390,7 @@ export class DCalWeekly {
     });
   }
 
-  // FIXED: Week title shows only month(s), not day numbers
+  // Week title shows only month(s), not day numbers
   getWeekTitle() {
     const startDate = this.weekDates[0];
     const endDate = this.weekDates[6];
@@ -325,15 +420,10 @@ export class DCalWeekly {
 
     const now = new Date();
     const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
     
-    // Scroll to 2 hours before current time, or 6 AM if it's early
-    const scrollHour = Math.max(6, currentHour - 2);
-    const scrollPosition = scrollHour * this.hourHeight + (currentMinute / 60) * this.hourHeight;
-    
-    setTimeout(() => {
-      timeGrid.scrollTop = scrollPosition;
-    }, 100);
+    // Scroll to 2 hours before current time, or 6 AM if before 8 AM
+    const targetHour = currentHour < 8 ? 6 : currentHour - 2;
+    timeGrid.scrollTop = targetHour * this.hourHeight;
   }
 
   startNowIndicator() {
@@ -346,37 +436,34 @@ export class DCalWeekly {
   }
 
   updateNowIndicator() {
-    // Remove existing indicator
+    const now = new Date();
+    const todayIndex = this.findTodayColumn();
+    
+    // Remove all existing indicators first
     document.querySelectorAll('.now-indicator').forEach(el => el.remove());
     
-    const now = new Date();
-    const todayColumn = this.findTodayColumn();
+    if (todayIndex === -1) {
+      return; // Today is not in the current week
+    }
     
-    if (todayColumn === -1) return;
+    const dayColumn = document.getElementById(`dayColumn${todayIndex}`);
+    if (!dayColumn) return;
     
-    const currentMinutes = now.getHours() * 60 + now.getMinutes();
-    const top = (currentMinutes / 60) * this.hourHeight;
+    // Calculate position
+    const totalMinutes = now.getHours() * 60 + now.getMinutes();
+    const topPosition = (totalMinutes / 60) * this.hourHeight;
     
+    // Create and add indicator
     const indicator = document.createElement('div');
     indicator.className = 'now-indicator';
-    indicator.style.top = `${top}px`;
+    indicator.style.top = `${topPosition}px`;
     
-    const dayColumn = document.getElementById(`dayColumn${todayColumn}`);
-    if (dayColumn) {
-      dayColumn.appendChild(indicator);
-    }
-  }
-
-  findTodayColumn() {
-    const today = new Date();
-    return this.weekDates.findIndex(date => 
-      date.toDateString() === today.toDateString()
-    );
+    dayColumn.appendChild(indicator);
   }
 
   updateDayFocus() {
     this.clearDayFocus();
-    if (this.focusedDayIndex >= 0) {
+    if (this.focusedDayIndex >= 0 && this.focusedDayIndex < 7) {
       const dayColumn = document.getElementById(`dayColumn${this.focusedDayIndex}`);
       if (dayColumn) {
         dayColumn.classList.add('focused');
@@ -385,8 +472,15 @@ export class DCalWeekly {
   }
 
   clearDayFocus() {
-    document.querySelectorAll('.day-column.focused').forEach(col => {
+    document.querySelectorAll('.day-column').forEach(col => {
       col.classList.remove('focused');
     });
+  }
+
+  findTodayColumn() {
+    const today = new Date();
+    return this.weekDates.findIndex(date => 
+      date.toDateString() === today.toDateString()
+    );
   }
 }

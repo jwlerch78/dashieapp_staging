@@ -8,6 +8,7 @@ import { DCalWeekly } from './dcal-weekly.js';
 
 const logger = createLogger('DCalWidget');
 
+
 export class DCalWidget {
   constructor() {
     // ============== CONFIG VARIABLES ==============
@@ -60,8 +61,6 @@ export class DCalWidget {
     
     logger.info('DCal widget initialized');
     
-    // Start display update timer (updates "X mins ago" every minute)
-    this.startDisplayUpdateTimer();
   }
 
   detectAndApplyInitialTheme() {
@@ -96,37 +95,29 @@ export class DCalWidget {
   }
 
   setupKeyboardControls() {
-    document.addEventListener('keydown', (e) => {
-      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
-      switch (e.code) {
-        case 'ArrowLeft':
-          e.preventDefault();
-          if (this.isFocused) {
-            this.weekly.navigateDay(-1);
-          } else {
-            this.navigateCalendar('previous');
-          }
-          break;
-        case 'ArrowRight':
-          e.preventDefault();
-          if (this.isFocused) {
-            this.weekly.navigateDay(1);
-          } else {
-            this.navigateCalendar('next');
-          }
-          break;
-        case 'ArrowUp':
-          e.preventDefault();
-          this.scrollCalendar('up');
-          break;
-        case 'ArrowDown':
-          e.preventDefault();
-          this.scrollCalendar('down');
-          break;
-      }
-    });
-  }
+    switch (e.code) {
+      case 'ArrowLeft':
+        e.preventDefault();
+        this.navigateCalendar('previous');
+        break;
+      case 'ArrowRight':
+        e.preventDefault();
+        this.navigateCalendar('next');
+        break;
+      case 'ArrowUp':
+        e.preventDefault();
+        this.scrollCalendar('up');
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        this.scrollCalendar('down');
+        break;
+    }
+  });
+}
 
   setupEventListeners() {
     window.addEventListener('message', (event) => {
@@ -156,55 +147,36 @@ export class DCalWidget {
   }
 
   handleCommand(action) {
-    // AUTO-FOCUS: Detect focus from receiving commands
-    if (!this.isFocused && ['up', 'down', 'left', 'right'].includes(action)) {
-      this.handleFocusChange(true);
-    }
-
-    logger.debug('DCal widget received command', { action });
-    
-    switch (action) {
-      case 'left':
-        if (this.isFocused) {
-          this.weekly.navigateDay(-1);
-        } else {
-          this.navigateCalendar('previous');
-        }
-        break;
-      case 'right':
-        if (this.isFocused) {
-          this.weekly.navigateDay(1);
-        } else {
-          this.navigateCalendar('next');
-        }
-        break;
-      case 'up':
-        this.scrollCalendar('up');
-        break;
-      case 'down':
-        this.scrollCalendar('down');
-        break;
-      case 'select':
-        logger.info('Select pressed on weekly view');
-        break;
-      case 'back':
-      case 'escape':
-        // Reset focus and scroll position on back/escape
-        if (this.isFocused) {
-          this.handleFocusChange(false);
-        }
-        // Reset scroll position
-        const timeGrid = document.querySelector('.time-grid');
-        if (timeGrid) {
-          // Scroll back to optimal position (6-8 AM)
-          this.weekly.setOptimalScrollPosition();
-        }
-        break;
-      default:
-        logger.debug('DCal widget ignoring command', { action });
-        break;
-    }
+  logger.debug('DCal widget received command', { action });
+  
+  switch (action) {
+    case 'left':
+      this.navigateCalendar('previous');
+      break;
+    case 'right':
+      this.navigateCalendar('next');
+      break;
+    case 'up':
+      this.scrollCalendar('up');
+      break;
+    case 'down':
+      this.scrollCalendar('down');
+      break;
+    case 'select':
+      logger.info('Select pressed on weekly view');
+      break;
+    case 'back':
+    case 'escape':
+      const timeGrid = document.querySelector('.time-grid');
+      if (timeGrid) {
+        this.weekly.setOptimalScrollPosition();
+      }
+      break;
+    default:
+      logger.debug('DCal widget ignoring command', { action });
+      break;
   }
+}
 
   handleFocusChange(focused) {
     const wasFocused = this.isFocused;
@@ -303,6 +275,7 @@ export class DCalWidget {
     this.lastUpdatedTimestamp = Date.now();
     this.updateLastUpdatedDisplay();
     
+   
     // Render events in weekly view
     this.weekly.renderEvents(this.calendarData);
     
@@ -364,53 +337,34 @@ export class DCalWidget {
    * Update the "last updated" display with relative time
    */
   updateLastUpdatedDisplay() {
-    const element = document.getElementById('lastUpdated');
-    if (!element || !this.lastUpdatedTimestamp) {
-      return;
-    }
+  const element = document.getElementById('lastUpdated');
+  if (!element || !this.lastUpdatedTimestamp) {
+    return;
+  }
 
-    const now = Date.now();
-    const diffMs = now - this.lastUpdatedTimestamp;
-    const diffMins = Math.floor(diffMs / 60000);
+  const now = Date.now();
+  const diffMs = now - this.lastUpdatedTimestamp;
+  const diffMins = Math.floor(diffMs / 60000);
 
-    let displayText;
-    if (diffMins < 1) {
-      displayText = 'Updated just now';
-    } else if (diffMins === 1) {
-      displayText = 'Updated 1 min ago';
-    } else if (diffMins < 60) {
-      displayText = `Updated ${diffMins} mins ago`;
+  let displayText;
+  if (diffMins < 1) {
+    displayText = 'Updated just now';
+  } else if (diffMins === 1) {
+    displayText = 'Updated 1 min ago';
+  } else if (diffMins < 60) {
+    displayText = `Updated ${diffMins} mins ago`;
+  } else {
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours === 1) {
+      displayText = 'Updated 1 hour ago';
     } else {
-      const diffHours = Math.floor(diffMins / 60);
-      if (diffHours === 1) {
-        displayText = 'Updated 1 hour ago';
-      } else {
-        displayText = `Updated ${diffHours} hours ago`;
-      }
-    }
-
-    element.textContent = displayText;
-  }
-
-  /**
-   * Start timer to update the display every minute
-   */
-  startDisplayUpdateTimer() {
-    // Update every minute
-    this.displayUpdateInterval = setInterval(() => {
-      this.updateLastUpdatedDisplay();
-    }, 60000); // 60 seconds
-  }
-
-  /**
-   * Stop display update timer (cleanup)
-   */
-  stopDisplayUpdateTimer() {
-    if (this.displayUpdateInterval) {
-      clearInterval(this.displayUpdateInterval);
-      this.displayUpdateInterval = null;
+      displayText = `Updated ${diffHours} hours ago`;
     }
   }
+
+  element.textContent = displayText;
+}   
+
 }
 
 // Initialize widget when DOM is ready

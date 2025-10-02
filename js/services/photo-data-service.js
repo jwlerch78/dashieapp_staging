@@ -1,5 +1,5 @@
 // js/services/photo-data-service.js
-// CHANGE SUMMARY: Added periodic refresh timer (50 min) to regenerate signed URLs with fresh JWTs before 1-hour expiry
+// CHANGE SUMMARY: Added robust periodic refresh with client cache invalidation + enhanced logging + fallback to setTimeout
 
 import { createLogger } from '../utils/logger.js';
 import { PhotoStorageService } from '../supabase/photo-storage-service.js';
@@ -19,6 +19,7 @@ export class PhotoDataService {
     this.lastRefresh = null;
     this.isInitialized = false;
     this.refreshInterval = null; // Timer for periodic URL refresh
+    this.refreshTimeout = null; // Backup timer using setTimeout
   }
 
   /**
@@ -63,6 +64,12 @@ export class PhotoDataService {
     try {
       logger.info('Loading photos', { folder, shuffle });
 
+      // CRITICAL: Clear cached authenticated client to force fresh JWT
+      if (this.storage.authenticatedClient) {
+        logger.debug('Clearing cached authenticated client to get fresh JWT');
+        this.storage.authenticatedClient = null;
+      }
+
       const urls = await this.storage.getPhotoUrls(folder, shuffle);
       
       this.currentPhotos = {
@@ -74,7 +81,8 @@ export class PhotoDataService {
 
       logger.success('Photos loaded', { 
         count: urls.length, 
-        folder: folder || 'all' 
+        folder: folder || 'all',
+        lastUpdated: new Date(this.currentPhotos.lastUpdated).toLocaleTimeString()
       });
 
       // Start periodic refresh timer to regenerate signed URLs before they expire
@@ -91,33 +99,79 @@ export class PhotoDataService {
   /**
    * Start periodic refresh timer to regenerate signed URLs with fresh JWTs
    * Signed URLs expire after 1 hour, so we refresh at 50 minutes
+   * Uses both setInterval AND setTimeout as fallback for reliability
    * @private
    */
   _startPeriodicRefresh() {
-    // Clear any existing timer
+    // Clear any existing timers
     this._stopPeriodicRefresh();
 
     // Refresh every 50 minutes (3000 seconds) - before 1-hour JWT expiry
     const REFRESH_INTERVAL = 50 * 60 * 1000; // 50 minutes in milliseconds
 
-    this.refreshInterval = setInterval(async () => {
-      try {
-        logger.info('🔄 Periodic photo URL refresh (50-minute timer)');
-        
-        // Reload photos with same folder setting to get fresh signed URLs
-        const folder = this.currentPhotos?.folder || null;
-        await this.loadPhotos(folder, false); // Don't shuffle on refresh
-        
-        // Broadcast updated URLs to widgets
-        eventSystem.data.emitLoaded('photos', this.currentPhotos);
-        
-        logger.success('✅ Photo URLs refreshed successfully');
-      } catch (error) {
-        logger.error('❌ Periodic photo refresh failed', error);
-      }
-    }, REFRESH_INTERVAL);
+    logger.info('🔄 Starting periodic photo refresh timer', {
+      intervalMinutes: 50,
+      nextRefreshAt: new Date(Date.now() + REFRESH_INTERVAL).toLocaleTimeString()
+    });
 
-    logger.debug('Photo refresh timer started (50-minute interval)');
+    // Primary method: setInterval
+    try {
+      this.refreshInterval = setInterval(async () => {
+        await this._performPeriodicRefresh();
+      }, REFRESH_INTERVAL);
+      
+      logger.debug('✅ setInterval timer started');
+    } catch (error) {
+      logger.error('❌ Failed to start setInterval, will use setTimeout only', error);
+    }
+
+    // Backup method: setTimeout (chains itself)
+    this._scheduleNextRefresh(REFRESH_INTERVAL);
+  }
+
+  /**
+   * Schedule next refresh using setTimeout (self-chaining for reliability)
+   * @private
+   */
+  _scheduleNextRefresh(delay) {
+    this.refreshTimeout = setTimeout(async () => {
+      await this._performPeriodicRefresh();
+      // Chain to next timeout
+      this._scheduleNextRefresh(delay);
+    }, delay);
+    
+    logger.debug('✅ setTimeout backup scheduled');
+  }
+
+  /**
+   * Perform the actual periodic refresh
+   * @private
+   */
+  async _performPeriodicRefresh() {
+    try {
+      logger.info('🔄 Periodic photo URL refresh triggered', {
+        lastUpdate: this.currentPhotos?.lastUpdated 
+          ? new Date(this.currentPhotos.lastUpdated).toLocaleTimeString()
+          : 'never',
+        minutesSinceLastUpdate: this.currentPhotos?.lastUpdated
+          ? Math.round((Date.now() - this.currentPhotos.lastUpdated) / 1000 / 60)
+          : 0
+      });
+      
+      // Reload photos with same folder setting to get fresh signed URLs
+      const folder = this.currentPhotos?.folder || null;
+      await this.loadPhotos(folder, false); // Don't shuffle on refresh
+      
+      // Broadcast updated URLs to widgets
+      eventSystem.data.emitLoaded('photos', this.currentPhotos);
+      
+      logger.success('✅ Photo URLs refreshed successfully', {
+        photoCount: this.currentPhotos?.urls?.length || 0,
+        newUpdateTime: new Date(this.currentPhotos.lastUpdated).toLocaleTimeString()
+      });
+    } catch (error) {
+      logger.error('❌ Periodic photo refresh failed', error);
+    }
   }
 
   /**
@@ -128,7 +182,13 @@ export class PhotoDataService {
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
       this.refreshInterval = null;
-      logger.debug('Photo refresh timer stopped');
+      logger.debug('setInterval timer stopped');
+    }
+    
+    if (this.refreshTimeout) {
+      clearTimeout(this.refreshTimeout);
+      this.refreshTimeout = null;
+      logger.debug('setTimeout timer stopped');
     }
   }
 
