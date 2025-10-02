@@ -1,5 +1,5 @@
 // js/apis/api-auth/jwt-service-core.js
-// CHANGE SUMMARY: Allow expired Google tokens through - edge function can validate them via tokeninfo API to enable automatic token refresh
+// CHANGE SUMMARY: Added JWT localStorage persistence, proactive 12-hour refresh timer, refresh Google token before JWT renewal to prevent expiry deadlock
 
 import { createLogger } from '../../utils/logger.js';
 
@@ -19,6 +19,7 @@ export class JWTServiceCore {
     this.jwtExpiry = null;
     this.lastOperationTime = null;
     this.initializationPromise = null;
+    this.refreshInterval = null; // Proactive refresh timer
     
     logger.info('Unified JWT Service created (Supabase Auth Integration)');
   }
@@ -57,7 +58,6 @@ export class JWTServiceCore {
         this.isEnabled = true;
         this.isReady = true;
         
-        // Make globally available
         logger.success('✅ Auth system ready and authenticated');
         return true;
       } else {
@@ -131,7 +131,6 @@ export class JWTServiceCore {
       const supabaseUrl = config.supabaseUrl;
       
       if (supabaseUrl) {
-        // Updated to use jwt-auth instead of jwt-verifier
         this.edgeFunctionUrl = `${supabaseUrl}/functions/v1/jwt-auth`;
         logger.debug('Edge function URL configured for jwt-auth');
       } else {
@@ -143,8 +142,73 @@ export class JWTServiceCore {
   }
 
   /**
+   * Load JWT from localStorage if available and valid
+   * @private
+   */
+  _loadJWTFromStorage() {
+    try {
+      const stored = localStorage.getItem('dashie_supabase_jwt');
+      if (!stored) {
+        logger.debug('No JWT found in localStorage');
+        return null;
+      }
+      
+      const data = JSON.parse(stored);
+      
+      // Validate structure
+      if (!data.jwt || !data.expiry || !data.userId) {
+        logger.warn('Invalid JWT data in localStorage, removing');
+        localStorage.removeItem('dashie_supabase_jwt');
+        return null;
+      }
+      
+      // Check if expired (with 5 minute buffer)
+      const now = Date.now();
+      const bufferTime = 5 * 60 * 1000;
+      if (now >= (data.expiry - bufferTime)) {
+        logger.debug('Stored JWT expired, removing');
+        localStorage.removeItem('dashie_supabase_jwt');
+        return null;
+      }
+      
+      logger.info('Valid JWT loaded from localStorage');
+      return data;
+    } catch (error) {
+      logger.error('Error loading JWT from localStorage', error);
+      localStorage.removeItem('dashie_supabase_jwt');
+      return null;
+    }
+  }
+
+  /**
+   * Save JWT to localStorage
+   * @private
+   */
+  _saveJWTToStorage() {
+    try {
+      if (!this.currentJWT || !this.jwtExpiry || !this.currentUser) {
+        logger.warn('Cannot save JWT - missing required data');
+        return;
+      }
+      
+      const data = {
+        jwt: this.currentJWT,
+        expiry: this.jwtExpiry,
+        userId: this.currentUser.id,
+        userEmail: this.currentUser.email, // Store email for reliable comparison
+        savedAt: Date.now()
+      };
+      
+      localStorage.setItem('dashie_supabase_jwt', JSON.stringify(data));
+      logger.debug('JWT saved to localStorage');
+    } catch (error) {
+      logger.error('Error saving JWT to localStorage', error);
+    }
+  }
+
+  /**
    * Check if all requirements are met for JWT operations
-   * UPDATED: Now accepts expired tokens since edge function can validate them
+   * UPDATED: Try loading cached JWT first before calling edge function
    * @private
    */
   async _checkRequirements() {
@@ -156,7 +220,31 @@ export class JWTServiceCore {
       return false;
     }
 
-    // Try to get Google access token (even if expired)
+    // Try loading cached JWT first
+    const cachedJWT = this._loadJWTFromStorage();
+    if (cachedJWT) {
+      // Validate the cached JWT is for the current user
+      // Use EMAIL for comparison since user IDs differ between Google and Supabase
+      const authSystem = window.dashieAuth || window.authManager;
+      const currentUser = authSystem?.getUser?.();
+      const currentEmail = currentUser?.email || currentUser?.userEmail;
+      
+      if (currentEmail && cachedJWT.userEmail && currentEmail === cachedJWT.userEmail) {
+        this.currentJWT = cachedJWT.jwt;
+        this.jwtExpiry = cachedJWT.expiry;
+        this.currentUser = { id: cachedJWT.userId, email: cachedJWT.userEmail };
+        logger.success('✅ Using cached JWT from localStorage');
+        return true;
+      } else {
+        logger.warn('Cached JWT is for different user, removing', {
+          currentEmail,
+          cachedEmail: cachedJWT.userEmail
+        });
+        localStorage.removeItem('dashie_supabase_jwt');
+      }
+    }
+
+    // No valid cached JWT, need to get fresh one from edge function
     const googleToken = this._getGoogleAccessToken();
     if (!googleToken) {
       logger.debug('❌ No Google access token available');
@@ -175,21 +263,16 @@ export class JWTServiceCore {
       return false;
     }
 
-    // UPDATED: Allow expired tokens through!
-    // Google's tokeninfo API can validate even expired tokens to identify the user
-    // The edge function will then use the refresh token to get a new access token
-    logger.debug('✅ Google access token available (may be expired - edge function will validate)');
+    logger.debug('✅ Google access token available');
 
     // Test connection to edge function and get initial JWT
     const connectionTest = await this._testConnectionAndGetJWT();
     if (!connectionTest.success) {
       logger.debug('❌ Edge function connection test failed', connectionTest);
       
-      // UPDATED: If connection failed, check if it's because token expired
-      // If so, this is actually OK - we'll recover on next operation
+      // If connection failed with 401, might be recoverable with refresh
       if (connectionTest.error && connectionTest.error.includes('401')) {
         logger.info('⚠️ Initial connection failed with 401 (token expired), but refresh token system should recover automatically');
-        // Still return true - the system can recover using refresh tokens
         return true;
       }
       
@@ -199,7 +282,10 @@ export class JWTServiceCore {
     // Store the JWT from the test
     if (connectionTest.jwtToken) {
       this.currentJWT = connectionTest.jwtToken;
+      this.currentUser = connectionTest.user;
       this._parseJWTExpiry();
+      this._saveJWTToStorage(); // Save to localStorage
+      this._startRefreshTimer(); // Start proactive refresh
       logger.debug('✅ JWT token obtained and stored');
     }
 
@@ -209,6 +295,7 @@ export class JWTServiceCore {
 
   /**
    * Test connection to edge function and get JWT token
+   * UPDATED: Use get_jwt_from_google operation
    * @private
    */
   async _testConnectionAndGetJWT() {
@@ -227,14 +314,14 @@ export class JWTServiceCore {
 
       const requestBody = {
         googleAccessToken,
-        operation: 'load'
+        operation: 'get_jwt_from_google'  // FIXED: Use dedicated JWT acquisition operation
       };
 
       // Log for debugging (without exposing token)
       logger.debug('Sending connection test', {
         hasToken: !!googleAccessToken,
         tokenLength: googleAccessToken.length,
-        operation: 'load'
+        operation: 'get_jwt_from_google'
       });
 
       const headers = this._getSupabaseHeaders();
@@ -302,6 +389,44 @@ export class JWTServiceCore {
   }
 
   /**
+   * Start proactive JWT refresh timer (every 12 hours)
+   * This ensures JWT is refreshed while still valid, avoiding expiry deadlock
+   * @private
+   */
+  _startRefreshTimer() {
+    // Clear any existing timer
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+    }
+    
+    // Refresh every 12 hours (JWT has 24h expiry, so this gives us safety margin)
+    const REFRESH_INTERVAL = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
+    
+    this.refreshInterval = setInterval(async () => {
+      logger.info('🔄 Proactive JWT refresh (12-hour timer)');
+      try {
+        await this._ensureValidJWT();
+      } catch (error) {
+        logger.error('Background JWT refresh failed', error);
+      }
+    }, REFRESH_INTERVAL);
+    
+    logger.debug('JWT refresh timer started (12-hour interval)');
+  }
+
+  /**
+   * Stop the refresh timer (cleanup)
+   * @private
+   */
+  _stopRefreshTimer() {
+    if (this.refreshInterval) {
+      clearInterval(this.refreshInterval);
+      this.refreshInterval = null;
+      logger.debug('JWT refresh timer stopped');
+    }
+  }
+
+  /**
    * Check if current JWT is expired or will expire soon
    * @private
    */
@@ -328,7 +453,9 @@ export class JWTServiceCore {
     const refreshResult = await this._testConnectionAndGetJWT();
     if (refreshResult.success) {
       this.currentJWT = refreshResult.jwtToken;
+      this.currentUser = refreshResult.user;
       this._parseJWTExpiry();
+      this._saveJWTToStorage(); // Save refreshed JWT
       logger.success('✅ JWT refreshed successfully');
       return true;
     } else {

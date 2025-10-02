@@ -313,9 +313,10 @@ export class JWTTokenOperations extends JWTServiceCore {
     return this.currentJWT;
   }
 
-  /**
+/**
    * Load user settings via JWT-verified edge function
-   * @param {string} userEmail - User email for loading settings (kept for compatibility)
+   * UPDATED: Now uses Supabase JWT for authentication instead of Google token
+   * @param {string} userEmail - User email (kept for compatibility, not used)
    * @returns {Promise<Object|null>} User settings or null if not found
    */
   async loadSettings(userEmail) {
@@ -328,20 +329,19 @@ export class JWTTokenOperations extends JWTServiceCore {
     logger.info('Loading settings via JWT', { userEmail });
 
     try {
-      // Ensure we have a valid JWT
+      // CRITICAL CHANGE: Use Supabase JWT for authentication, not Google token
       await this._ensureValidJWT();
 
-      const googleAccessToken = this._getGoogleAccessToken();
-      if (!googleAccessToken) {
-        throw new Error('No Google access token available');
+      if (!this.currentJWT) {
+        throw new Error('No Supabase JWT available');
       }
 
       const requestBody = {
-        googleAccessToken,
         operation: 'load'
       };
 
-      const headers = this._getSupabaseHeaders();
+      // Use Supabase JWT in Authorization header
+      const headers = this._getSupabaseHeaders(true); // true = use JWT auth
 
       const response = await fetch(this.edgeFunctionUrl, {
         method: 'POST',
@@ -377,6 +377,7 @@ export class JWTTokenOperations extends JWTServiceCore {
 
   /**
    * Save user settings via JWT-verified edge function
+   * UPDATED: Now uses Supabase JWT for authentication instead of Google token
    * @param {Object} settings - Settings object to save
    * @returns {Promise<Object>} Result with success status
    */
@@ -390,21 +391,20 @@ export class JWTTokenOperations extends JWTServiceCore {
     logger.info('Saving settings via JWT');
 
     try {
-      // Ensure we have a valid JWT
+      // CRITICAL CHANGE: Use Supabase JWT for authentication, not Google token
       await this._ensureValidJWT();
 
-      const googleAccessToken = this._getGoogleAccessToken();
-      if (!googleAccessToken) {
-        throw new Error('No Google access token available');
+      if (!this.currentJWT) {
+        throw new Error('No Supabase JWT available');
       }
 
       const requestBody = {
-        googleAccessToken,
         operation: 'save',
         settings: settings
       };
 
-      const headers = this._getSupabaseHeaders();
+      // Use Supabase JWT in Authorization header
+      const headers = this._getSupabaseHeaders(true); // true = use JWT auth
 
       const response = await fetch(this.edgeFunctionUrl, {
         method: 'POST',
