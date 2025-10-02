@@ -441,49 +441,87 @@ export class JWTTokenOperations extends JWTServiceCore {
   /**
    * Manually refresh a specific refresh token
    */
-  async refreshToken(refreshToken) {
-    if (!this.isServiceReady()) {
-      throw new Error('JWT service not ready for refresh token operation');
-    }
+ 
+/**
+ * Refresh an OAuth token using its refresh token
+ * UPDATED: Now includes provider_info to support multi-client OAuth (device flow vs web OAuth)
+ * @param {string} refreshToken - The refresh token to use
+ * @returns {Promise<Object>} New access token and expiry
+ */
+async refreshToken(refreshToken) {
+  if (!this.isServiceReady()) {
+    throw new Error('JWT service not ready for refresh token operation');
+  }
 
-    const timer = logger.startTimer('JWT Refresh Token');
+  const timer = logger.startTimer('JWT Refresh Token');
+  
+  try {
+    // Load settings to find which account this refresh token belongs to
+    let providerInfo = null;
     
     try {
-      const requestBody = {
-        operation: 'refresh_token',
-        data: { refresh_token: refreshToken }
-      };
-
-      const response = await fetch(this.edgeFunctionUrl, {
-        method: 'POST',
-        headers: this._getSupabaseHeaders(),
-        body: JSON.stringify(requestBody)
-      });
-
-      const duration = timer();
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`JWT refresh token failed: ${response.status} ${errorText}`);
-      }
-
-      const result = await response.json();
+      const settings = await this.loadSettings();
+      const tokenAccounts = settings?.settings?.tokenAccounts || {};
       
-      logger.success('JWT token refreshed', {
-        success: result.success,
-        duration
-      });
-
-      this.lastOperationTime = Date.now();
-
-      return result;
-
+      // Search through all providers and account types to find this refresh token
+      for (const [provider, accounts] of Object.entries(tokenAccounts)) {
+        for (const [accountType, accountData] of Object.entries(accounts)) {
+          if (accountData.refresh_token === refreshToken) {
+            providerInfo = accountData.provider_info || null;
+            logger.debug('Found provider_info for refresh token', {
+              provider,
+              accountType,
+              hasProviderInfo: !!providerInfo
+            });
+            break;
+          }
+        }
+        if (providerInfo) break;
+      }
     } catch (error) {
-      timer();
-      logger.error('JWT refresh token failed', error);
-      throw error;
+      logger.warn('Could not load provider_info for refresh token', error);
+      // Continue without provider_info - edge function will use default credentials
     }
+
+    const requestBody = {
+      operation: 'refresh_token',
+      data: { 
+        refresh_token: refreshToken,
+        provider_info: providerInfo  // Include provider_info for multi-client support
+      }
+    };
+
+    const response = await fetch(this.edgeFunctionUrl, {
+      method: 'POST',
+      headers: this._getSupabaseHeaders(),
+      body: JSON.stringify(requestBody)
+    });
+
+    const duration = timer();
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`JWT refresh token failed: ${response.status} ${errorText}`);
+    }
+
+    const result = await response.json();
+    
+    logger.success('JWT token refreshed', {
+      success: result.success,
+      hadProviderInfo: !!providerInfo,
+      duration
+    });
+
+    this.lastOperationTime = Date.now();
+
+    return result;
+
+  } catch (error) {
+    timer();
+    logger.error('JWT refresh token failed', error);
+    throw error;
   }
+}
 
   // ====== SETTINGS OPERATIONS ======
 
