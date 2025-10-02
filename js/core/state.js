@@ -13,13 +13,17 @@ export const elements = {
 
 // Widget URL mappings - FIXED: All paths now absolute
 export const widgetUrls = {
-  calendar: "/widgets/calendar/calendar.html",
+  // CALENDAR OPTIONS - Switch between these by changing which one is assigned to 'calendar'
+  //calendar: "/widgets/calendar/calendar_tui.html",              // ORIGINAL: TUI Calendar widget (backup)       
+  calendar: "/widgets/dcal/calendar_dcal.html",              // NEW: Custom Google Calendar-style widget
+  
+  // OTHER WIDGETS
   clock: "/widgets/clock/clock.html", 
   location: "/widgets/location/location.html",
   map: "/widgets/map/map.html",
   agenda: "/widgets/agenda/agenda.html",
   photos: "/widgets/photos/photos.html",
-  camera: "/widgets/camera.html", // for future camera widget
+  camera: "/widgets/camera.html",
   header: "/widgets/header/header.html"
 };
 

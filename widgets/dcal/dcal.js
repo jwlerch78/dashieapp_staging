@@ -1,5 +1,5 @@
 // widgets/dcal/dcal.js - Main Dashie Calendar Widget Class
-// CHANGE SUMMARY: Migrated from calendar.js, removed TUI dependencies, added custom weekly view rendering
+// CHANGE SUMMARY: Fixed theme detection to check html element, removed command indicator references
 
 import { createLogger } from '../../js/utils/logger.js';
 import { DCalConfig } from './dcal-config.js';
@@ -36,6 +36,10 @@ export class DCalWidget {
     this.currentTheme = null;
     this.isFocused = false;
     this.focusedDayIndex = -1;
+    
+    // Last updated timestamp tracking
+    this.lastUpdatedTimestamp = null;
+    this.displayUpdateInterval = null;
 
     // Initialize helper modules
     this.config = new DCalConfig(this.calendars);
@@ -55,21 +59,35 @@ export class DCalWidget {
     this.weekly.initialize(this.currentDate);
     
     logger.info('DCal widget initialized');
+    
+    // Start display update timer (updates "X mins ago" every minute)
+    this.startDisplayUpdateTimer();
   }
 
   detectAndApplyInitialTheme() {
+    // FIXED: Check both html and body elements for theme class
     const htmlClassList = document.documentElement.classList;
     const bodyClassList = document.body.classList;
     
     let detectedTheme = null;
-    if (htmlClassList.contains('theme-dark') || bodyClassList.contains('theme-dark')) {
+    
+    // Check html element first (where parent applies theme)
+    if (htmlClassList.contains('theme-dark')) {
       detectedTheme = 'dark';
-    } else if (htmlClassList.contains('theme-light') || bodyClassList.contains('theme-light')) {
+    } else if (htmlClassList.contains('theme-light')) {
+      detectedTheme = 'light';
+    }
+    // Then check body element as fallback
+    else if (bodyClassList.contains('theme-dark')) {
+      detectedTheme = 'dark';
+    } else if (bodyClassList.contains('theme-light')) {
       detectedTheme = 'light';
     }
     
     if (detectedTheme) {
       this.currentTheme = detectedTheme;
+      // Apply to both html and body to ensure CSS variables work
+      this.applyThemeToElements(detectedTheme);
       logger.info('Initial theme detected', { theme: detectedTheme });
     } else {
       this.applyTheme('dark');
@@ -145,8 +163,6 @@ export class DCalWidget {
 
     logger.debug('DCal widget received command', { action });
     
-    const indicator = document.getElementById('commandIndicator');
-    
     switch (action) {
       case 'left':
         if (this.isFocused) {
@@ -172,24 +188,21 @@ export class DCalWidget {
         logger.info('Select pressed on weekly view');
         break;
       case 'back':
+      case 'escape':
+        // Reset focus and scroll position on back/escape
         if (this.isFocused) {
           this.handleFocusChange(false);
+        }
+        // Reset scroll position
+        const timeGrid = document.querySelector('.time-grid');
+        if (timeGrid) {
+          // Scroll back to optimal position (6-8 AM)
+          this.weekly.setOptimalScrollPosition();
         }
         break;
       default:
         logger.debug('DCal widget ignoring command', { action });
         break;
-    }
-    
-    // Show command feedback
-    if (['up', 'down', 'left', 'right', 'select'].includes(action)) {
-      indicator.textContent = `⬆️ ${action.toUpperCase()}`;
-      indicator.classList.add('active');
-      
-      setTimeout(() => {
-        indicator.classList.remove('active');
-        indicator.textContent = this.isFocused ? '← → Day' : '← → Week';
-      }, 600);
     }
   }
 
@@ -199,11 +212,9 @@ export class DCalWidget {
     
     if (focused && !wasFocused) {
       this.weekly.setFocused(true);
-      document.getElementById('commandIndicator').textContent = '← → Day';
       logger.debug('DCal widget gained focus');
     } else if (!focused && wasFocused) {
       this.weekly.setFocused(false);
-      document.getElementById('commandIndicator').textContent = '← → Week';
       logger.debug('DCal widget lost focus');
     }
   }
@@ -288,6 +299,10 @@ export class DCalWidget {
     this.config.updateCalendars(this.calendarData.calendars);
     this.events.updateCalendars(this.calendarData.calendars);
     
+    // Update last updated timestamp
+    this.lastUpdatedTimestamp = Date.now();
+    this.updateLastUpdatedDisplay();
+    
     // Render events in weekly view
     this.weekly.renderEvents(this.calendarData);
     
@@ -327,13 +342,74 @@ export class DCalWidget {
     });
 
     this.currentTheme = theme;
-    
-    document.documentElement.classList.remove('theme-dark', 'theme-light');
-    document.body.classList.remove('theme-dark', 'theme-light');
-    document.documentElement.classList.add(`theme-${theme}`);
-    document.body.classList.add(`theme-${theme}`);
+    this.applyThemeToElements(theme);
     
     logger.info('Theme applied successfully', { theme });
+  }
+
+  // FIXED: Apply theme to both html and body elements
+  applyThemeToElements(theme) {
+    // Remove both theme classes
+    document.documentElement.classList.remove('theme-dark', 'theme-light');
+    document.body.classList.remove('theme-dark', 'theme-light');
+    
+    // Add new theme class to both elements
+    document.documentElement.classList.add(`theme-${theme}`);
+    document.body.classList.add(`theme-${theme}`);
+  }
+
+  // ==================== LAST UPDATED DISPLAY ====================
+
+  /**
+   * Update the "last updated" display with relative time
+   */
+  updateLastUpdatedDisplay() {
+    const element = document.getElementById('lastUpdated');
+    if (!element || !this.lastUpdatedTimestamp) {
+      return;
+    }
+
+    const now = Date.now();
+    const diffMs = now - this.lastUpdatedTimestamp;
+    const diffMins = Math.floor(diffMs / 60000);
+
+    let displayText;
+    if (diffMins < 1) {
+      displayText = 'Updated just now';
+    } else if (diffMins === 1) {
+      displayText = 'Updated 1 min ago';
+    } else if (diffMins < 60) {
+      displayText = `Updated ${diffMins} mins ago`;
+    } else {
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffHours === 1) {
+        displayText = 'Updated 1 hour ago';
+      } else {
+        displayText = `Updated ${diffHours} hours ago`;
+      }
+    }
+
+    element.textContent = displayText;
+  }
+
+  /**
+   * Start timer to update the display every minute
+   */
+  startDisplayUpdateTimer() {
+    // Update every minute
+    this.displayUpdateInterval = setInterval(() => {
+      this.updateLastUpdatedDisplay();
+    }, 60000); // 60 seconds
+  }
+
+  /**
+   * Stop display update timer (cleanup)
+   */
+  stopDisplayUpdateTimer() {
+    if (this.displayUpdateInterval) {
+      clearInterval(this.displayUpdateInterval);
+      this.displayUpdateInterval = null;
+    }
   }
 }
 

@@ -1,5 +1,5 @@
-<!-- widgets/dcal/dcal.html -->
-<!-- CHANGE SUMMARY: Initial dcal widget - custom calendar replacing TUI, weekly view only -->
+<!-- widgets/dcal/calendar_dcal.html -->
+<!-- CHANGE SUMMARY: Removed command-indicator, added last-updated timestamp in header -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -9,7 +9,7 @@
   <title>Dashie Calendar Widget</title>
   
   <!-- Import theme variables from parent -->
-  <link rel="stylesheet" href="../css/core/variables.css">
+  <link rel="stylesheet" href="../../css/core/variables.css">
   
   <!-- Dashie Calendar Widget Styles -->
   <link rel="stylesheet" href="dcal.css">
@@ -23,15 +23,14 @@
     
     <div class="calendar-header" id="calendarHeader" style="display: none;">
       <div class="calendar-title" id="calendarTitle">Loading...</div>
-      <div class="calendar-mode" id="calendarMode">Week</div>
+      <div class="calendar-info">
+        <div class="calendar-mode" id="calendarMode">Week</div>
+        <div class="last-updated" id="lastUpdated">Loading...</div>
+      </div>
     </div>
     
     <div id="calendar" style="display: none;">
       <!-- Weekly view will be rendered here -->
-    </div>
-    
-    <div class="command-indicator" id="commandIndicator">
-      ← → Week
     </div>
   </div>
   

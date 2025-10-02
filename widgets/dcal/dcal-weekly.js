@@ -1,5 +1,5 @@
 // widgets/dcal/dcal-weekly.js - Weekly View Rendering Module
-// CHANGE SUMMARY: Custom Google Calendar-style weekly view implementation
+// CHANGE SUMMARY: Fixed week title format, all-day event spanning, time label alignment
 
 import { createLogger } from '../../js/utils/logger.js';
 
@@ -82,9 +82,11 @@ export class DCalWeekly {
           <div class="allday-label">All day</div>
           ${this.renderDayHeaders()}
         </div>
-        <div class="allday-events">
-          <div class="allday-events-column"></div>
-          ${this.weekDates.map((_, i) => `<div class="allday-events-column" id="alldayColumn${i}"></div>`).join('')}
+        <div class="allday-events-container">
+          <div class="allday-events-spacer"></div>
+          <div class="allday-events-grid" id="alldayEventsGrid">
+            <!-- All-day events rendered as absolute positioned elements -->
+          </div>
         </div>
       </div>
       <div class="time-grid">
@@ -150,13 +152,14 @@ export class DCalWeekly {
     // Clear existing events
     for (let i = 0; i < 7; i++) {
       const dayColumn = document.getElementById(`dayColumn${i}`);
-      const alldayColumn = document.getElementById(`alldayColumn${i}`);
       if (dayColumn) {
         dayColumn.querySelectorAll('.event').forEach(e => e.remove());
       }
-      if (alldayColumn) {
-        alldayColumn.innerHTML = '';
-      }
+    }
+    
+    const alldayGrid = document.getElementById('alldayEventsGrid');
+    if (alldayGrid) {
+      alldayGrid.innerHTML = '';
     }
 
     // Render each event
@@ -171,20 +174,18 @@ export class DCalWeekly {
 
   renderEvent(event) {
     const isAllDay = !!(event.start?.date && !event.start?.dateTime);
-    const eventStart = isAllDay 
-      ? this.parseAllDayDate(event.start.date)
-      : new Date(event.start.dateTime);
-    
-    const dayIndex = this.weekDates.findIndex(date => 
-      date.toDateString() === eventStart.toDateString()
-    );
-    
-    if (dayIndex === -1) return;
     
     if (isAllDay) {
-      this.renderAllDayEvent(event, dayIndex);
+      this.renderAllDayEvent(event);
     } else {
-      this.renderTimedEvent(event, dayIndex, eventStart);
+      const eventStart = new Date(event.start.dateTime);
+      const dayIndex = this.weekDates.findIndex(date => 
+        date.toDateString() === eventStart.toDateString()
+      );
+      
+      if (dayIndex !== -1) {
+        this.renderTimedEvent(event, dayIndex, eventStart);
+      }
     }
   }
 
@@ -193,10 +194,32 @@ export class DCalWeekly {
     return new Date(year, month - 1, day, 0, 0, 0);
   }
 
-  renderAllDayEvent(event, dayIndex) {
-    const column = document.getElementById(`alldayColumn${dayIndex}`);
-    if (!column) return;
+  renderAllDayEvent(event) {
+    const alldayGrid = document.getElementById('alldayEventsGrid');
+    if (!alldayGrid) return;
 
+    // Parse start and end dates
+    const eventStart = this.parseAllDayDate(event.start.date);
+    const eventEnd = this.parseAllDayDate(event.end.date);
+    
+    // Find which day columns this event spans
+    const startDayIndex = this.weekDates.findIndex(date => 
+      date.toDateString() === eventStart.toDateString()
+    );
+    
+    if (startDayIndex === -1) return; // Event not in this week
+    
+    // Calculate span (how many days)
+    let spanDays = 1;
+    const dayAfterStart = new Date(eventStart);
+    dayAfterStart.setDate(dayAfterStart.getDate() + 1);
+    
+    while (dayAfterStart < eventEnd && startDayIndex + spanDays < 7) {
+      spanDays++;
+      dayAfterStart.setDate(dayAfterStart.getDate() + 1);
+    }
+
+    // Create event element positioned absolutely
     const eventElement = document.createElement('div');
     eventElement.className = 'allday-event';
     eventElement.textContent = event.summary || 'Untitled Event';
@@ -204,11 +227,19 @@ export class DCalWeekly {
     eventElement.dataset.eventId = event.id;
     eventElement.dataset.calendarId = event.calendarId || '';
     
+    // Position: grid column starts at column 2 (after spacer), each day is 1 column
+    // Span from left edge of start day to right edge of end day
+    const gridColumnStart = startDayIndex + 2; // +1 for spacer, +1 for CSS grid indexing
+    const gridColumnEnd = gridColumnStart + spanDays;
+    
+    eventElement.style.gridColumn = `${gridColumnStart} / ${gridColumnEnd}`;
+    eventElement.style.gridRow = '1'; // For now, single row (will need stacking logic later)
+    
     eventElement.addEventListener('click', () => {
       this.selectEvent(event.id);
     });
     
-    column.appendChild(eventElement);
+    alldayGrid.appendChild(eventElement);
   }
 
   renderTimedEvent(event, dayIndex, eventStart) {
@@ -243,7 +274,7 @@ export class DCalWeekly {
 
   selectEvent(eventId) {
     // Clear previous selection
-    document.querySelectorAll('.event.selected').forEach(e => {
+    document.querySelectorAll('.event.selected, .allday-event.selected').forEach(e => {
       e.classList.remove('selected');
     });
     
@@ -264,14 +295,27 @@ export class DCalWeekly {
     });
   }
 
+  // FIXED: Week title shows only month(s), not day numbers
   getWeekTitle() {
     const startDate = this.weekDates[0];
     const endDate = this.weekDates[6];
     
-    if (startDate.getMonth() === endDate.getMonth()) {
-      return `${startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} ${startDate.getDate()}-${endDate.getDate()}`;
-    } else {
-      return `${startDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+    const startMonth = startDate.getMonth();
+    const endMonth = endDate.getMonth();
+    const startYear = startDate.getFullYear();
+    const endYear = endDate.getFullYear();
+    
+    // Same month and year
+    if (startMonth === endMonth && startYear === endYear) {
+      return startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    }
+    // Different months, same year
+    else if (startYear === endYear) {
+      return `${startDate.toLocaleDateString('en-US', { month: 'long' })} - ${endDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+    }
+    // Different years
+    else {
+      return `${startDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} - ${endDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
     }
   }
 
