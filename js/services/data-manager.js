@@ -1,5 +1,5 @@
 // js/services/data-manager.js
-// CHANGE SUMMARY: Added PhotoDataService integration - photos now managed at parent level with JWT/RLS (matches calendar pattern)
+// CHANGE SUMMARY: Added periodic calendar refresh timer with configurable interval from settings (default 5 minutes)
 
 import { createLogger } from '../utils/logger.js';
 import { events as eventSystem, EVENTS } from '../utils/event-emitter.js';
@@ -29,6 +29,9 @@ export class DataManager {
     // Track manual trigger state
     this.manualTriggerMode = false;
     this.authReadyEventReceived = false;
+    
+    // Periodic refresh timer
+    this.periodicRefreshTimer = null;
     
     logger.info('Data manager initialized with modular services', {
       calendarRefreshInterval: '5 min',
@@ -79,52 +82,38 @@ export class DataManager {
       eventSystem.auth.onSuccess(async (user) => {
         logger.info('Auth successful, auto-loading data');
         
-        // Initialize photo service
+        // Initialize photo service now that auth is ready
         await this.initializePhotoService();
         
-        setTimeout(async () => {
-          try {
-            await this.refreshCalendarData(true);
-            await this.refreshPhotosData(true);
-            logger.success('Auto-loaded calendar and photo data on auth ready');
-          } catch (error) {
-            logger.error('Failed to auto-load data', error);
-          }
-        }, 500); // Small delay to ensure services are ready
+        // Load calendar data
+        await this.refreshCalendarData(true);
+        
+        // Load photo data
+        await this.refreshPhotosData(true);
       });
-      
-      // Also try immediate load if already authenticated
-      try {
-        if (this.googleAPI) {
-          const testResult = await this.googleAPI.testAccess();
-          if (testResult.calendar) {
-            logger.info('Already authenticated, loading data immediately');
-            setTimeout(async () => {
-              await this.refreshCalendarData(true);
-              await this.refreshPhotosData(true);
-            }, 100);
-          }
-        }
-      } catch (error) {
-        logger.debug('Not yet authenticated, waiting for auth ready event');
-      }
     }
   }
 
   /**
-   * Initialize photo service with JWT authentication
-   * @private
+   * Initialize photo service with JWT
+   * @returns {Promise<boolean>}
    */
   async initializePhotoService() {
     try {
+      // Check if JWT service is available
       const jwtService = window.jwtAuth;
       
-      // CRITICAL: Must use Supabase UUID from jwtAuth, not Google ID from dashieAuth
-      const userId = jwtService?.currentUser?.id;
+      if (!jwtService) {
+        logger.debug('Cannot initialize photo service: JWT service not available');
+        return false;
+      }
+      
+      // Get user ID from JWT service
+      const userId = jwtService.currentUser?.id;
       
       if (!userId) {
-        logger.debug('Cannot initialize photo service: no Supabase user ID', {
-          hasJwtAuth: !!jwtService,
+        logger.debug('Cannot initialize photo service: No user ID', {
+          hasJwtService: !!jwtService,
           jwtReady: jwtService?.isReady,
           hasJwtUser: !!jwtService?.currentUser
         });
@@ -173,6 +162,10 @@ export class DataManager {
       // Load calendar data
       await this.refreshCalendarData(true);
       logger.success('Manual trigger: Calendar data loaded successfully');
+      
+      // Start periodic refresh after initial load
+      this.startPeriodicRefresh();
+      
     } catch (error) {
       logger.error('Manual trigger: Failed to load calendar data', error);
     }
@@ -183,6 +176,59 @@ export class DataManager {
       logger.success('Manual trigger: Photo data loaded successfully');
     } catch (error) {
       logger.error('Manual trigger: Failed to load photo data', error);
+    }
+  }
+
+  /**
+   * Start periodic calendar refresh timer
+   * Reads interval from settings (default 5 minutes)
+   */
+  startPeriodicRefresh() {
+    // Don't start if already running
+    if (this.periodicRefreshTimer) {
+      logger.debug('Periodic refresh already running');
+      return;
+    }
+
+    // Get refresh interval from settings (default to 5 minutes)
+    let intervalMinutes = 5;
+    try {
+      if (window.settingsController) {
+        const settingValue = window.settingsController.getSetting('system.calendarRefreshInterval');
+        if (settingValue && typeof settingValue === 'number' && settingValue > 0) {
+          intervalMinutes = settingValue;
+        }
+      }
+    } catch (error) {
+      logger.debug('Could not read refresh interval from settings, using default', error);
+    }
+
+    const intervalMs = intervalMinutes * 60 * 1000;
+
+    logger.info('Starting periodic calendar refresh', {
+      intervalMinutes,
+      intervalMs
+    });
+
+    this.periodicRefreshTimer = setInterval(async () => {
+      logger.info('🔄 Periodic calendar refresh triggered');
+      try {
+        await this.refreshCalendarData(true);
+        logger.success('✅ Periodic calendar refresh completed');
+      } catch (error) {
+        logger.error('❌ Periodic calendar refresh failed', error);
+      }
+    }, intervalMs);
+  }
+
+  /**
+   * Stop periodic refresh timer (cleanup)
+   */
+  stopPeriodicRefresh() {
+    if (this.periodicRefreshTimer) {
+      clearInterval(this.periodicRefreshTimer);
+      this.periodicRefreshTimer = null;
+      logger.info('Periodic calendar refresh stopped');
     }
   }
 
@@ -303,8 +349,8 @@ export class DataManager {
       eventSystem.data.emitLoaded('photos', freshData);
       
       logger.debug('Photo data refresh completed', {
-        photosCount: freshData.urls?.length || 0,
-        folder: freshData.folder || 'all'
+        photosCount: freshData?.photos?.length || 0,
+        foldersCount: freshData?.folders?.length || 0
       });
       
     } catch (error) {
@@ -317,46 +363,11 @@ export class DataManager {
   }
 
   /**
-   * Get photos data from cache
+   * Get photo data from cache
    * @param {boolean} allowStale - Allow stale data
-   * @returns {Object|null} Photos data
+   * @returns {Object|null} Photo data
    */
   getPhotosData(allowStale = true) {
     return this.cache.get('photos', allowStale);
   }
-
-  // ==================== CACHE MANAGEMENT ====================
-
-  /**
-   * Clear all cached data
-   */
-  clearCache() {
-    this.cache.clear();
-    logger.debug('All cached data cleared');
-  }
-
-  /**
-   * Get cache status for debugging
-   * @returns {Object} Cache status
-   */
-  getCacheStatus() {
-    const calendarData = this.cache.get('calendar', true);
-    const photosData = this.cache.get('photos', true);
-    
-    return {
-      calendar: {
-        hasData: !!calendarData,
-        isFresh: this.cache.isFresh('calendar'),
-        isStale: this.cache.isStale('calendar'),
-        isLoading: this.cache.isLoading('calendar')
-      },
-      photos: {
-        hasData: !!photosData,
-        isFresh: this.cache.isFresh('photos'),
-        isStale: this.cache.isStale('photos'),
-        isLoading: this.cache.isLoading('photos')
-      },
-      photoServiceReady: this.photoService.isReady()
-    };
-  }
-} 
+}

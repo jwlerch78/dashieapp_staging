@@ -1,5 +1,5 @@
 // widgets/calendar/calendar.js - Main Calendar Widget Class
-// CHANGE SUMMARY: Fixed theme change detection in applyTheme() to prevent redundant applications, simplified logging to reduce noise - only logs relevant updates
+// CHANGE SUMMARY: Removed visual hint controls-info div, added last-updated timestamp display in bottom-right corner
 
 import { createLogger } from '../../js/utils/logger.js';
 import { CalendarConfig } from './calendar-config.js';
@@ -35,6 +35,7 @@ export class CalendarWidget {
     this.calendarData = { events: [], calendars: [], lastUpdated: null };
     this.isDataLoaded = false;
     this.connectionStatus = 'connecting';
+    this.lastUpdatedTimestamp = null;
 
     // ADDED: Theme support
     this.currentTheme = null;
@@ -143,7 +144,7 @@ export class CalendarWidget {
           <div id="calendar"></div>
           <div class="loading" id="loading">Initializing calendar...</div>
           <div class="status">○</div>
-          <div class="controls-info">Space: Change View | ←→: Navigate | ↑↓: Scroll</div>
+          <div class="last-updated" id="lastUpdated"></div>
         </div>
       </div>
     `;
@@ -227,12 +228,51 @@ export class CalendarWidget {
       lastUpdated: this.calendarData.lastUpdated
     });
 
+        // Update last updated timestamp
+    this.lastUpdatedTimestamp = Date.now();
+    this.updateLastUpdatedDisplay();
+
     // Update calendar configurations
     this.updateCalendarConfigurations();
     
     // Load events using the events module (will skip deduplication since already done)
     this.events.loadEventsIntoCalendar(this.calendar, this.calendarData);
     this.updateCalendarHeader();
+  }
+
+  /**
+   * Update the "last updated" display with relative time
+   */
+  updateLastUpdatedDisplay() {
+    const element = document.getElementById('lastUpdated');
+    if (!element || !this.lastUpdatedTimestamp) {
+      return;
+    }
+
+    const now = Date.now();
+    const diffMs = now - this.lastUpdatedTimestamp;
+    const diffMins = Math.floor(diffMs / 60000);
+
+    let displayText;
+    if (diffMins < 1) {
+      displayText = 'Updated just now';
+    } else if (diffMins === 1) {
+      displayText = 'Updated 1 min ago';
+    } else if (diffMins < 60) {
+      displayText = `Updated ${diffMins} mins ago`;
+    } else {
+      const diffHours = Math.floor(diffMins / 60);
+      if (diffHours === 1) {
+        displayText = 'Updated 1 hour ago';
+      } else {
+        displayText = `Updated ${diffHours} hours ago`;
+      }
+    }
+
+    element.textContent = displayText;
+
+    // Schedule next update in 1 minute
+    setTimeout(() => this.updateLastUpdatedDisplay(), 60000);
   }
 
   updateCalendarConfigurations() {
@@ -299,64 +339,114 @@ export class CalendarWidget {
         // Set to a fixed position - roughly 11am (about 45% down the day)
         const targetScrollTop = scrollContainer.scrollHeight * 0.45;
         scrollContainer.scrollTop = targetScrollTop;
-        logger.debug('Set scroll position using working container logic', { 
-          targetScrollTop, 
-          scrollHeight: scrollContainer.scrollHeight 
-        });
+        logger.debug('Applied optimal scroll position', { targetScrollTop });
       }
     }
   }
 
   setupCalendarEventListeners() {
-    // When TUI finishes rendering the view, update header and layout
-    this.calendar.on && this.calendar.on('afterRender', () => {
-      this.updateCalendarHeader();
-      this.layout.updateAllDayHeight(this.calendar, this.currentView, this.calendarData, this.currentDate);
+    // Track when user scrolls the calendar
+    const scrollContainer = document.querySelector('.toastui-calendar-time-scroll-wrapper')
+      || document.querySelector('.toastui-calendar-time')
+      || document.querySelector('.toastui-calendar-timegrid-scroll-area');
       
-      // ENHANCED: Apply optimal scroll positioning after renders too
-      setTimeout(() => this.setOptimalScrollPosition(), 100);
-    });
-
-    // After schedules are rendered (new events added), recalc all-day height
-    if (this.calendar.on) {
-      this.calendar.on('afterRenderSchedule', () => {
-        this.layout.updateAllDayHeight(this.calendar, this.currentView, this.calendarData, this.currentDate);
+    if (scrollContainer) {
+      scrollContainer.addEventListener('scroll', () => {
+        this.userHasScrolled = true;
       });
-    }
-
-    // If user clicks "more" or expands, recalc
-    if (this.calendar.on) {
-      this.calendar.on('clickMore', () => {
-        this.layout.updateAllDayHeight(this.calendar, this.currentView, this.calendarData, this.currentDate);
-      });
-    }
-  }
-
-  updateConnectionStatus(status) {
-    this.connectionStatus = status;
-    const statusEl = document.querySelector('.status');
-    if (statusEl) {
-      switch (status) {
-        case 'connected':
-          statusEl.textContent = '●';
-          statusEl.style.color = '#51cf66';
-          break;
-        case 'connecting':
-          statusEl.textContent = '○';
-          statusEl.style.color = '#ffaa00';
-          break;
-        case 'error':
-          statusEl.textContent = '✕';
-          statusEl.style.color = '#ff6b6b';
-          break;
-      }
     }
   }
 
   showCalendar() {
-    document.getElementById('loading').style.display = 'none';
-    document.getElementById('calendarHeader').style.display = 'flex';
-    document.getElementById('calendar').style.display = 'block';
+    const calendarEl = document.getElementById('calendar');
+    const headerEl = document.getElementById('calendarHeader');
+    const loadingEl = document.getElementById('loading');
+
+    if (calendarEl) calendarEl.style.display = 'block';
+    if (headerEl) headerEl.style.display = 'flex';
+    if (loadingEl) loadingEl.style.display = 'none';
+  }
+
+  updateConnectionStatus(status) {
+    const statusEl = document.querySelector('.status');
+    if (!statusEl) return;
+
+    this.connectionStatus = status;
+    switch (status) {
+      case 'connecting':
+        statusEl.textContent = '○';
+        statusEl.style.color = 'var(--text-muted, #999)';
+        break;
+      case 'connected':
+        statusEl.textContent = '●';
+        statusEl.style.color = '#4caf50';
+        break;
+      case 'error':
+        statusEl.textContent = '●';
+        statusEl.style.color = '#f44336';
+        break;
+    }
+  }
+
+  navigateCalendar(direction) {
+    const currentDateObj = this.calendar.getDate();
+    let newDate = new Date(currentDateObj);
+
+    switch (this.currentView) {
+      case 'day':  // Changed 'daily' to 'day'
+        newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1)); 
+        break;
+      case 'week': 
+        newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7)); 
+        break;
+      case 'month': 
+        newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1)); 
+        break;
+    }
+
+    this.currentDate = newDate;
+    this.calendar.setDate(newDate);
+    this.updateCalendarHeader();
+
+    // Maintain optimal scroll position after navigation
+    if (this.currentView === 'week' || this.currentView === 'day') {
+      setTimeout(() => this.setOptimalScrollPosition(), 50);
+    }
+  }
+
+  scrollCalendar(direction) {
+    if (this.currentView === 'week' || this.currentView === 'day') {
+      // Use the correct scroll container that TUI Calendar actually uses
+      const scrollContainer = document.querySelector('.toastui-calendar-time-scroll-wrapper')
+        || document.querySelector('.toastui-calendar-time')
+        || document.querySelector('.toastui-calendar-timegrid-scroll-area');
+      
+      if (scrollContainer) {
+        const scrollAmount = 100;
+        scrollContainer.scrollTop += (direction === 'down' ? scrollAmount : -scrollAmount);
+      }
+    }
+  }
+
+  changeView(newView) {
+    if (this.viewCycle.includes(newView)) {
+      this.currentView = newView;
+      this.calendar.changeView(newView);
+      this.updateCalendarHeader();
+      
+      // ENHANCED: Apply optimal scroll positioning after view change
+      if (newView === 'week' || newView === 'day') {
+        setTimeout(() => this.setOptimalScrollPosition(), 100);
+      }
+    }
+  }
+
+  cycleView(direction) {
+    const currentIndex = this.viewCycle.indexOf(this.currentView);
+    const newIndex = direction === 'forward'
+      ? (currentIndex + 1) % this.viewCycle.length
+      : (currentIndex - 1 + this.viewCycle.length) % this.viewCycle.length;
+    this.changeView(this.viewCycle[newIndex]);
   }
 
   getStartOfWeek(date) {
@@ -418,86 +508,6 @@ export class CalendarWidget {
         logger.debug('Calendar widget ignoring command', { action }); 
         break;
     }
-  }
-
-  navigateCalendar(direction) {
-    const currentDateObj = this.calendar.getDate();
-    let newDate = new Date(currentDateObj);
-
-    switch (this.currentView) {
-      case 'day':  // Changed 'daily' to 'day'
-        newDate.setDate(newDate.getDate() + (direction === 'next' ? 1 : -1)); 
-        break;
-      case 'week': 
-        newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7)); 
-        break;
-      case 'month': 
-        newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1)); 
-        break;
-    }
-
-    this.currentDate = newDate;
-    this.calendar.setDate(newDate);
-    this.updateCalendarHeader();
-  }
-
-  /**
-   * Enhanced: Improved scroll positioning using working container logic
-   * @param {number} hour - Hour to scroll to (0-23) - converted to percentage
-   */
-  scrollToTime(hour) {
-    if (this.currentView === 'week' || this.currentView === 'day') {
-      // Use the same container logic that works for scrollCalendar
-      const scrollContainer = document.querySelector('.toastui-calendar-time-scroll-wrapper')
-        || document.querySelector('.toastui-calendar-time')
-        || document.querySelector('.toastui-calendar-timegrid-scroll-area');
-        
-      if (scrollContainer) {
-        // Convert hour to percentage (11am = 45% down the day)
-        const percentage = Math.max(0.1, Math.min(0.9, hour / 24));
-        const targetScrollTop = scrollContainer.scrollHeight * percentage;
-        scrollContainer.scrollTop = targetScrollTop;
-        logger.debug(`Scrolled to ${hour}:00 using percentage`, { 
-          hour, 
-          percentage, 
-          targetScrollTop 
-        });
-      }
-    }
-  }
-
-  scrollCalendar(direction) {
-    if (this.currentView === 'week' || this.currentView === 'day') {
-      // Try multiple possible scroll container selectors for different views
-      const scrollContainer = document.querySelector('.toastui-calendar-time-scroll-wrapper')
-        || document.querySelector('.toastui-calendar-time')
-        || document.querySelector('.toastui-calendar-timegrid-scroll-area');
-      if (scrollContainer) {
-        const scrollAmount = 60;
-        scrollContainer.scrollTop += (direction === 'up' ? -scrollAmount : scrollAmount);
-      }
-    }
-  }
-
-  changeView(newView) {
-    if (this.viewCycle.includes(newView)) {
-      this.currentView = newView;
-      this.calendar.changeView(newView);
-      this.updateCalendarHeader();
-      
-      // ENHANCED: Apply optimal scroll positioning after view change
-      if (newView === 'week' || newView === 'day') {
-        setTimeout(() => this.setOptimalScrollPosition(), 100);
-      }
-    }
-  }
-
-  cycleView(direction) {
-    const currentIndex = this.viewCycle.indexOf(this.currentView);
-    const newIndex = direction === 'forward'
-      ? (currentIndex + 1) % this.viewCycle.length
-      : (currentIndex - 1 + this.viewCycle.length) % this.viewCycle.length;
-    this.changeView(this.viewCycle[newIndex]);
   }
 
   /**
