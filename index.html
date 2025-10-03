@@ -1,5 +1,5 @@
 <!-- index.html for Dashie -->
-<!-- CHANGE SUMMARY: Added redirect-modal.css import for new redirect functionality, updated CSS imports for better organization -->
+<!-- CHANGE SUMMARY: Added mobile-landing.css import and mobile-container section for mobile device support -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -20,7 +20,7 @@
     
     <link rel="icon" type="image/x-icon" href="/icons/favicon.ico">
     
-    <!-- CSS imports (FIXED: All paths now absolute, added redirect-modal.css) -->
+    <!-- CSS imports (FIXED: All paths now absolute, added redirect-modal.css + mobile-landing.css) -->
     <link rel="stylesheet" href="/css/core/variables.css">
     <link rel="stylesheet" href="/css/core/base.css">
     <link rel="stylesheet" href="/css/components/sidebar.css">
@@ -31,17 +31,31 @@
     <link rel="stylesheet" href="/css/components/auth-ui.css">
     <link rel="stylesheet" href="/css/components/redirect-modal.css">
     <link rel="stylesheet" href="/js/settings/simplified-settings.css">
-    <link rel="stylesheet" href="css/components/loading-overlay.css">
+    <link rel="stylesheet" href="/css/components/loading-overlay.css">
+    <link rel="stylesheet" href="/css/components/mobile-landing.css">
 
     
 </head>
 <body>
-    <!-- Main app container (simplified for Cognito redirect flow) -->
+    <!-- Desktop/TV Dashboard (hidden on mobile) -->
     <div id="app">
         <div id="sidebar-wrapper">
             <div id="sidebar"></div>
         </div>
         <div id="grid"></div>
+    </div>
+    
+    <!-- Mobile Landing Page (hidden on desktop/TV) -->
+    <div id="mobile-container" class="mobile-mode" style="display: none;">
+        <div class="mobile-header">
+            <span class="family-name"></span>
+            <img class="profile-pic" src="" alt="Profile" style="display: none;">
+        </div>
+        
+        <div class="mobile-content">
+            <img class="dashie-logo" src="/icons/dashie-logo.svg" alt="Dashie">
+            <button id="mobile-settings-btn" class="orange-button">Settings</button>
+        </div>
     </div>
     
       <!-- Configuration (keep this) -->

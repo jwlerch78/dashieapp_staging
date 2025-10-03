@@ -1,5 +1,5 @@
 // js/main.js
-// CHANGE SUMMARY: Event-based widget registration with direct postMessage listening + photo upload manager retry logic
+// CHANGE SUMMARY: Added mobile platform detection and landing page - shows Settings-only UI on mobile devices instead of dashboard
 
 import { initializeEvents } from './core/events.js';
 import { updateFocus, initializeHighlightTimeout } from './core/navigation.js';
@@ -10,6 +10,8 @@ import { processPendingRefreshTokens } from './apis/api-auth/providers/web-oauth
 import { PhotoUploadManager } from '../widgets/photos/photo-upload-manager.js';
 import { showLoadingOverlay, updateLoadingProgress, hideLoadingOverlay, isLoadingOverlayVisible } from './ui/loading-overlay.js';
 import { WidgetRegistrationCoordinator } from './core/widget-registration-coordinator.js';
+import { getPlatformDetector } from './utils/platform-detector.js';
+import { showSettings } from './settings/settings-main.js';
 
 // Initialization state tracker
 const initState = {
@@ -18,7 +20,7 @@ const initState = {
   tokens: 'pending',
   settings: 'pending',
   widgets: 'pending',
-  servicesReady: 'pending' // NEW: Track overall service readiness
+  servicesReady: 'pending'
 };
 
 // Global photo upload manager instance
@@ -26,6 +28,9 @@ let photoUploadManager = null;
 
 // Widget registration coordinator - created at start so it listens to direct postMessages
 let widgetCoordinator = null;
+
+// Platform detector instance
+let platformDetector = null;
 
 /**
  * Wait for authentication to complete before proceeding
@@ -241,32 +246,130 @@ async function initializePhotoUploadManager() {
 }
 
 /**
+ * Show mobile landing page
+ */
+function showMobileLandingPage() {
+  console.log('📱 Showing mobile landing page');
+  
+  const mobileContainer = document.getElementById('mobile-container');
+  const app = document.getElementById('app');
+  
+  if (mobileContainer && app) {
+    mobileContainer.style.display = 'flex';
+    app.style.display = 'none';
+    
+    console.log('📱 Mobile landing page visible');
+  }
+}
+
+/**
+ * Show desktop/TV dashboard
+ */
+function showDesktopDashboard() {
+  console.log('🖥️ Showing desktop/TV dashboard');
+  
+  const mobileContainer = document.getElementById('mobile-container');
+  const app = document.getElementById('app');
+  
+  if (mobileContainer && app) {
+    mobileContainer.style.display = 'none';
+    app.style.display = 'flex';
+    
+    console.log('🖥️ Desktop/TV dashboard visible');
+  }
+}
+
+/**
+ * Populate mobile UI with user data
+ */
+async function populateMobileUI() {
+  console.log('📱 Populating mobile UI');
+  
+  // Wait a bit for settings to be fully ready
+  await new Promise(resolve => setTimeout(resolve, 500));
+  
+  // Get family name from settings
+  try {
+    const { getSettingValue } = await import('./settings/settings-main.js');
+    const familyName = getSettingValue('family.familyName', 'Dashie');
+    
+    const familyNameEl = document.querySelector('.mobile-header .family-name');
+    if (familyNameEl) {
+      familyNameEl.textContent = familyName;
+      console.log('📱 Set family name:', familyName);
+    }
+  } catch (error) {
+    console.warn('⚠️ Could not get family name from settings:', error);
+    const familyNameEl = document.querySelector('.mobile-header .family-name');
+    if (familyNameEl) {
+      familyNameEl.textContent = 'Dashie';
+    }
+  }
+  
+  // Get user profile picture
+  const user = window.dashieAuth?.getUser();
+  if (user?.photoURL) {
+    const profilePic = document.querySelector('.mobile-header .profile-pic');
+    if (profilePic) {
+      profilePic.src = user.photoURL;
+      profilePic.style.display = 'block';
+      console.log('📱 Set profile picture');
+    }
+  }
+  
+  // Wire up Settings button
+  const settingsBtn = document.getElementById('mobile-settings-btn');
+  if (settingsBtn) {
+    settingsBtn.addEventListener('click', () => {
+      console.log('📱 Settings button clicked');
+      showSettings();
+    });
+    console.log('📱 Settings button wired up');
+  }
+}
+
+/**
  * Main initialization sequence
  */
 async function initializeApp() {
   console.log('🚀 Starting Dashie initialization sequence...');
   
+  // Detect platform first
+  platformDetector = getPlatformDetector();
+  const isMobile = platformDetector.isMobile();
+  
+  console.log('📱 Platform detection:', {
+    platform: platformDetector.platform,
+    deviceType: platformDetector.deviceType,
+    isMobile: isMobile
+  });
+  
   // CRITICAL: Create widget coordinator FIRST so it listens to postMessages
-  // Coordinator now listens directly to postMessages, not eventSystem
   widgetCoordinator = new WidgetRegistrationCoordinator();
   
   // Initialize events and navigation
   initializeEvents();
   initializeHighlightTimeout();
   
-  // Render UI immediately (auth handles visibility)
-  renderGrid();
-  renderSidebar();
-  updateFocus(0, 0);
+  if (isMobile) {
+    // Mobile: Show landing page only
+    console.log('📱 Mobile device detected - showing landing page');
+    showMobileLandingPage();
+  } else {
+    // Desktop/TV: Render full dashboard (existing behavior)
+    console.log('🖥️ Desktop/TV detected - rendering dashboard');
+    showDesktopDashboard();
+    renderGrid();
+    renderSidebar();
+    updateFocus(0, 0);
+  }
   
   console.log('✅ UI rendered, waiting for authentication...');
   
   // Wait for authentication without timeout (device flow needs time)
-  // Device flow shows its own UI, so no loading overlay yet
   const authSuccessful = await waitForAuthentication();
   
   if (!authSuccessful) {
-    // This should never happen now since we removed the timeout
     console.error('❌ Authentication failed unexpectedly');
     return;
   }
@@ -299,10 +402,8 @@ async function initializeApp() {
         } catch (error) {
           console.error('❌ Failed to initialize services:', error);
           updateLoadingProgress(50, 'Service initialization failed');
-          // Don't continue - services must be initialized
           initState.servicesReady = 'failed';
           
-          // Show error to user
           updateLoadingProgress(100, 'Initialization failed - please refresh');
           await new Promise(resolve => setTimeout(resolve, 3000));
           hideLoadingOverlay();
@@ -359,76 +460,92 @@ async function initializeApp() {
   console.log('🎨 Initializing theme system...');
   updateLoadingProgress(80, 'Applying your theme...');
   
-  // EVENT-BASED: Wait for widgets to register by listening to their postMessages
-  console.log('🎨 Waiting for widgets to register...');
-  updateLoadingProgress(85, 'Preparing widgets...');
-  
-  const widgetResults = await widgetCoordinator.waitForWidgets(null, {
-    timeout: 10000,   // 10 seconds for Fire TV (slow device)
-    minWaitTime: 500  // Min 500ms even if all ready quickly
-  });
-  
-  if (widgetResults.success) {
-    console.log('✅ All required widgets registered', {
-      widgets: widgetResults.registered,
-      duration: widgetResults.duration
-    });
+  if (isMobile) {
+    // Mobile: Populate mobile UI and skip widget/data initialization
+    console.log('📱 Mobile: Populating mobile UI');
+    populateMobileUI();
+    updateLoadingProgress(100, 'Ready!');
+    await new Promise(resolve => setTimeout(resolve, 500));
+    hideLoadingOverlay();
+    initState.widgets = 'skipped';
+    
+    // Mark as authenticated
+    document.body.classList.add('authenticated');
+    console.log('📱 Mobile initialization complete');
   } else {
-    console.warn('⚠️ Some widgets did not register in time', {
-      registered: widgetResults.registered,
-      timedOut: widgetResults.timedOut,
-      duration: widgetResults.duration
+    // Desktop/TV: Full widget initialization
+    console.log('🖥️ Waiting for widgets to register...');
+    updateLoadingProgress(85, 'Preparing widgets...');
+    
+    const widgetResults = await widgetCoordinator.waitForWidgets(null, {
+      timeout: 10000,
+      minWaitTime: 500
     });
-  }
-  
-  // NEW: Validate all services are ready before data loading
-  updateLoadingProgress(90, 'Validating services...');
-  console.log('🔍 Ensuring all services ready before data load...');
-  
-  const servicesReady = await ensureServicesReady();
-  
-  if (!servicesReady) {
-    console.error('❌ Service readiness validation failed - cannot proceed with data loading');
-    updateLoadingProgress(100, 'Initialization incomplete - some features may not work');
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    if (widgetResults.success) {
+      console.log('✅ All required widgets registered', {
+        widgets: widgetResults.registered,
+        duration: widgetResults.duration
+      });
+    } else {
+      console.warn('⚠️ Some widgets did not register in time', {
+        registered: widgetResults.registered,
+        timedOut: widgetResults.timedOut,
+        duration: widgetResults.duration
+      });
+    }
+    
+    // Validate all services are ready before data loading
+    updateLoadingProgress(90, 'Validating services...');
+    console.log('🔍 Ensuring all services ready before data load...');
+    
+    const servicesReady = await ensureServicesReady();
+    
+    if (!servicesReady) {
+      console.error('❌ Service readiness validation failed - cannot proceed with data loading');
+      updateLoadingProgress(100, 'Initialization incomplete - some features may not work');
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      hideLoadingOverlay();
+      
+      document.body.classList.add('authenticated');
+      console.log('⚠️ App started in degraded mode');
+      return;
+    }
+    
+    // Services are ready - proceed with data loading
+    updateLoadingProgress(92, 'Loading your data...');
+    console.log('📊 All services validated - triggering data loading...');
+    
+    try {
+      await window.dashieAuth.triggerDataLoading();
+      console.log('✅ Data loading completed successfully');
+    } catch (error) {
+      console.error('❌ Data loading failed:', error);
+    }
+    
+    // Initialize Photo Upload Manager with retry logic
+    const uploadManagerReady = await initializePhotoUploadManager();
+    
+    if (!uploadManagerReady) {
+      console.warn('⚠️ Photo upload functionality may not be available yet');
+    }
+    
+    // Complete initialization
+    const loadingMessage = initState.tokens === 'ready' 
+      ? 'Welcome to Dashie! (Long-term access enabled)'
+      : 'Welcome to Dashie!';
+      
+    updateLoadingProgress(100, loadingMessage);
+    
+    await new Promise(resolve => setTimeout(resolve, 500));
     hideLoadingOverlay();
     
-    // Still mark as authenticated so UI is visible, but with degraded functionality
-    document.body.classList.add('authenticated');
-    console.log('⚠️ App started in degraded mode');
-    return;
-  }
-  
-  // Services are ready - proceed with data loading
-  updateLoadingProgress(92, 'Loading your data...');
-  console.log('📊 All services validated - triggering data loading...');
-  
-  try {
-    await window.dashieAuth.triggerDataLoading();
-    console.log('✅ Data loading completed successfully');
-  } catch (error) {
-    console.error('❌ Data loading failed:', error);
-    // Continue anyway - user can manually refresh
-  }
-  
-  // UPDATED: Initialize Photo Upload Manager with retry logic
-  const uploadManagerReady = await initializePhotoUploadManager();
-  
-  if (!uploadManagerReady) {
-    console.warn('⚠️ Photo upload functionality may not be available yet');
-  }
-  
-  // Complete initialization
-  const loadingMessage = initState.tokens === 'ready' 
-    ? 'Welcome to Dashie! (Long-term access enabled)'
-    : 'Welcome to Dashie!';
+    initState.widgets = 'ready';
     
-  updateLoadingProgress(100, loadingMessage);
-  
-  await new Promise(resolve => setTimeout(resolve, 500));
-  hideLoadingOverlay();
-  
-  initState.widgets = 'ready';
+    // Mark app as authenticated for CSS styling
+    document.body.classList.add('authenticated');
+    console.log('🔐 App marked as authenticated');
+  }
   
   console.log('🎯 Dashie initialization complete:', {
     auth: initState.auth,
@@ -436,12 +553,9 @@ async function initializeApp() {
     tokens: initState.tokens,
     settings: initState.settings,
     servicesReady: initState.servicesReady,
-    widgets: initState.widgets
+    widgets: initState.widgets,
+    platform: isMobile ? 'mobile' : 'desktop/tv'
   });
-  
-  // Mark app as authenticated for CSS styling
-  document.body.classList.add('authenticated');
-  console.log('🔐 App marked as authenticated');
 }
 
 // Listen for upload modal requests from widgets

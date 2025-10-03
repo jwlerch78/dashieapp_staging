@@ -13,6 +13,7 @@ export class DCalWeekly {
     this.focusedDayIndex = -1;
     this.isFocused = false;
     this.selectedEventId = null;
+    this.savedScrollPosition = null; // Track scroll position across week changes
     
     this.hourHeight = 30; // pixels per hour
     this.startHour = 0;
@@ -40,9 +41,18 @@ export class DCalWeekly {
   }
 
   setDate(date) {
+    // Save current scroll position before changing weeks
+    const timeGrid = document.querySelector('.time-grid');
+    if (timeGrid && timeGrid.scrollTop > 0) {
+      this.savedScrollPosition = timeGrid.scrollTop;
+    }
+    
     this.currentDate = date;
     this.calculateWeekDates();
     this.render();
+    
+    // Restore scroll position after render
+    this.restoreScrollPosition();
   }
 
   setFocused(focused) {
@@ -378,7 +388,7 @@ export class DCalWeekly {
       // Long event: wrap text and show time
       eventElement.innerHTML = `
         <div class="event-title">${event.summary || 'Untitled Event'}</div>
-        <div class="event-time">${this.formatTimeRange(eventStart, eventEnd)}</div>
+        <div class="event-time">${this.formatTime(eventStart)} - ${this.formatTime(eventEnd)}</div>
       `;
       eventElement.style.whiteSpace = 'normal';
       eventElement.style.padding = '2px 4px';
@@ -402,32 +412,6 @@ export class DCalWeekly {
     // After adding, detect and handle collisions
     this.handleEventCollisions(dayColumn);
   }
-
-  formatTimeRange(start, end) {
-  const formatSingle = (date, omitAmPm = false) => {
-    let hours = date.getHours();
-    const minutes = date.getMinutes();
-    const ampm = hours >= 12 ? "pm" : "am";
-
-    hours = hours % 12;
-    if (hours === 0) hours = 12;
-
-    // Drop :00
-    let timeStr = minutes === 0 ? `${hours}` : `${hours}:${minutes.toString().padStart(2, "0")}`;
-
-    if (!omitAmPm) timeStr += ampm;
-    return timeStr;
-  };
-
-  const sameAmPm = (start.getHours() >= 12) === (end.getHours() >= 12);
-
-  const startStr = formatSingle(start, sameAmPm); // omit am/pm if same
-  const endStr = formatSingle(end, false);
-
-  return `${startStr}-${endStr}`;
-}
-
-
 
   handleEventCollisions(dayColumn) {
     const events = Array.from(dayColumn.querySelectorAll('.event'));
@@ -618,6 +602,33 @@ export class DCalWeekly {
     };
 
     // Start checking after brief initial delay
+    setTimeout(scrollWhenReady, 50);
+  }
+
+  restoreScrollPosition() {
+    if (this.savedScrollPosition === null) return;
+    
+    const timeGrid = document.querySelector('.time-grid');
+    if (!timeGrid) return;
+    
+    // Poll until content is ready, then restore scroll
+    let checkCount = 0;
+    const maxChecks = 20;
+    
+    const scrollWhenReady = () => {
+      checkCount++;
+      
+      if (timeGrid.scrollHeight > 0) {
+        timeGrid.scrollTop = this.savedScrollPosition;
+        logger.debug('Restored scroll position', { 
+          scrollTop: this.savedScrollPosition,
+          checksNeeded: checkCount
+        });
+      } else if (checkCount < maxChecks) {
+        setTimeout(scrollWhenReady, 250);
+      }
+    };
+    
     setTimeout(scrollWhenReady, 50);
   }
 
