@@ -32,6 +32,7 @@ export function setupEventHandlers(overlay, settingsManager) {
   document.addEventListener('keydown', settingsManager.keydownHandler, true);
 
   // Listen for form changes to track pending changes
+
   overlay.querySelectorAll('.form-control[data-setting]').forEach(control => {
     control.addEventListener('change', (e) => {
       const path = e.target.dataset.setting;

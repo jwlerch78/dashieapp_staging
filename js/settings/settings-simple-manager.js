@@ -5,6 +5,7 @@ import { buildSettingsUI, populateFormFields, applyTheme } from './settings-ui-b
 import { SimplifiedNavigation } from './settings-d-pad-nav.js';
 import { setupEventHandlers } from './settings-event-handler.js';
 import { createModalNavigation } from '../utils/modal-navigation-manager.js';
+import { getPlatformDetector } from '../utils/platform-detector.js';
 
 export class SimplifiedSettings {
   constructor() {
@@ -252,47 +253,54 @@ export class SimplifiedSettings {
     }
   }
 
-  async show() {
-    if (this.isVisible) return;
+ async show() {
+  if (this.isVisible) return;
+  
+  if (!this.controller) {
+    console.log('⚙️ Controller not ready, attempting initialization...');
+    await this.initializeController();
     
     if (!this.controller) {
-      console.log('⚙️ Controller not ready, attempting initialization...');
-      await this.initializeController();
-      
-      if (!this.controller) {
-        alert('Settings system not ready. Please try again in a moment.');
-        return;
-      }
+      alert('Settings system not ready. Please try again in a moment.');
+      return;
     }
-    
-    // Create UI using the UI builder
-    this.overlay = document.createElement('div');
-    this.overlay.className = 'settings-overlay';
-    this.overlay.innerHTML = buildSettingsUI();
-    document.body.appendChild(this.overlay);
-    
-    // Load and populate current settings
-    await this.loadCurrentSettings();
-    
-    // Set up event handlers
-    setupEventHandlers(this.overlay, this);
-    
-    // Initialize navigation
+  }
+  
+  // Detect platform
+  const platformDetector = getPlatformDetector();
+  const isMobile = platformDetector.isMobile();
+  
+  console.log(`⚙️ Opening settings for platform: ${isMobile ? 'mobile' : 'desktop/TV'}`);
+  
+  // Create UI using platform-appropriate builder
+  this.overlay = document.createElement('div');
+  this.overlay.className = 'settings-overlay';
+  this.overlay.innerHTML = buildSettingsUI(isMobile);
+  document.body.appendChild(this.overlay);
+  
+  // Load and populate current settings
+  await this.loadCurrentSettings();
+  
+  // Set up event handlers
+  setupEventHandlers(this.overlay, this);
+  
+  if (isMobile) {
+    // Mobile: Simple touch handlers, no complex navigation
+    console.log('⚙️ 📱 Setting up touch handlers for mobile');
+    this.setupTouchHandlers();
+  } else {
+    // Desktop/TV: Use existing D-pad navigation
+    console.log('⚙️ 🖥️ Initializing D-pad navigation for desktop/TV');
     this.navigation = new SimplifiedNavigation(this.overlay, {
       onThemeChange: (theme) => this.handleThemeChange(theme),
       onSettingChange: (path, value) => this.handleSettingChange(path, value),
       onCancel: () => this.handleCancel()
     });
     
-    // NEW: Register with modal navigation manager for unified input handling
-    // This integrates settings with events.js priority system and handles remote input
+    // Register with modal navigation manager for unified input handling
     this.modalNavigation = createModalNavigation(this.overlay, [], {
       onEscape: () => this.handleCancel(),
-      // Custom handler: Convert modal manager actions to keyboard events for SimplifiedNavigation
       customHandler: (action) => {
-        console.log(`⚙️ Modal manager delegating action to settings: ${action}`);
-        
-        // Map action strings to keyboard event keys
         const actionToKeyMap = {
           'up': 'ArrowUp',
           'down': 'ArrowDown',
@@ -303,12 +311,8 @@ export class SimplifiedSettings {
         };
         
         const key = actionToKeyMap[action];
-        if (!key) {
-          console.log(`⚙️ Unknown action: ${action}`);
-          return false;
-        }
+        if (!key) return false;
         
-        // Create synthetic keyboard event
         const syntheticEvent = {
           key: key,
           preventDefault: () => {},
@@ -316,16 +320,166 @@ export class SimplifiedSettings {
           stopImmediatePropagation: () => {}
         };
         
-        // Delegate to SimplifiedNavigation
-        const handled = this.navigation.handleKeyPress(syntheticEvent);
-        console.log(`⚙️ SimplifiedNavigation ${handled ? 'handled' : 'did not handle'} ${action} (${key})`);
-        return handled;
+        return this.navigation.handleKeyPress(syntheticEvent);
       }
     });
-    
-    this.showOverlay();
-    console.log('⚙️ 👁️ Simplified settings shown and registered with modal manager');
   }
+  
+  this.showOverlay();
+  console.log('⚙️ 👁️ Settings shown successfully');
+}
+
+
+
+setupTouchHandlers() {
+  // Handle "Done" button
+  const doneBtn = this.overlay.querySelector('#settings-done');
+  if (doneBtn) {
+    doneBtn.addEventListener('click', () => {
+      console.log('📱 Done button clicked');
+      this.handleCancel();
+    });
+  }
+  
+  // Handle navigation cells (cells with chevrons)
+  this.overlay.addEventListener('click', (e) => {
+    const cell = e.target.closest('.settings-cell[data-navigate]');
+    if (cell) {
+      const targetScreen = cell.dataset.navigate;
+      console.log(`📱 Navigating to: ${targetScreen}`);
+      this.navigateToScreen(targetScreen);
+    }
+  });
+  
+  // Handle back button
+  const backBtn = this.overlay.querySelector('.nav-back-button');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      console.log('📱 Back button clicked');
+      this.navigateBack();
+    });
+  }
+  
+  // Handle selection cells (radio button style)
+  this.overlay.addEventListener('click', (e) => {
+    const selectableCell = e.target.closest('.settings-cell.selectable');
+    if (selectableCell) {
+      const setting = selectableCell.dataset.setting;
+      const value = selectableCell.dataset.value;
+      
+      // Update UI selection
+      const section = selectableCell.closest('.settings-section');
+      if (section) {
+        section.querySelectorAll('.selectable').forEach(cell => {
+          cell.classList.remove('selected');
+        });
+        selectableCell.classList.add('selected');
+      }
+      
+      console.log(`📱 Selection changed: ${setting} = ${value}`);
+      this.handleSettingChange(setting, value);
+    }
+  });
+  
+  // Handle form controls (auto-save on change)
+  this.overlay.addEventListener('change', (e) => {
+    if (e.target.matches('.form-control')) {
+      const setting = e.target.dataset.setting;
+      const value = e.target.value;
+      console.log(`📱 Setting changed: ${setting} = ${value}`);
+      this.handleSettingChange(setting, value);
+    }
+  });
+  
+  // Initialize navigation stack
+  this.navigationStack = ['root'];
+  this.updateMobileNavBar();
+}
+
+
+navigateToScreen(screenId) {
+  const currentScreen = this.overlay.querySelector('.settings-screen.active');
+  const nextScreen = this.overlay.querySelector(`[data-screen="${screenId}"]`);
+  
+  if (!nextScreen) {
+    console.error(`📱 Screen not found: ${screenId}`);
+    return;
+  }
+  
+  // Add to stack
+  this.navigationStack.push(screenId);
+  
+  // Animate transition
+  currentScreen.classList.remove('active');
+  currentScreen.classList.add('sliding-out-left');
+  
+  nextScreen.classList.add('sliding-in-right', 'active');
+  
+  setTimeout(() => {
+    currentScreen.classList.remove('sliding-out-left');
+    nextScreen.classList.remove('sliding-in-right');
+  }, 300);
+  
+  this.updateMobileNavBar();
+}
+
+navigateBack() {
+  if (this.navigationStack.length <= 1) return;
+  
+  const currentScreen = this.overlay.querySelector('.settings-screen.active');
+  this.navigationStack.pop();
+  
+  const previousScreenId = this.navigationStack[this.navigationStack.length - 1];
+  const previousScreen = this.overlay.querySelector(`[data-screen="${previousScreenId}"]`);
+  
+  if (!previousScreen) return;
+  
+  // Animate transition
+  currentScreen.classList.remove('active');
+  currentScreen.classList.add('sliding-out-right');
+  
+  previousScreen.classList.add('sliding-in-left', 'active');
+  
+  setTimeout(() => {
+    currentScreen.classList.remove('sliding-out-right');
+    previousScreen.classList.remove('sliding-in-left');
+  }, 300);
+  
+  this.updateMobileNavBar();
+}
+
+updateMobileNavBar() {
+  const currentScreenId = this.navigationStack[this.navigationStack.length - 1];
+  const currentScreen = this.overlay.querySelector(`[data-screen="${currentScreenId}"]`);
+  
+  if (!currentScreen) return;
+  
+  // Update title
+  const title = currentScreen.dataset.title || 'Settings';
+  const navTitle = this.overlay.querySelector('.nav-title');
+  if (navTitle) {
+    navTitle.textContent = title;
+  }
+  
+  // Show/hide back button
+  const backBtn = this.overlay.querySelector('.nav-back-button');
+  if (backBtn) {
+    if (this.navigationStack.length > 1) {
+      backBtn.style.visibility = 'visible';
+      
+      // Set back button text
+      const previousScreenId = this.navigationStack[this.navigationStack.length - 2];
+      const previousScreen = this.overlay.querySelector(`[data-screen="${previousScreenId}"]`);
+      if (previousScreen) {
+        const previousTitle = previousScreen.dataset.title || 'Back';
+        backBtn.textContent = `‹ ${previousTitle}`;
+      }
+    } else {
+      backBtn.style.visibility = 'hidden';
+    }
+  }
+}
+
 
   async loadCurrentSettings() {
     if (!this.controller) return;
@@ -366,6 +520,9 @@ export class SimplifiedSettings {
       if (success) {
         console.log(`⚙️ ✅ Setting auto-saved: ${path} = ${value}`);
         
+        // Show save notification
+        this.showSaveNotification();
+        
         // Notify widgets of the change immediately
         this.notifySettingChanged(path, value);
       } else {
@@ -373,6 +530,27 @@ export class SimplifiedSettings {
       }
     }
   }
+
+  showSaveNotification() {
+    // Check if notification already exists
+    let notification = document.querySelector('.settings-save-notification');
+    
+    if (!notification) {
+      notification = document.createElement('div');
+      notification.className = 'settings-save-notification';
+      notification.textContent = 'Saved';
+      document.body.appendChild(notification);
+    }
+    
+    // Show notification
+    notification.classList.add('show');
+    
+    // Hide after 2 seconds
+    setTimeout(() => {
+      notification.classList.remove('show');
+    }, 2000);
+  }
+
 
   handleCancel() {
     // Just close the settings - no need to revert anything since we auto-save
