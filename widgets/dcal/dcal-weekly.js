@@ -97,6 +97,13 @@ export class DCalWeekly {
 
   render() {
     const calendarContainer = document.getElementById('calendar');
+    const today = new Date();
+    const todayIndex = this.weekDates.findIndex(date => 
+      date.toDateString() === today.toDateString()
+    );
+    
+    // Add today-column class to all-day grid if today is in this week
+    const alldayGridClass = todayIndex >= 0 ? `today-column-${todayIndex}` : '';
     
     calendarContainer.innerHTML = `
       <div class="allday-section">
@@ -106,7 +113,7 @@ export class DCalWeekly {
         </div>
         <div class="allday-events-container">
           <div class="allday-label">All day</div>
-          <div class="allday-events-grid" id="alldayEventsGrid">
+          <div class="allday-events-grid ${alldayGridClass}" id="alldayEventsGrid">
             <!-- All-day events rendered with proper stacking -->
           </div>
         </div>
@@ -116,7 +123,10 @@ export class DCalWeekly {
           ${this.renderTimeSlots()}
         </div>
         <div class="days-grid">
-          ${this.weekDates.map((_, i) => `<div class="day-column" id="dayColumn${i}">${this.renderHourLines()}</div>`).join('')}
+          ${this.weekDates.map((_, i) => {
+            const isTodayColumn = i === todayIndex;
+            return `<div class="day-column ${isTodayColumn ? 'today-column' : ''}" id="dayColumn${i}">${this.renderHourLines()}</div>`;
+          }).join('')}
         </div>
       </div>
     `;
