@@ -1,5 +1,5 @@
 // js/settings/settings-controller-core.js
-// CHANGE SUMMARY: Added localStorage staleness validation to prevent using outdated settings with expired tokens
+// CHANGE SUMMARY: Replaced multi-source user detection with single source of truth from dashie_supabase_jwt localStorage. This fixes real-time sync by ensuring userId is properly set from JWT data.
 
 export class SettingsControllerCore {
   constructor() {
@@ -33,6 +33,68 @@ export class SettingsControllerCore {
     // Bind methods to maintain context
     this.handleRealtimeUpdate = this.handleRealtimeUpdate.bind(this);
     this.handleBeforeUnload = this.handleBeforeUnload.bind(this);
+  }
+
+  /**
+   * Get user from dashie_supabase_jwt - SINGLE SOURCE OF TRUTH
+   * @returns {Object|null} User object with {id, email} or null
+   */
+  getUserFromJWT() {
+    try {
+      const jwtData = localStorage.getItem('dashie_supabase_jwt');
+      if (!jwtData) {
+        console.log('⚙️ No JWT data found in localStorage');
+        return null;
+      }
+
+      const parsed = JSON.parse(jwtData);
+      
+      // Check if JWT is expired
+      if (parsed.expiry && Date.now() >= parsed.expiry) {
+        console.warn('⚙️ JWT is expired');
+        return null;
+      }
+
+      // Return user object with id and email from JWT
+      if (parsed.userId && parsed.userEmail) {
+        return {
+          id: parsed.userId,
+          email: parsed.userEmail
+        };
+      }
+
+      console.warn('⚙️ JWT data missing userId or userEmail');
+      return null;
+
+    } catch (error) {
+      console.error('⚙️ Error reading JWT data:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Wait for JWT to be available with timeout
+   * @param {number} timeoutMs - Maximum time to wait in milliseconds
+   * @returns {Promise<Object|null>} User object or null if timeout
+   */
+  async waitForJWT(timeoutMs = 5000) {
+    const startTime = Date.now();
+    
+    console.log('⚙️ Waiting for JWT data...');
+    
+    while (Date.now() - startTime < timeoutMs) {
+      const user = this.getUserFromJWT();
+      if (user) {
+        console.log('⚙️ ✅ JWT data found:', { userId: user.id, userEmail: user.email });
+        return user;
+      }
+      
+      // Wait a bit before checking again
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    console.warn('⚙️ ⏱️ Timeout waiting for JWT data');
+    return null;
   }
 
   /**
@@ -106,26 +168,24 @@ export class SettingsControllerCore {
   }
 
   /**
-   * Initialize with auth detection and error handling - FAIL FAST approach
-   * Validates localStorage staleness before using cached settings
+   * Initialize with JWT-based user detection
    */
   async init() {
     try {
       console.log('⚙️ Initializing Settings Controller...');
       
-      // Wait for auth to be ready with timeout
-      const currentUser = await this.waitForAuth();
+      // Get user from JWT (single source of truth)
+      const currentUser = await this.waitForJWT();
       
       if (!currentUser) {
-        console.warn('⚙️ No authenticated user detected');
+        console.warn('⚙️ No JWT data available - using localStorage only');
         
-        // CRITICAL: Check if localStorage settings are stale before using them
+        // Check if localStorage settings are stale before using them
         const isStale = this._isLocalStorageStale();
         
         if (isStale) {
-          console.warn('⚙️ localStorage settings are stale - using defaults until database sync available');
+          console.warn('⚙️ localStorage settings are stale - using defaults');
           this.currentSettings = this.getDefaultSettings();
-          console.log('⚙️ Using default settings (localStorage stale or unavailable)');
         } else {
           // Settings are fresh - safe to use
           try {
@@ -150,14 +210,13 @@ export class SettingsControllerCore {
         return true;
       }
 
-      console.log('⚙️ Found authenticated user:', currentUser.email);
+      console.log('⚙️ Found authenticated user from JWT:', currentUser.email);
 
-      // Initialize storage with current user
+      // Initialize storage with current user from JWT
       const { SimpleSupabaseStorage } = await import('../supabase/simple-supabase-storage.js');
       this.storage = new SimpleSupabaseStorage(currentUser.id, currentUser.email);
       
       // Load settings from database/local storage
-      // Storage class handles its own localStorage validation
       const loadedSettings = await this.storage.loadSettings();
       this.currentSettings = loadedSettings || this.getDefaultSettings(currentUser.email);
       
@@ -188,58 +247,8 @@ export class SettingsControllerCore {
     }
   }
 
-  // Wait for auth system to be ready
-  async waitForAuth(timeoutMs = null) {
-    const startTime = Date.now();
-    
-    while (true) {
-      const user = this.getCurrentUser();
-      if (user) {
-        return user;
-      }
-      
-      // Only check timeout if one was provided
-      if (timeoutMs && (Date.now() - startTime >= timeoutMs)) {
-        return null;
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-  }
-
-  // Better auth detection with multiple fallbacks
-  getCurrentUser() {
-    // Method 1: Check global dashieAuth
-    if (window.dashieAuth && window.dashieAuth.isAuthenticated()) {
-      const user = window.dashieAuth.getUser();
-      if (user) return user;
-    }
-    
-    // Method 2: Check global authManager
-    if (window.authManager && window.authManager.currentUser) {
-      return window.authManager.currentUser;
-    }
-    
-    // Method 3: Check for saved user in localStorage
-    try {
-      const savedUser = localStorage.getItem('dashie-user');
-      if (savedUser) {
-        const parsed = JSON.parse(savedUser);
-        if (parsed.savedAt && (Date.now() - parsed.savedAt < 30 * 24 * 60 * 60 * 1000)) {
-          return parsed;
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to get user from localStorage:', error);
-    }
-    
-    return null;
-  }
-
   // Default settings with proper user email and system settings
   getDefaultSettings(userEmail = 'unknown@example.com') {
-    // Detect current site for default
-    
     return {
       photos: {
         transitionTime: 5
@@ -261,8 +270,7 @@ export class SettingsControllerCore {
       },
       system: {
         refreshInterval: 30,
-        calendarRefreshInterval: 5  // Minutes between automatic calendar refreshes (UI control added later)
-        // NOTE: autoRedirect and debugMode will come from localStorage
+        calendarRefreshInterval: 5
       },
       version: '2.0.0',
       lastModified: Date.now()
@@ -350,6 +358,7 @@ export class SettingsControllerCore {
     }
 
     this.currentSettings[categoryId] = { ...this.currentSettings[categoryId], ...settings };
+
     this.isDirty = true;
     this.currentSettings.lastModified = Date.now();
     
@@ -371,11 +380,14 @@ export class SettingsControllerCore {
 
   // Set up real-time synchronization
   setupRealtimeSync() {
-    if (!this.storage) return;
+    if (!this.storage) {
+      console.warn('⚙️ Cannot set up real-time sync - no storage available');
+      return;
+    }
 
     try {
       this.realtimeSubscription = this.storage.subscribeToChanges(this.handleRealtimeUpdate);
-      console.log('⚙️ Real-time sync enabled');
+      console.log('⚙️ ✅ Real-time sync enabled');
     } catch (error) {
       console.warn('⚙️ Real-time sync setup failed:', error);
     }
@@ -387,13 +399,15 @@ export class SettingsControllerCore {
     const remoteTime = newSettings.lastModified || 0;
     
     if (remoteTime > localTime) {
-      console.log('⚙️ Applying remote settings update');
+      console.log('⚙️ 🔄 Applying remote settings update');
       this.currentSettings = newSettings;
       this.isDirty = false;
       
       this.applyLoadedSettings();
       this.checkSiteRedirectSync();
       this.notifyUIUpdate();
+    } else {
+      console.log('⚙️ Ignoring remote update (local is newer or same)');
     }
   }
 
@@ -471,5 +485,4 @@ export class SettingsControllerCore {
     
     console.log('⚙️ Settings Controller cleaned up');
   }
-
 }

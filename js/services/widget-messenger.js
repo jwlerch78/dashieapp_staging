@@ -1,5 +1,5 @@
 // js/services/widget-messenger.js - Clean Widget Communication System
-// CHANGE SUMMARY: Added deduplication to prevent sending the same theme repeatedly to widgets
+// CHANGE SUMMARY: Removed widgets.size check from theme broadcast - broadcastCurrentState() already finds iframes dynamically, so the check was preventing theme updates when widgets Map is empty
 
 import { createLogger } from '../utils/logger.js';
 import { events as eventSystem, EVENTS } from '../utils/event-emitter.js';
@@ -30,6 +30,7 @@ export class WidgetMessenger {
     this.setupEventListeners();
     this.setupMessageListener();
     
+    logger.info('Widget messenger initialized');
   }
 
   // Check for existing auth state and theme
@@ -44,7 +45,7 @@ export class WidgetMessenger {
     try {
       const currentTheme = localStorage.getItem('dashie-theme') || 'dark';
       this.currentState.theme = currentTheme;
-
+      logger.debug('Initial theme state set', { theme: currentTheme });
     } catch (error) {
       this.currentState.theme = 'dark';
     }
@@ -64,9 +65,7 @@ export class WidgetMessenger {
     eventSystem.auth.onSuccess((user) => {
       logger.info('Auth success event received');
       this.currentState.auth = { ready: true, user };
-      if (this.widgets.size > 0) {
-        this.broadcastCurrentState();
-      }
+      this.broadcastCurrentState();
     });
 
     eventSystem.auth.onSignout(() => {
@@ -85,10 +84,15 @@ export class WidgetMessenger {
       this.currentState.theme = themeData.theme;
       
       // Only broadcast if theme actually changed
-      if (oldTheme !== themeData.theme && this.widgets.size > 0) {
-
+      // REMOVED: && this.widgets.size > 0 check
+      // broadcastCurrentState() finds iframes dynamically, so no need to check widgets Map
+      if (oldTheme !== themeData.theme) {
+        logger.info('Theme changed, broadcasting to widgets', { 
+          from: oldTheme, 
+          to: themeData.theme 
+        });
         this.broadcastCurrentState();
-      } else if (oldTheme === themeData.theme) {
+      } else {
         logger.debug('Theme unchanged, skipping broadcast', { theme: themeData.theme });
       }
     });
@@ -139,6 +143,7 @@ export class WidgetMessenger {
 
   /**
    * Broadcast current state to all widgets with deduplication
+   * NOTE: Finds iframes dynamically, doesn't rely on widgets Map
    */
   broadcastCurrentState() {
     const allIframes = document.querySelectorAll('iframe');
@@ -169,6 +174,11 @@ export class WidgetMessenger {
       }
     });
 
+    logger.debug('Broadcast complete', { 
+      totalIframes: allIframes.length,
+      broadcastCount, 
+      skippedCount 
+    });
   }
 
   /**
@@ -190,17 +200,12 @@ export class WidgetMessenger {
     }
 
     // Check if calendar data has changed
-    if (this.hasDataChanged(lastSent.calendar, this.currentState.calendar)) {
+    if (this.hasDataChanged('calendar', lastSent)) {
       return true;
     }
 
     // Check if photos data has changed
-    if (this.hasDataChanged(lastSent.photos, this.currentState.photos)) {
-      return true;
-    }
-
-    // Check if auth state has changed
-    if (this.hasAuthChanged(lastSent.auth, this.currentState.auth)) {
+    if (this.hasDataChanged('photos', lastSent)) {
       return true;
     }
 
@@ -209,46 +214,30 @@ export class WidgetMessenger {
   }
 
   /**
-   * Check if data has changed between two data objects
-   * @param {Object} oldData - Previous data
-   * @param {Object} newData - New data
+   * Check if data has changed for a given type
+   * @param {string} dataType - Type of data to check
+   * @param {Object} lastSent - Last sent state
    * @returns {boolean} Whether data has changed
    */
-  hasDataChanged(oldData, newData) {
-    // If both are null/undefined, no change
-    if (!oldData && !newData) return false;
+  hasDataChanged(dataType, lastSent) {
+    const currentData = this.currentState[dataType];
+    const lastData = lastSent[dataType];
+    
+    // If both null/undefined, no change
+    if (!currentData && !lastData) return false;
     
     // If one is null/undefined and other isn't, changed
-    if (!oldData || !newData) return true;
+    if (!currentData || !lastData) return true;
     
-    // Compare lastUpdated timestamps
-    if (oldData.lastUpdated !== newData.lastUpdated) return true;
-    
-    // Compare data array lengths
-    if ((oldData.events?.length || 0) !== (newData.events?.length || 0)) return true;
-    if ((oldData.albums?.length || 0) !== (newData.albums?.length || 0)) return true;
-    
-    return false;
+    // Compare timestamps for data change
+    return currentData.lastUpdated !== lastData.lastUpdated;
   }
 
   /**
-   * Check if auth state has changed
-   * @param {Object} oldAuth - Previous auth state
-   * @param {Object} newAuth - New auth state
-   * @returns {boolean} Whether auth has changed
-   */
-  hasAuthChanged(oldAuth, newAuth) {
-    if (oldAuth.ready !== newAuth.ready) return true;
-    if (oldAuth.user?.email !== newAuth.user?.email) return true;
-    return false;
-  }
-
-  /**
-   * Update the last sent state for a widget
-   * @param {Window} widgetWindow - Target widget window
+   * Update last sent state for a widget
+   * @param {Window} widgetWindow - Widget window
    */
   updateLastSentState(widgetWindow) {
-    // Deep copy current state to avoid reference issues
     this.lastSentState.set(widgetWindow, {
       calendar: this.currentState.calendar ? { ...this.currentState.calendar } : null,
       photos: this.currentState.photos ? { ...this.currentState.photos } : null,
@@ -272,6 +261,11 @@ export class WidgetMessenger {
     };
 
     this.widgets.set(event.source, widgetInfo);
+    
+    logger.info('Widget registered', { 
+      name: widgetInfo.name, 
+      totalWidgets: this.widgets.size 
+    });
     
     // Send current state to the new widget (always send to new widgets)
     this.sendCurrentStateToWidget(event.source, widgetInfo.name);
@@ -313,6 +307,7 @@ export class WidgetMessenger {
     // Update last sent state for this widget
     this.updateLastSentState(targetWindow);
     
+    logger.debug('Sent current state to widget', { widgetName });
   }
 
   /**
@@ -328,8 +323,6 @@ export class WidgetMessenger {
 
     try {
       targetWindow.postMessage(message, '*');
-      
-      
     } catch (error) {
       logger.error('Failed to send message to widget', {
         error: error.message,

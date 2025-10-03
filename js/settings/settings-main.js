@@ -1,5 +1,5 @@
 // js/settings/settings-main.js - STAGE 3: Accept JWT status from main.js
-// CHANGE SUMMARY: Modified autoInitialize to accept JWT status parameter and pass it to settings system
+// CHANGE SUMMARY: Exposed settingsInstance globally to enable real-time subscription debugging and access
 
 import SimplifiedSettings from './settings-simple-manager.js';
 
@@ -10,6 +10,10 @@ let settingsInstance = null;
 export async function initializeSettings(jwtStatus = 'unknown') {
   if (!settingsInstance) {
     settingsInstance = new SimplifiedSettings(jwtStatus);
+    
+    // Expose globally for debugging and real-time sync access
+    window.settingsInstance = settingsInstance;
+    
     console.log('⚙️ ✅ Modular settings system initialized with JWT status:', jwtStatus);
   }
   return true;
