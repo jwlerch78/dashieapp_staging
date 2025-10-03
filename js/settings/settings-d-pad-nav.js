@@ -1,5 +1,5 @@
 // js/settings/settings-d-pad-nav.js - Auto-save implementation
-// CHANGE SUMMARY: Removed Save/Cancel button event listeners and removed buttons from focusable elements - settings auto-save on every change
+// CHANGE SUMMARY: Fixed backspace in text inputs and dropdown Enter key loop - added early return for active text inputs and simplified dropdown activation
 // D-pad navigation logic for settings interface
 
 export class SimplifiedNavigation {
@@ -10,6 +10,7 @@ export class SimplifiedNavigation {
     this.focusableElements = [];
     this.collapsedGroups = new Set(['theme', 'sleep', 'photos', 'widget-config', 'family-info', 'family-members']);
     this.currentTab = 'display';
+    this.isEditingText = false; // Track text editing state
     
     this.init();
   }
@@ -90,6 +91,47 @@ export class SimplifiedNavigation {
   handleKeyPress(event) {
     const { key } = event;
     let handled = false;
+
+    // FIX 1: Check if we're currently editing a text input
+    // If so, allow ALL keys except ArrowUp/ArrowDown for navigation
+    const activeElement = document.activeElement;
+    const isTextInput = activeElement && (
+      activeElement.type === 'text' || 
+      activeElement.type === 'number' ||
+      activeElement.type === 'time'
+    );
+
+    if (isTextInput && this.isEditingText) {
+      console.log(`⚙️ 📝 Text editing active - key: ${key}`);
+      
+      // Allow all text editing keys
+      const textEditingKeys = [
+        'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 
+        'Tab', ' ', 'Enter'
+      ];
+      
+      // Allow single characters (letters, numbers, symbols)
+      const isSingleChar = key.length === 1;
+      
+      if (textEditingKeys.includes(key) || isSingleChar) {
+        console.log(`⚙️ ✅ Allowing text editing key: "${key}"`);
+        return false; // Don't handle, let browser handle normally
+      }
+      
+      // ONLY block D-pad navigation keys
+      if (['ArrowUp', 'ArrowDown'].includes(key)) {
+        console.log(`⚙️ 🚫 Blocking D-pad navigation key while editing: ${key}`);
+        return true; // Block the key
+      }
+      
+      // Handle Escape to exit editing
+      if (key === 'Escape') {
+        console.log(`⚙️ 🏃 Escape pressed - exiting text editing mode`);
+        activeElement.blur();
+        this.isEditingText = false;
+        return true; // Handle escape
+      }
+    }
 
     console.log(`⚙️ Navigation handling key: ${key}, current focus: ${this.focusIndex}/${this.focusableElements.length}`);
 
@@ -301,7 +343,7 @@ export class SimplifiedNavigation {
     }
   }
 
-  // Better form control activation, especially for dropdowns
+  // Form control activation
   activateFormControl(control) {
     console.log(`⚙️ Activating form control: ${control.id}, type: ${control.type}, tag: ${control.tagName}`);
     
@@ -316,145 +358,54 @@ export class SimplifiedNavigation {
       
       console.log(`⚙️ Text input activated for editing`);
       
-      // Properly disable D-pad navigation for text editing
-      this.temporarilyDisableNavigation(control);
+      // Set editing flag
+      this.isEditingText = true;
+      
+      // Clear flag when done editing
+      const clearEditingFlag = () => {
+        console.log(`⚙️ ✅ Text editing ended`);
+        this.isEditingText = false;
+        control.removeEventListener('blur', clearEditingFlag);
+      };
+      
+      control.addEventListener('blur', clearEditingFlag);
       
     } else if (control.type === 'time' || control.type === 'number') {
       // For time/number inputs, focus and select content
       control.focus();
       if (control.type !== 'time') {
-        // Don't select time inputs as it interferes with the picker
         control.select();
       }
       console.log(`⚙️ Focused and selected ${control.type} input`);
       
-      this.temporarilyDisableNavigation(control);
+      // Set editing flag
+      this.isEditingText = true;
+      
+      // Clear flag when done editing
+      const clearEditingFlag = () => {
+        console.log(`⚙️ ✅ Number/time editing ended`);
+        this.isEditingText = false;
+        control.removeEventListener('blur', clearEditingFlag);
+      };
+      
+      control.addEventListener('blur', clearEditingFlag);
       
     } else if (control.tagName.toLowerCase() === 'select') {
-      // Better dropdown handling for D-pad environments
+      // FIX 2: Simplified dropdown handling - just focus and let browser handle it
       console.log(`⚙️ Activating select dropdown: ${control.id}`);
       
-      // First focus the element
+      // Just focus the element - browser will handle the rest
       control.focus();
       
-      // For D-pad environments, we need to handle this differently
-      // Try multiple approaches in sequence with proper timing
-      setTimeout(() => {
-        // Method 1: Try to expand dropdown with Enter key
-        const enterEvent = new KeyboardEvent('keydown', {
-          key: 'Enter',
-          code: 'Enter',
-          keyCode: 13,
-          bubbles: true,
-          cancelable: true
-        });
-        control.dispatchEvent(enterEvent);
-        
-        // Method 2: Also try space key as backup
-        setTimeout(() => {
-          const spaceEvent = new KeyboardEvent('keydown', {
-            key: ' ',
-            code: 'Space',
-            keyCode: 32,
-            bubbles: true,
-            cancelable: true
-          });
-          control.dispatchEvent(spaceEvent);
-          
-          // Method 3: Try direct size manipulation for Android/FireTV
-          setTimeout(() => {
-            if (control.size === 1 || !control.hasAttribute('size')) {
-              console.log(`⚙️ Attempting to expand dropdown by setting size`);
-              const originalSize = control.size;
-              control.size = Math.min(control.options.length, 8); // Show max 8 options
-              
-              // Set up a listener to collapse it when selection is made
-              const collapseHandler = () => {
-                control.size = originalSize;
-                control.removeEventListener('change', collapseHandler);
-                control.removeEventListener('blur', collapseHandler);
-                console.log(`⚙️ Dropdown collapsed after selection`);
-              };
-              
-              control.addEventListener('change', collapseHandler);
-              control.addEventListener('blur', collapseHandler);
-            }
-          }, 100);
-        }, 50);
-      }, 50);
+      // The browser will automatically open the dropdown on focus for most platforms
+      // If not, user can use arrow keys or Enter to interact with it
+      console.log(`⚙️ Select focused - use arrow keys to navigate options`);
       
     } else {
       // For other inputs, just focus
       control.focus();
       console.log(`⚙️ Focused input`);
-      
-      this.temporarilyDisableNavigation(control);
     }
-  }
-
-  // Much better navigation disabling for text editing
-  temporarilyDisableNavigation(control) {
-    // Store reference to this navigation instance
-    const navigation = this;
-    let isNavigationDisabled = true;
-    
-    console.log(`⚙️ 🚫 Navigation disabled for text editing on ${control.id}`);
-    
-    // Override handleKeyPress while editing
-    const originalHandleKeyPress = this.handleKeyPress;
-    this.handleKeyPress = function(event) {
-      if (isNavigationDisabled && document.activeElement === control) {
-        console.log(`⚙️ 📝 Text editing key: ${event.key}`);
-        
-        // Allow ALL normal text editing keys
-        const textEditingKeys = [
-          'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 
-          'Tab', ' ', 'Enter'  // Added Enter for text inputs
-        ];
-        
-        // Allow single characters (letters, numbers, symbols)
-        const isSingleChar = event.key.length === 1;
-        
-        // Allow text editing keys and single characters
-        if (textEditingKeys.includes(event.key) || isSingleChar) {
-          console.log(`⚙️ ✅ Allowing text editing key: "${event.key}"`);
-          return false; // Don't handle, let browser handle normally
-        }
-        
-        // ONLY block D-pad navigation keys (up/down)
-        if (['ArrowUp', 'ArrowDown'].includes(event.key)) {
-          console.log(`⚙️ 🚫 Blocking D-pad navigation key while editing: ${event.key}`);
-          return true; // Block the key
-        }
-        
-        // Handle Escape to exit editing
-        if (event.key === 'Escape') {
-          console.log(`⚙️ 🏃 Escape pressed - exiting text editing mode`);
-          control.blur();
-          return true; // Handle escape
-        }
-      }
-      
-      // For all other cases, use original handler
-      return originalHandleKeyPress.call(this, event);
-    };
-    
-    // Re-enable navigation when done editing
-    const enableNavigation = () => {
-      console.log(`⚙️ ✅ Re-enabling D-pad navigation after text edit`);
-      isNavigationDisabled = false;
-      navigation.handleKeyPress = originalHandleKeyPress;
-      
-      // Remove event listeners
-      control.removeEventListener('blur', enableNavigation);
-      control.removeEventListener('change', enableNavigation);
-    };
-    
-    // Auto-enable navigation when leaving the input
-    control.addEventListener('blur', enableNavigation);
-    control.addEventListener('change', enableNavigation);
-    
-    console.log(`⚙️ 📝 Text editing mode active - use normal keys, Escape or click away to exit`);
   }
 
   destroy() {
