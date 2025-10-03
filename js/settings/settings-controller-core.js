@@ -404,7 +404,6 @@ export class SettingsControllerCore {
       this.isDirty = false;
       
       this.applyLoadedSettings();
-      this.checkSiteRedirectSync();
       this.notifyUIUpdate();
     } else {
       console.log('⚙️ Ignoring remote update (local is newer or same)');
