@@ -1,5 +1,5 @@
-// js/settings/settings-ui-builder.js - FIXED: Updated System tab with Auto Redirect structure
-// HTML generation and form population for settings interface
+// js/settings/settings-ui-builder.js - Auto-save implementation
+// CHANGE SUMMARY: Removed Save/Cancel footer buttons - settings now auto-save on every change
 
 export function buildSettingsUI() {
   return `
@@ -226,12 +226,6 @@ export function buildSettingsUI() {
             <p>Version information and support options coming soon.</p>
           </div>
         </div>
-      </div>
-
-      <!-- Footer -->
-      <div class="settings-footer">
-        <button class="btn btn-secondary" id="cancel-btn">Cancel</button>
-        <button class="btn btn-primary" id="save-btn">Save</button>
       </div>
     </div>
   `;

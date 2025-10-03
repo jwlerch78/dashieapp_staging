@@ -1,5 +1,5 @@
-// js/settings/settings-simple-manager.js - FIXED: Add System tab support
-// Main orchestrator for simplified settings system
+// js/settings/settings-simple-manager.js - Auto-save implementation
+// CHANGE SUMMARY: Removed pendingChanges tracking and Save button - all changes now auto-save immediately via controller
 
 import { buildSettingsUI, populateFormFields, applyTheme } from './settings-ui-builder.js';
 import { SimplifiedNavigation } from './settings-d-pad-nav.js';
@@ -11,7 +11,6 @@ export class SimplifiedSettings {
     this.overlay = null;
     this.navigation = null;
     this.controller = null;
-    this.pendingChanges = {};
     this.keydownHandler = null;
     this.initializationAttempts = 0;
     this.maxInitAttempts = 20;
@@ -276,11 +275,10 @@ export class SimplifiedSettings {
     // Set up event handlers
     setupEventHandlers(this.overlay, this);
     
-    // Initialize navigation
+    // Initialize navigation (removed onSave callback)
     this.navigation = new SimplifiedNavigation(this.overlay, {
       onThemeChange: (theme) => this.handleThemeChange(theme),
       onSettingChange: (path, value) => this.handleSettingChange(path, value),
-      onSave: () => this.handleSave(),
       onCancel: () => this.handleCancel()
     });
     
@@ -304,70 +302,40 @@ export class SimplifiedSettings {
   }
 
   handleThemeChange(theme) {
+    // Auto-save: Apply theme immediately and save to controller
     applyTheme(this.overlay, theme);
-    this.pendingChanges['display.theme'] = theme;
-    console.log(`⚙️ Theme previewed: ${theme}`);
+    
+    if (this.controller) {
+      this.controller.setSetting('display.theme', theme);
+      this.applyThemeToMainDashboard(theme);
+    }
+    
+    console.log(`⚙️ Theme changed and saved: ${theme}`);
   }
 
   handleSettingChange(path, value) {
-    // NEW: Handle boolean conversion for system settings
+    // Handle boolean conversion for system settings
     if (path === 'system.autoRedirect' || path === 'system.debugMode') {
       value = value === 'true';
     }
     
-    this.pendingChanges[path] = value;
-    console.log(`⚙️ Setting changed: ${path} = ${value}`);
-  }
-
-  async handleSave() {
-    if (!this.controller) {
-      console.error('⚙️ ❌ No settings controller available');
-      await this.initializeController();
-      
-      if (!this.controller) {
-        alert('Settings system not available. Changes cannot be saved.');
-        return;
+    // Auto-save: Save immediately to controller
+    if (this.controller) {
+      const success = this.controller.setSetting(path, value);
+      if (success) {
+        console.log(`⚙️ ✅ Setting auto-saved: ${path} = ${value}`);
+        
+        // Notify widgets of the change immediately
+        this.notifySettingChanged(path, value);
+      } else {
+        console.warn(`⚙️ ⚠️ Failed to auto-save ${path} = ${value}`);
       }
-    }
-
-    try {
-      console.log('⚙️ 💾 Saving settings:', this.pendingChanges);
-      
-      for (const [path, value] of Object.entries(this.pendingChanges)) {
-        const success = this.controller.setSetting(path, value);
-        if (!success) {
-          console.warn(`⚙️ ⚠️ Failed to set ${path} = ${value}`);
-        }
-      }
-      
-      const success = await this.controller.saveSettings();
-      
-      if (!success) {
-        throw new Error('Save operation returned false');
-      }
-      
-      if (this.pendingChanges['display.theme']) {
-        await this.applyThemeToMainDashboard(this.pendingChanges['display.theme']);
-      }
-      
-      this.notifySettingsChanged();
-      
-      console.log('⚙️ ✅ Settings saved successfully');
-      this.hide();
-      
-    } catch (error) {
-      console.error('⚙️ ❌ Failed to save settings:', error);
-      alert('Failed to save settings. Please try again.');
     }
   }
 
   handleCancel() {
-    if (this.pendingChanges['display.theme']) {
-      const originalTheme = this.controller.getSetting('display.theme', 'dark');
-      applyTheme(this.overlay, originalTheme);
-    }
-    
-    console.log('⚙️ Settings cancelled');
+    // Just close the settings - no need to revert anything since we auto-save
+    console.log('⚙️ Settings closed');
     this.hide();
   }
 
@@ -381,20 +349,21 @@ export class SimplifiedSettings {
     }
   }
 
-  notifySettingsChanged() {
+  notifySettingChanged(path, value) {
+    // Emit event for any listeners
     window.dispatchEvent(new CustomEvent('dashie-settings-changed', {
-      detail: this.pendingChanges
+      detail: { [path]: value }
     }));
     
     // Update photo widgets
-    if (this.pendingChanges['photos.transitionTime']) {
+    if (path === 'photos.transitionTime') {
       const photoWidgets = document.querySelectorAll('iframe[src*="photos.html"]');
       photoWidgets.forEach(iframe => {
         if (iframe.contentWindow) {
           try {
             iframe.contentWindow.postMessage({
               type: 'update-settings',
-              photoTransitionTime: this.pendingChanges['photos.transitionTime']
+              photoTransitionTime: value
             }, '*');
           } catch (error) {
             console.warn('⚙️ ⚠️ Failed to update photo widget:', error);
@@ -404,16 +373,16 @@ export class SimplifiedSettings {
     }
     
     // Update header widget with family name
-    if (this.pendingChanges['family.familyName']) {
+    if (path === 'family.familyName') {
       const headerWidgets = document.querySelectorAll('iframe[src*="header.html"]');
       headerWidgets.forEach(iframe => {
         if (iframe.contentWindow) {
           try {
             iframe.contentWindow.postMessage({
               type: 'family-name-update',
-              familyName: this.pendingChanges['family.familyName']
+              familyName: value
             }, '*');
-            console.log('👨‍👩‍👧‍👦 Sent family name update to header:', this.pendingChanges['family.familyName']);
+            console.log('👨‍👩‍👧‍👦 Sent family name update to header:', value);
           } catch (error) {
             console.warn('⚙️ ⚠️ Failed to update header widget:', error);
           }
@@ -529,8 +498,6 @@ export class SimplifiedSettings {
       this.overlay.remove();
       this.overlay = null;
     }
-    
-    this.pendingChanges = {};
   }
 }
 

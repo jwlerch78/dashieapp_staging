@@ -252,45 +252,6 @@ body.theme-light {
   box-shadow: 0 0 0 2px rgba(255, 170, 0, 0.4);
 }
 
-/* Footer */
-.settings-footer {
-  background: var(--bg-secondary);
-  padding: 12px 25px;
-  border-top: 1px solid var(--text-muted);
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-.btn {
-  padding: 8px 16px;
-  border: none;
-  border-radius: var(--border-radius-small);
-  font-size: 14px;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.btn-primary {
-  background: var(--accent-orange);
-  color: var(--bg-primary);
-}
-
-.btn-secondary {
-  background: var(--bg-primary);
-  color: var(--text-primary);
-  border: 2px solid var(--text-muted);
-}
-
-.btn:hover {
-  transform: translateY(-1px);
-}
-
-.btn.selected {
-  outline: 2px solid var(--outline-focused);
-  outline-offset: 2px;
-}
-
 /* Coming Soon */
 .coming-soon {
   text-align: center;

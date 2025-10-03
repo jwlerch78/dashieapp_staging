@@ -1,5 +1,5 @@
-// js/settings/settings-d-pad-nav.js - FIXED: Tab down navigation + dropdown selection issues
-// CHANGE SUMMARY: Fixed tab down arrow to move to content area, improved dropdown D-pad selection
+// js/settings/settings-d-pad-nav.js - Auto-save implementation
+// CHANGE SUMMARY: Removed Save/Cancel button event listeners and removed buttons from focusable elements - settings auto-save on every change
 // D-pad navigation logic for settings interface
 
 export class SimplifiedNavigation {
@@ -26,7 +26,7 @@ export class SimplifiedNavigation {
     const activePanel = this.overlay.querySelector('.tab-panel.active');
     const groupTitles = Array.from(activePanel.querySelectorAll('.group-title'));
     
-    // FIXED: Build proper navigation order - groups and their controls together
+    // Build proper navigation order - groups and their controls together
     const contentElements = [];
     groupTitles.forEach(title => {
       // Always add the group title
@@ -43,12 +43,11 @@ export class SimplifiedNavigation {
       }
     });
     
-    const buttons = Array.from(this.overlay.querySelectorAll('.settings-footer .btn'));
+    // No footer buttons anymore - removed from navigation
+    // Create proper navigation hierarchy: tabs -> content (groups+controls)
+    this.focusableElements = [...tabs, ...contentElements];
     
-    // Create proper navigation hierarchy: tabs -> content (groups+controls) -> buttons
-    this.focusableElements = [...tabs, ...contentElements, ...buttons];
-    
-    console.log(`⚙️ Updated focusable elements: ${this.focusableElements.length} (${tabs.length} tabs, ${contentElements.length} content, ${buttons.length} buttons)`);
+    console.log(`⚙️ Updated focusable elements: ${this.focusableElements.length} (${tabs.length} tabs, ${contentElements.length} content)`);
     
     // Adjust focus index if it's out of bounds
     if (this.focusIndex >= this.focusableElements.length) {
@@ -73,7 +72,7 @@ export class SimplifiedNavigation {
       });
     });
 
-    // Form changes
+    // Form changes - auto-save on every change
     this.overlay.querySelectorAll('.form-control').forEach(control => {
       control.addEventListener('change', (e) => {
         if (control.id === 'theme-select') {
@@ -85,25 +84,7 @@ export class SimplifiedNavigation {
       });
     });
 
-    // Button clicks
-    const saveBtn = this.overlay.querySelector('#save-btn');
-    const cancelBtn = this.overlay.querySelector('#cancel-btn');
-    
-    if (saveBtn) {
-      saveBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        this.callbacks.onSave();
-      });
-    }
-
-    if (cancelBtn) {
-      cancelBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        this.callbacks.onCancel();
-      });
-    }
+    // Save/Cancel buttons removed - no event listeners needed
   }
 
   handleKeyPress(event) {
@@ -118,7 +99,7 @@ export class SimplifiedNavigation {
         handled = true;
         break;
       case 'ArrowDown':
-        // FIXED: When on tabs, move to first content element instead of next tab
+        // When on tabs, move to first content element instead of next tab
         if (this.isOnTabs()) {
           this.moveFromTabsToContent();
           handled = true;
@@ -146,6 +127,7 @@ export class SimplifiedNavigation {
         handled = true;
         break;
       case 'Escape':
+        // Just close settings - no confirmation needed with auto-save
         this.callbacks.onCancel();
         handled = true;
         break;
@@ -159,7 +141,7 @@ export class SimplifiedNavigation {
     return current && current.classList.contains('tab-button');
   }
 
-  // FIXED: New method to move from tabs down to content
+  // New method to move from tabs down to content
   moveFromTabsToContent() {
     // Find first non-tab element (first content element)
     const firstContentIndex = this.focusableElements.findIndex(el => !el.classList.contains('tab-button'));
@@ -313,21 +295,18 @@ export class SimplifiedNavigation {
     } else if (current.classList.contains('group-title')) {
       // Toggle group
       this.toggleGroup(current.dataset.group);
-    } else if (current.classList.contains('btn')) {
-      // Click button
-      current.click();
     } else if (current.classList.contains('form-control')) {
-      // FIXED: Properly activate form controls
+      // Activate form controls
       this.activateFormControl(current);
     }
   }
 
-  // FIXED: Better form control activation, especially for dropdowns
+  // Better form control activation, especially for dropdowns
   activateFormControl(control) {
     console.log(`⚙️ Activating form control: ${control.id}, type: ${control.type}, tag: ${control.tagName}`);
     
     if (control.type === 'text') {
-      // FIXED: Special handling for text inputs
+      // Special handling for text inputs
       control.focus();
       
       // Position cursor at end of text
@@ -337,7 +316,7 @@ export class SimplifiedNavigation {
       
       console.log(`⚙️ Text input activated for editing`);
       
-      // FIXED: Properly disable D-pad navigation for text editing
+      // Properly disable D-pad navigation for text editing
       this.temporarilyDisableNavigation(control);
       
     } else if (control.type === 'time' || control.type === 'number') {
@@ -352,7 +331,7 @@ export class SimplifiedNavigation {
       this.temporarilyDisableNavigation(control);
       
     } else if (control.tagName.toLowerCase() === 'select') {
-      // FIXED: Better dropdown handling for D-pad environments
+      // Better dropdown handling for D-pad environments
       console.log(`⚙️ Activating select dropdown: ${control.id}`);
       
       // First focus the element
@@ -413,7 +392,7 @@ export class SimplifiedNavigation {
     }
   }
 
-  // FIXED: Much better navigation disabling for text editing
+  // Much better navigation disabling for text editing
   temporarilyDisableNavigation(control) {
     // Store reference to this navigation instance
     const navigation = this;
@@ -427,7 +406,7 @@ export class SimplifiedNavigation {
       if (isNavigationDisabled && document.activeElement === control) {
         console.log(`⚙️ 📝 Text editing key: ${event.key}`);
         
-        // FIXED: Allow ALL normal text editing keys
+        // Allow ALL normal text editing keys
         const textEditingKeys = [
           'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 
           'Tab', ' ', 'Enter'  // Added Enter for text inputs
