@@ -269,6 +269,14 @@ export class DCalWidget {
     this.lastUpdatedTimestamp = Date.now();
     this.updateLastUpdatedDisplay();
     
+    // Start the recurring update interval (clear any existing one first)
+    if (this.displayUpdateInterval) {
+      clearInterval(this.displayUpdateInterval);
+    }
+    this.displayUpdateInterval = setInterval(() => {
+      this.updateLastUpdatedDisplay();
+    }, 60000); // Update every 60 seconds
+
    
     // Render events in weekly view
     this.weekly.renderEvents(this.calendarData);

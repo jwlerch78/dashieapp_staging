@@ -1,4 +1,5 @@
 // js/supabase/supabase-config.js - Supabase Configuration
+// CHANGE SUMMARY: Exposed supabase client globally as window.supabase for real-time subscriptions to work
 
 import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js@2';
 
@@ -31,4 +32,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   }
 });
 
+// CRITICAL: Expose globally for real-time subscriptions
+window.supabase = supabase;
+
 console.log('📊 Supabase client initialized:', supabaseUrl);
+console.log('📊 Supabase client exposed globally as window.supabase');
