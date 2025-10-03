@@ -318,15 +318,24 @@ body.theme-light {
   transition: border-color var(--transition-fast);
 }
 
+/* FIX 3: Better visual feedback for form focus states */
 .form-control:focus {
   outline: none;
   border-color: #EE9828;
   box-shadow: 0 0 0 2px rgba(238, 152, 40, 0.3);
+  background: #FFFEF8; /* Subtle yellow tint when actively editing */
 }
 
 .form-control.focused {
   border-color: #EE9828;
   box-shadow: 0 0 0 2px rgba(238, 152, 40, 0.3);
+}
+
+/* Additional indicator: show that input is navigable but not editing */
+.form-control.focused:not(:focus) {
+  background: #FCFCFF; /* White when selected but not editing */
+  border-color: #C7C7CC;
+  box-shadow: 0 0 0 1px rgba(238, 152, 40, 0.2); /* Subtle outline */
 }
 
 /* Toggle Switch */

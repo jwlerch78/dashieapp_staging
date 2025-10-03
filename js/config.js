@@ -2,9 +2,16 @@
 // config.js
 //*****************
 
+const APP_VERSION = {
+  version: '0',
+  build: '100',
+  description: 'iOS Settings + Mobile Landing'
+};
+window.APP_VERSION = APP_VERSION;
+
 
 // Brand tagline (shared between loading overlay and login screens)
-const TAGLINE = "Helping active families manage the chaos";
+const TAGLINE = "Manage the chaos";
 
 // Make it globally available like other config values
 window.TAGLINE = TAGLINE;

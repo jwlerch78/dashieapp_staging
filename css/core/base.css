@@ -64,3 +64,36 @@ img {
   white-space: nowrap;
   border: 0;
 }
+
+/* Version Badge - Dev site only */
+.version-badge {
+  position: fixed;
+  bottom: 8px;
+  left: 8px;
+  background: transparent;
+  color: #999;
+  padding: 0;
+  border-radius: 0;
+  font-size: 9px;
+  font-weight: 400;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, monospace;
+  z-index: 9999;
+  pointer-events: none;
+  box-shadow: none;
+  display: none; /* Hidden by default */
+  opacity: 0.6;
+}
+
+.version-badge.dev-only {
+  display: block; /* Show on dev site */
+}
+
+.version-badge .version-number {
+  font-weight: 700;
+  margin-right: 4px;
+}
+
+.version-badge .build-info {
+  opacity: 0.8;
+  font-size: 10px;
+}

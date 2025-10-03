@@ -64,102 +64,103 @@ export class SimplifiedNavigation {
     });
   }
 
-  handleKeyPress(event) {
-    const { key } = event;
-    let handled = false;
+  // FIX 2: Enhanced escape handling - single escape exits editing AND closes modal
+handleKeyPress(event) {
+  const { key } = event;
+  let handled = false;
 
-    // Check if we're currently editing a text/number input
-    const activeElement = document.activeElement;
-    const isTextInput = activeElement && 
-      activeElement.classList.contains('form-control') &&
-      (activeElement.type === 'text' || 
-       activeElement.type === 'number' ||
-       activeElement.type === 'time');
+  const activeElement = document.activeElement;
+  const isTextInput = activeElement && 
+    activeElement.classList.contains('form-control') &&
+    (activeElement.type === 'text' || activeElement.type === 'number');
 
-    // Check if we're in an open dropdown
-    const isInDropdown = activeElement && 
-      activeElement.tagName.toLowerCase() === 'select' &&
-      activeElement.size > 1;
+  const isInDropdown = activeElement && 
+    activeElement.tagName.toLowerCase() === 'select' &&
+    activeElement.size > 1;
 
-    // Allow text editing keys when in text input
-    if (isTextInput) {
-      const textEditingKeys = [
-        'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 
-        'Tab', ' ', 'Enter'
-      ];
-      
-      const isSingleChar = key.length === 1;
-      
-      if (textEditingKeys.includes(key) || isSingleChar) {
-        return false; // Let browser handle
-      }
-      
-      // Block D-pad navigation while editing
-      if (['ArrowUp', 'ArrowDown'].includes(key)) {
-        return true; // Block these keys
-      }
-      
-      // Escape exits editing mode
-      if (key === 'Escape') {
-        activeElement.blur();
-        this.updateFocus();
-        return true;
-      }
+  // FIX 2A: If editing text/number, first Escape blurs, modal stays open
+  if (isTextInput) {
+    const textEditingKeys = [
+      'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 
+      'Tab', ' ', 'Enter'
+    ];
+    
+    const isSingleChar = key.length === 1;
+    
+    if (textEditingKeys.includes(key) || isSingleChar) {
+      return false; // Let browser handle
     }
-
-    // Allow dropdown navigation
-    if (isInDropdown) {
-      if (['ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(key)) {
-        return false; // Let browser handle
-      }
+    
+    if (['ArrowUp', 'ArrowDown'].includes(key)) {
+      return true; // Block navigation
     }
+    
+    // First Escape: blur the input (stay in modal)
+    if (key === 'Escape') {
+      console.log(`⚙️ Escape - blurring text input (staying in modal)`);
+      activeElement.blur();
+      // Re-focus the input in the focusable elements list
+      this.updateFocus();
+      return true; // Handled - don't close modal
+    }
+  }
 
-    console.log(`⚙️ Navigation handling key: ${key}, focus: ${this.focusIndex}/${this.focusableElements.length}, screen: ${this.getCurrentScreenId()}`);
+  if (isInDropdown) {
+    if (['ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(key)) {
+      return false; // Let browser handle
+    }
+  }
 
-    switch (key) {
-      case 'ArrowUp':
-        this.moveFocus(-1);
+  // Standard navigation
+  switch (key) {
+    case 'ArrowUp':
+      this.moveFocus(-1);
+      handled = true;
+      break;
+    case 'ArrowDown':
+      if (this.isOnTabs()) {
+        this.moveFromTabsToContent();
         handled = true;
-        break;
-        
-      case 'ArrowDown':
+      } else {
         this.moveFocus(1);
         handled = true;
-        break;
-        
-      case 'ArrowLeft':
-        // Left arrow goes back (like iOS swipe)
-        if (this.navigationStack.length > 1) {
-          this.navigateBack();
-          handled = true;
-        }
-        break;
-        
-      case 'ArrowRight':
-        // Right arrow activates cells with navigate attribute
-        this.activateCurrentElement();
+      }
+      break;
+    case 'ArrowLeft':
+      if (this.isOnTabs()) {
+        this.moveTabFocus(-1);
         handled = true;
-        break;
-        
-      case 'Enter':
-        this.activateCurrentElement();
+      }
+      break;
+    case 'ArrowRight':
+      if (this.isOnTabs()) {
+        this.moveTabFocus(1);
         handled = true;
-        break;
-        
-      case 'Escape':
-      case 'Backspace':
-        // Escape/Backspace: go back if not on root, otherwise close settings
-        if (this.navigationStack.length > 1) {
-          this.navigateBack();
-        } else {
-          this.callbacks.onCancel();
-        }
+      }
+      break;
+    case 'Enter':
+      this.activateCurrentElement();
+      handled = true;
+      break;
+    case 'Escape':
+    case 'Backspace':
+      // FIX 2B: Check if we're on a sub-screen
+      if (this.isOnSubScreen && this.isOnSubScreen()) {
+        // Navigate back one screen
+        console.log(`⚙️ Back button - navigating to previous screen`);
+        this.navigateBack();
         handled = true;
-        break;
-    }
-
-    return handled;
+      } else {
+        // On root screen - close settings
+        console.log(`⚙️ Escape/Back - closing settings`);
+        this.callbacks.onCancel();
+        handled = true;
+      }
+      break;
   }
+
+  return handled;
+}
 
   moveFocus(direction) {
     const oldIndex = this.focusIndex;
@@ -263,48 +264,87 @@ export class SimplifiedNavigation {
     console.log(`⚙️ Selection changed: ${setting} = ${value}`);
   }
 
-  activateFormControl(control) {
-    console.log(`⚙️ Activating form control: ${control.id}, type: ${control.type}`);
+ // UPDATE: Form control activation with better time handling
+activateFormControl(control) {
+  console.log(`⚙️ Activating form control: ${control.id}, type: ${control.type}, tag: ${control.tagName}`);
+  
+  if (control.type === 'text' || control.type === 'number') {
+    // Text/number inputs - just focus
+    control.focus();
     
-    if (control.type === 'text' || control.type === 'number' || control.type === 'time') {
-      // Focus text/number/time inputs for editing
-      control.focus();
-      
-      // Position cursor at end for text inputs
-      if (control.type === 'text') {
-        setTimeout(() => {
-          control.setSelectionRange(control.value.length, control.value.length);
-        }, 10);
-      }
-      
-      console.log(`⚙️ ${control.type} input activated for editing`);
-      
-    } else if (control.tagName.toLowerCase() === 'select') {
-      // Dropdown handling
-      console.log(`⚙️ Activating select dropdown`);
-      
-      control.focus();
-      
-      // Expand dropdown
+    // Position cursor at end of text for text inputs
+    if (control.type === 'text') {
       setTimeout(() => {
-        const originalSize = control.size || 1;
-        control.size = Math.min(control.options.length, 8);
-        
-        // Collapse when selection made or focus lost
-        const collapseHandler = () => {
-          control.size = originalSize;
-          control.removeEventListener('change', collapseHandler);
-          control.removeEventListener('blur', collapseHandler);
-        };
-        
-        control.addEventListener('change', collapseHandler, { once: true });
-        control.addEventListener('blur', collapseHandler, { once: true });
-      }, 50);
-    } else {
-      // Other controls - just focus
-      control.focus();
+        control.setSelectionRange(control.value.length, control.value.length);
+      }, 10);
     }
+    
+    console.log(`⚙️ ${control.type} input activated for editing`);
+    
+  } else if (control.type === 'time') {
+    // FIX 1: For time inputs, navigate to time selection screen instead of using native picker
+    // Get the setting path to determine which time we're editing
+    const settingPath = control.dataset.setting;
+    
+    if (settingPath === 'display.sleepTime') {
+      this.navigateToScreen('sleep-time');
+    } else if (settingPath === 'display.wakeTime') {
+      this.navigateToScreen('wake-time');
+    }
+    
+    console.log(`⚙️ Navigating to time selection screen for ${settingPath}`);
+    
+  } else if (control.tagName.toLowerCase() === 'select') {
+    // Dropdown handling
+    console.log(`⚙️ Activating select dropdown: ${control.id}`);
+    control.focus();
+    
+    setTimeout(() => {
+      const originalSize = control.size || 1;
+      control.size = Math.min(control.options.length, 8);
+      
+      const collapseHandler = () => {
+        control.size = originalSize;
+        control.removeEventListener('change', collapseHandler);
+        control.removeEventListener('blur', collapseHandler);
+      };
+      
+      control.addEventListener('change', collapseHandler, { once: true });
+      control.addEventListener('blur', collapseHandler, { once: true });
+    }, 50);
+    
+  } else {
+    control.focus();
+    console.log(`⚙️ Focused ${control.type} input`);
   }
+}
+  
+
+// NEW: Check if we're on a sub-screen (for back button handling)
+isOnSubScreen() {
+  const activeScreen = this.overlay.querySelector('.settings-screen.active');
+  if (!activeScreen) return false;
+  
+  const screenId = activeScreen.dataset.screen;
+  return screenId !== 'root'; // Any screen other than root
+}
+
+// NEW: Navigate back to previous screen (for nested settings)
+navigateBack() {
+  // Use the settings manager's navigation if available
+  if (this.callbacks.onNavigateBack) {
+    this.callbacks.onNavigateBack();
+  }
+}
+
+// NEW: Navigate to a specific screen (for time pickers)
+navigateToScreen(screenId) {
+  // Use the settings manager's navigation if available
+  if (this.callbacks.onNavigateToScreen) {
+    this.callbacks.onNavigateToScreen(screenId);
+  }
+}
+
 
   navigateToScreen(screenId) {
     const currentScreen = this.overlay.querySelector('.settings-screen.active');
