@@ -1,5 +1,5 @@
 // widgets/dcal/dcal-weekly.js - Weekly View Rendering Module
-// CHANGE SUMMARY: Added event borders, implemented 2-event collision detection with width/position adjustments
+// CHANGE SUMMARY: Added setTimeout to scroll positioning, event borders, collision detection for 2-3 events, dynamic text wrapping
 
 import { createLogger } from '../../js/utils/logger.js';
 
@@ -309,12 +309,8 @@ export class DCalWeekly {
         
         // Get calendar color
         const calendar = this.calendars.find(cal => cal.id === event.calendarId);
-        console.log('Looking for calendar:', event.calendarId);
-        console.log('Found calendar:', calendar);
-        console.log('All calendars:', this.calendars);
 
         const backgroundColor = calendar?.backgroundColor || '#1976d2';
-        const borderColor = this.darkenColor(backgroundColor, 20);
         
         const eventElement = document.createElement('div');
         eventElement.className = 'allday-event';
@@ -366,7 +362,6 @@ export class DCalWeekly {
     // Get calendar color
     const calendar = this.calendars.find(cal => cal.id === event.calendarId);
     const backgroundColor = calendar?.backgroundColor || '#1976d2';
-    const borderColor = this.darkenColor(backgroundColor, 20);
     
     const eventElement = document.createElement('div');
     eventElement.className = 'event';
@@ -561,11 +556,43 @@ export class DCalWeekly {
 
   setOptimalScrollPosition() {
     const timeGrid = document.querySelector('.time-grid');
-    if (!timeGrid) return;
+    if (!timeGrid) {
+      logger.warn('Time grid not found for scroll positioning');
+      return;
+    }
 
-    // Scroll to 8am at the top
-    const targetHour = 8;
-    timeGrid.scrollTop = targetHour * this.hourHeight;
+    // Poll with reasonable delay until content is rendered
+    let checkCount = 0;
+    const maxChecks = 20; // Max 5 seconds (20 * 250ms)
+    
+    const scrollWhenReady = () => {
+      checkCount++;
+      
+      // Check if content has been rendered (scrollHeight > 0)
+      if (timeGrid.scrollHeight > 0) {
+        const targetHour = 8;
+        const targetScroll = targetHour * this.hourHeight;
+        
+        timeGrid.scrollTop = targetScroll;
+        
+        logger.debug('Set optimal scroll position', { 
+          targetHour, 
+          targetScroll,
+          hourHeight: this.hourHeight,
+          actualScroll: timeGrid.scrollTop,
+          scrollHeight: timeGrid.scrollHeight,
+          checksNeeded: checkCount
+        });
+      } else if (checkCount < maxChecks) {
+        // Content not ready yet, check again in 250ms
+        setTimeout(scrollWhenReady, 250);
+      } else {
+        logger.warn('Failed to scroll - content not rendered after 5 seconds');
+      }
+    };
+
+    // Start checking after brief initial delay
+    setTimeout(scrollWhenReady, 50);
   }
 
   startNowIndicator() {
