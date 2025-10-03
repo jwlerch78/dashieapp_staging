@@ -1,5 +1,5 @@
-// js/settings/settings-d-pad-nav.js - Auto-save implementation
-// CHANGE SUMMARY: Fixed backspace in text inputs and dropdown Enter key loop - added early return for active text inputs and simplified dropdown activation
+// js/settings/settings-d-pad-nav.js - Auto-save implementation  
+// CHANGE SUMMARY: Fixed backspace in text inputs, dropdown activation, and escape key handling - checks activeElement directly, uses size manipulation for dropdowns, and properly handles all navigation
 // D-pad navigation logic for settings interface
 
 export class SimplifiedNavigation {
@@ -10,7 +10,6 @@ export class SimplifiedNavigation {
     this.focusableElements = [];
     this.collapsedGroups = new Set(['theme', 'sleep', 'photos', 'widget-config', 'family-info', 'family-members']);
     this.currentTab = 'display';
-    this.isEditingText = false; // Track text editing state
     
     this.init();
   }
@@ -92,19 +91,19 @@ export class SimplifiedNavigation {
     const { key } = event;
     let handled = false;
 
-    // FIX 1: Check if we're currently editing a text input
-    // If so, allow ALL keys except ArrowUp/ArrowDown for navigation
+    // FIX 1: Check if we're currently editing a text/number input
+    // Look at the actual focused element in the DOM
     const activeElement = document.activeElement;
-    const isTextInput = activeElement && (
-      activeElement.type === 'text' || 
-      activeElement.type === 'number' ||
-      activeElement.type === 'time'
-    );
+    const isTextInput = activeElement && 
+      activeElement.classList.contains('form-control') &&
+      (activeElement.type === 'text' || 
+       activeElement.type === 'number' ||
+       activeElement.type === 'time');
 
-    if (isTextInput && this.isEditingText) {
-      console.log(`⚙️ 📝 Text editing active - key: ${key}`);
+    if (isTextInput) {
+      console.log(`⚙️ 📝 Text input is focused - key: ${key}`);
       
-      // Allow all text editing keys
+      // Allow all text editing keys through
       const textEditingKeys = [
         'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 
         'Tab', ' ', 'Enter'
@@ -115,21 +114,20 @@ export class SimplifiedNavigation {
       
       if (textEditingKeys.includes(key) || isSingleChar) {
         console.log(`⚙️ ✅ Allowing text editing key: "${key}"`);
-        return false; // Don't handle, let browser handle normally
+        return false; // Don't handle, let browser process normally
       }
       
-      // ONLY block D-pad navigation keys
+      // ONLY block D-pad navigation keys (up/down)
       if (['ArrowUp', 'ArrowDown'].includes(key)) {
-        console.log(`⚙️ 🚫 Blocking D-pad navigation key while editing: ${key}`);
-        return true; // Block the key
+        console.log(`⚙️ 🚫 Blocking D-pad navigation while editing: ${key}`);
+        return true; // Block these keys
       }
       
-      // Handle Escape to exit editing
+      // Handle Escape to exit editing mode
       if (key === 'Escape') {
-        console.log(`⚙️ 🏃 Escape pressed - exiting text editing mode`);
+        console.log(`⚙️ 🏃 Escape - exiting text editing mode`);
         activeElement.blur();
-        this.isEditingText = false;
-        return true; // Handle escape
+        return true; // Handled - blur the input
       }
     }
 
@@ -169,7 +167,9 @@ export class SimplifiedNavigation {
         handled = true;
         break;
       case 'Escape':
+      case 'Backspace': // FIX 3: Handle Backspace as escape when NOT in text input
         // Just close settings - no confirmation needed with auto-save
+        console.log(`⚙️ Escape/Back button pressed - closing settings`);
         this.callbacks.onCancel();
         handled = true;
         break;
@@ -347,64 +347,50 @@ export class SimplifiedNavigation {
   activateFormControl(control) {
     console.log(`⚙️ Activating form control: ${control.id}, type: ${control.type}, tag: ${control.tagName}`);
     
-    if (control.type === 'text') {
-      // Special handling for text inputs
+    if (control.type === 'text' || control.type === 'number' || control.type === 'time') {
+      // Text/number/time inputs - just focus
       control.focus();
       
-      // Position cursor at end of text
-      setTimeout(() => {
-        control.setSelectionRange(control.value.length, control.value.length);
-      }, 10);
-      
-      console.log(`⚙️ Text input activated for editing`);
-      
-      // Set editing flag
-      this.isEditingText = true;
-      
-      // Clear flag when done editing
-      const clearEditingFlag = () => {
-        console.log(`⚙️ ✅ Text editing ended`);
-        this.isEditingText = false;
-        control.removeEventListener('blur', clearEditingFlag);
-      };
-      
-      control.addEventListener('blur', clearEditingFlag);
-      
-    } else if (control.type === 'time' || control.type === 'number') {
-      // For time/number inputs, focus and select content
-      control.focus();
-      if (control.type !== 'time') {
-        control.select();
+      // Position cursor at end of text for text inputs
+      if (control.type === 'text') {
+        setTimeout(() => {
+          control.setSelectionRange(control.value.length, control.value.length);
+        }, 10);
       }
-      console.log(`⚙️ Focused and selected ${control.type} input`);
       
-      // Set editing flag
-      this.isEditingText = true;
-      
-      // Clear flag when done editing
-      const clearEditingFlag = () => {
-        console.log(`⚙️ ✅ Number/time editing ended`);
-        this.isEditingText = false;
-        control.removeEventListener('blur', clearEditingFlag);
-      };
-      
-      control.addEventListener('blur', clearEditingFlag);
+      console.log(`⚙️ ${control.type} input activated for editing`);
       
     } else if (control.tagName.toLowerCase() === 'select') {
-      // FIX 2: Simplified dropdown handling - just focus and let browser handle it
+      // FIX 2: Dropdown handling for Fire TV/Android
       console.log(`⚙️ Activating select dropdown: ${control.id}`);
       
-      // Just focus the element - browser will handle the rest
+      // Focus first
       control.focus();
       
-      // The browser will automatically open the dropdown on focus for most platforms
-      // If not, user can use arrow keys or Enter to interact with it
-      console.log(`⚙️ Select focused - use arrow keys to navigate options`);
+      // For TV/Android devices, expand the dropdown by setting size
+      setTimeout(() => {
+        if (control.size === 1 || !control.hasAttribute('size')) {
+          console.log(`⚙️ Expanding dropdown with size attribute`);
+          const originalSize = control.size || 1;
+          control.size = Math.min(control.options.length, 8); // Show max 8 options
+          
+          // Collapse when selection is made
+          const collapseHandler = () => {
+            control.size = originalSize;
+            control.removeEventListener('change', collapseHandler);
+            control.removeEventListener('blur', collapseHandler);
+            console.log(`⚙️ Dropdown collapsed after selection`);
+          };
+          
+          control.addEventListener('change', collapseHandler, { once: true });
+          control.addEventListener('blur', collapseHandler, { once: true });
+        }
+      }, 50);
       
     } else {
-      // For other inputs, just focus
+      // Other form controls - just focus
       control.focus();
-      console.log(`⚙️ Focused input`);
+      console.log(`⚙️ Focused ${control.type} input`);
     }
   }
 
