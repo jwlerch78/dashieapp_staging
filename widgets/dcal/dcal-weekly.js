@@ -378,7 +378,7 @@ export class DCalWeekly {
       // Long event: wrap text and show time
       eventElement.innerHTML = `
         <div class="event-title">${event.summary || 'Untitled Event'}</div>
-        <div class="event-time">${this.formatTime(eventStart)} - ${this.formatTime(eventEnd)}</div>
+        <div class="event-time">${this.formatTimeRange(eventStart, eventEnd)}</div>
       `;
       eventElement.style.whiteSpace = 'normal';
       eventElement.style.padding = '2px 4px';
@@ -402,6 +402,32 @@ export class DCalWeekly {
     // After adding, detect and handle collisions
     this.handleEventCollisions(dayColumn);
   }
+
+  formatTimeRange(start, end) {
+  const formatSingle = (date, omitAmPm = false) => {
+    let hours = date.getHours();
+    const minutes = date.getMinutes();
+    const ampm = hours >= 12 ? "pm" : "am";
+
+    hours = hours % 12;
+    if (hours === 0) hours = 12;
+
+    // Drop :00
+    let timeStr = minutes === 0 ? `${hours}` : `${hours}:${minutes.toString().padStart(2, "0")}`;
+
+    if (!omitAmPm) timeStr += ampm;
+    return timeStr;
+  };
+
+  const sameAmPm = (start.getHours() >= 12) === (end.getHours() >= 12);
+
+  const startStr = formatSingle(start, sameAmPm); // omit am/pm if same
+  const endStr = formatSingle(end, false);
+
+  return `${startStr}-${endStr}`;
+}
+
+
 
   handleEventCollisions(dayColumn) {
     const events = Array.from(dayColumn.querySelectorAll('.event'));
