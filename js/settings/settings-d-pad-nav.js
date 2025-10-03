@@ -100,8 +100,13 @@ export class SimplifiedNavigation {
        activeElement.type === 'number' ||
        activeElement.type === 'time');
 
+    // FIX 3B: Check if we're in an open dropdown (select with size > 1)
+    const isInDropdown = activeElement && 
+      activeElement.tagName.toLowerCase() === 'select' &&
+      activeElement.size > 1;
+
     if (isTextInput) {
-      console.log(`⚙️ 📝 Text input is focused - key: ${key}`);
+      console.log(`⚙️ 📝 Text input is focused - key: ${key}, activeElement:`, activeElement.id);
       
       // Allow all text editing keys through
       const textEditingKeys = [
@@ -113,7 +118,8 @@ export class SimplifiedNavigation {
       const isSingleChar = key.length === 1;
       
       if (textEditingKeys.includes(key) || isSingleChar) {
-        console.log(`⚙️ ✅ Allowing text editing key: "${key}"`);
+        console.log(`⚙️ ✅ Allowing text editing key: "${key}" - returning false to let browser handle`);
+        // Don't call preventDefault - let the browser handle this naturally
         return false; // Don't handle, let browser process normally
       }
       
@@ -128,6 +134,17 @@ export class SimplifiedNavigation {
         console.log(`⚙️ 🏃 Escape - exiting text editing mode`);
         activeElement.blur();
         return true; // Handled - blur the input
+      }
+    }
+
+    // FIX 3B: If dropdown is open, allow arrow keys to navigate options
+    if (isInDropdown) {
+      console.log(`⚙️ 📋 Dropdown is open - key: ${key}`);
+      
+      // Allow arrow keys and Enter to work in the dropdown
+      if (['ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(key)) {
+        console.log(`⚙️ ✅ Allowing dropdown navigation key: "${key}"`);
+        return false; // Let browser handle dropdown navigation
       }
     }
 
@@ -361,30 +378,21 @@ export class SimplifiedNavigation {
       console.log(`⚙️ ${control.type} input activated for editing`);
       
     } else if (control.tagName.toLowerCase() === 'select') {
-      // FIX 3: Dropdown handling for Fire TV/Android
+      // FIX 3: Dropdown handling - simplified for both Fire TV and PC
       console.log(`⚙️ Activating select dropdown: ${control.id}`);
       
-      // Focus first
+      // Just focus the dropdown
       control.focus();
       
-      // For TV/Android devices, expand the dropdown by dispatching a click event
+      // For PC/browsers, expand immediately by setting size
+      // For Fire TV, it will require a second press (standard behavior)
       setTimeout(() => {
-        console.log(`⚙️ Expanding dropdown with click event`);
+        console.log(`⚙️ Attempting to expand dropdown`);
         
-        // Dispatch a real click event to open the dropdown
-        const clickEvent = new MouseEvent('mousedown', {
-          bubbles: true,
-          cancelable: true,
-          view: window,
-          button: 0
-        });
-        control.dispatchEvent(clickEvent);
-        
-        // Also try setting size as backup
         const originalSize = control.size || 1;
         control.size = Math.min(control.options.length, 8); // Show max 8 options
         
-        // Collapse when selection is made
+        // Collapse when selection is made or focus lost
         const collapseHandler = () => {
           control.size = originalSize;
           control.removeEventListener('change', collapseHandler);

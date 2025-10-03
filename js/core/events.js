@@ -1,4 +1,5 @@
 // js/core/events.js - Unified Input Handling System
+// CHANGE SUMMARY: Removed Backspace->escape mapping and fixed preventDefault timing to allow dropdown/text input to work naturally
 
 import { state, elements, setFocus, setWidgetReady } from './state.js';
 import { moveFocus, handleEnter, handleBack, openMenuWithCurrentSelection, updateFocus } from './navigation.js';
@@ -48,7 +49,7 @@ function getActionFromKeyboardEvent(event) {
     "ArrowDown": "down",
     "Enter": "enter",
     "Escape": "escape",
-    "Backspace": "escape",
+    // REMOVED: "Backspace": "escape" - was preventing text deletion on PC
     "m": "menu",
     "M": "menu",
     " ": "space",
@@ -97,19 +98,13 @@ async function handleUnifiedInput(action, originalEvent = null) {
     return;
   }
   
-  // Prevent default if we have an original event
-  if (originalEvent) {
-    originalEvent.preventDefault();
-  }
-  
   // Handle special actions first
   if (action === "sleep-toggle") {
     await handleSleepToggle();
     return;
   }
 
-
-   console.log('isAsleep value', state.isAsleep);
+  console.log('isAsleep value', state.isAsleep);
   // Handle sleep mode - any key wakes up
   if (state.isAsleep) {
     console.log('Waking up');
@@ -120,38 +115,28 @@ async function handleUnifiedInput(action, originalEvent = null) {
     return;
   }
  
-  
-  // NEW: Check if settings modal is open and let it handle events
-  const settingsOverlay = document.querySelector('.settings-overlay.active');
-  if (settingsOverlay) {
-    console.log('🎮 Settings modal is open, letting it handle input');
-    return; // Let settings modal handle its own navigation
-  }
-  
-  
-  // Handle settings modal - UPDATED for new settings system
-  try {
-    const { isSettingsReady, handleSettingsKeyPress } = await import('../settings/settings-main.js');
-    
-    // Check if settings is open by looking for the overlay
-    if (settingsOverlay) {
-      console.log('🎮 Delegating to settings system');
-      return; // Settings will handle their own events
+  // Modal manager check - handles all modals including settings
+  if (window.dashieModalManager && window.dashieModalManager.hasActiveModal()) {
+    console.log('🔧 Events.js found active modal, delegating action:', action);
+    const handled = window.dashieModalManager.handleAction(action);
+    if (handled) {
+      console.log('🔧 Modal handled action:', action);
+      // Only prevent default if modal actually handled it
+      if (originalEvent) {
+        originalEvent.preventDefault();
+      }
+      return;
+    } else {
+      console.log('🔧 Modal did NOT handle action:', action);
+      // Modal didn't handle it - don't prevent default, let browser handle naturally
+      return;
     }
-  } catch (err) {
-    // Settings module not loaded yet, continue
-    console.log('Settings system not ready, continuing with normal navigation');
   }
-
-if (window.dashieModalManager && window.dashieModalManager.hasActiveModal()) {
-  console.log('🔧 Events.js found active modal, delegating action:', action);
-  if (window.dashieModalManager.handleAction(action)) {
-    console.log('🔧 Modal handled action:', action);
-    return; // Modal handled the action
-  } else {
-    console.log('🔧 Modal did NOT handle action:', action);
+  
+  // Prevent default for actions we're about to handle below
+  if (originalEvent) {
+    originalEvent.preventDefault();
   }
-}
   
   // Handle exit confirmation dialog
   if (state.confirmDialog) {
@@ -223,6 +208,7 @@ if (window.dashieModalManager && window.dashieModalManager.hasActiveModal()) {
       break;
   }
 }
+
 // Helper function for sleep toggle
 async function handleSleepToggle() {
   const { state } = await import('./state.js');
@@ -251,7 +237,6 @@ export function initializeKeyboardEvents() {
 async function handleKeyDown(e) {
   const { action, originalEvent } = normalizeInput('keyboard', e);
   if (!action) return;
-  if (originalEvent) originalEvent.preventDefault();
   if (e.repeat) return;
 
   await handleUnifiedInput(action, originalEvent);
