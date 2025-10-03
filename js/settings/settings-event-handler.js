@@ -1,4 +1,5 @@
 // js/settings/settings-event-handler.js
+// CHANGE SUMMARY: Fixed event handling logic - only preventDefault when navigation HANDLES the key (returns true), not when it allows it through (returns false)
 // Event handling and global keyboard capture for settings
 
 export function setupEventHandlers(overlay, settingsManager) {
@@ -14,11 +15,17 @@ export function setupEventHandlers(overlay, settingsManager) {
     console.log('⚙️ Settings captured key:', event.key);
     
     // Let the navigation handle it
-    if (settingsManager.navigation && settingsManager.navigation.handleKeyPress(event)) {
+    // IMPORTANT: Only preventDefault if the navigation HANDLED the key (returned true)
+    // If it returns false, that means "don't handle, let browser process normally"
+    const handled = settingsManager.navigation && settingsManager.navigation.handleKeyPress(event);
+    
+    if (handled) {
+      // Navigation handled it - prevent default browser behavior
       event.preventDefault();
       event.stopPropagation();
       event.stopImmediatePropagation();
     }
+    // If not handled (returned false), let the event continue normally for text editing
   };
 
   // Add event listener with capture=true to get events before main navigation

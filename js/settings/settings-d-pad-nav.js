@@ -1,5 +1,5 @@
 // js/settings/settings-d-pad-nav.js - Auto-save implementation  
-// CHANGE SUMMARY: Fixed backspace in text inputs, dropdown activation, and escape key handling - checks activeElement directly, uses size manipulation for dropdowns, and properly handles all navigation
+// CHANGE SUMMARY: Fixed backspace in text inputs, dropdown activation with click event, and escape key handling
 // D-pad navigation logic for settings interface
 
 export class SimplifiedNavigation {
@@ -361,30 +361,39 @@ export class SimplifiedNavigation {
       console.log(`⚙️ ${control.type} input activated for editing`);
       
     } else if (control.tagName.toLowerCase() === 'select') {
-      // FIX 2: Dropdown handling for Fire TV/Android
+      // FIX 3: Dropdown handling for Fire TV/Android
       console.log(`⚙️ Activating select dropdown: ${control.id}`);
       
       // Focus first
       control.focus();
       
-      // For TV/Android devices, expand the dropdown by setting size
+      // For TV/Android devices, expand the dropdown by dispatching a click event
       setTimeout(() => {
-        if (control.size === 1 || !control.hasAttribute('size')) {
-          console.log(`⚙️ Expanding dropdown with size attribute`);
-          const originalSize = control.size || 1;
-          control.size = Math.min(control.options.length, 8); // Show max 8 options
-          
-          // Collapse when selection is made
-          const collapseHandler = () => {
-            control.size = originalSize;
-            control.removeEventListener('change', collapseHandler);
-            control.removeEventListener('blur', collapseHandler);
-            console.log(`⚙️ Dropdown collapsed after selection`);
-          };
-          
-          control.addEventListener('change', collapseHandler, { once: true });
-          control.addEventListener('blur', collapseHandler, { once: true });
-        }
+        console.log(`⚙️ Expanding dropdown with click event`);
+        
+        // Dispatch a real click event to open the dropdown
+        const clickEvent = new MouseEvent('mousedown', {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          button: 0
+        });
+        control.dispatchEvent(clickEvent);
+        
+        // Also try setting size as backup
+        const originalSize = control.size || 1;
+        control.size = Math.min(control.options.length, 8); // Show max 8 options
+        
+        // Collapse when selection is made
+        const collapseHandler = () => {
+          control.size = originalSize;
+          control.removeEventListener('change', collapseHandler);
+          control.removeEventListener('blur', collapseHandler);
+          console.log(`⚙️ Dropdown collapsed after selection`);
+        };
+        
+        control.addEventListener('change', collapseHandler, { once: true });
+        control.addEventListener('blur', collapseHandler, { once: true });
       }, 50);
       
     } else {
