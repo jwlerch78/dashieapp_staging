@@ -489,6 +489,34 @@ export class DCalWeekly {
         secondEvent.style.right = 'auto';
         secondEvent.style.zIndex = '21';
       }
+      
+      // For 3 overlapping events
+      if (group.length === 3) {
+        // Sort by start time (earliest is bottom, latest is top)
+        group.sort((a, b) => eventData[a].startMinutes - eventData[b].startMinutes);
+        
+        const firstEvent = eventData[group[0]].element;   // Bottom
+        const secondEvent = eventData[group[1]].element;  // Middle
+        const thirdEvent = eventData[group[2]].element;   // Top
+        
+        // First event (bottom): 50% width, starts at left
+        firstEvent.style.left = '2px';
+        firstEvent.style.width = 'calc(50% - 2px)';
+        firstEvent.style.right = 'auto';
+        firstEvent.style.zIndex = '20';
+        
+        // Second event (middle): 50% width, starts at 33%
+        secondEvent.style.left = '33.33%';
+        secondEvent.style.width = 'calc(50% - 2px)';
+        secondEvent.style.right = 'auto';
+        secondEvent.style.zIndex = '21';
+        
+        // Third event (top): 33% width, starts at 66.67%
+        thirdEvent.style.left = '66.67%';
+        thirdEvent.style.width = 'calc(33.33% - 2px)';
+        thirdEvent.style.right = 'auto';
+        thirdEvent.style.zIndex = '22';
+      }
     });
   }
 
