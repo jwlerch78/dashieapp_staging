@@ -1,9 +1,10 @@
 // js/settings/settings-simple-manager.js - Auto-save implementation
-// CHANGE SUMMARY: Removed pendingChanges tracking and Save button - all changes now auto-save immediately via controller
+// CHANGE SUMMARY: Integrated with modal navigation manager for unified remote input handling
 
 import { buildSettingsUI, populateFormFields, applyTheme } from './settings-ui-builder.js';
 import { SimplifiedNavigation } from './settings-d-pad-nav.js';
 import { setupEventHandlers } from './settings-event-handler.js';
+import { createModalNavigation } from '../utils/modal-navigation-manager.js';
 
 export class SimplifiedSettings {
   constructor() {
@@ -12,6 +13,7 @@ export class SimplifiedSettings {
     this.navigation = null;
     this.controller = null;
     this.keydownHandler = null;
+    this.modalNavigation = null; // NEW: For modal manager integration
     this.initializationAttempts = 0;
     this.maxInitAttempts = 20;
     
@@ -275,15 +277,54 @@ export class SimplifiedSettings {
     // Set up event handlers
     setupEventHandlers(this.overlay, this);
     
-    // Initialize navigation (removed onSave callback)
+    // Initialize navigation
     this.navigation = new SimplifiedNavigation(this.overlay, {
       onThemeChange: (theme) => this.handleThemeChange(theme),
       onSettingChange: (path, value) => this.handleSettingChange(path, value),
       onCancel: () => this.handleCancel()
     });
     
+    // NEW: Register with modal navigation manager for unified input handling
+    // This integrates settings with events.js priority system and handles remote input
+    this.modalNavigation = createModalNavigation(this.overlay, [], {
+      onEscape: () => this.handleCancel(),
+      // Custom handler: Convert modal manager actions to keyboard events for SimplifiedNavigation
+      customHandler: (action) => {
+        console.log(`⚙️ Modal manager delegating action to settings: ${action}`);
+        
+        // Map action strings to keyboard event keys
+        const actionToKeyMap = {
+          'up': 'ArrowUp',
+          'down': 'ArrowDown',
+          'left': 'ArrowLeft',
+          'right': 'ArrowRight',
+          'enter': 'Enter',
+          'escape': 'Escape'
+        };
+        
+        const key = actionToKeyMap[action];
+        if (!key) {
+          console.log(`⚙️ Unknown action: ${action}`);
+          return false;
+        }
+        
+        // Create synthetic keyboard event
+        const syntheticEvent = {
+          key: key,
+          preventDefault: () => {},
+          stopPropagation: () => {},
+          stopImmediatePropagation: () => {}
+        };
+        
+        // Delegate to SimplifiedNavigation
+        const handled = this.navigation.handleKeyPress(syntheticEvent);
+        console.log(`⚙️ SimplifiedNavigation ${handled ? 'handled' : 'did not handle'} ${action} (${key})`);
+        return handled;
+      }
+    });
+    
     this.showOverlay();
-    console.log('⚙️ 👁️ Simplified settings shown');
+    console.log('⚙️ 👁️ Simplified settings shown and registered with modal manager');
   }
 
   async loadCurrentSettings() {
@@ -471,6 +512,13 @@ export class SimplifiedSettings {
 
   hide() {
     if (!this.isVisible) return;
+    
+    // NEW: Unregister from modal navigation manager
+    if (this.modalNavigation) {
+      this.modalNavigation.destroy();
+      this.modalNavigation = null;
+      console.log('⚙️ Unregistered from modal navigation manager');
+    }
     
     this.hideOverlay();
     this.cleanup();

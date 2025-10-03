@@ -31,51 +31,68 @@ class ModalNavigationManager {
    * @param {string} action - Normalized action from events.js ("up", "down", "enter", "escape")
    * @returns {boolean} True if action was handled, false if should continue to next priority
    */
-  handleAction(action) {
-    if (!this.hasActiveModal()) {
-      logger.warn('handleAction called but no active modal');
-      return false;
+// js/utils/modal-navigation-manager.js
+// CHANGE SUMMARY: Added customHandler support for complex modals like settings that need special input handling
+
+// UPDATE the handleAction method to check for customHandler:
+
+handleAction(action) {
+  if (!this.hasActiveModal()) {
+    logger.warn('handleAction called but no active modal');
+    return false;
+  }
+
+  // NEW: If modal has a custom handler, delegate to it first
+  if (this.config && this.config.customHandler) {
+    logger.debug('Delegating to custom handler', { action });
+    const handled = this.config.customHandler(action);
+    if (handled !== undefined) {
+      return handled; // Custom handler explicitly handled or didn't handle
     }
+    // If custom handler returns undefined, fall through to default handling
+  }
 
-    logger.debug('Modal handling action', {
-      action,
-      currentIndex: this.currentIndex,
-      totalElements: this.focusableElements.length,
-      focusedElementId: this.focusableElements[this.currentIndex]?.id
-    });
+  logger.debug('Modal handling action', {
+    action,
+    currentIndex: this.currentIndex,
+    totalElements: this.focusableElements.length,
+    focusedElementId: this.focusableElements[this.currentIndex]?.id
+  });
 
-    switch (action) {
-      case "up":
+  switch (action) {
+    case "up":
+      this.moveFocus(-1);
+      return true;
+    case "down":
+      this.moveFocus(1);
+      return true;
+    case "left":
+      // For horizontal layouts, treat left/right as up/down
+      if (this.config && this.config.horizontalNavigation) {
         this.moveFocus(-1);
         return true;
-      case "down":
+      }
+      return false; // Let other systems handle if not horizontal
+    case "right":
+      // For horizontal layouts, treat left/right as up/down  
+      if (this.config && this.config.horizontalNavigation) {
         this.moveFocus(1);
         return true;
-      case "left":
-        // For horizontal layouts, treat left/right as up/down
-        if (this.config && this.config.horizontalNavigation) {
-          this.moveFocus(-1);
-          return true;
-        }
-        return false; // Let other systems handle if not horizontal
-      case "right":
-        // For horizontal layouts, treat left/right as up/down  
-        if (this.config && this.config.horizontalNavigation) {
-          this.moveFocus(1);
-          return true;
-        }
-        return false; // Let other systems handle if not horizontal
-      case "enter":
-        this.activateCurrentElement();
-        return true;
-      case "escape":
-        this.handleEscape();
-        return true;
-      default:
-        // Unknown action, let other systems handle
-        return false;
-    }
+      }
+      return false; // Let other systems handle if not horizontal
+    case "enter":
+      this.activateCurrentElement();
+      return true;
+    case "escape":
+      this.handleEscape();
+      return true;
+    default:
+      // Unknown action, let other systems handle
+      return false;
   }
+}
+
+// The rest of the class remains unchanged...
 
   /**
    * Register a modal with the navigation system
