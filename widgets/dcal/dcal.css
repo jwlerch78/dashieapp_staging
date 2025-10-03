@@ -1,5 +1,5 @@
 /* widgets/dcal/dcal.css - Dashie Calendar Widget Styles */
-/* CHANGE SUMMARY: Fixed all-day label alignment with events container, reduced font sizes by ~20%, reduced vertical spacing by ~30% in event grid */
+/* CHANGE SUMMARY: Added 1px border around all events (timed and all-day) for better visual definition */
 
 html, body {
   height: 100%;
@@ -233,8 +233,7 @@ html, body {
   margin: 0 4px;
   display: flex;
   align-items: center;
-  border-left: 3px solid #0056b3;
-  border-top: 1px solid rgba(153, 153, 153, 0.2);
+  /* Border set dynamically by JavaScript to match calendar background */
 }
 
 .allday-event:hover {
@@ -314,9 +313,25 @@ html, body {
   overflow: hidden;
   cursor: pointer;
   transition: all 0.2s ease;
-  border-left: 3px solid #0056b3;
+  /* Border set dynamically by JavaScript to match calendar background */
   box-sizing: border-box;
   z-index: 20;
+}
+
+.event-title {
+  font-weight: 500;
+  line-height: 1.2;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.event-time {
+  font-size: 8px;
+  opacity: 0.9;
+  margin-top: 1px;
+  line-height: 1.1;
 }
 
 .event:hover {
@@ -401,4 +416,4 @@ html, body {
   .time-slot {
     font-size: 8px;
   }
-}   
+}

@@ -1,5 +1,5 @@
 // widgets/dcal/dcal-weekly.js - Weekly View Rendering Module
-// CHANGE SUMMARY: Moved all-day label inside container, preserved Google Calendar exclusive end date logic, updated hourHeight to 42px
+// CHANGE SUMMARY: Added event borders, implemented 2-event collision detection with width/position adjustments
 
 import { createLogger } from '../../js/utils/logger.js';
 
@@ -325,7 +325,7 @@ export class DCalWeekly {
         
         // Apply dynamic colors
         eventElement.style.backgroundColor = backgroundColor;
-        eventElement.style.borderLeftColor = borderColor;
+        eventElement.style.border = `1px solid var(--bg-secondary, #333)`;
         
         // Grid columns: 1-7 for the days
         const gridColumnStart = startDayIndex + 1;
@@ -372,20 +372,124 @@ export class DCalWeekly {
     eventElement.className = 'event';
     eventElement.style.top = `${top}px`;
     eventElement.style.height = `${height}px`;
-    eventElement.textContent = event.summary || 'Untitled Event';
     eventElement.title = `${event.summary || 'Untitled Event'} (${this.formatTime(eventStart)} - ${this.formatTime(eventEnd)})`;
     eventElement.dataset.eventId = event.id;
     eventElement.dataset.calendarId = event.calendarId || '';
+    eventElement.dataset.startMinutes = startMinutes;
+    eventElement.dataset.endMinutes = endMinutes;
+    
+    // Apply dynamic text wrapping based on duration
+    if (durationMinutes >= 60) {
+      // Long event: wrap text and show time
+      eventElement.innerHTML = `
+        <div class="event-title">${event.summary || 'Untitled Event'}</div>
+        <div class="event-time">${this.formatTime(eventStart)} - ${this.formatTime(eventEnd)}</div>
+      `;
+      eventElement.style.whiteSpace = 'normal';
+      eventElement.style.padding = '2px 4px';
+    } else {
+      // Short event: single line, reduced top padding
+      eventElement.textContent = event.summary || 'Untitled Event';
+      eventElement.style.whiteSpace = 'nowrap';
+      eventElement.style.padding = '0px 4px 2px 4px';
+    }
     
     // Apply dynamic colors
     eventElement.style.backgroundColor = backgroundColor;
-    eventElement.style.borderLeftColor = borderColor;
+    eventElement.style.border = `1px solid var(--bg-secondary, #333)`;
     
     eventElement.addEventListener('click', () => {
       this.selectEvent(event.id);
     });
     
     dayColumn.appendChild(eventElement);
+    
+    // After adding, detect and handle collisions
+    this.handleEventCollisions(dayColumn);
+  }
+
+  handleEventCollisions(dayColumn) {
+    const events = Array.from(dayColumn.querySelectorAll('.event'));
+    if (events.length <= 1) return;
+    
+    // Build list of event data with overlap information
+    const eventData = events.map(el => ({
+      element: el,
+      startMinutes: parseInt(el.dataset.startMinutes),
+      endMinutes: parseInt(el.dataset.endMinutes),
+      overlaps: []
+    }));
+    
+    // Detect overlaps
+    for (let i = 0; i < eventData.length; i++) {
+      for (let j = i + 1; j < eventData.length; j++) {
+        const eventA = eventData[i];
+        const eventB = eventData[j];
+        
+        // Check if events overlap
+        if (eventA.startMinutes < eventB.endMinutes && eventB.startMinutes < eventA.endMinutes) {
+          eventA.overlaps.push(j);
+          eventB.overlaps.push(i);
+        }
+      }
+    }
+    
+    // Group overlapping events into collision groups
+    const processed = new Set();
+    const collisionGroups = [];
+    
+    for (let i = 0; i < eventData.length; i++) {
+      if (processed.has(i)) continue;
+      
+      const group = new Set([i]);
+      const queue = [i];
+      
+      while (queue.length > 0) {
+        const current = queue.shift();
+        eventData[current].overlaps.forEach(overlappingIndex => {
+          if (!group.has(overlappingIndex)) {
+            group.add(overlappingIndex);
+            queue.push(overlappingIndex);
+          }
+        });
+      }
+      
+      group.forEach(idx => processed.add(idx));
+      collisionGroups.push(Array.from(group));
+    }
+    
+    // Apply positioning to each collision group
+    collisionGroups.forEach(group => {
+      if (group.length === 1) {
+        // No collision, reset to full width
+        const el = eventData[group[0]].element;
+        el.style.width = '';
+        el.style.left = '2px';
+        el.style.right = '2px';
+        return;
+      }
+      
+      // For 2 overlapping events: first event 75% width, second event 50% width at 50% position
+      if (group.length === 2) {
+        // Sort by start time (earlier event is "first"/behind)
+        group.sort((a, b) => eventData[a].startMinutes - eventData[b].startMinutes);
+        
+        const firstEvent = eventData[group[0]].element;
+        const secondEvent = eventData[group[1]].element;
+        
+        // First event: 75% width, starts at left
+        firstEvent.style.left = '2px';
+        firstEvent.style.width = 'calc(75% - 2px)';
+        firstEvent.style.right = 'auto';
+        firstEvent.style.zIndex = '20';
+        
+        // Second event: 50% width, starts at 50%
+        secondEvent.style.left = '50%';
+        secondEvent.style.width = 'calc(50% - 2px)';
+        secondEvent.style.right = 'auto';
+        secondEvent.style.zIndex = '21';
+      }
+    });
   }
 
   selectEvent(eventId) {
