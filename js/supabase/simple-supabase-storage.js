@@ -209,6 +209,7 @@ export class SimpleSupabaseStorage {
         console.log('✅ JWT save successful');
         // Also save to localStorage as backup
         this.saveToLocalStorage(settings);
+        await this.broadcastChange();
         return true;
       } else {
         throw new Error('JWT save returned success: false');
@@ -268,6 +269,7 @@ export class SimpleSupabaseStorage {
     console.log('✅ Direct save successful');
     // Also save to localStorage as backup
     this.saveToLocalStorage(settings);
+    await this.broadcastChange();
     return true;
   }
 
@@ -393,32 +395,52 @@ export class SimpleSupabaseStorage {
   // ====== REAL-TIME SYNC METHODS ======
 
   subscribeToChanges(callback) {
-    if (!this.userId) return null;
+  if (!this.userId) return null;
 
-    console.log('🔄 Setting up real-time subscription for user:', this.userId);
+  console.log('🔄 Setting up broadcast subscription for user:', this.userId);
 
-    const subscription = supabase
-      .channel(`user_settings_${this.userId}`)
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'user_settings',
-        filter: `auth_user_id=eq.${this.userId}`
-      }, (payload) => {
-        console.log('🔄 Real-time update received:', payload);
-        if (payload.new && payload.new.settings) {
-          // Save to localStorage when real-time update comes in
-          this.saveToLocalStorage(payload.new.settings);
-          callback(payload.new.settings);
+  const channelName = `user_settings_${this.userId}`;
+  
+  const subscription = window.supabase
+    .channel(channelName)
+    .on('broadcast', { event: 'settings-changed' }, (payload) => {
+      console.log('🔄 Broadcast received:', payload);
+      
+      // Reload settings from database when broadcast received
+      this.loadSettings().then(settings => {
+        if (settings) {
+          this.saveToLocalStorage(settings);
+          callback(settings);
         }
-      })
-      .subscribe();
+      });
+    })
+    .subscribe();
 
-    return () => {
-      subscription.unsubscribe();
-      console.log('🔄 Real-time subscription cleaned up');
-    };
-  }
+  return () => {
+    subscription.unsubscribe();
+    console.log('🔄 Broadcast subscription cleaned up');
+  };
+}
+
+
+async broadcastChange() {
+  if (!this.userId) return;
+
+  const channelName = `user_settings_${this.userId}`;
+  const channel = window.supabase.channel(channelName);
+  
+  await channel.send({
+    type: 'broadcast',
+    event: 'settings-changed',
+    payload: { 
+      userId: this.userId,
+      timestamp: Date.now()
+    }
+  });
+  
+  console.log('📡 Broadcast sent: settings-changed');
+}
+
 
   markForRetry(settings) {
     try {
