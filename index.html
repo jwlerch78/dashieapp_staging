@@ -1,5 +1,5 @@
 <!-- index.html for Dashie -->
-<!-- CHANGE SUMMARY: Added mobile-landing.css import and mobile-container section for mobile device support -->
+<!-- CHANGE SUMMARY: Added mobile loading bar between logo and Settings button for inline initialization progress -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -54,7 +54,18 @@
         
         <div class="mobile-content">
             <img class="dashie-logo" src="/icons/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie">
-            <button id="mobile-settings-btn" class="orange-button">Settings</button>
+            
+            <!-- Mobile Loading Bar (appears during initialization) -->
+            <div class="mobile-loading-bar" id="mobile-loading-bar">
+                <div class="mobile-progress-container">
+                    <div class="mobile-progress-bar">
+                        <div class="mobile-progress-fill" id="mobile-progress-fill"></div>
+                    </div>
+                </div>
+                <div class="mobile-progress-text" id="mobile-progress-text">Starting up...</div>
+            </div>
+            
+            <button id="mobile-settings-btn" class="orange-button" disabled>Settings</button>
         </div>
     </div>
     

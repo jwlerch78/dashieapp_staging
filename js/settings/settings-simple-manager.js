@@ -607,9 +607,21 @@ updateMobileNavBar() {
           }
         }
       });
+      
+      // NEW: Update mobile header family name
+      const mobileHeaderName = document.querySelector('.mobile-header .family-name');
+      if (mobileHeaderName) {
+        mobileHeaderName.textContent = value || 'Dashie';
+        console.log('📱 Updated mobile header family name:', value);
+      }
+      
+      // NEW: Also dispatch mobile-specific event for the listener
+      window.dispatchEvent(new CustomEvent('dashie-mobile-family-name-changed', {
+        detail: { familyName: value }
+      }));
     }
   }
-
+  
   // Enhanced family name sending with better error handling and retries
   sendFamilyNameToWidget(widgetWindow) {
     if (!this.controller) {

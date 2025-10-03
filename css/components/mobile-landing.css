@@ -1,5 +1,5 @@
 /* css/mobile-landing.css - Mobile Landing Page Styles */
-/* CHANGE SUMMARY: New file - iOS-style mobile landing page with forced light theme */
+/* CHANGE SUMMARY: Added loading bar styles and disabled button state for inline loading during initialization */
 
 /* Mobile container - hidden by default, shown on mobile devices */
 #mobile-container {
@@ -65,6 +65,55 @@
   max-width: 80vw;
   opacity: 1 !important; /* Override sidebar's opacity: 0 */
   margin: 0 auto;
+  /* Force orange logo regardless of theme changes */
+  content: url('/icons/Dashie_Full_Logo_Orange_Transparent.png') !important;
+}
+
+/* Mobile Loading Bar - appears below logo */
+.mobile-loading-bar {
+  width: 100%;
+  max-width: 300px;
+  margin-top: -35vh; /* Position between logo and button */
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.mobile-loading-bar.active {
+  opacity: 1;
+}
+
+.mobile-progress-container {
+  width: 100%;
+  margin-bottom: 0.5rem;
+}
+
+.mobile-progress-bar {
+  width: 100%;
+  height: 6px;
+  background: #e9ecef;
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.mobile-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #EE9828 0%, #F5A942 100%);
+  border-radius: 3px;
+  width: 0%;
+  transition: width 0.3s ease-out;
+  box-shadow: 0 1px 3px rgba(238, 152, 40, 0.4);
+}
+
+.mobile-progress-text {
+  font-size: 14px;
+  color: #616161;
+  text-align: center;
+  margin-top: 0.5rem;
+  font-weight: 400;
+  min-height: 1.2em;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
 /* Orange Button - Matches auth modal style */
@@ -93,6 +142,23 @@
   box-shadow: 0 6px 16px rgba(238, 152, 40, 0.4);
 }
 
+/* Disabled state for button during loading */
+.orange-button:disabled {
+  background: linear-gradient(135deg, #cccccc 0%, #dddddd 100%);
+  color: #999999;
+  cursor: not-allowed;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  opacity: 0.6;
+}
+
+.orange-button:disabled:active {
+  transform: none;
+}
+
+.orange-button:disabled:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
 /* Responsive adjustments */
 @media (max-width: 375px) {
   .dashie-logo {
@@ -106,6 +172,15 @@
   
   .mobile-content {
     gap: 40px;
+  }
+  
+  .mobile-loading-bar {
+    max-width: 250px;
+    margin-top: -30vh;
+  }
+  
+  .mobile-progress-text {
+    font-size: 13px;
   }
 }
 

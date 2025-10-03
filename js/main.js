@@ -1,5 +1,5 @@
 // js/main.js
-// CHANGE SUMMARY: Added mobile platform detection and landing page - shows Settings-only UI on mobile devices instead of dashboard
+// CHANGE SUMMARY: Added mobile inline loading bar functions and family name change listener for live updates
 
 import { initializeEvents } from './core/events.js';
 import { updateFocus, initializeHighlightTimeout } from './core/navigation.js';
@@ -31,6 +31,50 @@ let widgetCoordinator = null;
 
 // Platform detector instance
 let platformDetector = null;
+
+/**
+ * NEW: Show mobile loading bar
+ */
+function showMobileLoadingBar() {
+  const loadingBar = document.getElementById('mobile-loading-bar');
+  if (loadingBar) {
+    loadingBar.classList.add('active');
+  }
+}
+
+/**
+ * NEW: Update mobile loading progress
+ * @param {number} progress - Progress percentage (0-100)
+ * @param {string} message - Status message
+ */
+function updateMobileLoadingProgress(progress, message) {
+  const progressFill = document.getElementById('mobile-progress-fill');
+  const progressText = document.getElementById('mobile-progress-text');
+  
+  if (progressFill) {
+    progressFill.style.width = `${progress}%`;
+  }
+  
+  if (progressText) {
+    progressText.textContent = message;
+  }
+}
+
+/**
+ * NEW: Hide mobile loading bar and enable Settings button
+ */
+function hideMobileLoadingBar() {
+  const loadingBar = document.getElementById('mobile-loading-bar');
+  const settingsBtn = document.getElementById('mobile-settings-btn');
+  
+  if (loadingBar) {
+    loadingBar.classList.remove('active');
+  }
+  
+  if (settingsBtn) {
+    settingsBtn.disabled = false;
+  }
+}
 
 /**
  * Wait for authentication to complete before proceeding
@@ -288,7 +332,20 @@ function showDesktopDashboard() {
 }
 
 /**
+ * NEW: Update mobile header family name
+ * @param {string} familyName - The family name to display
+ */
+function updateMobileFamilyName(familyName) {
+  const familyNameEl = document.querySelector('.mobile-header .family-name');
+  if (familyNameEl) {
+    familyNameEl.textContent = familyName || 'Dashie';
+    console.log('📱 Updated mobile header family name:', familyName);
+  }
+}
+
+/**
  * Populate mobile UI with user data
+ * UPDATED: Now also sets up family name change listener
  */
 async function populateMobileUI() {
   console.log('📱 Populating mobile UI');
@@ -317,11 +374,17 @@ async function populateMobileUI() {
     console.warn('⚠️ Could not get family name from settings:', error);
   }
   
-  const familyNameEl = document.querySelector('.mobile-header .family-name');
-  if (familyNameEl) {
-    familyNameEl.textContent = familyName;
-    console.log('📱 Set family name:', familyName);
-  }
+  // Set initial family name
+  updateMobileFamilyName(familyName);
+  
+  // NEW: Listen for family name changes from settings
+  window.addEventListener('dashie-mobile-family-name-changed', (event) => {
+    const newFamilyName = event.detail?.familyName;
+    if (newFamilyName) {
+      updateMobileFamilyName(newFamilyName);
+    }
+  });
+  console.log('📱 Family name change listener registered');
   
   // Get user profile picture
   const user = window.dashieAuth?.getUser();
@@ -393,16 +456,24 @@ async function initializeApp() {
     return;
   }
   
-  // Show loading overlay AFTER authentication completes
-  const platformDetector = getPlatformDetector();
-  if (!platformDetector.isMobile()) {
+  // Show loading AFTER authentication completes
+  if (isMobile) {
+    // Mobile: Show inline loading bar
+    showMobileLoadingBar();
+    updateMobileLoadingProgress(10, 'Authentication complete');
+  } else {
+    // Desktop/TV: Show overlay
     showLoadingOverlay();
     updateLoadingProgress(10, 'Authentication complete');
   }
   
   // Initialize JWT service
   console.log('🔐 Initializing JWT service after authentication...');
-  updateLoadingProgress(25, 'Establishing secure connection...');
+  if (isMobile) {
+    updateMobileLoadingProgress(25, 'Connecting...');
+  } else {
+    updateLoadingProgress(25, 'Establishing secure connection...');
+  }
   
   try {
     const jwtReady = await initializeJWTService();
@@ -410,85 +481,155 @@ async function initializeApp() {
     if (jwtReady) {
       console.log('✅ JWT service ready - RLS mode available');
       initState.jwt = 'ready';
-      updateLoadingProgress(40, 'Secure connection established');
+      if (isMobile) {
+        updateMobileLoadingProgress(40, 'Connected');
+      } else {
+        updateLoadingProgress(40, 'Secure connection established');
+      }
       
       // Initialize SimpleAuth services now that JWT is ready
       if (window.dashieAuth && window.dashieAuth.authenticated) {
         console.log('🔧 Initializing services now that JWT is ready...');
-        updateLoadingProgress(45, 'Initializing services...');
+        if (isMobile) {
+          updateMobileLoadingProgress(45, 'Initializing...');
+        } else {
+          updateLoadingProgress(45, 'Initializing services...');
+        }
         
         try {
           await window.dashieAuth.initializeServices();
           console.log('✅ Services initialized with valid JWT token');
-          updateLoadingProgress(50, 'Services ready');
+          if (isMobile) {
+            updateMobileLoadingProgress(50, 'Ready');
+          } else {
+            updateLoadingProgress(50, 'Services ready');
+          }
         } catch (error) {
           console.error('❌ Failed to initialize services:', error);
-          updateLoadingProgress(50, 'Service initialization failed');
+          if (isMobile) {
+            updateMobileLoadingProgress(50, 'Setup failed');
+          } else {
+            updateLoadingProgress(50, 'Service initialization failed');
+          }
           initState.servicesReady = 'failed';
           
-          updateLoadingProgress(100, 'Initialization failed - please refresh');
-          await new Promise(resolve => setTimeout(resolve, 3000));
-          hideLoadingOverlay();
+          if (isMobile) {
+            updateMobileLoadingProgress(100, 'Failed - please refresh');
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            hideMobileLoadingBar();
+          } else {
+            updateLoadingProgress(100, 'Initialization failed - please refresh');
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            hideLoadingOverlay();
+          }
           return;
         }
       }
     } else {
       console.warn('⚠️ JWT service not ready - will use direct mode');
       initState.jwt = 'failed';
-      updateLoadingProgress(40, 'Secure connection unavailable');
+      if (isMobile) {
+        updateMobileLoadingProgress(40, 'Connection unavailable');
+      } else {
+        updateLoadingProgress(40, 'Secure connection unavailable');
+      }
     }
   } catch (error) {
     console.error('❌ JWT service initialization failed:', error);
     initState.jwt = 'failed';
-    updateLoadingProgress(40, 'Secure connection failed');
+    if (isMobile) {
+      updateMobileLoadingProgress(40, 'Connection failed');
+    } else {
+      updateLoadingProgress(40, 'Secure connection failed');
+    }
   }
   
   // Process refresh tokens if JWT is ready
-  updateLoadingProgress(52, 'Processing tokens...');
+  if (isMobile) {
+    updateMobileLoadingProgress(52, 'Processing...');
+  } else {
+    updateLoadingProgress(52, 'Processing tokens...');
+  }
   
   if (initState.jwt === 'ready') {
-    updateLoadingProgress(55, 'Processing refresh tokens...');
+    if (isMobile) {
+      updateMobileLoadingProgress(55, 'Processing tokens...');
+    } else {
+      updateLoadingProgress(55, 'Processing refresh tokens...');
+    }
     const tokensProcessed = await processQueuedRefreshTokens();
     
     if (tokensProcessed && initState.tokens === 'ready') {
-      updateLoadingProgress(60, 'Refresh tokens stored successfully');
+      if (isMobile) {
+        updateMobileLoadingProgress(60, 'Tokens stored');
+      } else {
+        updateLoadingProgress(60, 'Refresh tokens stored successfully');
+      }
     } else if (initState.tokens === 'skipped') {
-      updateLoadingProgress(60, 'No refresh tokens to process');
+      if (isMobile) {
+        updateMobileLoadingProgress(60, 'No tokens');
+      } else {
+        updateLoadingProgress(60, 'No refresh tokens to process');
+      }
     } else {
-      updateLoadingProgress(60, 'Refresh token processing failed');
+      if (isMobile) {
+        updateMobileLoadingProgress(60, 'Token processing failed');
+      } else {
+        updateLoadingProgress(60, 'Refresh token processing failed');
+      }
     }
   } else {
     console.log('⏭️ Skipping refresh token processing (JWT not ready)');
     initState.tokens = 'skipped';
-    updateLoadingProgress(60, 'Skipping token processing');
+    if (isMobile) {
+      updateMobileLoadingProgress(60, 'Skipping tokens');
+    } else {
+      updateLoadingProgress(60, 'Skipping token processing');
+    }
   }
   
   // Initialize settings system
   console.log(`⚙️ Initializing settings system with JWT status: ${initState.jwt}`);
-  updateLoadingProgress(65, 'Loading your settings...');
+  if (isMobile) {
+    updateMobileLoadingProgress(65, 'Loading settings...');
+  } else {
+    updateLoadingProgress(65, 'Loading your settings...');
+  }
   
   try {
     await autoInitialize(initState.jwt);
     console.log('✅ Settings system ready');
     initState.settings = 'ready';
-    updateLoadingProgress(75, 'Settings loaded successfully');
+    if (isMobile) {
+      updateMobileLoadingProgress(75, 'Settings loaded');
+    } else {
+      updateLoadingProgress(75, 'Settings loaded successfully');
+    }
   } catch (error) {
     console.error('❌ Settings system failed:', error);
     initState.settings = 'degraded';
-    updateLoadingProgress(75, 'Settings degraded');
+    if (isMobile) {
+      updateMobileLoadingProgress(75, 'Settings degraded');
+    } else {
+      updateLoadingProgress(75, 'Settings degraded');
+    }
   }
   
   // Initialize theme system
   console.log('🎨 Initializing theme system...');
-  updateLoadingProgress(80, 'Applying your theme...');
+  if (isMobile) {
+    updateMobileLoadingProgress(80, 'Applying theme...');
+  } else {
+    updateLoadingProgress(80, 'Applying your theme...');
+  }
   
   if (isMobile) {
     // Mobile: Populate mobile UI and skip widget/data initialization
     console.log('📱 Mobile: Populating mobile UI');
     populateMobileUI();
-    updateLoadingProgress(100, 'Ready!');
+    updateMobileLoadingProgress(100, 'Ready!');
     await new Promise(resolve => setTimeout(resolve, 500));
-    hideLoadingOverlay();
+    hideMobileLoadingBar();
     initState.widgets = 'skipped';
     
     // Mark as authenticated
