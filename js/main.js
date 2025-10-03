@@ -255,10 +255,18 @@ function showMobileLandingPage() {
   const app = document.getElementById('app');
   
   if (mobileContainer && app) {
-    mobileContainer.style.display = 'flex';
-    app.style.display = 'none';
+    // Add class to body for CSS targeting
+    document.body.classList.add('mobile-mode-active');
     
-    console.log('📱 Mobile landing page visible');
+    // Force hide desktop app
+    app.style.display = 'none';
+    app.style.visibility = 'hidden';
+    
+    // Show mobile container
+    mobileContainer.style.display = 'flex';
+    mobileContainer.style.visibility = 'visible';
+    
+    console.log('📱 Mobile landing page visible, desktop hidden');
   }
 }
 
@@ -285,36 +293,47 @@ function showDesktopDashboard() {
 async function populateMobileUI() {
   console.log('📱 Populating mobile UI');
   
-  // Wait a bit for settings to be fully ready
-  await new Promise(resolve => setTimeout(resolve, 500));
+  // Wait longer for settings to be fully ready
+  await new Promise(resolve => setTimeout(resolve, 1000));
   
   // Get family name from settings
+  let familyName = 'Dashie'; // Default
+  
   try {
-    const { getSettingValue } = await import('./settings/settings-main.js');
-    const familyName = getSettingValue('family.familyName', 'Dashie');
-    
-    const familyNameEl = document.querySelector('.mobile-header .family-name');
-    if (familyNameEl) {
-      familyNameEl.textContent = familyName;
-      console.log('📱 Set family name:', familyName);
+    // Try multiple sources for family name
+    if (window.settingsInstance?.controller) {
+      familyName = window.settingsInstance.controller.getSetting('family.familyName') || 'Dashie';
+      console.log('📱 Got family name from settings controller:', familyName);
+    } else {
+      // Fallback to localStorage
+      const savedSettings = localStorage.getItem('dashie-settings');
+      if (savedSettings) {
+        const settings = JSON.parse(savedSettings);
+        familyName = settings?.family?.familyName || 'Dashie';
+        console.log('📱 Got family name from localStorage:', familyName);
+      }
     }
   } catch (error) {
     console.warn('⚠️ Could not get family name from settings:', error);
-    const familyNameEl = document.querySelector('.mobile-header .family-name');
-    if (familyNameEl) {
-      familyNameEl.textContent = 'Dashie';
-    }
+  }
+  
+  const familyNameEl = document.querySelector('.mobile-header .family-name');
+  if (familyNameEl) {
+    familyNameEl.textContent = familyName;
+    console.log('📱 Set family name:', familyName);
   }
   
   // Get user profile picture
   const user = window.dashieAuth?.getUser();
-  if (user?.photoURL) {
+  if (user?.picture || user?.photoURL) {
     const profilePic = document.querySelector('.mobile-header .profile-pic');
     if (profilePic) {
-      profilePic.src = user.photoURL;
+      profilePic.src = user.picture || user.photoURL;
       profilePic.style.display = 'block';
       console.log('📱 Set profile picture');
     }
+  } else {
+    console.log('📱 No profile picture available');
   }
   
   // Wire up Settings button
@@ -471,6 +490,30 @@ async function initializeApp() {
     
     // Mark as authenticated
     document.body.classList.add('authenticated');
+    
+    // IMPORTANT: Force hide desktop UI again after authenticated class is added
+    const app = document.getElementById('app');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarWrapper = document.getElementById('sidebar-wrapper');
+    const grid = document.getElementById('grid');
+    
+    if (app) {
+      app.style.display = 'none';
+      app.style.visibility = 'hidden';
+    }
+    if (sidebar) {
+      sidebar.style.display = 'none';
+      sidebar.style.visibility = 'hidden';
+    }
+    if (sidebarWrapper) {
+      sidebarWrapper.style.display = 'none';
+      sidebarWrapper.style.visibility = 'hidden';
+    }
+    if (grid) {
+      grid.style.display = 'none';
+      grid.style.visibility = 'hidden';
+    }
+    
     console.log('📱 Mobile initialization complete');
   } else {
     // Desktop/TV: Full widget initialization

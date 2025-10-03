@@ -20,12 +20,12 @@
 
 /* Mobile Header */
 .mobile-header {
-  background: #F5F5F7;
+  background: transparent;
   padding: 12px 16px;
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+  gap: 12px;
   min-height: 60px;
   flex-shrink: 0;
 }
@@ -33,7 +33,7 @@
 .family-name {
   font-size: 17px;
   font-weight: 600;
-  color: #000000;
+  color: #9e9e9e;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
@@ -46,27 +46,30 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Mobile Content - Centered */
+/* Mobile Content - Logo at 1/3, Button below */
 .mobile-content {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 20px;
-  gap: 60px;
+  padding-top: 15vh; /* Position logo at ~1/3 down the screen */
+  gap: 40vh; /* Large gap pushes button to ~2/3 down */
 }
 
 /* Dashie Logo - scoped to mobile container only */
 #mobile-container .dashie-logo {
-  width: 200px;
+  width: 250px;
   height: auto;
   max-width: 80vw;
+  opacity: 1 !important; /* Override sidebar's opacity: 0 */
+  margin: 0 auto;
 }
 
 /* Orange Button - Matches auth modal style */
 .orange-button {
-  background: linear-gradient(135deg, #FF6B35 0%, #FF8C42 100%);
+  background: linear-gradient(135deg, #EE9828 0%, #F5A942 100%);
   color: #FFFFFF;
   border: none;
   padding: 16px 48px;
@@ -75,7 +78,7 @@
   font-weight: 600;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+  box-shadow: 0 4px 12px rgba(238, 152, 40, 0.3);
   transition: all 0.2s ease;
   min-height: 44px;
   min-width: 120px;
@@ -83,11 +86,11 @@
 
 .orange-button:active {
   transform: scale(0.98);
-  box-shadow: 0 2px 8px rgba(255, 107, 53, 0.4);
+  box-shadow: 0 2px 8px rgba(238, 152, 40, 0.4);
 }
 
 .orange-button:hover {
-  box-shadow: 0 6px 16px rgba(255, 107, 53, 0.4);
+  box-shadow: 0 6px 16px rgba(238, 152, 40, 0.4);
 }
 
 /* Responsive adjustments */
