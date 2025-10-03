@@ -253,6 +253,11 @@ export class SimplifiedSettings {
     }
   }
 
+// For settings-simple-manager.js
+// CHANGE SUMMARY: Replace the show() method (around line 270) with this updated version
+
+// The show() method should be replaced with this:
+
  async show() {
   if (this.isVisible) return;
   
@@ -272,7 +277,7 @@ export class SimplifiedSettings {
   
   console.log(`⚙️ Opening settings for platform: ${isMobile ? 'mobile' : 'desktop/TV'}`);
   
-  // Create UI using platform-appropriate builder
+  // Create UI using same HTML for both platforms
   this.overlay = document.createElement('div');
   this.overlay.className = 'settings-overlay';
   this.overlay.innerHTML = buildSettingsUI(isMobile);
@@ -284,20 +289,24 @@ export class SimplifiedSettings {
   // Set up event handlers
   setupEventHandlers(this.overlay, this);
   
+  // Initialize navigation - same class for both platforms now
+  console.log(`⚙️ Initializing ${isMobile ? 'touch' : 'D-pad'} navigation`);
+  this.navigation = new SimplifiedNavigation(this.overlay, {
+    onThemeChange: (theme) => this.handleThemeChange(theme),
+    onSettingChange: (path, value) => this.handleSettingChange(path, value),
+    onCancel: () => this.handleCancel()
+  });
+  
+  // Initialize navigation stack for both platforms
+  this.navigationStack = ['root'];
+  
   if (isMobile) {
-    // Mobile: Simple touch handlers, no complex navigation
-    console.log('⚙️ 📱 Setting up touch handlers for mobile');
+    // Mobile: Add touch handlers in addition to D-pad navigation
+    console.log('⚙️ 📱 Adding touch handlers for mobile');
     this.setupTouchHandlers();
   } else {
-    // Desktop/TV: Use existing D-pad navigation
-    console.log('⚙️ 🖥️ Initializing D-pad navigation for desktop/TV');
-    this.navigation = new SimplifiedNavigation(this.overlay, {
-      onThemeChange: (theme) => this.handleThemeChange(theme),
-      onSettingChange: (path, value) => this.handleSettingChange(path, value),
-      onCancel: () => this.handleCancel()
-    });
-    
-    // Register with modal navigation manager for unified input handling
+    // Desktop/TV: Register with modal navigation manager
+    console.log('⚙️ 🖥️ Registering with modal navigation manager');
     this.modalNavigation = createModalNavigation(this.overlay, [], {
       onEscape: () => this.handleCancel(),
       customHandler: (action) => {
@@ -621,7 +630,7 @@ updateMobileNavBar() {
       }));
     }
   }
-  
+
   // Enhanced family name sending with better error handling and retries
   sendFamilyNameToWidget(widgetWindow) {
     if (!this.controller) {

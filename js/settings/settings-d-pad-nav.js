@@ -1,6 +1,5 @@
-// js/settings/settings-d-pad-nav.js - Auto-save implementation  
-// CHANGE SUMMARY: Fixed backspace in text inputs, dropdown activation with click event, and escape key handling
-// D-pad navigation logic for settings interface
+// js/settings/settings-d-pad-nav.js - Screen-based navigation
+// CHANGE SUMMARY: Complete rewrite to use iOS-style screen navigation instead of tabs - works with D-pad for TV/desktop
 
 export class SimplifiedNavigation {
   constructor(overlay, callbacks) {
@@ -8,8 +7,7 @@ export class SimplifiedNavigation {
     this.callbacks = callbacks;
     this.focusIndex = 0;
     this.focusableElements = [];
-    this.collapsedGroups = new Set(['theme', 'sleep', 'photos', 'widget-config', 'family-info', 'family-members']);
-    this.currentTab = 'display';
+    this.navigationStack = ['root']; // Track screen history
     
     this.init();
   }
@@ -18,36 +16,26 @@ export class SimplifiedNavigation {
     this.updateFocusableElements();
     this.setupEventListeners();
     this.updateFocus();
+    this.updateNavBar();
   }
 
   updateFocusableElements() {
-    // Get all focusable elements in the correct order
-    const tabs = Array.from(this.overlay.querySelectorAll('.tab-button:not(.disabled)'));
-    const activePanel = this.overlay.querySelector('.tab-panel.active');
-    const groupTitles = Array.from(activePanel.querySelectorAll('.group-title'));
+    // Get the currently active screen
+    const activeScreen = this.overlay.querySelector('.settings-screen.active');
+    if (!activeScreen) {
+      console.warn('⚙️ No active screen found');
+      return;
+    }
+
+    // Get all focusable elements in the active screen
+    const cells = Array.from(activeScreen.querySelectorAll('.settings-cell'));
+    const formControls = Array.from(activeScreen.querySelectorAll('.form-control'));
+    const toggles = Array.from(activeScreen.querySelectorAll('.toggle-switch input'));
     
-    // Build proper navigation order - groups and their controls together
-    const contentElements = [];
-    groupTitles.forEach(title => {
-      // Always add the group title
-      contentElements.push(title);
-      
-      // Add form controls if this group is expanded
-      const groupId = title.dataset.group;
-      if (!this.collapsedGroups.has(groupId)) {
-        const content = this.overlay.querySelector(`#${groupId}-content`);
-        if (content) {
-          const controls = Array.from(content.querySelectorAll('.form-control'));
-          contentElements.push(...controls);
-        }
-      }
-    });
+    // Combine all focusable elements in order they appear
+    this.focusableElements = [...cells, ...formControls, ...toggles];
     
-    // No footer buttons anymore - removed from navigation
-    // Create proper navigation hierarchy: tabs -> content (groups+controls)
-    this.focusableElements = [...tabs, ...contentElements];
-    
-    console.log(`⚙️ Updated focusable elements: ${this.focusableElements.length} (${tabs.length} tabs, ${contentElements.length} content)`);
+    console.log(`⚙️ Updated focusable elements: ${this.focusableElements.length} on screen ${this.getCurrentScreenId()}`);
     
     // Adjust focus index if it's out of bounds
     if (this.focusIndex >= this.focusableElements.length) {
@@ -56,43 +44,31 @@ export class SimplifiedNavigation {
   }
 
   setupEventListeners() {
-    // Tab clicks
-    this.overlay.querySelectorAll('.tab-button:not(.disabled)').forEach(tab => {
-      tab.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.switchTab(tab.dataset.tab);
-      });
-    });
-
-    // Group title clicks
-    this.overlay.querySelectorAll('.group-title').forEach(title => {
-      title.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.toggleGroup(title.dataset.group);
-      });
-    });
-
     // Form changes - auto-save on every change
     this.overlay.querySelectorAll('.form-control').forEach(control => {
       control.addEventListener('change', (e) => {
-        if (control.id === 'theme-select') {
-          this.callbacks.onThemeChange(e.target.value);
-        } else if (control.dataset.setting) {
+        if (control.dataset.setting) {
           const value = control.type === 'number' ? parseInt(control.value) : control.value;
           this.callbacks.onSettingChange(control.dataset.setting, value);
         }
       });
     });
 
-    // Save/Cancel buttons removed - no event listeners needed
+    // Toggle switches
+    this.overlay.querySelectorAll('.toggle-switch input').forEach(toggle => {
+      toggle.addEventListener('change', (e) => {
+        if (toggle.dataset.setting) {
+          this.callbacks.onSettingChange(toggle.dataset.setting, toggle.checked);
+        }
+      });
+    });
   }
 
   handleKeyPress(event) {
     const { key } = event;
     let handled = false;
 
-    // FIX 1: Check if we're currently editing a text/number input
-    // Look at the actual focused element in the DOM
+    // Check if we're currently editing a text/number input
     const activeElement = document.activeElement;
     const isTextInput = activeElement && 
       activeElement.classList.contains('form-control') &&
@@ -100,131 +76,89 @@ export class SimplifiedNavigation {
        activeElement.type === 'number' ||
        activeElement.type === 'time');
 
-    // FIX 3B: Check if we're in an open dropdown (select with size > 1)
+    // Check if we're in an open dropdown
     const isInDropdown = activeElement && 
       activeElement.tagName.toLowerCase() === 'select' &&
       activeElement.size > 1;
 
+    // Allow text editing keys when in text input
     if (isTextInput) {
-      console.log(`⚙️ 📝 Text input is focused - key: ${key}, activeElement:`, activeElement.id);
-      
-      // Allow all text editing keys through
       const textEditingKeys = [
         'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 
         'Tab', ' ', 'Enter'
       ];
       
-      // Allow single characters (letters, numbers, symbols)
       const isSingleChar = key.length === 1;
       
       if (textEditingKeys.includes(key) || isSingleChar) {
-        console.log(`⚙️ ✅ Allowing text editing key: "${key}" - returning false to let browser handle`);
-        // Don't call preventDefault - let the browser handle this naturally
-        return false; // Don't handle, let browser process normally
+        return false; // Let browser handle
       }
       
-      // ONLY block D-pad navigation keys (up/down)
+      // Block D-pad navigation while editing
       if (['ArrowUp', 'ArrowDown'].includes(key)) {
-        console.log(`⚙️ 🚫 Blocking D-pad navigation while editing: ${key}`);
         return true; // Block these keys
       }
       
-      // Handle Escape to exit editing mode
+      // Escape exits editing mode
       if (key === 'Escape') {
-        console.log(`⚙️ 🏃 Escape - exiting text editing mode`);
         activeElement.blur();
-        return true; // Handled - blur the input
+        this.updateFocus();
+        return true;
       }
     }
 
-    // FIX 3B: If dropdown is open, allow arrow keys to navigate options
+    // Allow dropdown navigation
     if (isInDropdown) {
-      console.log(`⚙️ 📋 Dropdown is open - key: ${key}`);
-      
-      // Allow arrow keys and Enter to work in the dropdown
       if (['ArrowUp', 'ArrowDown', 'Enter', 'Escape'].includes(key)) {
-        console.log(`⚙️ ✅ Allowing dropdown navigation key: "${key}"`);
-        return false; // Let browser handle dropdown navigation
+        return false; // Let browser handle
       }
     }
 
-    console.log(`⚙️ Navigation handling key: ${key}, current focus: ${this.focusIndex}/${this.focusableElements.length}`);
+    console.log(`⚙️ Navigation handling key: ${key}, focus: ${this.focusIndex}/${this.focusableElements.length}, screen: ${this.getCurrentScreenId()}`);
 
     switch (key) {
       case 'ArrowUp':
         this.moveFocus(-1);
         handled = true;
         break;
+        
       case 'ArrowDown':
-        // When on tabs, move to first content element instead of next tab
-        if (this.isOnTabs()) {
-          this.moveFromTabsToContent();
-          handled = true;
-        } else {
-          this.moveFocus(1);
-          handled = true;
-        }
+        this.moveFocus(1);
+        handled = true;
         break;
+        
       case 'ArrowLeft':
-        // Only handle left/right for tabs
-        if (this.isOnTabs()) {
-          this.moveTabFocus(-1);
+        // Left arrow goes back (like iOS swipe)
+        if (this.navigationStack.length > 1) {
+          this.navigateBack();
           handled = true;
         }
         break;
+        
       case 'ArrowRight':
-        // Only handle left/right for tabs
-        if (this.isOnTabs()) {
-          this.moveTabFocus(1);
-          handled = true;
-        }
+        // Right arrow activates cells with navigate attribute
+        this.activateCurrentElement();
+        handled = true;
         break;
+        
       case 'Enter':
         this.activateCurrentElement();
         handled = true;
         break;
+        
       case 'Escape':
-      case 'Backspace': // FIX 3: Handle Backspace as escape when NOT in text input
-        // Just close settings - no confirmation needed with auto-save
-        console.log(`⚙️ Escape/Back button pressed - closing settings`);
-        this.callbacks.onCancel();
+      case 'Backspace':
+        // Escape/Backspace: go back if not on root, otherwise close settings
+        if (this.navigationStack.length > 1) {
+          this.navigateBack();
+        } else {
+          this.callbacks.onCancel();
+        }
         handled = true;
         break;
     }
 
     return handled;
-  }
-
-  isOnTabs() {
-    const current = this.focusableElements[this.focusIndex];
-    return current && current.classList.contains('tab-button');
-  }
-
-  // New method to move from tabs down to content
-  moveFromTabsToContent() {
-    // Find first non-tab element (first content element)
-    const firstContentIndex = this.focusableElements.findIndex(el => !el.classList.contains('tab-button'));
-    if (firstContentIndex !== -1) {
-      this.focusIndex = firstContentIndex;
-      this.updateFocus();
-      console.log(`⚙️ Moved from tabs to first content element at index ${firstContentIndex}`);
-    } else {
-      // Fallback to normal down movement if no content found
-      this.moveFocus(1);
-    }
-  }
-
-  moveTabFocus(direction) {
-    const tabs = this.focusableElements.filter(el => el.classList.contains('tab-button'));
-    const currentTab = this.focusableElements[this.focusIndex];
-    const currentTabIndex = tabs.indexOf(currentTab);
-    
-    if (currentTabIndex !== -1) {
-      const newTabIndex = Math.max(0, Math.min(tabs.length - 1, currentTabIndex + direction));
-      const newTab = tabs[newTabIndex];
-      this.focusIndex = this.focusableElements.indexOf(newTab);
-      this.updateFocus();
-    }
   }
 
   moveFocus(direction) {
@@ -242,70 +176,12 @@ export class SimplifiedNavigation {
   scrollToFocusedElement() {
     const current = this.focusableElements[this.focusIndex];
     if (current) {
-      // Scroll the settings content container to keep the focused element visible
-      const contentContainer = this.overlay.querySelector('.settings-content');
-      if (contentContainer) {
-        current.scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest',
-          inline: 'nearest'
-        });
-      }
+      current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+        inline: 'nearest'
+      });
     }
-  }
-
-  toggleGroup(groupId) {
-    const title = this.overlay.querySelector(`[data-group="${groupId}"]`);
-    const content = this.overlay.querySelector(`#${groupId}-content`);
-    
-    if (!title || !content) return;
-    
-    if (this.collapsedGroups.has(groupId)) {
-      // Expanding
-      this.collapsedGroups.delete(groupId);
-      title.classList.add('expanded');
-      content.classList.remove('collapsed');
-      content.classList.add('expanded');
-      console.log(`⚙️ Expanded group: ${groupId}`);
-    } else {
-      // Collapsing
-      this.collapsedGroups.add(groupId);
-      title.classList.remove('expanded');
-      content.classList.remove('expanded');
-      content.classList.add('collapsed');
-      console.log(`⚙️ Collapsed group: ${groupId}`);
-    }
-    
-    // Update focusable elements after toggle
-    this.updateFocusableElements();
-    this.updateFocus();
-  }
-
-  switchTab(tabId) {
-    console.log(`⚙️ Switching to tab: ${tabId}`);
-    
-    this.overlay.querySelectorAll('.tab-button').forEach(tab => {
-      tab.classList.toggle('active', tab.dataset.tab === tabId);
-    });
-
-    this.overlay.querySelectorAll('.tab-panel').forEach(panel => {
-      panel.classList.toggle('active', panel.id === `${tabId}-panel`);
-    });
-
-    this.currentTab = tabId;
-    
-    // Update focusable elements for new tab
-    this.updateFocusableElements();
-    
-    // Find first non-tab element to focus on
-    const firstContentElement = this.focusableElements.find(el => !el.classList.contains('tab-button'));
-    if (firstContentElement) {
-      this.focusIndex = this.focusableElements.indexOf(firstContentElement);
-    } else {
-      this.focusIndex = 0;
-    }
-    
-    this.updateFocus();
   }
 
   updateFocus() {
@@ -318,8 +194,8 @@ export class SimplifiedNavigation {
     if (current) {
       current.classList.add('focused');
       
-      // Add 'selected' class for form controls and buttons
-      if (!current.classList.contains('group-title') && !current.classList.contains('tab-button')) {
+      // Add 'selected' class for visual indication
+      if (!current.classList.contains('settings-cell')) {
         current.classList.add('selected');
       }
       
@@ -328,14 +204,13 @@ export class SimplifiedNavigation {
   }
 
   getElementDescription(element) {
-    if (element.classList.contains('tab-button')) {
-      return `Tab: ${element.textContent}`;
-    } else if (element.classList.contains('group-title')) {
-      return `Group: ${element.dataset.group}`;
+    if (element.classList.contains('settings-cell')) {
+      const label = element.querySelector('.cell-label')?.textContent;
+      return `Cell: ${label}`;
     } else if (element.classList.contains('form-control')) {
       return `Control: ${element.id || element.dataset.setting}`;
-    } else if (element.classList.contains('btn')) {
-      return `Button: ${element.textContent}`;
+    } else if (element.type === 'checkbox') {
+      return `Toggle: ${element.dataset.setting}`;
     }
     return element.tagName + (element.id ? '#' + element.id : '');
   }
@@ -346,29 +221,56 @@ export class SimplifiedNavigation {
 
     console.log(`⚙️ Activating: ${this.getElementDescription(current)}`);
 
-    if (current.classList.contains('tab-button')) {
-      // Switch tabs
-      if (!current.classList.contains('disabled')) {
-        this.switchTab(current.dataset.tab);
+    // Check if this is a navigation cell (has data-navigate)
+    if (current.classList.contains('settings-cell')) {
+      const navigateTarget = current.dataset.navigate;
+      
+      if (navigateTarget) {
+        // Navigate to another screen
+        this.navigateToScreen(navigateTarget);
+      } else if (current.classList.contains('selectable')) {
+        // This is a selection cell (radio button style)
+        this.handleSelectionCell(current);
       }
-    } else if (current.classList.contains('group-title')) {
-      // Toggle group
-      this.toggleGroup(current.dataset.group);
     } else if (current.classList.contains('form-control')) {
-      // Activate form controls
+      // Activate form control
       this.activateFormControl(current);
+    } else if (current.type === 'checkbox') {
+      // Toggle checkbox
+      current.checked = !current.checked;
+      current.dispatchEvent(new Event('change'));
     }
   }
 
-  // Form control activation
+  handleSelectionCell(cell) {
+    const setting = cell.dataset.setting;
+    const value = cell.dataset.value;
+    
+    if (!setting || !value) return;
+    
+    // Update UI - remove selected from all siblings, add to this one
+    const section = cell.closest('.settings-section');
+    if (section) {
+      section.querySelectorAll('.selectable').forEach(c => {
+        c.classList.remove('selected');
+      });
+      cell.classList.add('selected');
+    }
+    
+    // Save the setting
+    this.callbacks.onSettingChange(setting, value);
+    
+    console.log(`⚙️ Selection changed: ${setting} = ${value}`);
+  }
+
   activateFormControl(control) {
-    console.log(`⚙️ Activating form control: ${control.id}, type: ${control.type}, tag: ${control.tagName}`);
+    console.log(`⚙️ Activating form control: ${control.id}, type: ${control.type}`);
     
     if (control.type === 'text' || control.type === 'number' || control.type === 'time') {
-      // Text/number/time inputs - just focus
+      // Focus text/number/time inputs for editing
       control.focus();
       
-      // Position cursor at end of text for text inputs
+      // Position cursor at end for text inputs
       if (control.type === 'text') {
         setTimeout(() => {
           control.setSelectionRange(control.value.length, control.value.length);
@@ -378,41 +280,132 @@ export class SimplifiedNavigation {
       console.log(`⚙️ ${control.type} input activated for editing`);
       
     } else if (control.tagName.toLowerCase() === 'select') {
-      // FIX 3: Dropdown handling - simplified for both Fire TV and PC
-      console.log(`⚙️ Activating select dropdown: ${control.id}`);
+      // Dropdown handling
+      console.log(`⚙️ Activating select dropdown`);
       
-      // Just focus the dropdown
       control.focus();
       
-      // For PC/browsers, expand immediately by setting size
-      // For Fire TV, it will require a second press (standard behavior)
+      // Expand dropdown
       setTimeout(() => {
-        console.log(`⚙️ Attempting to expand dropdown`);
-        
         const originalSize = control.size || 1;
-        control.size = Math.min(control.options.length, 8); // Show max 8 options
+        control.size = Math.min(control.options.length, 8);
         
-        // Collapse when selection is made or focus lost
+        // Collapse when selection made or focus lost
         const collapseHandler = () => {
           control.size = originalSize;
           control.removeEventListener('change', collapseHandler);
           control.removeEventListener('blur', collapseHandler);
-          console.log(`⚙️ Dropdown collapsed after selection`);
         };
         
         control.addEventListener('change', collapseHandler, { once: true });
         control.addEventListener('blur', collapseHandler, { once: true });
       }, 50);
-      
     } else {
-      // Other form controls - just focus
+      // Other controls - just focus
       control.focus();
-      console.log(`⚙️ Focused ${control.type} input`);
     }
   }
 
+  navigateToScreen(screenId) {
+    const currentScreen = this.overlay.querySelector('.settings-screen.active');
+    const nextScreen = this.overlay.querySelector(`[data-screen="${screenId}"]`);
+    
+    if (!nextScreen) {
+      console.error(`⚙️ Screen not found: ${screenId}`);
+      return;
+    }
+    
+    console.log(`⚙️ Navigating to screen: ${screenId}`);
+    
+    // Add to navigation stack
+    this.navigationStack.push(screenId);
+    
+    // Animate transition (forward)
+    currentScreen.classList.remove('active');
+    currentScreen.classList.add('sliding-out-left');
+    
+    nextScreen.classList.add('sliding-in-right', 'active');
+    
+    setTimeout(() => {
+      currentScreen.classList.remove('sliding-out-left');
+      nextScreen.classList.remove('sliding-in-right');
+    }, 300);
+    
+    // Update focusable elements for new screen
+    this.focusIndex = 0; // Reset to first element
+    this.updateFocusableElements();
+    this.updateFocus();
+    this.updateNavBar();
+  }
+
+  navigateBack() {
+    if (this.navigationStack.length <= 1) return;
+    
+    const currentScreen = this.overlay.querySelector('.settings-screen.active');
+    this.navigationStack.pop();
+    
+    const previousScreenId = this.navigationStack[this.navigationStack.length - 1];
+    const previousScreen = this.overlay.querySelector(`[data-screen="${previousScreenId}"]`);
+    
+    if (!previousScreen) return;
+    
+    console.log(`⚙️ Navigating back to screen: ${previousScreenId}`);
+    
+    // Animate transition (back)
+    currentScreen.classList.remove('active');
+    currentScreen.classList.add('sliding-out-right');
+    
+    previousScreen.classList.add('sliding-in-left', 'active');
+    
+    setTimeout(() => {
+      currentScreen.classList.remove('sliding-out-right');
+      previousScreen.classList.remove('sliding-in-left');
+    }, 300);
+    
+    // Update focusable elements for previous screen
+    this.focusIndex = 0; // Reset to first element
+    this.updateFocusableElements();
+    this.updateFocus();
+    this.updateNavBar();
+  }
+
+  updateNavBar() {
+    const currentScreenId = this.navigationStack[this.navigationStack.length - 1];
+    const currentScreen = this.overlay.querySelector(`[data-screen="${currentScreenId}"]`);
+    
+    if (!currentScreen) return;
+    
+    // Update title
+    const title = currentScreen.dataset.title || 'Settings';
+    const navTitle = this.overlay.querySelector('.nav-title');
+    if (navTitle) {
+      navTitle.textContent = title;
+    }
+    
+    // Show/hide back button
+    const backBtn = this.overlay.querySelector('.nav-back-button');
+    if (backBtn) {
+      if (this.navigationStack.length > 1) {
+        backBtn.style.visibility = 'visible';
+        
+        // Set back button text to previous screen name
+        const previousScreenId = this.navigationStack[this.navigationStack.length - 2];
+        const previousScreen = this.overlay.querySelector(`[data-screen="${previousScreenId}"]`);
+        if (previousScreen) {
+          const previousTitle = previousScreen.dataset.title || 'Back';
+          backBtn.textContent = `‹ ${previousTitle}`;
+        }
+      } else {
+        backBtn.style.visibility = 'hidden';
+      }
+    }
+  }
+
+  getCurrentScreenId() {
+    return this.navigationStack[this.navigationStack.length - 1];
+  }
+
   destroy() {
-    // Cleanup if needed
     console.log(`⚙️ Navigation destroyed`);
   }
 }
