@@ -394,8 +394,11 @@ async function initializeApp() {
   }
   
   // Show loading overlay AFTER authentication completes
-  showLoadingOverlay();
-  updateLoadingProgress(10, 'Authentication complete');
+  const platformDetector = getPlatformDetector();
+  if (!platformDetector.isMobile()) {
+    showLoadingOverlay();
+    updateLoadingProgress(10, 'Authentication complete');
+  }
   
   // Initialize JWT service
   console.log('🔐 Initializing JWT service after authentication...');

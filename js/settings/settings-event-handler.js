@@ -31,14 +31,22 @@ export function setupEventHandlers(overlay, settingsManager) {
   // Add event listener with capture=true to get events before main navigation
   document.addEventListener('keydown', settingsManager.keydownHandler, true);
 
-  // Listen for form changes to track pending changes
 
+  // Listen for form changes and auto-save immediately
   overlay.querySelectorAll('.form-control[data-setting]').forEach(control => {
     control.addEventListener('change', (e) => {
       const path = e.target.dataset.setting;
-      const value = e.target.type === 'number' ? parseInt(e.target.value) : e.target.value;
-      settingsManager.pendingChanges[path] = value;
-      console.log(`⚙️ Setting queued: ${path} = ${value}`);
+      let value = e.target.value;
+      
+      // Handle type conversion
+      if (e.target.type === 'number') {
+        value = parseInt(value);
+      } else if (e.target.type === 'checkbox') {
+        value = e.target.checked;
+      }
+      
+      // Auto-save immediately via settings manager
+      settingsManager.handleSettingChange(path, value);
     });
   });
 
