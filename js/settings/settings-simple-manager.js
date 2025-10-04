@@ -318,13 +318,6 @@ export class SimplifiedSettings {
   }
 
    setupTouchHandlers() {
-    const doneBtn = this.overlay.querySelector('#settings-done');
-    if (doneBtn) {
-      doneBtn.addEventListener('click', () => {
-        console.log('📱 Done button clicked');
-        this.handleCancel();
-      });
-    }
     
     // Navigation cells (cells with chevrons)
     this.overlay.addEventListener('click', (e) => {
@@ -344,8 +337,15 @@ export class SimplifiedSettings {
     const backBtn = this.overlay.querySelector('.nav-back-button');
     if (backBtn) {
       backBtn.addEventListener('click', () => {
-        console.log('📱 Back button clicked');
-        this.navigateBack();
+        const isRootScreen = this.navigationStack[this.navigationStack.length - 1] === 'root';
+        
+        if (isRootScreen) {
+          console.log('📱 Back button on root - closing settings');
+          this.handleCancel();
+        } else {
+          console.log('📱 Back button clicked - navigating back');
+          this.navigateBack();
+        }
       });
     }
     
@@ -604,32 +604,41 @@ export class SimplifiedSettings {
   }
 
   updateMobileNavBar() {
-    const currentScreenId = this.navigationStack[this.navigationStack.length - 1];
-    const currentScreen = this.overlay.querySelector(`[data-screen="${currentScreenId}"]`);
+  const currentScreenId = this.getCurrentScreenId();
+  const currentScreen = this.overlay.querySelector(`[data-screen="${currentScreenId}"]`);
+  
+  if (!currentScreen) return;
+  
+  const title = currentScreen.dataset.title || 'Settings';
+  const navTitle = this.overlay.querySelector('.nav-title');
+  if (navTitle) {
+    navTitle.textContent = title;
+  }
+  
+  const backBtn = this.overlay.querySelector('.nav-back-button');
+  if (backBtn) {
+    const isRootScreen = this.getCurrentScreenId() === 'root';
     
-    if (!currentScreen) return;
+    // Always show back button
+    backBtn.style.visibility = 'visible';
     
-    const title = currentScreen.dataset.title || 'Settings';
-    const navTitle = this.overlay.querySelector('.nav-title');
-    if (navTitle) {
-      navTitle.textContent = title;
-    }
-    
-    const backBtn = this.overlay.querySelector('.nav-back-button');
-    if (backBtn) {
-      if (this.navigationStack.length > 1) {
-        backBtn.style.visibility = 'visible';
-        
-        const previousScreenId = this.navigationStack[this.navigationStack.length - 2];
-        const previousScreen = this.overlay.querySelector(`[data-screen="${previousScreenId}"]`);
-        if (previousScreen) {
-          const previousTitle = previousScreen.dataset.title || 'Back';
-          backBtn.textContent = `‹ ${previousTitle}`;
-        }
-      } else {
-        backBtn.style.visibility = 'hidden';
+    if (isRootScreen) {
+      // On root screen, back closes settings
+      backBtn.textContent = '‹ Back';
+    } else {
+      // On other screens, show previous screen name
+      const previousScreenId = this.navigationStack[this.navigationStack.length - 2];
+      const previousScreen = this.overlay.querySelector(`[data-screen="${previousScreenId}"]`);
+      if (previousScreen) {
+        const previousTitle = previousScreen.dataset.title || 'Back';
+        backBtn.textContent = `‹ ${previousTitle}`;
       }
     }
+  }
+}
+
+  getCurrentScreenId() {
+    return this.navigationStack[this.navigationStack.length - 1];
   }
 
   async loadCurrentSettings() {

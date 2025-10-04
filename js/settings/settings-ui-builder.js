@@ -14,9 +14,6 @@ function buildMobileSettingsUI() {
           ‹ Back
         </button>
         <h1 class="nav-title">Settings</h1>
-        <button class="nav-action-button" id="settings-done">
-          Done
-        </button>
       </div>
 
       <!-- Screen Stack Container -->
