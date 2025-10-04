@@ -1,5 +1,5 @@
 // js/settings/settings-d-pad-nav.js - Screen-based navigation
-// CHANGE SUMMARY: Fixed duplicate methods, removed tab references, cleaned up navigation flow
+// CHANGE SUMMARY: 3-step time selection (hour→minute→AM/PM), updated display value mapping for new Photos section
 
 export class SimplifiedNavigation {
   constructor(overlay, callbacks) {
@@ -7,7 +7,7 @@ export class SimplifiedNavigation {
     this.callbacks = callbacks;
     this.focusIndex = 0;
     this.focusableElements = [];
-    this.navigationStack = ['root']; // Track screen history
+    this.navigationStack = ['root'];
     
     this.init();
   }
@@ -20,31 +20,26 @@ export class SimplifiedNavigation {
   }
 
   updateFocusableElements() {
-    // Get the currently active screen
     const activeScreen = this.overlay.querySelector('.settings-screen.active');
     if (!activeScreen) {
       console.warn('⚙️ No active screen found');
       return;
     }
 
-    // Get all focusable elements in the active screen
     const cells = Array.from(activeScreen.querySelectorAll('.settings-cell'));
     const formControls = Array.from(activeScreen.querySelectorAll('.form-control'));
     const toggles = Array.from(activeScreen.querySelectorAll('.toggle-switch input'));
     
-    // Combine all focusable elements in order they appear
     this.focusableElements = [...cells, ...formControls, ...toggles];
     
     console.log(`⚙️ Updated focusable elements: ${this.focusableElements.length} on screen ${this.getCurrentScreenId()}`);
     
-    // Adjust focus index if it's out of bounds
     if (this.focusIndex >= this.focusableElements.length) {
       this.focusIndex = Math.max(0, this.focusableElements.length - 1);
     }
   }
 
   setupEventListeners() {
-    // Form changes - auto-save on every change
     this.overlay.querySelectorAll('.form-control').forEach(control => {
       control.addEventListener('change', (e) => {
         if (control.dataset.setting) {
@@ -54,7 +49,6 @@ export class SimplifiedNavigation {
       });
     });
 
-    // Toggle switches
     this.overlay.querySelectorAll('.toggle-switch input').forEach(toggle => {
       toggle.addEventListener('change', (e) => {
         if (toggle.dataset.setting) {
@@ -73,7 +67,6 @@ export class SimplifiedNavigation {
       activeElement.classList.contains('form-control') &&
       (activeElement.type === 'text' || activeElement.type === 'number');
 
-    // FIX 3: If editing text/number, handle escape properly
     if (isTextInput) {
       const textEditingKeys = [
         'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 
@@ -83,23 +76,21 @@ export class SimplifiedNavigation {
       const isSingleChar = key.length === 1;
       
       if (textEditingKeys.includes(key) || isSingleChar) {
-        return false; // Let browser handle
+        return false;
       }
       
       if (['ArrowUp', 'ArrowDown'].includes(key)) {
-        return true; // Block navigation
+        return true;
       }
       
-      // FIX 2: First Escape blurs input, stays in modal
       if (key === 'Escape') {
         console.log(`⚙️ Escape - blurring text input (staying in modal)`);
         activeElement.blur();
         this.updateFocus();
-        return true; // Handled - don't close modal
+        return true;
       }
     }
 
-    // Standard navigation
     switch (key) {
       case 'ArrowUp':
         this.moveFocus(-1);
@@ -118,16 +109,13 @@ export class SimplifiedNavigation {
         
       case 'Escape':
       case 'Backspace':
-        // FIX 2: Check if we're on a sub-screen
         const isRootScreen = this.getCurrentScreenId() === 'root';
         
         if (!isRootScreen) {
-          // Navigate back one screen
           console.log(`⚙️ Back button - navigating to previous screen`);
           this.navigateBack();
           handled = true;
         } else {
-          // On root screen - close settings
           console.log(`⚙️ Escape/Back - closing settings`);
           this.callbacks.onCancel();
           handled = true;
@@ -144,7 +132,6 @@ export class SimplifiedNavigation {
     const oldIndex = this.focusIndex;
     this.focusIndex += direction;
     
-    // Wrap around
     if (this.focusIndex < 0) {
       this.focusIndex = this.focusableElements.length - 1;
     } else if (this.focusIndex >= this.focusableElements.length) {
@@ -169,7 +156,6 @@ export class SimplifiedNavigation {
   }
 
   updateFocus() {
-    // Clear all focus styles
     this.focusableElements.forEach(el => {
       el.classList.remove('focused', 'selected');
     });
@@ -177,7 +163,6 @@ export class SimplifiedNavigation {
     const current = this.focusableElements[this.focusIndex];
     if (current) {
       current.classList.add('focused');
-      
       console.log(`⚙️ Focused on: ${this.getElementDescription(current)}`);
     }
   }
@@ -200,22 +185,17 @@ export class SimplifiedNavigation {
 
     console.log(`⚙️ Activating: ${this.getElementDescription(current)}`);
 
-    // Check if this is a navigation cell (has data-navigate)
     if (current.classList.contains('settings-cell')) {
       const navigateTarget = current.dataset.navigate;
       
       if (navigateTarget) {
-        // Navigate to another screen
         this.navigateToScreen(navigateTarget);
       } else if (current.classList.contains('selectable')) {
-        // This is a selection cell (radio button style)
         this.handleSelectionCell(current);
       }
     } else if (current.classList.contains('form-control')) {
-      // Activate form control
       this.activateFormControl(current);
     } else if (current.type === 'checkbox') {
-      // Toggle checkbox
       current.checked = !current.checked;
       current.dispatchEvent(new Event('change'));
     }
@@ -225,9 +205,65 @@ export class SimplifiedNavigation {
     const setting = cell.dataset.setting;
     const value = cell.dataset.value;
     
+    const navigateTo = cell.dataset.navigate;
+    const hour = cell.dataset.hour;
+    const minute = cell.dataset.minute;
+    const period = cell.dataset.period;
+    
+    // 3-step time selection: hour → minute → AM/PM
+    if (navigateTo && (hour || minute || period)) {
+      if (!this.pendingTimeSelection) {
+        this.pendingTimeSelection = {};
+      }
+      
+      if (hour) {
+        // Step 1: Store hour, navigate to minutes
+        this.pendingTimeSelection.hour = parseInt(hour);
+        this.navigateToScreen(navigateTo);
+        return;
+      }
+      
+      if (minute) {
+        // Step 2: Store minute, navigate to AM/PM
+        this.pendingTimeSelection.minute = parseInt(minute);
+        this.navigateToScreen(navigateTo);
+        return;
+      }
+      
+      if (period && this.pendingTimeSelection.hour !== undefined && this.pendingTimeSelection.minute !== undefined) {
+        // Step 3: Store period, build final time, save
+        this.pendingTimeSelection.period = period;
+        
+        const finalTime = this.buildTimeValue(
+          this.pendingTimeSelection.hour,
+          this.pendingTimeSelection.minute,
+          this.pendingTimeSelection.period
+        );
+        
+        this.callbacks.onSettingChange(setting, finalTime);
+        this.updateParentDisplayValue(setting, finalTime);
+        
+        console.log(`⚙️ Time selected: ${setting} = ${finalTime}`);
+        
+        this.pendingTimeSelection = null;
+        
+        // Navigate back 3 levels to Display screen
+        setTimeout(() => {
+          this.navigateBack();
+          setTimeout(() => {
+            this.navigateBack();
+            setTimeout(() => {
+              this.navigateBack();
+            }, 350);
+          }, 350);
+        }, 300);
+        return;
+      }
+    }
+    
+    // Regular selection (theme, photo settings, etc)
     if (!setting || !value) return;
     
-    // Update UI - remove selected from all siblings, add to this one
     const section = cell.closest('.settings-section');
     if (section) {
       section.querySelectorAll('.selectable').forEach(c => {
@@ -236,33 +272,39 @@ export class SimplifiedNavigation {
       cell.classList.add('selected');
     }
     
-    // Save the setting
     this.callbacks.onSettingChange(setting, value);
-    
-    // Update display value in parent screen
     this.updateParentDisplayValue(setting, value);
     
     console.log(`⚙️ Selection changed: ${setting} = ${value}`);
     
-    // Auto-navigate back after selection (like iOS)
     setTimeout(() => {
       this.navigateBack();
     }, 300);
   }
+  
+  buildTimeValue(hour, minute, period) {
+    let hour24 = hour;
+    if (period === 'PM' && hour !== 12) {
+      hour24 = hour + 12;
+    } else if (period === 'AM' && hour === 12) {
+      hour24 = 0;
+    }
+    
+    return `${hour24.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+  }
 
   updateParentDisplayValue(setting, value) {
-    // Map setting paths to their display elements
     const displayMap = {
       'display.theme': { id: 'mobile-theme-value', format: (v) => v === 'dark' ? 'Dark' : 'Light' },
       'display.sleepTime': { id: 'mobile-sleep-time-value', format: (v) => this.formatTime(v) },
       'display.wakeTime': { id: 'mobile-wake-time-value', format: (v) => this.formatTime(v) },
       'photos.source': { 
-        id: 'mobile-photo-source-value', 
+        id: 'mobile-photo-album-value', 
         format: (v) => ({ recent: 'Recent Photos', family: 'Family Album', vacation: 'Vacation 2024' }[v] || v)
       },
-      'system.activeSite': { 
-        id: 'mobile-active-site-value', 
-        format: (v) => v === 'prod' ? 'Production' : 'Development'
+      'photos.transitionTime': {
+        id: 'mobile-photo-transition-value',
+        format: (v) => this.formatTransitionTime(parseInt(v))
       }
     };
 
@@ -282,12 +324,17 @@ export class SimplifiedNavigation {
     const hours12 = hours % 12 || 12;
     return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
   }
+  
+  formatTransitionTime(seconds) {
+    if (seconds < 60) return `${seconds} sec`;
+    if (seconds < 3600) return `${seconds / 60} min`;
+    return `${seconds / 3600} hour`;
+  }
 
   activateFormControl(control) {
     console.log(`⚙️ Activating form control: ${control.id}, type: ${control.type}`);
     
     if (control.type === 'text' || control.type === 'number') {
-      // Text/number inputs - focus for editing
       control.focus();
       
       if (control.type === 'text') {
@@ -296,7 +343,6 @@ export class SimplifiedNavigation {
         }, 10);
       }
     } else if (control.tagName.toLowerCase() === 'select') {
-      // Dropdown - expand it
       control.focus();
       setTimeout(() => {
         const originalSize = control.size || 1;
@@ -327,10 +373,8 @@ export class SimplifiedNavigation {
     
     console.log(`⚙️ Navigating to screen: ${screenId}`);
     
-    // Add to navigation stack
     this.navigationStack.push(screenId);
     
-    // Animate transition (forward)
     currentScreen.classList.remove('active');
     currentScreen.classList.add('sliding-out-left');
     
@@ -340,7 +384,6 @@ export class SimplifiedNavigation {
       currentScreen.classList.remove('sliding-out-left');
       nextScreen.classList.remove('sliding-in-right');
       
-      // Update focusable elements for new screen
       this.focusIndex = 0;
       this.updateFocusableElements();
       this.updateFocus();
@@ -361,7 +404,6 @@ export class SimplifiedNavigation {
     
     console.log(`⚙️ Navigating back to screen: ${previousScreenId}`);
     
-    // Animate transition (back)
     currentScreen.classList.remove('active');
     currentScreen.classList.add('sliding-out-right');
     
@@ -371,7 +413,6 @@ export class SimplifiedNavigation {
       currentScreen.classList.remove('sliding-out-right');
       previousScreen.classList.remove('sliding-in-left');
       
-      // Update focusable elements for previous screen
       this.focusIndex = 0;
       this.updateFocusableElements();
       this.updateFocus();
@@ -385,20 +426,17 @@ export class SimplifiedNavigation {
     
     if (!currentScreen) return;
     
-    // Update title
     const title = currentScreen.dataset.title || 'Settings';
     const navTitle = this.overlay.querySelector('.nav-title');
     if (navTitle) {
       navTitle.textContent = title;
     }
     
-    // Show/hide back button
     const backBtn = this.overlay.querySelector('.nav-back-button');
     if (backBtn) {
       if (this.navigationStack.length > 1) {
         backBtn.style.visibility = 'visible';
         
-        // Set back button text to previous screen name
         const previousScreenId = this.navigationStack[this.navigationStack.length - 2];
         const previousScreen = this.overlay.querySelector(`[data-screen="${previousScreenId}"]`);
         if (previousScreen) {

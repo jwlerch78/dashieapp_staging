@@ -1,5 +1,5 @@
-/* css/mobile-landing.css - Mobile Landing Page Styles */
-/* CHANGE SUMMARY: Added loading bar styles and disabled button state for inline loading during initialization */
+/* css/components/mobile-landing.css - Mobile Landing Page Styles */
+/* CHANGE SUMMARY: Repositioned Settings button to 2/3 down page (66vh), fully responsive design */
 
 /* Mobile container - hidden by default, shown on mobile devices */
 #mobile-container {
@@ -46,34 +46,58 @@
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
-/* Mobile Content - Logo at 1/3, Button below */
+/* Mobile Content - Responsive layout using viewport units */
 .mobile-content {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
   padding: 20px;
-  padding-top: 15vh; /* Position logo at ~1/3 down the screen */
-  gap: 40vh; /* Large gap pushes button to ~2/3 down */
+  position: relative;
 }
 
-/* Dashie Logo - scoped to mobile container only */
+/* Dashie Logo - Responsive sizing and positioning */
 #mobile-container .dashie-logo {
-  width: 250px;
+  width: min(250px, 70vw);
   height: auto;
-  max-width: 80vw;
-  opacity: 1 !important; /* Override sidebar's opacity: 0 */
-  margin: 0 auto;
-  /* Force orange logo regardless of theme changes */
+  opacity: 1 !important;
+  margin-top: 15vh;
+  flex-shrink: 0;
   content: url('/icons/Dashie_Full_Logo_Orange_Transparent.png') !important;
 }
 
-/* Mobile Loading Bar - appears below logo */
+/* Settings Button - Positioned at 2/3 down the page */
+.orange-button {
+  background: linear-gradient(135deg, #EE9828 0%, #F5A942 100%);
+  color: #FFFFFF;
+  border: none;
+  border-radius: 12px;
+  padding: 16px 48px;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(238, 152, 40, 0.3);
+  transition: all 0.2s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  position: absolute;
+  top: 66vh;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.orange-button:active {
+  transform: translateX(-50%) scale(0.98);
+  box-shadow: 0 2px 8px rgba(238, 152, 40, 0.4);
+}
+
+/* Mobile Loading Bar - Between logo and button */
 .mobile-loading-bar {
   width: 100%;
   max-width: 300px;
-  margin-top: -35vh; /* Position between logo and button */
+  position: absolute;
+  top: calc(15vh + min(250px, 70vw) + 40px);
+  left: 50%;
+  transform: translateX(-50%);
   opacity: 0;
   transition: opacity 0.3s ease;
   pointer-events: none;
@@ -116,77 +140,92 @@
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 
-/* Orange Button - Matches auth modal style */
-.orange-button {
-  background: linear-gradient(135deg, #EE9828 0%, #F5A942 100%);
-  color: #FFFFFF;
-  border: none;
-  padding: 16px 48px;
-  border-radius: 12px;
-  font-size: 17px;
-  font-weight: 600;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(238, 152, 40, 0.3);
-  transition: all 0.2s ease;
-  min-height: 44px;
-  min-width: 120px;
-}
+/* ========================================
+   RESPONSIVE BREAKPOINTS
+   ======================================== */
 
-.orange-button:active {
-  transform: scale(0.98);
-  box-shadow: 0 2px 8px rgba(238, 152, 40, 0.4);
-}
-
-.orange-button:hover {
-  box-shadow: 0 6px 16px rgba(238, 152, 40, 0.4);
-}
-
-/* Disabled state for button during loading */
-.orange-button:disabled {
-  background: linear-gradient(135deg, #cccccc 0%, #dddddd 100%);
-  color: #999999;
-  cursor: not-allowed;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  opacity: 0.6;
-}
-
-.orange-button:disabled:active {
-  transform: none;
-}
-
-.orange-button:disabled:hover {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-}
-
-/* Responsive adjustments */
-@media (max-width: 375px) {
-  .dashie-logo {
-    width: 160px;
+/* Small phones (iPhone SE, etc) - height < 670px */
+@media (max-height: 670px) {
+  #mobile-container .dashie-logo {
+    width: min(200px, 60vw);
+    margin-top: 10vh;
   }
   
   .orange-button {
+    top: 63vh;
     padding: 14px 40px;
-    font-size: 16px;
-  }
-  
-  .mobile-content {
-    gap: 40px;
+    font-size: 17px;
   }
   
   .mobile-loading-bar {
+    top: calc(10vh + min(200px, 60vw) + 30px);
     max-width: 250px;
-    margin-top: -30vh;
-  }
-  
-  .mobile-progress-text {
-    font-size: 13px;
   }
 }
 
-@media (min-width: 900px) {
-  /* Hide mobile container on desktop/TV */
-  #mobile-container {
-    display: none !important;
+/* Very small phones (iPhone SE in landscape, old Android) - height < 568px */
+@media (max-height: 568px) {
+  #mobile-container .dashie-logo {
+    width: min(160px, 50vw);
+    margin-top: 8vh;
+  }
+  
+  .orange-button {
+    top: 60vh;
+    padding: 12px 36px;
+    font-size: 16px;
+  }
+  
+  .mobile-loading-bar {
+    top: calc(8vh + min(160px, 50vw) + 25px);
+    max-width: 220px;
+  }
+  
+  .mobile-header {
+    min-height: 50px;
+    padding: 8px 16px;
+  }
+}
+
+/* Tall phones (iPhone 14 Pro Max, etc) - height > 844px */
+@media (min-height: 844px) {
+  #mobile-container .dashie-logo {
+    width: min(280px, 75vw);
+    margin-top: 18vh;
+  }
+  
+  .orange-button {
+    top: 66vh;
+    padding: 18px 56px;
+    font-size: 19px;
+  }
+  
+  .mobile-loading-bar {
+    top: calc(18vh + min(280px, 75vw) + 50px);
+    max-width: 320px;
+  }
+}
+
+/* Landscape orientation - compress vertical spacing */
+@media (orientation: landscape) and (max-height: 500px) {
+  #mobile-container .dashie-logo {
+    width: min(140px, 40vw);
+    margin-top: 5vh;
+  }
+  
+  .orange-button {
+    top: 55vh;
+    padding: 10px 32px;
+    font-size: 15px;
+  }
+  
+  .mobile-loading-bar {
+    top: calc(5vh + min(140px, 40vw) + 20px);
+    max-width: 200px;
+  }
+  
+  .mobile-header {
+    min-height: 45px;
+    padding: 6px 12px;
   }
 }
