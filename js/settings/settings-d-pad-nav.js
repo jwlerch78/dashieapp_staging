@@ -1,5 +1,5 @@
 // js/settings/settings-d-pad-nav.js - Screen-based navigation
-// CHANGE SUMMARY: Fixed time selection to check for time cells BEFORE navigation, ensuring hour/minute state is preserved
+// CHANGE SUMMARY: Fixed time selection (check time cells BEFORE navigation), removed auto-navigate for regular selections, fixed scrolling to use correct container, added escape key debugging
 
 import { TimeSelectionHandler } from './time-selection-handler.js';
 
@@ -68,30 +68,87 @@ export class SimplifiedNavigation {
         }
       });
     });
+
+    this.overlay.querySelectorAll('.toggle-switch input').forEach(toggle => {
+      toggle.addEventListener('change', (e) => {
+        if (toggle.dataset.setting) {
+          this.callbacks.onSettingChange(toggle.dataset.setting, toggle.checked);
+        }
+      });
+    });
   }
 
   handleKeyPress(event) {
-    const key = event.key;
-    
-    if (key === 'ArrowUp' || key === 'ArrowDown') {
-      event.preventDefault();
-      this.moveFocus(key === 'ArrowDown' ? 1 : -1);
-      return true;
+    const { key } = event;
+    let handled = false;
+
+    console.log(`⚙️ Key pressed: ${key}, current screen: ${this.getCurrentScreenId()}`);
+
+    const activeElement = document.activeElement;
+    const isTextInput = activeElement && 
+      activeElement.classList.contains('form-control') &&
+      (activeElement.type === 'text' || activeElement.type === 'number');
+
+    if (isTextInput) {
+      const textEditingKeys = [
+        'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 
+        'Tab', ' ', 'Enter'
+      ];
+      
+      const isSingleChar = key.length === 1;
+      
+      if (textEditingKeys.includes(key) || isSingleChar) {
+        return false;
+      }
+      
+      if (['ArrowUp', 'ArrowDown'].includes(key)) {
+        return true;
+      }
+      
+      if (key === 'Escape') {
+        console.log(`⚙️ Escape - blurring text input (staying in modal)`);
+        activeElement.blur();
+        this.updateFocus();
+        return true;
+      }
     }
-    
-    if (key === 'Enter') {
-      event.preventDefault();
-      this.activateCurrentElement();
-      return true;
+
+    switch (key) {
+      case 'ArrowUp':
+        this.moveFocus(-1);
+        handled = true;
+        break;
+        
+      case 'ArrowDown':
+        this.moveFocus(1);
+        handled = true;
+        break;
+        
+      case 'Enter':
+        this.activateCurrentElement();
+        handled = true;
+        break;
+        
+      case 'Escape':
+      case 'Backspace':
+        const isRootScreen = this.getCurrentScreenId() === 'root';
+        
+        console.log(`⚙️ Escape/Backspace - isRootScreen: ${isRootScreen}`);
+        
+        if (!isRootScreen) {
+          console.log(`⚙️ Back button - navigating to previous screen`);
+          this.navigateBack();
+          handled = true;
+        } else {
+          console.log(`⚙️ Escape/Back on root - calling onCancel()`);
+          this.callbacks.onCancel();
+          handled = true;
+        }
+        break;
     }
-    
-    if (key === 'Escape') {
-      event.preventDefault();
-      this.navigateBack();
-      return true;
-    }
-    
-    return false;
+
+    console.log(`⚙️ Key handled: ${handled}`);
+    return handled;
   }
 
   moveFocus(direction) {
@@ -106,19 +163,36 @@ export class SimplifiedNavigation {
       this.focusIndex = 0;
     }
     
-    this.updateFocus();
+    this.updateFocus(); // Update focus classes first
+    this.scrollToFocusedElement(); // Then scroll into view
     
     console.log(`⚙️ Focus moved from ${oldIndex} to ${this.focusIndex} (direction: ${direction})`);
   }
 
   scrollToFocusedElement() {
     const current = this.focusableElements[this.focusIndex];
-    if (current) {
-      current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center',  // Always center the focused element
-        inline: 'nearest'
-      });
+    if (!current) return;
+    
+    // Find the scrollable container (.settings-screen.active)
+    const scrollContainer = current.closest('.settings-screen.active');
+    if (!scrollContainer) return;
+    
+    // Get positions
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const elementRect = current.getBoundingClientRect();
+    
+    // Calculate if element is out of view
+    const elementTop = elementRect.top - containerRect.top;
+    const elementBottom = elementRect.bottom - containerRect.top;
+    const containerHeight = containerRect.height;
+    
+    // Scroll if element is not fully visible
+    if (elementTop < 0) {
+      // Element is above viewport - scroll up
+      scrollContainer.scrollTop += elementTop - 20; // 20px padding
+    } else if (elementBottom > containerHeight) {
+      // Element is below viewport - scroll down
+      scrollContainer.scrollTop += (elementBottom - containerHeight) + 20; // 20px padding
     }
   }
 

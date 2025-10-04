@@ -4,7 +4,7 @@
 
 const APP_VERSION = {
   version: '0',
-  build: '103',
+  build: '104',
   description: 'iOS Settings + Mobile Landing'
 };
 window.APP_VERSION = APP_VERSION;
