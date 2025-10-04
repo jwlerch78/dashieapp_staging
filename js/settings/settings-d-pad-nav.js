@@ -1,5 +1,5 @@
 // js/settings/settings-d-pad-nav.js - Screen-based navigation
-// CHANGE SUMMARY: 3-step time selection (hour→minute→AM/PM), updated display value mapping for new Photos section
+// CHANGE SUMMARY: Added checkmark highlighting for time selections, pre-set focus memory for Display screen navigation, fixed export
 
 export class SimplifiedNavigation {
   constructor(overlay, callbacks) {
@@ -8,6 +8,7 @@ export class SimplifiedNavigation {
     this.focusIndex = 0;
     this.focusableElements = [];
     this.navigationStack = ['root'];
+    this.screenFocusMemory = {}; // Remember last focus position per screen
     
     this.init();
   }
@@ -34,8 +35,23 @@ export class SimplifiedNavigation {
     
     console.log(`⚙️ Updated focusable elements: ${this.focusableElements.length} on screen ${this.getCurrentScreenId()}`);
     
-    if (this.focusIndex >= this.focusableElements.length) {
-      this.focusIndex = Math.max(0, this.focusableElements.length - 1);
+    // Highlight current selections FIRST (before setting focus)
+    this.highlightCurrentSelections();
+    
+    // Restore previous focus position for this screen, or default to selected item
+    const screenId = this.getCurrentScreenId();
+    if (this.screenFocusMemory[screenId] !== undefined) {
+      this.focusIndex = Math.min(this.screenFocusMemory[screenId], this.focusableElements.length - 1);
+      console.log(`⚙️ Restored focus to index ${this.focusIndex} for screen ${screenId}`);
+    } else {
+      // First time on this screen - try to focus on selected item
+      const selectedIndex = this.focusableElements.findIndex(el => el.classList.contains('selected'));
+      if (selectedIndex !== -1) {
+        this.focusIndex = selectedIndex;
+        console.log(`⚙️ Focusing on selected item at index ${this.focusIndex}`);
+      } else if (this.focusIndex >= this.focusableElements.length) {
+        this.focusIndex = Math.max(0, this.focusableElements.length - 1);
+      }
     }
   }
 
@@ -157,13 +173,18 @@ export class SimplifiedNavigation {
 
   updateFocus() {
     this.focusableElements.forEach(el => {
-      el.classList.remove('focused', 'selected');
+      el.classList.remove('focused');
+      // Don't remove 'selected' - that shows current setting value
     });
 
     const current = this.focusableElements[this.focusIndex];
     if (current) {
       current.classList.add('focused');
       console.log(`⚙️ Focused on: ${this.getElementDescription(current)}`);
+      
+      // Save focus position for current screen
+      const screenId = this.getCurrentScreenId();
+      this.screenFocusMemory[screenId] = this.focusIndex;
     }
   }
 
@@ -245,15 +266,34 @@ export class SimplifiedNavigation {
         
         console.log(`⚙️ Time selected: ${setting} = ${finalTime}`);
         
+        // Remember which time setting was just changed so we can highlight it
+        const timeSettingName = setting.includes('sleepTime') ? 'sleep-time' : 'wake-time';
+        
+        // Store focus memory for Display screen - find the index of the time cell we just set
+        // We need to do this BEFORE navigating back
+        const displayScreen = this.overlay.querySelector('[data-screen="display"]');
+        if (displayScreen) {
+          const allCells = Array.from(displayScreen.querySelectorAll('.settings-cell'));
+          const timeCell = displayScreen.querySelector(`[data-navigate="${timeSettingName}"]`);
+          if (timeCell) {
+            const timeCellIndex = allCells.indexOf(timeCell);
+            if (timeCellIndex !== -1) {
+              // Pre-set the focus memory so when we return to Display, it focuses on this cell
+              this.screenFocusMemory['display'] = timeCellIndex;
+              console.log(`⚙️ Set focus memory for display screen to index ${timeCellIndex} (${timeSettingName})`);
+            }
+          }
+        }
+        
         this.pendingTimeSelection = null;
         
-        // Navigate back 3 levels to Display screen
+        // Navigate back to Display screen (3 levels up from AM/PM)
         setTimeout(() => {
-          this.navigateBack();
+          this.navigateBack(); // Level 4 → Level 3 (AM/PM → Minute)
           setTimeout(() => {
-            this.navigateBack();
+            this.navigateBack(); // Level 3 → Level 2 (Minute → Hour)
             setTimeout(() => {
-              this.navigateBack();
+              this.navigateBack(); // Level 2 → Level 1 (Hour → Display)
             }, 350);
           }, 350);
         }, 300);
@@ -329,6 +369,121 @@ export class SimplifiedNavigation {
     if (seconds < 60) return `${seconds} sec`;
     if (seconds < 3600) return `${seconds / 60} min`;
     return `${seconds / 3600} hour`;
+  }
+  
+  highlightCurrentSelections() {
+    // Get current settings from the manager
+    const activeScreen = this.overlay.querySelector('.settings-screen.active');
+    if (!activeScreen) return;
+    
+    const screenId = this.getCurrentScreenId();
+    
+    // Handle time selection screens specially (they use data-hour, data-minute, data-period)
+    if (screenId.includes('sleep-time') || screenId.includes('wake-time')) {
+      this.highlightCurrentTimeSelection(screenId);
+      return;
+    }
+    
+    // Handle regular selection screens (with data-setting attribute)
+    const selectableCells = activeScreen.querySelectorAll('.settings-cell.selectable[data-setting]');
+    
+    selectableCells.forEach(cell => {
+      const setting = cell.dataset.setting;
+      const value = cell.dataset.value;
+      
+      // Check against current settings
+      let isCurrentValue = false;
+      
+      if (setting === 'display.theme') {
+        const themeValue = this.overlay.querySelector('#mobile-theme-value')?.textContent.toLowerCase();
+        isCurrentValue = (value === 'dark' && themeValue === 'dark') || 
+                        (value === 'light' && themeValue === 'light');
+      } else if (setting === 'photos.transitionTime') {
+        const transitionValue = this.overlay.querySelector('#mobile-photo-transition-value')?.textContent;
+        const currentSeconds = this.parseTransitionTime(transitionValue);
+        isCurrentValue = parseInt(value) === currentSeconds;
+      } else if (setting === 'photos.source') {
+        const albumValue = this.overlay.querySelector('#mobile-photo-album-value')?.textContent;
+        const albumMap = {
+          'Recent Photos': 'recent',
+          'Family Album': 'family',
+          'Vacation 2024': 'vacation'
+        };
+        isCurrentValue = value === albumMap[albumValue];
+      }
+      
+      if (isCurrentValue) {
+        cell.classList.add('selected');
+      } else {
+        cell.classList.remove('selected');
+      }
+    });
+  }
+  
+  highlightCurrentTimeSelection(screenId) {
+    const activeScreen = this.overlay.querySelector('.settings-screen.active');
+    if (!activeScreen) return;
+    
+    // Determine which time setting we're looking at
+    const isSleepTime = screenId.includes('sleep');
+    const timeValueElement = this.overlay.querySelector(isSleepTime ? '#mobile-sleep-time-value' : '#mobile-wake-time-value');
+    if (!timeValueElement) return;
+    
+    const timeStr = timeValueElement.textContent; // e.g., "10:00 PM"
+    const parsedTime = this.parseTimeDisplay(timeStr);
+    
+    // Highlight based on what screen level we're on
+    if (screenId.endsWith('-time')) {
+      // Hour selection screen
+      const hourCells = activeScreen.querySelectorAll('[data-hour]');
+      hourCells.forEach(cell => {
+        if (parseInt(cell.dataset.hour) === parsedTime.hour12) {
+          cell.classList.add('selected');
+        } else {
+          cell.classList.remove('selected');
+        }
+      });
+    } else if (screenId.endsWith('-min')) {
+      // Minute selection screen
+      const minuteCells = activeScreen.querySelectorAll('[data-minute]');
+      minuteCells.forEach(cell => {
+        if (parseInt(cell.dataset.minute) === parsedTime.minute) {
+          cell.classList.add('selected');
+        } else {
+          cell.classList.remove('selected');
+        }
+      });
+    } else if (screenId.endsWith('-period')) {
+      // AM/PM selection screen
+      const periodCells = activeScreen.querySelectorAll('[data-period]');
+      periodCells.forEach(cell => {
+        if (cell.dataset.period === parsedTime.period) {
+          cell.classList.add('selected');
+        } else {
+          cell.classList.remove('selected');
+        }
+      });
+    }
+  }
+  
+  parseTimeDisplay(timeStr) {
+    // Parse "10:00 PM" into {hour12: 10, minute: 0, period: "PM"}
+    const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
+    if (!match) return { hour12: 12, minute: 0, period: 'PM' };
+    
+    return {
+      hour12: parseInt(match[1]),
+      minute: parseInt(match[2]),
+      period: match[3].toUpperCase()
+    };
+  }
+  
+  parseTransitionTime(timeStr) {
+    if (!timeStr) return 5;
+    if (timeStr.includes('sec')) return parseInt(timeStr);
+    if (timeStr.includes('min')) return parseInt(timeStr) * 60;
+    if (timeStr.includes('hour')) return parseInt(timeStr) * 3600;
+    return 5;
   }
 
   activateFormControl(control) {

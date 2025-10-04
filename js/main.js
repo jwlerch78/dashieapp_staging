@@ -739,7 +739,7 @@ if (isDev && window.APP_VERSION) {
   const badge = document.createElement('div');
   badge.className = 'version-badge';
   badge.style.display = 'block';
-  badge.textContent = `v${window.APP_VERSION.version} (${window.APP_VERSION.build})`;
+  badge.textContent = `v${window.APP_VERSION.version}.${window.APP_VERSION.build}`;
   badge.title = window.APP_VERSION.description;
   document.body.appendChild(badge);
 }
