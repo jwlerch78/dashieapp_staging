@@ -317,7 +317,7 @@ export class SimplifiedSettings {
     console.log('⚙️ 👁️ Settings shown successfully');
   }
 
-  setupTouchHandlers() {
+   setupTouchHandlers() {
     const doneBtn = this.overlay.querySelector('#settings-done');
     if (doneBtn) {
       doneBtn.addEventListener('click', () => {
@@ -326,6 +326,7 @@ export class SimplifiedSettings {
       });
     }
     
+    // Navigation cells (cells with chevrons)
     this.overlay.addEventListener('click', (e) => {
       const cell = e.target.closest('.settings-cell[data-navigate]');
       if (cell) {
@@ -339,6 +340,7 @@ export class SimplifiedSettings {
       }
     });
     
+    // Back button
     const backBtn = this.overlay.querySelector('.nav-back-button');
     if (backBtn) {
       backBtn.addEventListener('click', () => {
@@ -347,6 +349,7 @@ export class SimplifiedSettings {
       });
     }
     
+    // Selectable cells (actual setting values)
     this.overlay.addEventListener('click', (e) => {
       const selectableCell = e.target.closest('.settings-cell.selectable');
       if (!selectableCell) return;
@@ -378,7 +381,7 @@ export class SimplifiedSettings {
             this.handleSettingChange(action.setting, action.value);
             this.updateParentDisplayValue(action.setting, action.value);
             
-            // Navigate directly back to Display screen instead of cascading back calls
+            // Navigate directly back to Display screen
             setTimeout(() => {
               this.navigateDirectToScreen('display');
             }, 300);
@@ -397,6 +400,7 @@ export class SimplifiedSettings {
       }
     });
     
+    // Form controls
     this.overlay.addEventListener('change', (e) => {
       if (e.target.matches('.form-control')) {
         const setting = e.target.dataset.setting;
@@ -410,7 +414,7 @@ export class SimplifiedSettings {
     this.updateMobileNavBar();
   }
 
-  handleRegularSelection(selectableCell) {
+   handleRegularSelection(selectableCell) {
     const setting = selectableCell.dataset.setting;
     const value = selectableCell.dataset.value;
     
@@ -426,13 +430,11 @@ export class SimplifiedSettings {
     
     console.log(`📱 Selection changed: ${setting} = ${value}`);
     this.handleSettingChange(setting, value);
+    this.updateParentDisplayValue(setting, value);
     
-    setTimeout(() => {
-      this.navigateBack();
-    }, 300);
   }
 
-  updateParentDisplayValue(setting, value) {
+ updateParentDisplayValue(setting, value) {
     const displayMap = {
       'display.theme': { id: 'mobile-theme-value', format: (v) => v === 'dark' ? 'Dark' : 'Light' },
       'display.sleepTime': { id: 'mobile-sleep-time-value', format: (v) => this.timeHandler.formatTime(v) },
@@ -451,8 +453,14 @@ export class SimplifiedSettings {
     if (display) {
       const element = this.overlay.querySelector(`#${display.id}`);
       if (element) {
-        element.textContent = display.format(value);
+        const formattedValue = display.format(value);
+        element.textContent = formattedValue;
+        console.log(`📱 Updated display: ${display.id} = "${formattedValue}"`);
+      } else {
+        console.warn(`📱 Display element not found: #${display.id}`);
       }
+    } else {
+      console.log(`📱 No display update needed for setting: ${setting}`);
     }
   }
 

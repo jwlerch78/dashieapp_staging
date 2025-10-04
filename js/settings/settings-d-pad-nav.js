@@ -1,5 +1,5 @@
 // js/settings/settings-d-pad-nav.js - Screen-based navigation
-// CHANGE SUMMARY: Updated to use TimeSelectionHandler for consolidated time selection logic (D-pad navigation)
+// CHANGE SUMMARY: Fixed time selection to check for time cells BEFORE navigation, ensuring hour/minute state is preserved
 
 import { TimeSelectionHandler } from './time-selection-handler.js';
 
@@ -62,87 +62,36 @@ export class SimplifiedNavigation {
     this.overlay.querySelectorAll('.form-control').forEach(control => {
       control.addEventListener('change', (e) => {
         if (control.dataset.setting) {
-          const value = control.type === 'number' ? parseInt(control.value) : control.value;
+          const value = control.type === 'number' ? 
+            parseInt(control.value) : control.value;
           this.callbacks.onSettingChange(control.dataset.setting, value);
-        }
-      });
-    });
-
-    this.overlay.querySelectorAll('.toggle-switch input').forEach(toggle => {
-      toggle.addEventListener('change', (e) => {
-        if (toggle.dataset.setting) {
-          this.callbacks.onSettingChange(toggle.dataset.setting, toggle.checked);
         }
       });
     });
   }
 
   handleKeyPress(event) {
-    const { key } = event;
-    let handled = false;
-
-    const activeElement = document.activeElement;
-    const isTextInput = activeElement && 
-      activeElement.classList.contains('form-control') &&
-      (activeElement.type === 'text' || activeElement.type === 'number');
-
-    if (isTextInput) {
-      const textEditingKeys = [
-        'Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 
-        'Tab', ' ', 'Enter'
-      ];
-      
-      const isSingleChar = key.length === 1;
-      
-      if (textEditingKeys.includes(key) || isSingleChar) {
-        return false;
-      }
-      
-      if (['ArrowUp', 'ArrowDown'].includes(key)) {
-        return true;
-      }
-      
-      if (key === 'Escape') {
-        console.log(`⚙️ Escape - blurring text input (staying in modal)`);
-        activeElement.blur();
-        this.updateFocus();
-        return true;
-      }
+    const key = event.key;
+    
+    if (key === 'ArrowUp' || key === 'ArrowDown') {
+      event.preventDefault();
+      this.moveFocus(key === 'ArrowDown' ? 1 : -1);
+      return true;
     }
-
-    switch (key) {
-      case 'ArrowUp':
-        this.moveFocus(-1);
-        handled = true;
-        break;
-        
-      case 'ArrowDown':
-        this.moveFocus(1);
-        handled = true;
-        break;
-        
-      case 'Enter':
-        this.activateCurrentElement();
-        handled = true;
-        break;
-        
-      case 'Escape':
-      case 'Backspace':
-        const isRootScreen = this.getCurrentScreenId() === 'root';
-        
-        if (!isRootScreen) {
-          console.log(`⚙️ Back button - navigating to previous screen`);
-          this.navigateBack();
-          handled = true;
-        } else {
-          console.log(`⚙️ Escape/Back - closing settings`);
-          this.callbacks.onCancel();
-          handled = true;
-        }
-        break;
+    
+    if (key === 'Enter') {
+      event.preventDefault();
+      this.activateCurrentElement();
+      return true;
     }
-
-    return handled;
+    
+    if (key === 'Escape') {
+      event.preventDefault();
+      this.navigateBack();
+      return true;
+    }
+    
+    return false;
   }
 
   moveFocus(direction) {
@@ -157,7 +106,6 @@ export class SimplifiedNavigation {
       this.focusIndex = 0;
     }
     
-    this.scrollToFocusedElement();
     this.updateFocus();
     
     console.log(`⚙️ Focus moved from ${oldIndex} to ${this.focusIndex} (direction: ${direction})`);
@@ -208,8 +156,14 @@ export class SimplifiedNavigation {
     console.log(`⚙️ Activating: ${this.getElementDescription(current)}`);
 
     if (current.classList.contains('settings-cell')) {
-      const navigateTarget = current.dataset.navigate;
+      // CRITICAL FIX: Check if it's a time selection cell FIRST, before navigation
+      if (this.timeHandler.isTimeSelectionCell(current)) {
+        this.handleSelectionCell(current);
+        return;
+      }
       
+      // Then check for navigation
+      const navigateTarget = current.dataset.navigate;
       if (navigateTarget) {
         this.navigateToScreen(navigateTarget);
       } else if (current.classList.contains('selectable')) {
@@ -286,9 +240,8 @@ export class SimplifiedNavigation {
     
     console.log(`⚙️ Selection changed: ${setting} = ${value}`);
     
-    setTimeout(() => {
-      this.navigateBack();
-    }, 300);
+    // DON'T auto-navigate back - user can manually go back with back button or escape
+    // This allows them to see the selection was successful before navigating
   }
 
   updateParentDisplayValue(setting, value) {
@@ -310,8 +263,14 @@ export class SimplifiedNavigation {
     if (display) {
       const element = this.overlay.querySelector(`#${display.id}`);
       if (element) {
-        element.textContent = display.format(value);
+        const formattedValue = display.format(value);
+        element.textContent = formattedValue;
+        console.log(`⚙️ Updated display: ${display.id} = "${formattedValue}"`);
+      } else {
+        console.warn(`⚙️ Display element not found: #${display.id}`);
       }
+    } else {
+      console.log(`⚙️ No display update needed for setting: ${setting}`);
     }
   }
 

@@ -1,10 +1,10 @@
 // js/settings/time-selection-handler.js
-// CHANGE SUMMARY: New file - Consolidated time selection logic for both touch and D-pad navigation
-// Handles 3-step time selection (hour → minute → AM/PM) and navigation
+// CHANGE SUMMARY: Added debug logging to track pendingTimeSelection state persistence issue
 
 export class TimeSelectionHandler {
   constructor() {
     this.pendingTimeSelection = null;
+    console.log('⏰ TimeSelectionHandler constructed, pendingTimeSelection initialized to null');
   }
 
   /**
@@ -12,11 +12,15 @@ export class TimeSelectionHandler {
    * Returns an action object telling the caller what to do next
    */
   handleSelection(cell, currentSettings) {
+    console.log('⏰ handleSelection called, current pendingTimeSelection:', JSON.stringify(this.pendingTimeSelection));
+    
     const hour = cell.dataset.hour;
     const minute = cell.dataset.minute;
     const period = cell.dataset.period;
     const navigateTo = cell.dataset.navigate;
     const setting = cell.dataset.setting;
+
+    console.log('⏰ Cell data:', { hour, minute, period, navigateTo, setting });
 
     // Not a time selection cell
     if (!hour && !minute && !period) {
@@ -25,13 +29,16 @@ export class TimeSelectionHandler {
 
     // Initialize pending selection if needed
     if (!this.pendingTimeSelection) {
+      console.log('⏰ Creating new pendingTimeSelection object');
       this.pendingTimeSelection = {};
+    } else {
+      console.log('⏰ Using existing pendingTimeSelection:', JSON.stringify(this.pendingTimeSelection));
     }
 
     // Step 1: Hour selection
     if (hour) {
       this.pendingTimeSelection.hour = parseInt(hour);
-      console.log(`⏰ Hour selected: ${hour}`);
+      console.log(`⏰ Hour selected: ${hour}, state is now:`, JSON.stringify(this.pendingTimeSelection));
       return {
         type: 'navigate',
         screenId: navigateTo,
@@ -42,7 +49,7 @@ export class TimeSelectionHandler {
     // Step 2: Minute selection
     if (minute) {
       this.pendingTimeSelection.minute = parseInt(minute);
-      console.log(`⏰ Minute selected: ${minute}`);
+      console.log(`⏰ Minute selected: ${minute}, state is now:`, JSON.stringify(this.pendingTimeSelection));
       return {
         type: 'navigate',
         screenId: navigateTo,
@@ -67,6 +74,7 @@ export class TimeSelectionHandler {
 
       // Clear pending selection
       this.pendingTimeSelection = null;
+      console.log('⏰ Cleared pendingTimeSelection after successful completion');
 
       return {
         type: 'complete',
@@ -79,6 +87,8 @@ export class TimeSelectionHandler {
 
     // Incomplete selection - shouldn't happen
     console.warn('⏰ Incomplete time selection state', this.pendingTimeSelection);
+    console.warn('⏰ Hour undefined?', this.pendingTimeSelection.hour === undefined);
+    console.warn('⏰ Minute undefined?', this.pendingTimeSelection.minute === undefined);
     return { type: 'error', message: 'Incomplete time selection' };
   }
 
@@ -191,6 +201,7 @@ export class TimeSelectionHandler {
    * Reset the pending selection state
    */
   reset() {
+    console.log('⏰ reset() called, clearing pendingTimeSelection');
     this.pendingTimeSelection = null;
   }
 
