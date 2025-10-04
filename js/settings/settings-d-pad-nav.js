@@ -1,14 +1,18 @@
 // js/settings/settings-d-pad-nav.js - Screen-based navigation
-// CHANGE SUMMARY: Added checkmark highlighting for time selections, pre-set focus memory for Display screen navigation, fixed export
+// CHANGE SUMMARY: Updated to use TimeSelectionHandler for consolidated time selection logic (D-pad navigation)
+
+import { TimeSelectionHandler } from './time-selection-handler.js';
 
 export class SimplifiedNavigation {
-  constructor(overlay, callbacks) {
+  constructor(overlay, callbacks, timeHandler = null) {
     this.overlay = overlay;
     this.callbacks = callbacks;
     this.focusIndex = 0;
     this.focusableElements = [];
     this.navigationStack = ['root'];
-    this.screenFocusMemory = {}; // Remember last focus position per screen
+    this.screenFocusMemory = {};
+    // Use shared handler if provided, otherwise create new one
+    this.timeHandler = timeHandler || new TimeSelectionHandler();
     
     this.init();
   }
@@ -35,16 +39,13 @@ export class SimplifiedNavigation {
     
     console.log(`⚙️ Updated focusable elements: ${this.focusableElements.length} on screen ${this.getCurrentScreenId()}`);
     
-    // Highlight current selections FIRST (before setting focus)
     this.highlightCurrentSelections();
     
-    // Restore previous focus position for this screen, or default to selected item
     const screenId = this.getCurrentScreenId();
     if (this.screenFocusMemory[screenId] !== undefined) {
       this.focusIndex = Math.min(this.screenFocusMemory[screenId], this.focusableElements.length - 1);
       console.log(`⚙️ Restored focus to index ${this.focusIndex} for screen ${screenId}`);
     } else {
-      // First time on this screen - try to focus on selected item
       const selectedIndex = this.focusableElements.findIndex(el => el.classList.contains('selected'));
       if (selectedIndex !== -1) {
         this.focusIndex = selectedIndex;
@@ -53,6 +54,8 @@ export class SimplifiedNavigation {
         this.focusIndex = Math.max(0, this.focusableElements.length - 1);
       }
     }
+    
+    this.scrollToFocusedElement();
   }
 
   setupEventListeners() {
@@ -174,7 +177,6 @@ export class SimplifiedNavigation {
   updateFocus() {
     this.focusableElements.forEach(el => {
       el.classList.remove('focused');
-      // Don't remove 'selected' - that shows current setting value
     });
 
     const current = this.focusableElements[this.focusIndex];
@@ -182,7 +184,6 @@ export class SimplifiedNavigation {
       current.classList.add('focused');
       console.log(`⚙️ Focused on: ${this.getElementDescription(current)}`);
       
-      // Save focus position for current screen
       const screenId = this.getCurrentScreenId();
       this.screenFocusMemory[screenId] = this.focusIndex;
     }
@@ -223,85 +224,53 @@ export class SimplifiedNavigation {
   }
 
   handleSelectionCell(cell) {
+    // Check if this is a time selection cell
+    if (this.timeHandler.isTimeSelectionCell(cell)) {
+      const action = this.timeHandler.handleSelection(cell);
+      
+      console.log('⚙️ Time selection action:', action);
+      
+      switch (action.type) {
+        case 'navigate':
+          this.navigateToScreen(action.screenId);
+          break;
+          
+        case 'complete':
+          console.log(`⚙️ ${action.message}`);
+          
+          this.callbacks.onSettingChange(action.setting, action.value);
+          this.updateParentDisplayValue(action.setting, action.value);
+          
+          // Store focus memory for Display screen
+          const cellIndex = this.timeHandler.getDisplayScreenCellIndex(this.overlay, action.timeSettingName);
+          if (cellIndex !== -1) {
+            this.screenFocusMemory['display'] = cellIndex;
+            console.log(`⚙️ Set focus memory for display screen to index ${cellIndex} (${action.timeSettingName})`);
+          }
+          
+          // Navigate directly back to Display screen
+          setTimeout(() => {
+            this.navigateDirectToScreen('display');
+          }, 300);
+          break;
+          
+        case 'not-time-selection':
+          this.handleRegularSelection(cell);
+          break;
+          
+        case 'error':
+          console.error('⚙️ Time selection error:', action.message);
+          break;
+      }
+    } else {
+      this.handleRegularSelection(cell);
+    }
+  }
+
+  handleRegularSelection(cell) {
     const setting = cell.dataset.setting;
     const value = cell.dataset.value;
     
-    const navigateTo = cell.dataset.navigate;
-    const hour = cell.dataset.hour;
-    const minute = cell.dataset.minute;
-    const period = cell.dataset.period;
-    
-    // 3-step time selection: hour → minute → AM/PM
-    if (navigateTo && (hour || minute || period)) {
-      if (!this.pendingTimeSelection) {
-        this.pendingTimeSelection = {};
-      }
-      
-      if (hour) {
-        // Step 1: Store hour, navigate to minutes
-        this.pendingTimeSelection.hour = parseInt(hour);
-        this.navigateToScreen(navigateTo);
-        return;
-      }
-      
-      if (minute) {
-        // Step 2: Store minute, navigate to AM/PM
-        this.pendingTimeSelection.minute = parseInt(minute);
-        this.navigateToScreen(navigateTo);
-        return;
-      }
-      
-      if (period && this.pendingTimeSelection.hour !== undefined && this.pendingTimeSelection.minute !== undefined) {
-        // Step 3: Store period, build final time, save
-        this.pendingTimeSelection.period = period;
-        
-        const finalTime = this.buildTimeValue(
-          this.pendingTimeSelection.hour,
-          this.pendingTimeSelection.minute,
-          this.pendingTimeSelection.period
-        );
-        
-        this.callbacks.onSettingChange(setting, finalTime);
-        this.updateParentDisplayValue(setting, finalTime);
-        
-        console.log(`⚙️ Time selected: ${setting} = ${finalTime}`);
-        
-        // Remember which time setting was just changed so we can highlight it
-        const timeSettingName = setting.includes('sleepTime') ? 'sleep-time' : 'wake-time';
-        
-        // Store focus memory for Display screen - find the index of the time cell we just set
-        // We need to do this BEFORE navigating back
-        const displayScreen = this.overlay.querySelector('[data-screen="display"]');
-        if (displayScreen) {
-          const allCells = Array.from(displayScreen.querySelectorAll('.settings-cell'));
-          const timeCell = displayScreen.querySelector(`[data-navigate="${timeSettingName}"]`);
-          if (timeCell) {
-            const timeCellIndex = allCells.indexOf(timeCell);
-            if (timeCellIndex !== -1) {
-              // Pre-set the focus memory so when we return to Display, it focuses on this cell
-              this.screenFocusMemory['display'] = timeCellIndex;
-              console.log(`⚙️ Set focus memory for display screen to index ${timeCellIndex} (${timeSettingName})`);
-            }
-          }
-        }
-        
-        this.pendingTimeSelection = null;
-        
-        // Navigate back to Display screen (3 levels up from AM/PM)
-        setTimeout(() => {
-          this.navigateBack(); // Level 4 → Level 3 (AM/PM → Minute)
-          setTimeout(() => {
-            this.navigateBack(); // Level 3 → Level 2 (Minute → Hour)
-            setTimeout(() => {
-              this.navigateBack(); // Level 2 → Level 1 (Hour → Display)
-            }, 350);
-          }, 350);
-        }, 300);
-        return;
-      }
-    }
-    
-    // Regular selection (theme, photo settings, etc)
     if (!setting || !value) return;
     
     const section = cell.closest('.settings-section');
@@ -321,23 +290,12 @@ export class SimplifiedNavigation {
       this.navigateBack();
     }, 300);
   }
-  
-  buildTimeValue(hour, minute, period) {
-    let hour24 = hour;
-    if (period === 'PM' && hour !== 12) {
-      hour24 = hour + 12;
-    } else if (period === 'AM' && hour === 12) {
-      hour24 = 0;
-    }
-    
-    return `${hour24.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-  }
 
   updateParentDisplayValue(setting, value) {
     const displayMap = {
       'display.theme': { id: 'mobile-theme-value', format: (v) => v === 'dark' ? 'Dark' : 'Light' },
-      'display.sleepTime': { id: 'mobile-sleep-time-value', format: (v) => this.formatTime(v) },
-      'display.wakeTime': { id: 'mobile-wake-time-value', format: (v) => this.formatTime(v) },
+      'display.sleepTime': { id: 'mobile-sleep-time-value', format: (v) => this.timeHandler.formatTime(v) },
+      'display.wakeTime': { id: 'mobile-wake-time-value', format: (v) => this.timeHandler.formatTime(v) },
       'photos.source': { 
         id: 'mobile-photo-album-value', 
         format: (v) => ({ recent: 'Recent Photos', family: 'Family Album', vacation: 'Vacation 2024' }[v] || v)
@@ -357,41 +315,29 @@ export class SimplifiedNavigation {
     }
   }
 
-  formatTime(time24) {
-    if (!time24) return '';
-    const [hours, minutes] = time24.split(':').map(Number);
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const hours12 = hours % 12 || 12;
-    return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
-  }
-  
   formatTransitionTime(seconds) {
     if (seconds < 60) return `${seconds} sec`;
     if (seconds < 3600) return `${seconds / 60} min`;
     return `${seconds / 3600} hour`;
   }
-  
+
   highlightCurrentSelections() {
-    // Get current settings from the manager
     const activeScreen = this.overlay.querySelector('.settings-screen.active');
     if (!activeScreen) return;
     
     const screenId = this.getCurrentScreenId();
     
-    // Handle time selection screens specially (they use data-hour, data-minute, data-period)
     if (screenId.includes('sleep-time') || screenId.includes('wake-time')) {
-      this.highlightCurrentTimeSelection(screenId);
+      this.timeHandler.highlightCurrentTimeSelection(this.overlay, screenId);
       return;
     }
     
-    // Handle regular selection screens (with data-setting attribute)
     const selectableCells = activeScreen.querySelectorAll('.settings-cell.selectable[data-setting]');
     
     selectableCells.forEach(cell => {
       const setting = cell.dataset.setting;
       const value = cell.dataset.value;
       
-      // Check against current settings
       let isCurrentValue = false;
       
       if (setting === 'display.theme') {
@@ -419,65 +365,7 @@ export class SimplifiedNavigation {
       }
     });
   }
-  
-  highlightCurrentTimeSelection(screenId) {
-    const activeScreen = this.overlay.querySelector('.settings-screen.active');
-    if (!activeScreen) return;
-    
-    // Determine which time setting we're looking at
-    const isSleepTime = screenId.includes('sleep');
-    const timeValueElement = this.overlay.querySelector(isSleepTime ? '#mobile-sleep-time-value' : '#mobile-wake-time-value');
-    if (!timeValueElement) return;
-    
-    const timeStr = timeValueElement.textContent; // e.g., "10:00 PM"
-    const parsedTime = this.parseTimeDisplay(timeStr);
-    
-    // Highlight based on what screen level we're on
-    if (screenId.endsWith('-time')) {
-      // Hour selection screen
-      const hourCells = activeScreen.querySelectorAll('[data-hour]');
-      hourCells.forEach(cell => {
-        if (parseInt(cell.dataset.hour) === parsedTime.hour12) {
-          cell.classList.add('selected');
-        } else {
-          cell.classList.remove('selected');
-        }
-      });
-    } else if (screenId.endsWith('-min')) {
-      // Minute selection screen
-      const minuteCells = activeScreen.querySelectorAll('[data-minute]');
-      minuteCells.forEach(cell => {
-        if (parseInt(cell.dataset.minute) === parsedTime.minute) {
-          cell.classList.add('selected');
-        } else {
-          cell.classList.remove('selected');
-        }
-      });
-    } else if (screenId.endsWith('-period')) {
-      // AM/PM selection screen
-      const periodCells = activeScreen.querySelectorAll('[data-period]');
-      periodCells.forEach(cell => {
-        if (cell.dataset.period === parsedTime.period) {
-          cell.classList.add('selected');
-        } else {
-          cell.classList.remove('selected');
-        }
-      });
-    }
-  }
-  
-  parseTimeDisplay(timeStr) {
-    // Parse "10:00 PM" into {hour12: 10, minute: 0, period: "PM"}
-    const match = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
-    if (!match) return { hour12: 12, minute: 0, period: 'PM' };
-    
-    return {
-      hour12: parseInt(match[1]),
-      minute: parseInt(match[2]),
-      period: match[3].toUpperCase()
-    };
-  }
-  
+
   parseTransitionTime(timeStr) {
     if (!timeStr) return 5;
     if (timeStr.includes('sec')) return parseInt(timeStr);
@@ -567,6 +455,35 @@ export class SimplifiedNavigation {
     setTimeout(() => {
       currentScreen.classList.remove('sliding-out-right');
       previousScreen.classList.remove('sliding-in-left');
+      
+      this.focusIndex = 0;
+      this.updateFocusableElements();
+      this.updateFocus();
+      this.updateNavBar();
+    }, 300);
+  }
+
+  navigateDirectToScreen(targetScreenId) {
+    const currentScreen = this.overlay.querySelector('.settings-screen.active');
+    const targetScreen = this.overlay.querySelector(`[data-screen="${targetScreenId}"]`);
+    
+    if (!targetScreen) {
+      console.error(`⚙️ Target screen not found: ${targetScreenId}`);
+      return;
+    }
+    
+    console.log(`⚙️ Navigating directly to: ${targetScreenId}`);
+    
+    this.navigationStack = ['root', targetScreenId];
+    
+    currentScreen.classList.remove('active');
+    currentScreen.classList.add('sliding-out-right');
+    
+    targetScreen.classList.add('sliding-in-left', 'active');
+    
+    setTimeout(() => {
+      currentScreen.classList.remove('sliding-out-right');
+      targetScreen.classList.remove('sliding-in-left');
       
       this.focusIndex = 0;
       this.updateFocusableElements();

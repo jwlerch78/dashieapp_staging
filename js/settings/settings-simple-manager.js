@@ -1,11 +1,12 @@
 // js/settings/settings-simple-manager.js - Auto-save implementation
-// CHANGE SUMMARY: Integrated with modal navigation manager for unified remote input handling
+// CHANGE SUMMARY: Updated to use TimeSelectionHandler for consolidated time selection logic (touch events)
 
 import { buildSettingsUI, populateFormFields, applyTheme } from './settings-ui-builder.js';
 import { SimplifiedNavigation } from './settings-d-pad-nav.js';
 import { setupEventHandlers } from './settings-event-handler.js';
 import { createModalNavigation } from '../utils/modal-navigation-manager.js';
 import { getPlatformDetector } from '../utils/platform-detector.js';
+import { TimeSelectionHandler } from './time-selection-handler.js';
 
 export class SimplifiedSettings {
   constructor() {
@@ -14,7 +15,8 @@ export class SimplifiedSettings {
     this.navigation = null;
     this.controller = null;
     this.keydownHandler = null;
-    this.modalNavigation = null; // NEW: For modal manager integration
+    this.modalNavigation = null;
+    this.timeHandler = new TimeSelectionHandler(); // NEW: Consolidated time selection
     this.initializationAttempts = 0;
     this.maxInitAttempts = 20;
     
@@ -31,10 +33,8 @@ export class SimplifiedSettings {
         console.log('👨‍👩‍👧‍👦 Widget requesting family name:', event.data.widget);
         
         if (this.controllerReady && this.controller) {
-          // Controller is ready, respond immediately
           this.sendFamilyNameToWidget(event.source);
         } else {
-          // Controller not ready, queue the request
           console.log('👨‍👩‍👧‍👦 ⏳ Controller not ready, queuing family name request');
           this.pendingWidgetRequests.push({
             type: 'family-name-request',
@@ -80,7 +80,6 @@ export class SimplifiedSettings {
     }
   }
 
-  // Process queued widget requests once controller is ready
   processPendingWidgetRequests() {
     if (this.pendingWidgetRequests.length === 0) {
       console.log('👨‍👩‍👧‍👦 ✅ No pending widget requests to process');
@@ -89,19 +88,16 @@ export class SimplifiedSettings {
     
     console.log(`👨‍👩‍👧‍👦 🔄 Processing ${this.pendingWidgetRequests.length} pending widget requests`);
     
-    // Process all pending requests
     this.pendingWidgetRequests.forEach((request, index) => {
       console.log(`👨‍👩‍👧‍👦 Processing request ${index + 1}: ${request.widget}`);
       
       if (request.type === 'family-name-request') {
-        // Add a small delay between requests to avoid overwhelming
         setTimeout(() => {
           this.sendFamilyNameToWidget(request.source);
         }, index * 100);
       }
     });
     
-    // Clear the queue
     this.pendingWidgetRequests = [];
   }
 
@@ -206,9 +202,7 @@ export class SimplifiedSettings {
     };
   }
 
-  // Default settings with NEW system settings
   getDefaultSettings(userEmail = 'unknown@example.com') {
-    // Detect current site for default
     const currentSite = this.detectCurrentSite();
     const defaultSite = currentSite !== 'other' ? currentSite : 'prod';
     
@@ -229,18 +223,16 @@ export class SimplifiedSettings {
         familyName: 'Dashie',
         members: []
       },
-      // NEW: System settings
       system: {
-        activeSite: defaultSite, // 'prod' or 'dev'
-        autoRedirect: true, // Auto-redirect on startup
-        debugMode: false // Enable debug logging
+        activeSite: defaultSite,
+        autoRedirect: true,
+        debugMode: false
       },
       version: '2.0.0',
       lastModified: Date.now()
     };
   }
 
-  // NEW: Detect current site
   detectCurrentSite() {
     const hostname = window.location.hostname;
     
@@ -253,242 +245,384 @@ export class SimplifiedSettings {
     }
   }
 
-// For settings-simple-manager.js
-// CHANGE SUMMARY: Replace the show() method (around line 270) with this updated version
-
-// The show() method should be replaced with this:
-
- async show() {
-  if (this.isVisible) return;
-  
-  if (!this.controller) {
-    console.log('⚙️ Controller not ready, attempting initialization...');
-    await this.initializeController();
+  async show() {
+    if (this.isVisible) return;
     
     if (!this.controller) {
-      alert('Settings system not ready. Please try again in a moment.');
+      console.log('⚙️ Controller not ready, attempting initialization...');
+      await this.initializeController();
+      
+      if (!this.controller) {
+        alert('Settings system not ready. Please try again in a moment.');
+        return;
+      }
+    }
+    
+    const platformDetector = getPlatformDetector();
+    const isMobile = platformDetector.isMobile();
+    
+    console.log(`⚙️ Opening settings for platform: ${isMobile ? 'mobile' : 'desktop/TV'}`);
+    
+    this.overlay = document.createElement('div');
+    this.overlay.className = 'settings-overlay';
+    this.overlay.innerHTML = buildSettingsUI(isMobile);
+    document.body.appendChild(this.overlay);
+    
+    await this.loadCurrentSettings();
+    
+    setupEventHandlers(this.overlay, this);
+    
+    console.log(`⚙️ Initializing ${isMobile ? 'touch' : 'D-pad'} navigation`);
+    this.navigation = new SimplifiedNavigation(this.overlay, {
+      onThemeChange: (theme) => this.handleThemeChange(theme),
+      onSettingChange: (path, value) => this.handleSettingChange(path, value),
+      onCancel: () => this.handleCancel()
+    }, this.timeHandler);
+    
+    this.navigationStack = ['root'];
+    
+    if (isMobile) {
+      console.log('⚙️ 📱 Adding touch handlers for mobile');
+      this.setupTouchHandlers();
+    } else {
+      console.log('⚙️ 🖥️ Registering with modal navigation manager');
+      this.modalNavigation = createModalNavigation(this.overlay, [], {
+        onEscape: () => this.handleCancel(),
+        customHandler: (action) => {
+          const actionToKeyMap = {
+            'up': 'ArrowUp',
+            'down': 'ArrowDown',
+            'left': 'ArrowLeft',
+            'right': 'ArrowRight',
+            'enter': 'Enter',
+            'escape': 'Escape'
+          };
+          
+          const key = actionToKeyMap[action];
+          if (!key) return false;
+          
+          const syntheticEvent = {
+            key: key,
+            preventDefault: () => {},
+            stopPropagation: () => {},
+            stopImmediatePropagation: () => {}
+          };
+          
+          return this.navigation.handleKeyPress(syntheticEvent);
+        }
+      });
+    }
+    
+    this.showOverlay();
+    console.log('⚙️ 👁️ Settings shown successfully');
+  }
+
+  setupTouchHandlers() {
+    const doneBtn = this.overlay.querySelector('#settings-done');
+    if (doneBtn) {
+      doneBtn.addEventListener('click', () => {
+        console.log('📱 Done button clicked');
+        this.handleCancel();
+      });
+    }
+    
+    this.overlay.addEventListener('click', (e) => {
+      const cell = e.target.closest('.settings-cell[data-navigate]');
+      if (cell) {
+        const targetScreen = cell.dataset.navigate;
+        console.log(`📱 Navigating to: ${targetScreen}`);
+        this.navigateToScreen(targetScreen);
+        
+        setTimeout(() => {
+          this.highlightCurrentSelections();
+        }, 350);
+      }
+    });
+    
+    const backBtn = this.overlay.querySelector('.nav-back-button');
+    if (backBtn) {
+      backBtn.addEventListener('click', () => {
+        console.log('📱 Back button clicked');
+        this.navigateBack();
+      });
+    }
+    
+    this.overlay.addEventListener('click', (e) => {
+      const selectableCell = e.target.closest('.settings-cell.selectable');
+      if (!selectableCell) return;
+
+      if (this.timeHandler.isTimeSelectionCell(selectableCell)) {
+        const action = this.timeHandler.handleSelection(selectableCell);
+        
+        console.log('📱 Time selection action:', action);
+        
+        switch (action.type) {
+          case 'navigate':
+            this.navigateToScreen(action.screenId);
+            setTimeout(() => {
+              this.highlightCurrentSelections();
+            }, 350);
+            break;
+            
+          case 'complete':
+            console.log(`📱 ${action.message}`);
+            
+            const section = selectableCell.closest('.settings-section');
+            if (section) {
+              section.querySelectorAll('.selectable').forEach(cell => {
+                cell.classList.remove('selected');
+              });
+              selectableCell.classList.add('selected');
+            }
+            
+            this.handleSettingChange(action.setting, action.value);
+            this.updateParentDisplayValue(action.setting, action.value);
+            
+            // Navigate directly back to Display screen instead of cascading back calls
+            setTimeout(() => {
+              this.navigateDirectToScreen('display');
+            }, 300);
+            break;
+            
+          case 'not-time-selection':
+            this.handleRegularSelection(selectableCell);
+            break;
+            
+          case 'error':
+            console.error('📱 Time selection error:', action.message);
+            break;
+        }
+      } else {
+        this.handleRegularSelection(selectableCell);
+      }
+    });
+    
+    this.overlay.addEventListener('change', (e) => {
+      if (e.target.matches('.form-control')) {
+        const setting = e.target.dataset.setting;
+        const value = e.target.value;
+        console.log(`📱 Setting changed: ${setting} = ${value}`);
+        this.handleSettingChange(setting, value);
+      }
+    });
+    
+    this.navigationStack = ['root'];
+    this.updateMobileNavBar();
+  }
+
+  handleRegularSelection(selectableCell) {
+    const setting = selectableCell.dataset.setting;
+    const value = selectableCell.dataset.value;
+    
+    if (!setting || !value) return;
+    
+    const section = selectableCell.closest('.settings-section');
+    if (section) {
+      section.querySelectorAll('.selectable').forEach(cell => {
+        cell.classList.remove('selected');
+      });
+      selectableCell.classList.add('selected');
+    }
+    
+    console.log(`📱 Selection changed: ${setting} = ${value}`);
+    this.handleSettingChange(setting, value);
+    
+    setTimeout(() => {
+      this.navigateBack();
+    }, 300);
+  }
+
+  updateParentDisplayValue(setting, value) {
+    const displayMap = {
+      'display.theme': { id: 'mobile-theme-value', format: (v) => v === 'dark' ? 'Dark' : 'Light' },
+      'display.sleepTime': { id: 'mobile-sleep-time-value', format: (v) => this.timeHandler.formatTime(v) },
+      'display.wakeTime': { id: 'mobile-wake-time-value', format: (v) => this.timeHandler.formatTime(v) },
+      'photos.source': { 
+        id: 'mobile-photo-album-value', 
+        format: (v) => ({ recent: 'Recent Photos', family: 'Family Album', vacation: 'Vacation 2024' }[v] || v)
+      },
+      'photos.transitionTime': {
+        id: 'mobile-photo-transition-value',
+        format: (v) => this.formatTransitionTime(parseInt(v))
+      }
+    };
+
+    const display = displayMap[setting];
+    if (display) {
+      const element = this.overlay.querySelector(`#${display.id}`);
+      if (element) {
+        element.textContent = display.format(value);
+      }
+    }
+  }
+
+  formatTransitionTime(seconds) {
+    if (seconds < 60) return `${seconds} sec`;
+    if (seconds < 3600) return `${seconds / 60} min`;
+    return `${seconds / 3600} hour`;
+  }
+
+  highlightCurrentSelections() {
+    const currentScreenId = this.navigationStack[this.navigationStack.length - 1];
+    
+    if (currentScreenId.includes('sleep-time') || currentScreenId.includes('wake-time')) {
+      this.timeHandler.highlightCurrentTimeSelection(this.overlay, currentScreenId);
       return;
     }
-  }
-  
-  // Detect platform
-  const platformDetector = getPlatformDetector();
-  const isMobile = platformDetector.isMobile();
-  
-  console.log(`⚙️ Opening settings for platform: ${isMobile ? 'mobile' : 'desktop/TV'}`);
-  
-  // Create UI using same HTML for both platforms
-  this.overlay = document.createElement('div');
-  this.overlay.className = 'settings-overlay';
-  this.overlay.innerHTML = buildSettingsUI(isMobile);
-  document.body.appendChild(this.overlay);
-  
-  // Load and populate current settings
-  await this.loadCurrentSettings();
-  
-  // Set up event handlers
-  setupEventHandlers(this.overlay, this);
-  
-  // Initialize navigation - same class for both platforms now
-  console.log(`⚙️ Initializing ${isMobile ? 'touch' : 'D-pad'} navigation`);
-  this.navigation = new SimplifiedNavigation(this.overlay, {
-    onThemeChange: (theme) => this.handleThemeChange(theme),
-    onSettingChange: (path, value) => this.handleSettingChange(path, value),
-    onCancel: () => this.handleCancel()
-  });
-  
-  // Initialize navigation stack for both platforms
-  this.navigationStack = ['root'];
-  
-  if (isMobile) {
-    // Mobile: Add touch handlers in addition to D-pad navigation
-    console.log('⚙️ 📱 Adding touch handlers for mobile');
-    this.setupTouchHandlers();
-  } else {
-    // Desktop/TV: Register with modal navigation manager
-    console.log('⚙️ 🖥️ Registering with modal navigation manager');
-    this.modalNavigation = createModalNavigation(this.overlay, [], {
-      onEscape: () => this.handleCancel(),
-      customHandler: (action) => {
-        const actionToKeyMap = {
-          'up': 'ArrowUp',
-          'down': 'ArrowDown',
-          'left': 'ArrowLeft',
-          'right': 'ArrowRight',
-          'enter': 'Enter',
-          'escape': 'Escape'
+    
+    const activeScreen = this.overlay.querySelector('.settings-screen.active');
+    if (!activeScreen) return;
+    
+    const selectableCells = activeScreen.querySelectorAll('.settings-cell.selectable[data-setting]');
+    
+    selectableCells.forEach(cell => {
+      const setting = cell.dataset.setting;
+      const value = cell.dataset.value;
+      
+      let isCurrentValue = false;
+      
+      if (setting === 'display.theme') {
+        const themeValue = this.overlay.querySelector('#mobile-theme-value')?.textContent.toLowerCase();
+        isCurrentValue = (value === 'dark' && themeValue === 'dark') || 
+                        (value === 'light' && themeValue === 'light');
+      } else if (setting === 'photos.transitionTime') {
+        const transitionValue = this.overlay.querySelector('#mobile-photo-transition-value')?.textContent;
+        const currentSeconds = this.parseTransitionTime(transitionValue);
+        isCurrentValue = parseInt(value) === currentSeconds;
+      } else if (setting === 'photos.source') {
+        const albumValue = this.overlay.querySelector('#mobile-photo-album-value')?.textContent;
+        const albumMap = {
+          'Recent Photos': 'recent',
+          'Family Album': 'family',
+          'Vacation 2024': 'vacation'
         };
-        
-        const key = actionToKeyMap[action];
-        if (!key) return false;
-        
-        const syntheticEvent = {
-          key: key,
-          preventDefault: () => {},
-          stopPropagation: () => {},
-          stopImmediatePropagation: () => {}
-        };
-        
-        return this.navigation.handleKeyPress(syntheticEvent);
+        isCurrentValue = value === albumMap[albumValue];
+      }
+      
+      if (isCurrentValue) {
+        cell.classList.add('selected');
+      } else {
+        cell.classList.remove('selected');
       }
     });
   }
-  
-  this.showOverlay();
-  console.log('⚙️ 👁️ Settings shown successfully');
-}
 
-
-
-setupTouchHandlers() {
-  // Handle "Done" button
-  const doneBtn = this.overlay.querySelector('#settings-done');
-  if (doneBtn) {
-    doneBtn.addEventListener('click', () => {
-      console.log('📱 Done button clicked');
-      this.handleCancel();
-    });
+  parseTransitionTime(timeStr) {
+    if (!timeStr) return 5;
+    if (timeStr.includes('sec')) return parseInt(timeStr);
+    if (timeStr.includes('min')) return parseInt(timeStr) * 60;
+    if (timeStr.includes('hour')) return parseInt(timeStr) * 3600;
+    return 5;
   }
-  
-  // Handle navigation cells (cells with chevrons)
-  this.overlay.addEventListener('click', (e) => {
-    const cell = e.target.closest('.settings-cell[data-navigate]');
-    if (cell) {
-      const targetScreen = cell.dataset.navigate;
-      console.log(`📱 Navigating to: ${targetScreen}`);
-      this.navigateToScreen(targetScreen);
+
+  navigateToScreen(screenId) {
+    const currentScreen = this.overlay.querySelector('.settings-screen.active');
+    const nextScreen = this.overlay.querySelector(`[data-screen="${screenId}"]`);
+    
+    if (!nextScreen) {
+      console.error(`📱 Screen not found: ${screenId}`);
+      return;
     }
-  });
-  
-  // Handle back button
-  const backBtn = this.overlay.querySelector('.nav-back-button');
-  if (backBtn) {
-    backBtn.addEventListener('click', () => {
-      console.log('📱 Back button clicked');
-      this.navigateBack();
-    });
+    
+    this.navigationStack.push(screenId);
+    
+    currentScreen.classList.remove('active');
+    currentScreen.classList.add('sliding-out-left');
+    
+    nextScreen.classList.add('sliding-in-right', 'active');
+    
+    setTimeout(() => {
+      currentScreen.classList.remove('sliding-out-left');
+      nextScreen.classList.remove('sliding-in-right');
+    }, 300);
+    
+    this.updateMobileNavBar();
   }
-  
-  // Handle selection cells (radio button style)
-  this.overlay.addEventListener('click', (e) => {
-    const selectableCell = e.target.closest('.settings-cell.selectable');
-    if (selectableCell) {
-      const setting = selectableCell.dataset.setting;
-      const value = selectableCell.dataset.value;
+
+  navigateBack() {
+    if (this.navigationStack.length <= 1) return;
+    
+    const currentScreen = this.overlay.querySelector('.settings-screen.active');
+    this.navigationStack.pop();
+    
+    const previousScreenId = this.navigationStack[this.navigationStack.length - 1];
+    const previousScreen = this.overlay.querySelector(`[data-screen="${previousScreenId}"]`);
+    
+    if (!previousScreen) return;
+    
+    currentScreen.classList.remove('active');
+    currentScreen.classList.add('sliding-out-right');
+    
+    previousScreen.classList.add('sliding-in-left', 'active');
+    
+    setTimeout(() => {
+      currentScreen.classList.remove('sliding-out-right');
+      previousScreen.classList.remove('sliding-in-left');
       
-      // Update UI selection
-      const section = selectableCell.closest('.settings-section');
-      if (section) {
-        section.querySelectorAll('.selectable').forEach(cell => {
-          cell.classList.remove('selected');
-        });
-        selectableCell.classList.add('selected');
+      this.highlightCurrentSelections();
+    }, 300);
+    
+    this.updateMobileNavBar();
+  }
+
+  navigateDirectToScreen(targetScreenId) {
+    const currentScreen = this.overlay.querySelector('.settings-screen.active');
+    const targetScreen = this.overlay.querySelector(`[data-screen="${targetScreenId}"]`);
+    
+    if (!targetScreen) {
+      console.error(`📱 Target screen not found: ${targetScreenId}`);
+      return;
+    }
+    
+    console.log(`📱 Navigating directly to: ${targetScreenId}`);
+    
+    // Reset stack to include only root and target
+    this.navigationStack = ['root', targetScreenId];
+    
+    // Animate transition
+    currentScreen.classList.remove('active');
+    currentScreen.classList.add('sliding-out-right');
+    
+    targetScreen.classList.add('sliding-in-left', 'active');
+    
+    setTimeout(() => {
+      currentScreen.classList.remove('sliding-out-right');
+      targetScreen.classList.remove('sliding-in-left');
+      
+      this.highlightCurrentSelections();
+    }, 300);
+    
+    this.updateMobileNavBar();
+  }
+
+  updateMobileNavBar() {
+    const currentScreenId = this.navigationStack[this.navigationStack.length - 1];
+    const currentScreen = this.overlay.querySelector(`[data-screen="${currentScreenId}"]`);
+    
+    if (!currentScreen) return;
+    
+    const title = currentScreen.dataset.title || 'Settings';
+    const navTitle = this.overlay.querySelector('.nav-title');
+    if (navTitle) {
+      navTitle.textContent = title;
+    }
+    
+    const backBtn = this.overlay.querySelector('.nav-back-button');
+    if (backBtn) {
+      if (this.navigationStack.length > 1) {
+        backBtn.style.visibility = 'visible';
+        
+        const previousScreenId = this.navigationStack[this.navigationStack.length - 2];
+        const previousScreen = this.overlay.querySelector(`[data-screen="${previousScreenId}"]`);
+        if (previousScreen) {
+          const previousTitle = previousScreen.dataset.title || 'Back';
+          backBtn.textContent = `‹ ${previousTitle}`;
+        }
+      } else {
+        backBtn.style.visibility = 'hidden';
       }
-      
-      console.log(`📱 Selection changed: ${setting} = ${value}`);
-      this.handleSettingChange(setting, value);
-    }
-  });
-  
-  // Handle form controls (auto-save on change)
-  this.overlay.addEventListener('change', (e) => {
-    if (e.target.matches('.form-control')) {
-      const setting = e.target.dataset.setting;
-      const value = e.target.value;
-      console.log(`📱 Setting changed: ${setting} = ${value}`);
-      this.handleSettingChange(setting, value);
-    }
-  });
-  
-  // Initialize navigation stack
-  this.navigationStack = ['root'];
-  this.updateMobileNavBar();
-}
-
-
-navigateToScreen(screenId) {
-  const currentScreen = this.overlay.querySelector('.settings-screen.active');
-  const nextScreen = this.overlay.querySelector(`[data-screen="${screenId}"]`);
-  
-  if (!nextScreen) {
-    console.error(`📱 Screen not found: ${screenId}`);
-    return;
-  }
-  
-  // Add to stack
-  this.navigationStack.push(screenId);
-  
-  // Animate transition
-  currentScreen.classList.remove('active');
-  currentScreen.classList.add('sliding-out-left');
-  
-  nextScreen.classList.add('sliding-in-right', 'active');
-  
-  setTimeout(() => {
-    currentScreen.classList.remove('sliding-out-left');
-    nextScreen.classList.remove('sliding-in-right');
-  }, 300);
-  
-  this.updateMobileNavBar();
-}
-
-navigateBack() {
-  if (this.navigationStack.length <= 1) return;
-  
-  const currentScreen = this.overlay.querySelector('.settings-screen.active');
-  this.navigationStack.pop();
-  
-  const previousScreenId = this.navigationStack[this.navigationStack.length - 1];
-  const previousScreen = this.overlay.querySelector(`[data-screen="${previousScreenId}"]`);
-  
-  if (!previousScreen) return;
-  
-  // Animate transition
-  currentScreen.classList.remove('active');
-  currentScreen.classList.add('sliding-out-right');
-  
-  previousScreen.classList.add('sliding-in-left', 'active');
-  
-  setTimeout(() => {
-    currentScreen.classList.remove('sliding-out-right');
-    previousScreen.classList.remove('sliding-in-left');
-  }, 300);
-  
-  this.updateMobileNavBar();
-}
-
-updateMobileNavBar() {
-  const currentScreenId = this.navigationStack[this.navigationStack.length - 1];
-  const currentScreen = this.overlay.querySelector(`[data-screen="${currentScreenId}"]`);
-  
-  if (!currentScreen) return;
-  
-  // Update title
-  const title = currentScreen.dataset.title || 'Settings';
-  const navTitle = this.overlay.querySelector('.nav-title');
-  if (navTitle) {
-    navTitle.textContent = title;
-  }
-  
-  // Show/hide back button
-  const backBtn = this.overlay.querySelector('.nav-back-button');
-  if (backBtn) {
-    if (this.navigationStack.length > 1) {
-      backBtn.style.visibility = 'visible';
-      
-      // Set back button text
-      const previousScreenId = this.navigationStack[this.navigationStack.length - 2];
-      const previousScreen = this.overlay.querySelector(`[data-screen="${previousScreenId}"]`);
-      if (previousScreen) {
-        const previousTitle = previousScreen.dataset.title || 'Back';
-        backBtn.textContent = `‹ ${previousTitle}`;
-      }
-    } else {
-      backBtn.style.visibility = 'hidden';
     }
   }
-}
-
 
   async loadCurrentSettings() {
     if (!this.controller) return;
@@ -506,7 +640,6 @@ updateMobileNavBar() {
   }
 
   handleThemeChange(theme) {
-    // Auto-save: Apply theme immediately and save to controller
     applyTheme(this.overlay, theme);
     
     if (this.controller) {
@@ -518,21 +651,15 @@ updateMobileNavBar() {
   }
 
   handleSettingChange(path, value) {
-    // Handle boolean conversion for system settings
     if (path === 'system.autoRedirect' || path === 'system.debugMode') {
       value = value === 'true';
     }
     
-    // Auto-save: Save immediately to controller
     if (this.controller) {
       const success = this.controller.setSetting(path, value);
       if (success) {
         console.log(`⚙️ ✅ Setting auto-saved: ${path} = ${value}`);
-        
-        // Show save notification
         this.showSaveNotification();
-        
-        // Notify widgets of the change immediately
         this.notifySettingChanged(path, value);
       } else {
         console.warn(`⚙️ ⚠️ Failed to auto-save ${path} = ${value}`);
@@ -541,7 +668,6 @@ updateMobileNavBar() {
   }
 
   showSaveNotification() {
-    // Check if notification already exists
     let notification = document.querySelector('.settings-save-notification');
     
     if (!notification) {
@@ -551,18 +677,14 @@ updateMobileNavBar() {
       document.body.appendChild(notification);
     }
     
-    // Show notification
     notification.classList.add('show');
     
-    // Hide after 2 seconds
     setTimeout(() => {
       notification.classList.remove('show');
     }, 2000);
   }
 
-
   handleCancel() {
-    // Just close the settings - no need to revert anything since we auto-save
     console.log('⚙️ Settings closed');
     this.hide();
   }
@@ -578,12 +700,10 @@ updateMobileNavBar() {
   }
 
   notifySettingChanged(path, value) {
-    // Emit event for any listeners
     window.dispatchEvent(new CustomEvent('dashie-settings-changed', {
       detail: { [path]: value }
     }));
     
-    // Update photo widgets
     if (path === 'photos.transitionTime') {
       const photoWidgets = document.querySelectorAll('iframe[src*="photos.html"]');
       photoWidgets.forEach(iframe => {
@@ -600,7 +720,6 @@ updateMobileNavBar() {
       });
     }
     
-    // Update header widget with family name
     if (path === 'family.familyName') {
       const headerWidgets = document.querySelectorAll('iframe[src*="header.html"]');
       headerWidgets.forEach(iframe => {
@@ -617,39 +736,31 @@ updateMobileNavBar() {
         }
       });
       
-      // NEW: Update mobile header family name
       const mobileHeaderName = document.querySelector('.mobile-header .family-name');
       if (mobileHeaderName) {
         mobileHeaderName.textContent = value || 'Dashie';
         console.log('📱 Updated mobile header family name:', value);
       }
       
-      // NEW: Also dispatch mobile-specific event for the listener
       window.dispatchEvent(new CustomEvent('dashie-mobile-family-name-changed', {
         detail: { familyName: value }
       }));
     }
   }
 
-  // Enhanced family name sending with better error handling and retries
   sendFamilyNameToWidget(widgetWindow) {
     if (!this.controller) {
       console.warn('👨‍👩‍👧‍👦 ⚠️ No controller available to get family name');
-      
-      // Try localStorage fallback immediately
       this.sendFallbackFamilyName(widgetWindow);
       return;
     }
 
     try {
-      // Get current family name from settings with multiple attempts
       let familyName = this.controller.getSetting('family.familyName');
       
-      // If no family name found, try to refresh settings and try again
       if (!familyName) {
         console.log('👨‍👩‍👧‍👦 ⚠️ No family name in controller, trying to refresh...');
         
-        // Try to get fresh settings
         const allSettings = this.controller.getSettings();
         familyName = allSettings?.family?.familyName;
         
@@ -675,12 +786,10 @@ updateMobileNavBar() {
     }
   }
 
-  // Fallback method to send family name from localStorage or default
   sendFallbackFamilyName(widgetWindow) {
-    let fallbackName = 'Dashie'; // Default fallback
+    let fallbackName = 'Dashie';
     
     try {
-      // Try localStorage first
       const savedSettings = localStorage.getItem('dashie-settings');
       if (savedSettings) {
         const settings = JSON.parse(savedSettings);
@@ -712,7 +821,6 @@ updateMobileNavBar() {
   hide() {
     if (!this.isVisible) return;
     
-    // NEW: Unregister from modal navigation manager
     if (this.modalNavigation) {
       this.modalNavigation.destroy();
       this.modalNavigation = null;

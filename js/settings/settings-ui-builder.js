@@ -100,51 +100,51 @@ function buildMobileSettingsUI() {
               <div class="settings-section">
                 <div class="settings-cell selectable" data-navigate="sleep-time-min" data-hour="1">
                   <span class="cell-label">1</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="sleep-time-min" data-hour="2">
                   <span class="cell-label">2</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="sleep-time-min" data-hour="3">
                   <span class="cell-label">3</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="sleep-time-min" data-hour="4">
                   <span class="cell-label">4</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="sleep-time-min" data-hour="5">
                   <span class="cell-label">5</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="sleep-time-min" data-hour="6">
                   <span class="cell-label">6</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="sleep-time-min" data-hour="7">
                   <span class="cell-label">7</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="sleep-time-min" data-hour="8">
                   <span class="cell-label">8</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="sleep-time-min" data-hour="9">
                   <span class="cell-label">9</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="sleep-time-min" data-hour="10">
                   <span class="cell-label">10</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="sleep-time-min" data-hour="11">
                   <span class="cell-label">11</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="sleep-time-min" data-hour="12">
                   <span class="cell-label">12</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
               </div>
             </div>
@@ -157,19 +157,19 @@ function buildMobileSettingsUI() {
               <div class="settings-section">
                 <div class="settings-cell selectable" data-navigate="sleep-time-period" data-minute="00">
                   <span class="cell-label">00</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="sleep-time-period" data-minute="15">
                   <span class="cell-label">15</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="sleep-time-period" data-minute="30">
                   <span class="cell-label">30</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="sleep-time-period" data-minute="45">
                   <span class="cell-label">45</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
               </div>
             </div>
@@ -198,51 +198,51 @@ function buildMobileSettingsUI() {
               <div class="settings-section">
                 <div class="settings-cell selectable" data-navigate="wake-time-min" data-hour="1">
                   <span class="cell-label">1</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="wake-time-min" data-hour="2">
                   <span class="cell-label">2</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="wake-time-min" data-hour="3">
                   <span class="cell-label">3</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="wake-time-min" data-hour="4">
                   <span class="cell-label">4</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="wake-time-min" data-hour="5">
                   <span class="cell-label">5</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="wake-time-min" data-hour="6">
                   <span class="cell-label">6</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="wake-time-min" data-hour="7">
                   <span class="cell-label">7</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="wake-time-min" data-hour="8">
                   <span class="cell-label">8</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="wake-time-min" data-hour="9">
                   <span class="cell-label">9</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="wake-time-min" data-hour="10">
                   <span class="cell-label">10</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="wake-time-min" data-hour="11">
                   <span class="cell-label">11</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="wake-time-min" data-hour="12">
                   <span class="cell-label">12</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
               </div>
             </div>
@@ -255,19 +255,19 @@ function buildMobileSettingsUI() {
               <div class="settings-section">
                 <div class="settings-cell selectable" data-navigate="wake-time-period" data-minute="00">
                   <span class="cell-label">00</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="wake-time-period" data-minute="15">
                   <span class="cell-label">15</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="wake-time-period" data-minute="30">
                   <span class="cell-label">30</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
                 <div class="settings-cell selectable" data-navigate="wake-time-period" data-minute="45">
                   <span class="cell-label">45</span>
-                  <span class="cell-chevron">›</span>
+                  <span class="cell-checkmark">✓</span>
                 </div>
               </div>
             </div>
