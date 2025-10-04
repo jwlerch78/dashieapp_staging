@@ -1,6 +1,8 @@
 // js/settings/settings-ui-builder.js - Restructured settings
 // CHANGE SUMMARY: Reorganized menus - Photos, Calendar sections, 3-step time picker (hour/minute/AM-PM), removed Widgets
 
+import { getPlatformDetector } from '../utils/platform-detector.js';
+
 export function buildSettingsUI(isMobile = false) {
   return buildMobileSettingsUI();
 }
@@ -475,30 +477,45 @@ function buildMobileSettingsUI() {
             </div>
           </div>
 
-          <!-- System Screen (Level 1) - REVISED -->
-          <div class="settings-screen" data-level="1" data-screen="system" data-title="System">
-            <div class="settings-list">
-              <div class="settings-section">
-                <div class="settings-cell" data-navigate="restore-defaults">
-                  <span class="cell-label">Restore Default Settings</span>
-                  <span class="cell-chevron">›</span>
-                </div>
-                <div class="settings-cell" data-navigate="reset-all">
-                  <span class="cell-label">Reset All</span>
-                  <span class="cell-chevron">›</span>
-                </div>
-                <div class="settings-cell" data-navigate="manage-subscription">
-                  <span class="cell-label">Manage Subscription</span>
-                  <span class="cell-chevron">›</span>
-                </div>
-                <div class="settings-cell" data-navigate="about">
+          <!-- System Submenu Screen -->
+          <div class="settings-screen" data-screen="system" data-title="System">
+            <div class="settings-section">
+              <div class="settings-cell" data-navigate="about">
+                <div class="cell-content">
                   <span class="cell-label">About</span>
-                  <span class="cell-chevron">›</span>
                 </div>
+                <span class="cell-chevron">›</span>
+              </div>
+              
+              <div class="settings-cell" data-navigate="manage-subscription">
+                <div class="cell-content">
+                  <span class="cell-label">Manage Subscription</span>
+                </div>
+                <span class="cell-chevron">›</span>
+              </div>
+              
+              <div class="settings-cell" data-navigate="system-status">
+                <div class="cell-content">
+                  <span class="cell-label">System Status</span>
+                </div>
+                <span class="cell-chevron">›</span>
+              </div>
+              
+              <div class="settings-cell" data-navigate="restore-defaults">
+                <div class="cell-content">
+                  <span class="cell-label">Restore Default Settings</span>
+                </div>
+                <span class="cell-chevron">›</span>
+              </div>
+              
+              <div class="settings-cell" data-navigate="reset-all">
+                <div class="cell-content">
+                  <span class="cell-label">Reset All</span>
+                </div>
+                <span class="cell-chevron">›</span>
               </div>
             </div>
           </div>
-
           <!-- System Placeholders (Level 2) -->
           <div class="settings-screen" data-level="2" data-screen="restore-defaults" data-title="Restore Defaults">
             <div class="settings-list">
@@ -536,6 +553,98 @@ function buildMobileSettingsUI() {
                 <h3>About Dashie</h3>
                 <p>Version information and support.</p>
                 <p style="margin-top: 20px; font-size: 14px;">This feature is coming soon.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- System Status Screen -->
+          <div class="settings-screen" data-screen="system-status" data-title="System Status">
+            <div class="settings-section">
+              <div class="section-header">Platform Information</div>
+              
+              <div class="settings-cell info-row">
+                <div class="cell-content">
+                  <span class="cell-label">Platform</span>
+                </div>
+                <span class="cell-value" id="system-platform-value">Not available yet</span>
+              </div>
+              
+              <div class="settings-cell info-row">
+                <div class="cell-content">
+                  <span class="cell-label">Device</span>
+                </div>
+                <span class="cell-value" id="system-device-value">Not available yet</span>
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <div class="section-header">System Status</div>
+              
+              <div class="settings-cell info-row">
+                <div class="cell-content">
+                  <span class="cell-label">JWT Token</span>
+                </div>
+                <div class="cell-value">
+                  <span class="status-dot" id="jwt-status-dot"></span>
+                  <span id="jwt-time-remaining">Not available yet</span>
+                </div>
+              </div>
+              
+             
+              <div class="settings-cell info-row">
+                <div class="cell-content">
+                  <span class="cell-label">RLS Access</span>
+                </div>
+                <div class="cell-value">
+                  <span class="status-dot" id="rls-status-dot"></span>
+                  <span id="rls-status-text">Not available yet</span>
+                </div>
+              </div>
+              
+              <div class="settings-cell info-row">
+                <div class="cell-content">
+                  <span class="cell-label">Real-time Sync</span>
+                </div>
+                <div class="cell-value">
+                  <span class="status-dot" id="sync-status-dot"></span>
+                  <span id="sync-status-text">Not available yet</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <div class="section-header">Calendar</div>
+              
+              <div class="settings-cell info-row">
+                <div class="cell-content">
+                  <span class="cell-label">Last Refresh Time</span>
+                </div>
+                <span class="cell-value" id="calendar-last-refresh">Not available yet</span>
+              </div>
+              
+              <div class="settings-cell info-row">
+                <div class="cell-content">
+                  <span class="cell-label">Calendars Imported</span>
+                </div>
+                <span class="cell-value" id="calendar-count">Not available yet</span>
+              </div>
+              
+              <div class="settings-cell info-row">
+                <div class="cell-content">
+                  <span class="cell-label">Events Imported</span>
+                </div>
+                <span class="cell-value" id="events-count">Not available yet</span>
+              </div>
+            </div>
+
+            <div class="settings-section">
+              <div class="section-header">Dashboard Stats</div>
+              
+              <div class="settings-cell info-row">
+                <div class="cell-content">
+                  <span class="cell-label">Time Running</span>
+                </div>
+                <span class="cell-value" id="uptime-value">Not available yet</span>
               </div>
             </div>
           </div>
@@ -642,6 +751,87 @@ function formatTime(time24) {
   const period = hours >= 12 ? 'PM' : 'AM';
   const hours12 = hours % 12 || 12;
   return `${hours12}:${minutes.toString().padStart(2, '0')} ${period}`;
+}
+
+
+export function populateSystemStatus(overlay) {
+  const platformDetector = getPlatformDetector();
+  
+  // Platform Information
+  const platformEl = overlay.querySelector('#system-platform-value');
+  if (platformEl) {
+    platformEl.textContent = platformDetector.mobile ? 'Mobile' : 
+                             platformDetector.fireTV ? 'Fire TV' : 'Desktop';
+  }
+  
+  const deviceEl = overlay.querySelector('#system-device-value');
+  if (deviceEl) {
+    deviceEl.textContent = navigator.userAgent.includes('Firefox') ? 'Firefox' :
+                          navigator.userAgent.includes('Chrome') ? 'Chrome' :
+                          navigator.userAgent.includes('Safari') ? 'Safari' : 'Unknown';
+  }
+  
+  // JWT Token Status - check if jwtAuth exists and is ready
+  if (window.jwtAuth && window.jwtAuth.isReady) {
+    const jwtDot = overlay.querySelector('#jwt-status-dot');
+    const jwtTime = overlay.querySelector('#jwt-time-remaining');
+    
+    if (jwtDot) jwtDot.className = 'status-dot green';
+    if (jwtTime) jwtTime.textContent = 'Active';
+  }
+  
+ 
+  // RLS Access - check if jwtAuth has currentJWT
+  const rlsDot = overlay.querySelector('#rls-status-dot');
+  const rlsText = overlay.querySelector('#rls-status-text');
+  if (window.jwtAuth && window.jwtAuth.currentJWT) {
+    if (rlsDot) rlsDot.className = 'status-dot green';
+    if (rlsText) rlsText.textContent = 'Connected';
+  } else {
+    if (rlsDot) rlsDot.className = 'status-dot red';
+    if (rlsText) rlsText.textContent = 'Disconnected';
+  }
+  
+  // Real-time Sync - check if dataManager exists
+  const syncDot = overlay.querySelector('#sync-status-dot');
+  const syncText = overlay.querySelector('#sync-status-text');
+  if (window.dataManager) {
+    if (syncDot) syncDot.className = 'status-dot green';
+    if (syncText) syncText.textContent = 'Active';
+  } else {
+    if (syncDot) syncDot.className = 'status-dot yellow';
+    if (syncText) syncText.textContent = 'Initializing';
+  }
+  
+  // Calendar Stats
+  if (window.dataManager && window.dataManager.calendarData) {
+    const calData = window.dataManager.calendarData;
+    
+    const lastRefreshEl = overlay.querySelector('#calendar-last-refresh');
+    if (lastRefreshEl && calData.lastUpdated) {
+      const date = new Date(calData.lastUpdated);
+      lastRefreshEl.textContent = date.toLocaleTimeString();
+    }
+    
+    const calCountEl = overlay.querySelector('#calendar-count');
+    if (calCountEl && calData.calendars) {
+      calCountEl.textContent = calData.calendars.length;
+    }
+    
+    const eventsCountEl = overlay.querySelector('#events-count');
+    if (eventsCountEl && calData.events) {
+      eventsCountEl.textContent = calData.events.length;
+    }
+  }
+  
+  // Uptime
+  const uptimeEl = overlay.querySelector('#uptime-value');
+  if (uptimeEl && window.dashboardStartTime) {
+    const uptime = Date.now() - window.dashboardStartTime;
+    const hours = Math.floor(uptime / 3600000);
+    const minutes = Math.floor((uptime % 3600000) / 60000);
+    uptimeEl.textContent = `${hours}h ${minutes}m`;
+  }
 }
 
 /**

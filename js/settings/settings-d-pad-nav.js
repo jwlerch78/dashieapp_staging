@@ -4,6 +4,8 @@
 
 import { TimeSelectionHandler } from './time-selection-handler.js';
 import { SettingsSelectionHandler } from './settings-selection-handler.js';
+import { populateSystemStatus } from './settings-ui-builder.js';
+
 
 export class SimplifiedNavigation {
   constructor(overlay, callbacks, timeHandler = null, selectionHandler = null) {
@@ -354,6 +356,10 @@ export class SimplifiedNavigation {
       this.updateFocusableElements();
       this.updateFocus();
       this.selectionHandler.updateNavBar(this.overlay, this.getCurrentScreenId(), this.navigationStack);
+
+      if (screenId === 'system-status') {
+        populateSystemStatus(this.overlay);
+      }
     }, 300);
   }
 

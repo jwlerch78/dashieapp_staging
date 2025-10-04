@@ -2,13 +2,14 @@
 // CHANGE SUMMARY: Consolidated selection logic into SettingsSelectionHandler - removed duplicate methods, uses shared handlers
 // LATEST: Removed updateMobileNavBar() and getCurrentScreenId() - now using shared methods, fixed theme/toast issues
 
-import { buildSettingsUI, populateFormFields } from './settings-ui-builder.js';
 import { SimplifiedNavigation } from './settings-d-pad-nav.js';
 import { setupEventHandlers } from './settings-event-handler.js';
 import { createModalNavigation } from '../utils/modal-navigation-manager.js';
 import { getPlatformDetector } from '../utils/platform-detector.js';
 import { TimeSelectionHandler } from './time-selection-handler.js';
 import { SettingsSelectionHandler } from './settings-selection-handler.js';
+import { buildSettingsUI, populateFormFields, populateSystemStatus } from './settings-ui-builder.js';
+
 
 export class SimplifiedSettings {
   constructor() {
@@ -207,6 +208,13 @@ export class SimplifiedSettings {
         const targetScreen = cell.dataset.navigate;
         console.log(`📱 Navigating to: ${targetScreen}`);
         this.navigateToScreen(targetScreen);
+
+            // Populate system status if navigating to that screen
+        if (targetScreen === 'system-status') {
+          setTimeout(() => {
+            populateSystemStatus(this.overlay);
+          }, 350);
+        }
         
         setTimeout(() => {
           this.selectionHandler.highlightCurrentSelections(this.overlay, this.getCurrentScreenId());
@@ -229,6 +237,8 @@ export class SimplifiedSettings {
         }
       });
     }
+
+    
     
     // Selectable cells (actual setting values)
     this.overlay.addEventListener('click', (e) => {

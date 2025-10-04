@@ -483,6 +483,103 @@ input:checked + .toggle-slider:before {
   transform: translateX(-50%) translateY(0);
 }
 
+/* System Status Page Styles - Very Compact Version (60% reduction) */
+.settings-cell.info-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 16px;  /* Reduced from 8px (50% of original 12px) */
+  background: #fff;
+  border-bottom: none;
+  min-height: 28px;  /* Reduced from 36px (about 60% reduction) */
+}
+
+.theme-dark .settings-cell.info-row {
+  background: var(--bg-secondary);
+  border-bottom: none;
+}
+
+.settings-cell.info-row .cell-content {
+  flex: 0 0 auto;
+}
+
+.settings-cell.info-row .cell-label {
+  color: var(--text-primary);
+  font-size: 12px;  /* Reduced from 13px */
+  font-weight: 400;
+  line-height: 1.2;  /* Tighter line height */
+}
+
+.settings-cell.info-row .cell-value {
+  color: var(--text-secondary);
+  font-size: 12px;  /* Reduced from 13px */
+  text-align: right;
+  display: flex;
+  align-items: center;
+  gap: 6px;  /* Reduced from 8px */
+  line-height: 1.2;  /* Tighter line height */
+}
+
+/* Also reduce section header spacing */
+.settings-section .section-header {
+  padding: 8px 16px 4px;  /* Reduced top/bottom padding */
+  font-size: 12px;  /* Slightly smaller */
+  margin-top: 8px;  /* Reduced gap between sections */
+}
+
+.settings-section:first-child .section-header {
+  margin-top: 0;
+}
+
+/* Reduce spacing between sections */
+.settings-section {
+  margin-bottom: 8px;  /* Reduced from default (usually 16-20px) */
+}
+
+.settings-section:last-child {
+  margin-bottom: 0;
+}
+
+/* Even tighter section headers */
+.settings-section .section-header {
+  padding: 6px 16px 3px;
+  font-size: 12px;
+  font-weight: 600;  /* Make it bold */
+  margin-top: 4px;
+  margin-bottom: 2px;
+}
+
+.settings-section:first-child .section-header {
+  margin-top: 0;
+  padding-top: 8px;  /* Just a bit of top padding on first section */
+}
+
+
+/* Status Dots */
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #999;
+  flex-shrink: 0;
+}
+
+.status-dot.green {
+  background: #4caf50;
+  box-shadow: 0 0 4px rgba(76, 175, 80, 0.5);
+}
+
+.status-dot.red {
+  background: #f44336;
+  box-shadow: 0 0 4px rgba(244, 67, 54, 0.5);
+}
+
+.status-dot.yellow {
+  background: #ff9800;
+  box-shadow: 0 0 4px rgba(255, 152, 0, 0.5);
+}
+
 /* ========================================
    MOBILE-SPECIFIC OVERRIDES
    ======================================== */
