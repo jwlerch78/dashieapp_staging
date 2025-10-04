@@ -1,18 +1,21 @@
 // js/settings/settings-d-pad-nav.js - Screen-based navigation
-// CHANGE SUMMARY: Fixed time selection (check time cells BEFORE navigation), removed auto-navigate for regular selections, fixed scrolling to use correct container, added escape key debugging
+// CHANGE SUMMARY: Consolidated selection logic into SettingsSelectionHandler - removed duplicate methods
+// LATEST: Removed updateNavBar() and getCurrentScreenId() - now using shared methods
 
 import { TimeSelectionHandler } from './time-selection-handler.js';
+import { SettingsSelectionHandler } from './settings-selection-handler.js';
 
 export class SimplifiedNavigation {
-  constructor(overlay, callbacks, timeHandler = null) {
+  constructor(overlay, callbacks, timeHandler = null, selectionHandler = null) {
     this.overlay = overlay;
     this.callbacks = callbacks;
     this.focusIndex = 0;
     this.focusableElements = [];
     this.navigationStack = ['root'];
     this.screenFocusMemory = {};
-    // Use shared handler if provided, otherwise create new one
+    // Use shared handlers if provided, otherwise create new ones
     this.timeHandler = timeHandler || new TimeSelectionHandler();
+    this.selectionHandler = selectionHandler || new SettingsSelectionHandler(this.timeHandler);
     
     this.init();
   }
@@ -21,7 +24,7 @@ export class SimplifiedNavigation {
     this.updateFocusableElements();
     this.setupEventListeners();
     this.updateFocus();
-    this.updateNavBar();
+    this.selectionHandler.updateNavBar(this.overlay, this.getCurrentScreenId(), this.navigationStack);
   }
 
   updateFocusableElements() {
@@ -39,7 +42,7 @@ export class SimplifiedNavigation {
     
     console.log(`⚙️ Updated focusable elements: ${this.focusableElements.length} on screen ${this.getCurrentScreenId()}`);
     
-    this.highlightCurrentSelections();
+    this.selectionHandler.highlightCurrentSelections(this.overlay, this.getCurrentScreenId());
     
     const screenId = this.getCurrentScreenId();
     if (this.screenFocusMemory[screenId] !== undefined) {
@@ -62,8 +65,7 @@ export class SimplifiedNavigation {
     this.overlay.querySelectorAll('.form-control').forEach(control => {
       control.addEventListener('change', (e) => {
         if (control.dataset.setting) {
-          const value = control.type === 'number' ? 
-            parseInt(control.value) : control.value;
+          const value = control.type === 'number' ? parseInt(control.value) : control.value;
           this.callbacks.onSettingChange(control.dataset.setting, value);
         }
       });
@@ -267,7 +269,7 @@ export class SimplifiedNavigation {
           console.log(`⚙️ ${action.message}`);
           
           this.callbacks.onSettingChange(action.setting, action.value);
-          this.updateParentDisplayValue(action.setting, action.value);
+          this.selectionHandler.updateParentDisplayValue(action.setting, action.value, this.overlay);
           
           // Store focus memory for Display screen
           const cellIndex = this.timeHandler.getDisplayScreenCellIndex(this.overlay, action.timeSettingName);
@@ -283,7 +285,7 @@ export class SimplifiedNavigation {
           break;
           
         case 'not-time-selection':
-          this.handleRegularSelection(cell);
+          this.selectionHandler.handleRegularSelection(cell, this.overlay, this.callbacks.onSettingChange);
           break;
           
         case 'error':
@@ -291,120 +293,8 @@ export class SimplifiedNavigation {
           break;
       }
     } else {
-      this.handleRegularSelection(cell);
+      this.selectionHandler.handleRegularSelection(cell, this.overlay, this.callbacks.onSettingChange);
     }
-  }
-
-  handleRegularSelection(cell) {
-    const setting = cell.dataset.setting;
-    const value = cell.dataset.value;
-    
-    if (!setting || !value) return;
-    
-    const section = cell.closest('.settings-section');
-    if (section) {
-      section.querySelectorAll('.selectable').forEach(c => {
-        c.classList.remove('selected');
-      });
-      cell.classList.add('selected');
-    }
-    
-    this.callbacks.onSettingChange(setting, value);
-    this.updateParentDisplayValue(setting, value);
-    
-    console.log(`⚙️ Selection changed: ${setting} = ${value}`);
-    
-    // DON'T auto-navigate back - user can manually go back with back button or escape
-    // This allows them to see the selection was successful before navigating
-  }
-
-  updateParentDisplayValue(setting, value) {
-    const displayMap = {
-      'display.theme': { id: 'mobile-theme-value', format: (v) => v === 'dark' ? 'Dark' : 'Light' },
-      'display.sleepTime': { id: 'mobile-sleep-time-value', format: (v) => this.timeHandler.formatTime(v) },
-      'display.wakeTime': { id: 'mobile-wake-time-value', format: (v) => this.timeHandler.formatTime(v) },
-      'photos.source': { 
-        id: 'mobile-photo-album-value', 
-        format: (v) => ({ recent: 'Recent Photos', family: 'Family Album', vacation: 'Vacation 2024' }[v] || v)
-      },
-      'photos.transitionTime': {
-        id: 'mobile-photo-transition-value',
-        format: (v) => this.formatTransitionTime(parseInt(v))
-      }
-    };
-
-    const display = displayMap[setting];
-    if (display) {
-      const element = this.overlay.querySelector(`#${display.id}`);
-      if (element) {
-        const formattedValue = display.format(value);
-        element.textContent = formattedValue;
-        console.log(`⚙️ Updated display: ${display.id} = "${formattedValue}"`);
-      } else {
-        console.warn(`⚙️ Display element not found: #${display.id}`);
-      }
-    } else {
-      console.log(`⚙️ No display update needed for setting: ${setting}`);
-    }
-  }
-
-  formatTransitionTime(seconds) {
-    if (seconds < 60) return `${seconds} sec`;
-    if (seconds < 3600) return `${seconds / 60} min`;
-    return `${seconds / 3600} hour`;
-  }
-
-  highlightCurrentSelections() {
-    const activeScreen = this.overlay.querySelector('.settings-screen.active');
-    if (!activeScreen) return;
-    
-    const screenId = this.getCurrentScreenId();
-    
-    if (screenId.includes('sleep-time') || screenId.includes('wake-time')) {
-      this.timeHandler.highlightCurrentTimeSelection(this.overlay, screenId);
-      return;
-    }
-    
-    const selectableCells = activeScreen.querySelectorAll('.settings-cell.selectable[data-setting]');
-    
-    selectableCells.forEach(cell => {
-      const setting = cell.dataset.setting;
-      const value = cell.dataset.value;
-      
-      let isCurrentValue = false;
-      
-      if (setting === 'display.theme') {
-        const themeValue = this.overlay.querySelector('#mobile-theme-value')?.textContent.toLowerCase();
-        isCurrentValue = (value === 'dark' && themeValue === 'dark') || 
-                        (value === 'light' && themeValue === 'light');
-      } else if (setting === 'photos.transitionTime') {
-        const transitionValue = this.overlay.querySelector('#mobile-photo-transition-value')?.textContent;
-        const currentSeconds = this.parseTransitionTime(transitionValue);
-        isCurrentValue = parseInt(value) === currentSeconds;
-      } else if (setting === 'photos.source') {
-        const albumValue = this.overlay.querySelector('#mobile-photo-album-value')?.textContent;
-        const albumMap = {
-          'Recent Photos': 'recent',
-          'Family Album': 'family',
-          'Vacation 2024': 'vacation'
-        };
-        isCurrentValue = value === albumMap[albumValue];
-      }
-      
-      if (isCurrentValue) {
-        cell.classList.add('selected');
-      } else {
-        cell.classList.remove('selected');
-      }
-    });
-  }
-
-  parseTransitionTime(timeStr) {
-    if (!timeStr) return 5;
-    if (timeStr.includes('sec')) return parseInt(timeStr);
-    if (timeStr.includes('min')) return parseInt(timeStr) * 60;
-    if (timeStr.includes('hour')) return parseInt(timeStr) * 3600;
-    return 5;
   }
 
   activateFormControl(control) {
@@ -463,7 +353,7 @@ export class SimplifiedNavigation {
       this.focusIndex = 0;
       this.updateFocusableElements();
       this.updateFocus();
-      this.updateNavBar();
+      this.selectionHandler.updateNavBar(this.overlay, this.getCurrentScreenId(), this.navigationStack);
     }, 300);
   }
 
@@ -492,7 +382,7 @@ export class SimplifiedNavigation {
       this.focusIndex = 0;
       this.updateFocusableElements();
       this.updateFocus();
-      this.updateNavBar();
+      this.selectionHandler.updateNavBar(this.overlay, this.getCurrentScreenId(), this.navigationStack);
     }, 300);
   }
 
@@ -521,46 +411,12 @@ export class SimplifiedNavigation {
       this.focusIndex = 0;
       this.updateFocusableElements();
       this.updateFocus();
-      this.updateNavBar();
+      this.selectionHandler.updateNavBar(this.overlay, this.getCurrentScreenId(), this.navigationStack);
     }, 300);
   }
 
-updateNavBar() {
-  const currentScreenId = this.getCurrentScreenId();
-  const currentScreen = this.overlay.querySelector(`[data-screen="${currentScreenId}"]`);
-  
-  if (!currentScreen) return;
-  
-  const title = currentScreen.dataset.title || 'Settings';
-  const navTitle = this.overlay.querySelector('.nav-title');
-  if (navTitle) {
-    navTitle.textContent = title;
-  }
-  
-  const backBtn = this.overlay.querySelector('.nav-back-button');
-  if (backBtn) {
-    const isRootScreen = this.getCurrentScreenId() === 'root';
-    
-    // Always show back button
-    backBtn.style.visibility = 'visible';
-    
-    if (isRootScreen) {
-      // On root screen, back closes settings
-      backBtn.textContent = '‹ Back';
-    } else {
-      // On other screens, show previous screen name
-      const previousScreenId = this.navigationStack[this.navigationStack.length - 2];
-      const previousScreen = this.overlay.querySelector(`[data-screen="${previousScreenId}"]`);
-      if (previousScreen) {
-        const previousTitle = previousScreen.dataset.title || 'Back';
-        backBtn.textContent = `‹ ${previousTitle}`;
-      }
-    }
-  }
-}
-
   getCurrentScreenId() {
-    return this.navigationStack[this.navigationStack.length - 1];
+    return this.selectionHandler.getCurrentScreenId(this.navigationStack);
   }
 
   destroy() {
