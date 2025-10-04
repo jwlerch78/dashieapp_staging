@@ -9,6 +9,8 @@ import { getPlatformDetector } from '../utils/platform-detector.js';
 import { TimeSelectionHandler } from './time-selection-handler.js';
 import { SettingsSelectionHandler } from './settings-selection-handler.js';
 import { buildSettingsUI, populateFormFields, populateSystemStatus } from './settings-ui-builder.js';
+import { initializeUploadHandlers } from '../../widgets/photos/settings-photos.js';
+
 
 
 export class SimplifiedSettings {
@@ -213,6 +215,13 @@ export class SimplifiedSettings {
         if (targetScreen === 'system-status') {
           setTimeout(() => {
             populateSystemStatus(this.overlay);
+          }, 350);
+        }
+
+        // Initialize upload handlers if navigating to add-photos screen
+        if (targetScreen === 'add-photos') {
+          setTimeout(() => {
+            initializeUploadHandlers(this.overlay);
           }, 350);
         }
         
