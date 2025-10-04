@@ -1,5 +1,5 @@
 // widgets/photos/photo-upload-manager.js
-// CHANGE SUMMARY: Created manager to handle photo upload modal iframe with proper userId passing via postMessage
+// CHANGE SUMMARY: Added album parameter to open() method and included in initialization message
 
 import { createLogger } from '../../js/utils/logger.js';
 
@@ -16,6 +16,7 @@ export class PhotoUploadManager {
     this.modalContainer = null;
     this.isOpen = false;
     this.iframeReady = false;
+    this.selectedAlbum = 'all-photos';
     
     logger.info('PhotoUploadManager initialized');
     
@@ -23,43 +24,45 @@ export class PhotoUploadManager {
     this.setupMessageListener();
   }
 
-setupMessageListener() {
-  window.addEventListener('message', (event) => {
-    const data = event.data;
-    
-    if (data?.type === 'upload-modal-ready') {
-      logger.debug('Upload modal iframe signaled ready');
-      this.iframeReady = true;
-      this.sendInitializationData();
-    } else if (data?.type === 'close-upload-modal') {
-      logger.debug('Upload modal requested close');
-      this.close();
-    } else if (data?.type === 'photos-uploaded') {
-      logger.info('Photos uploaded - triggering data refresh');
-      // Trigger DataManager to refresh photos so they appear immediately
-      if (window.dataManager) {
-        window.dataManager.refreshPhotosData(true).catch(err => {
-          logger.error('Failed to refresh photos after upload', err);
-        });
-      } else {
-        logger.warn('DataManager not available for photo refresh');
+  setupMessageListener() {
+    window.addEventListener('message', (event) => {
+      const data = event.data;
+      
+      if (data?.type === 'upload-modal-ready') {
+        logger.debug('Upload modal iframe signaled ready');
+        this.iframeReady = true;
+        this.sendInitializationData();
+      } else if (data?.type === 'close-upload-modal') {
+        logger.debug('Upload modal requested close');
+        this.close();
+      } else if (data?.type === 'photos-uploaded') {
+        logger.info('Photos uploaded - triggering data refresh');
+        // Trigger DataManager to refresh photos so they appear immediately
+        if (window.dataManager) {
+          window.dataManager.refreshPhotosData(true).catch(err => {
+            logger.error('Failed to refresh photos after upload', err);
+          });
+        } else {
+          logger.warn('DataManager not available for photo refresh');
+        }
       }
-    }
-  });
-}
+    });
+  }
 
   /**
    * Open the photo upload modal
+   * @param {string} albumName - Album to upload to (default: 'all-photos')
    */
-  async open() {
+  async open(albumName = 'all-photos') {
     if (this.isOpen) {
       logger.warn('Upload modal already open');
       return;
     }
 
-    logger.info('Opening photo upload modal');
+    logger.info('Opening photo upload modal', { album: albumName });
     this.isOpen = true;
     this.iframeReady = false;
+    this.selectedAlbum = albumName;
 
     // Create modal container and iframe
     this.createModal();
@@ -108,66 +111,62 @@ setupMessageListener() {
     const wrapper = document.createElement('div');
     wrapper.className = 'photo-upload-iframe-wrapper';
     
-    // Create iframe with proper sandbox attributes
+    // Create iframe
     const iframe = document.createElement('iframe');
-    iframe.id = 'photoUploadIframe';
-    iframe.src = 'widgets/photos/photo-upload.html';
     iframe.className = 'photo-upload-iframe';
-    // Sandbox attributes: allow-same-origin for accessing parent, allow-scripts for functionality,
-    // allow-modals for prompt/alert, allow-forms for file input
-    iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts allow-modals allow-forms');
-    iframe.setAttribute('title', 'Photo Upload Modal');
+    iframe.src = 'widgets/photos/photo-upload.html';
+    iframe.setAttribute('title', 'Upload Photos');
     
-    wrapper.appendChild(iframe);
-    container.appendChild(backdrop);
-    container.appendChild(wrapper);
+    // Store reference
+    this.modalIframe = iframe;
     
     // Add styles
     this.addModalStyles();
     
-    // Add to document
+    // Assemble
+    wrapper.appendChild(iframe);
+    container.appendChild(backdrop);
+    container.appendChild(wrapper);
     document.body.appendChild(container);
     
     this.modalContainer = container;
-    this.modalIframe = iframe;
     
-    logger.debug('Modal container and iframe created');
+    logger.debug('Modal DOM created');
   }
 
   /**
-   * Send initialization data to the iframe once it's ready
+   * Send initialization data to the iframe once it signals ready
    */
   sendInitializationData() {
     if (!this.iframeReady || !this.modalIframe) {
-      logger.warn('Cannot send initialization data - iframe not ready');
+      logger.warn('Cannot send initialization - iframe not ready');
       return;
     }
 
-    // Get the Supabase UUID from JWT auth
-    const userId = window.jwtAuth?.currentUser?.id;
-    
+    // Get userId from photoDataService
+    const userId = this.photoDataService?.userId;
+
     if (!userId) {
-      logger.error('Cannot send initialization data - no userId available');
-      // Try to get from photoDataService as fallback
-      if (this.photoDataService?.userId) {
-        logger.info('Using userId from photoDataService', { userId: this.photoDataService.userId });
-      } else {
-        logger.error('No userId available from any source');
-        return;
-      }
+      logger.error('No userId available to send to modal');
+      return;
     }
 
-    // Get current theme
+    // Determine theme
     const theme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
 
     // Send initialization message to iframe
     const initMessage = {
       type: 'init-upload-modal',
       userId: userId || this.photoDataService?.userId,
-      theme: theme
+      theme: theme,
+      album: this.selectedAlbum
     };
 
-    logger.info('Sending initialization data to iframe', { userId: initMessage.userId, theme });
+    logger.info('Sending initialization data to iframe', { 
+      userId: initMessage.userId, 
+      theme,
+      album: this.selectedAlbum 
+    });
     
     this.modalIframe.contentWindow.postMessage(initMessage, '*');
   }

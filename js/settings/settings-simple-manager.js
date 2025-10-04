@@ -218,8 +218,14 @@ export class SimplifiedSettings {
           }, 350);
         }
 
-        // Initialize upload handlers if navigating to add-photos screen
         if (targetScreen === 'add-photos') {
+          setTimeout(() => {
+            initializeUploadHandlers(this.overlay);
+          }, 350);
+        }
+
+        // ALSO initialize handlers when navigating to select-upload-album
+        if (targetScreen === 'select-upload-album') {
           setTimeout(() => {
             initializeUploadHandlers(this.overlay);
           }, 350);

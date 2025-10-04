@@ -1,5 +1,5 @@
 // widgets/photos/settings-photos.js
-// CHANGE SUMMARY: Added live photo stats population and native upload interface replacing placeholder
+// CHANGE SUMMARY: Complete file with working album selection and modal opening
 
 /**
  * Build all photo-related settings screens
@@ -135,13 +135,6 @@ export function buildPhotosSettingsScreens() {
             <div class="storage-bar">
               <div class="storage-bar-fill" id="upload-storage-bar-fill" style="width: 0%"></div>
             </div>
-          </div>
-        </div>
-
-        <!-- Upload Button -->
-        <div class="settings-section">
-          <div class="settings-cell action-cell" id="choose-photos-btn">
-            <span class="cell-label">↑ Upload Photos</span>
           </div>
         </div>
 
@@ -348,19 +341,7 @@ export async function populatePhotoStats(overlay) {
  * @param {HTMLElement} overlay - The settings overlay element
  */
 export function initializeUploadHandlers(overlay) {
-  const choosePhotosBtn = overlay.querySelector('#choose-photos-btn');
   const createAlbumBtn = overlay.querySelector('#create-new-album-btn');
-  
-  if (choosePhotosBtn) {
-    // Remove existing listener if any
-    const newBtn = choosePhotosBtn.cloneNode(true);
-    choosePhotosBtn.parentNode.replaceChild(newBtn, choosePhotosBtn);
-    
-    // Add click handler to open upload modal
-    newBtn.addEventListener('click', () => {
-      openUploadModal(overlay);
-    });
-  }
   
   if (createAlbumBtn) {
     // Remove existing listener if any
@@ -377,20 +358,6 @@ export function initializeUploadHandlers(overlay) {
   populateAlbumList(overlay);
   
   console.log('📸 Upload handlers initialized');
-}
-
-/**
- * Open the photo upload modal
- * @param {HTMLElement} overlay - The settings overlay element
- */
-function openUploadModal(overlay) {
-  // Use the existing PhotoUploadManager to open the modal
-  if (window.photoUploadManager) {
-    window.photoUploadManager.open();
-  } else {
-    console.error('📸 PhotoUploadManager not available');
-    alert('Photo upload not available. Please try again.');
-  }
 }
 
 /**
@@ -460,7 +427,7 @@ async function populateAlbumList(overlay) {
  * @param {string} albumName - Album name to select
  */
 function selectAlbum(overlay, albumName) {
-  // Update selected state
+  // Update selected state in album list
   const albumCells = overlay.querySelectorAll('#upload-album-list .settings-cell');
   albumCells.forEach(cell => {
     if (cell.dataset.album === albumName) {
@@ -470,19 +437,34 @@ function selectAlbum(overlay, albumName) {
     }
   });
   
-  // Update display
+  // Update the display value on the add-photos screen
   const displayEl = overlay.querySelector('#upload-album-display');
   if (displayEl) {
     displayEl.textContent = albumName === 'all-photos' ? 'All Photos' : albumName;
   }
   
-  // Store selection
+  // Store selection in global state
   if (!window.photoUploadState) {
     window.photoUploadState = {};
   }
   window.photoUploadState.selectedAlbum = albumName;
   
   console.log('📸 Album selected', { album: albumName });
+  
+  // Open upload modal with selected album
+  if (window.photoUploadManager) {
+    window.photoUploadManager.open(albumName);
+    console.log('📸 Opening upload modal for album:', albumName);
+  } else {
+    console.error('📸 PhotoUploadManager not available');
+    alert('Photo upload not available. Please try again.');
+  }
+  
+  // Navigate back to add-photos screen
+  const backBtn = overlay.querySelector('.nav-back-button');
+  if (backBtn) {
+    backBtn.click();
+  }
 }
 
 /**
@@ -525,90 +507,4 @@ function handleCreateAlbum(overlay) {
   }
   
   console.log('📸 New album created', { name: sanitized });
-}
-
-/**
- * Handle photo upload process
- * @param {HTMLElement} overlay - The settings overlay element
- */
-async function handlePhotoUpload(overlay) {
-  try {
-    // Create hidden file input
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.multiple = true;
-    input.accept = 'image/*';
-    
-    input.onchange = async (e) => {
-      const files = Array.from(e.target.files);
-      
-      if (files.length === 0) return;
-      
-      console.log('📸 Files selected', { count: files.length });
-      
-      // Get photo service
-      const photoService = window.dataManager?.photoService;
-      
-      if (!photoService || !photoService.isReady()) {
-        alert('Photo service not ready. Please try again.');
-        return;
-      }
-      
-      // Get selected album
-      const selectedAlbum = window.photoUploadState?.selectedAlbum || 'all-photos';
-      
-      // Show progress section
-      const progressSection = overlay.querySelector('#upload-progress-section');
-      if (progressSection) {
-        progressSection.style.display = 'block';
-      }
-      
-      // Upload with progress tracking
-      let completed = 0;
-      const results = await photoService.uploadPhotos(files, selectedAlbum, (progress) => {
-        // Update progress display
-        const percentEl = overlay.querySelector('#upload-progress-percent');
-        const fillEl = overlay.querySelector('#upload-progress-fill');
-        const detailEl = overlay.querySelector('#upload-progress-detail');
-        
-        if (progress.completed) completed = progress.completed;
-        
-        const percent = Math.round((completed / files.length) * 100);
-        
-        if (percentEl) percentEl.textContent = `${percent}%`;
-        if (fillEl) fillEl.style.width = `${percent}%`;
-        if (detailEl) detailEl.textContent = `Photo ${completed} of ${files.length}`;
-      });
-      
-      // Hide progress section
-      if (progressSection) {
-        setTimeout(() => {
-          progressSection.style.display = 'none';
-        }, 1000);
-      }
-      
-      // Refresh stats
-      await populatePhotoStats(overlay);
-      
-      // Refresh album list to show updated counts
-      await populateAlbumList(overlay);
-      
-      // Show success message
-      const successCount = results.filter(r => r.success).length;
-      alert(`✅ Upload complete!\n${successCount} of ${files.length} photos uploaded successfully to "${selectedAlbum}".`);
-      
-      console.log('📸 Upload complete', { 
-        total: files.length, 
-        successful: successCount,
-        album: selectedAlbum
-      });
-    };
-    
-    // Trigger file picker
-    input.click();
-    
-  } catch (error) {
-    console.error('📸 Upload failed', error);
-    alert('Upload failed: ' + error.message);
-  }
 }

@@ -1,5 +1,7 @@
+<!-- Photo-upload.html -->
+
 <!DOCTYPE html>
-<!-- CHANGE SUMMARY: Updated to receive userId via postMessage from parent, removed direct parent access, added proper error handling -->
+<!-- CHANGE SUMMARY: Removed folder selector UI, added album parameter via postMessage, auto-triggers file picker on init -->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -45,7 +47,6 @@
       text-align: center;
     }
 
-    .back-button,
     .close-button {
       background: none;
       border: none;
@@ -62,8 +63,6 @@
       transition: background 0.2s;
     }
 
-    .back-button:hover,
-    .back-button:focus,
     .close-button:hover,
     .close-button:focus {
       background: rgba(0, 0, 0, 0.05);
@@ -79,96 +78,25 @@
       margin-bottom: 24px;
     }
 
-    .upload-section label {
-      display: block;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: #333;
-    }
-
-    .folder-selector {
-      display: flex;
-      gap: 8px;
-    }
-
-    .folder-dropdown {
-      flex: 1;
-      padding: 10px 12px;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      font-size: 14px;
-      background: white;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .folder-dropdown:hover,
-    .folder-dropdown:focus {
-      border-color: #ff6b35;
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
-    }
-
-    .new-folder-button {
-      padding: 10px 16px;
-      background: white;
-      border: 1px solid #ddd;
-      border-radius: 6px;
-      font-size: 14px;
-      cursor: pointer;
-      transition: all 0.2s;
-      white-space: nowrap;
-    }
-
-    .new-folder-button:hover,
-    .new-folder-button:focus {
+    .album-display {
       background: #f8f9fa;
-      border-color: #ff6b35;
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
-    }
-
-    .upload-button {
-      width: 100%;
-      padding: 20px;
-      background: linear-gradient(135deg, #ff6b35 0%, #f7931e 100%);
-      border: none;
+      padding: 16px;
       border-radius: 8px;
-      color: white;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 12px;
-      transition: all 0.2s;
-      box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+      text-align: center;
+      margin-bottom: 24px;
     }
 
-    .upload-button:hover,
-    .upload-button:focus {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 16px rgba(255, 107, 53, 0.4);
-      outline: 2px solid #ff6b35;
-      outline-offset: 2px;
-    }
-
-    .upload-button:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      transform: none;
-    }
-
-    .upload-icon {
-      font-size: 24px;
-    }
-
-    .upload-hint {
-      margin: 8px 0 0;
+    .album-display-label {
+      display: block;
       font-size: 13px;
       color: #666;
-      text-align: center;
+      margin-bottom: 4px;
+    }
+
+    .album-display-value {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
     }
 
     .progress-section {
@@ -228,12 +156,12 @@
     }
 
     .storage-label {
-      font-weight: 600;
       color: #666;
     }
 
     .storage-value {
       color: #333;
+      font-weight: 600;
     }
 
     .storage-bar {
@@ -245,8 +173,8 @@
 
     .storage-fill {
       height: 100%;
-      background: linear-gradient(90deg, #4caf50 0%, #8bc34a 100%);
-      transition: width 0.3s ease;
+      background: linear-gradient(90deg, #4CAF50 0%, #8BC34A 100%);
+      transition: width 0.3s ease, background 0.3s ease;
       border-radius: 3px;
       width: 0%;
     }
@@ -256,16 +184,16 @@
     }
 
     .error-message {
-      background: #fee;
-      border: 1px solid #fcc;
-      border-radius: 8px;
-      padding: 16px;
+      background: #ffebee;
+      border: 1px solid #ef5350;
+      color: #c62828;
+      padding: 12px;
+      border-radius: 6px;
       margin-bottom: 16px;
-      color: #c33;
       font-size: 14px;
     }
 
-    /* Dark theme support */
+    /* Dark theme */
     body.theme-dark {
       color: #e0e0e0;
     }
@@ -279,20 +207,25 @@
       border-bottom-color: #3a3a3a;
     }
 
-    body.theme-dark .upload-header h2 {
+    body.theme-dark .close-button {
       color: #e0e0e0;
     }
 
-    body.theme-dark .folder-dropdown,
-    body.theme-dark .new-folder-button {
+    body.theme-dark .close-button:hover,
+    body.theme-dark .close-button:focus {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    body.theme-dark .album-display {
       background: #2a2a2a;
-      border-color: #3a3a3a;
-      color: #e0e0e0;
     }
 
-    body.theme-dark .new-folder-button:hover,
-    body.theme-dark .new-folder-button:focus {
-      background: #3a3a3a;
+    body.theme-dark .album-display-label {
+      color: #999;
+    }
+
+    body.theme-dark .album-display-value {
+      color: #e0e0e0;
     }
 
     body.theme-dark .progress-section,
@@ -300,33 +233,21 @@
       background: #2a2a2a;
     }
 
-    body.theme-dark .progress-bar,
-    body.theme-dark .storage-bar {
-      background: #3a3a3a;
-    }
-
-    body.theme-dark .upload-section label,
-    body.theme-dark .storage-label,
+    body.theme-dark .progress-info,
     body.theme-dark .storage-value {
       color: #e0e0e0;
     }
 
-    body.theme-dark .upload-hint,
-    body.theme-dark .progress-detail {
+    body.theme-dark .progress-detail,
+    body.theme-dark .storage-label {
       color: #999;
-    }
-
-    body.theme-dark .error-message {
-      background: #3a1a1a;
-      border-color: #5a2a2a;
-      color: #faa;
     }
   </style>
 </head>
 <body>
   <div class="upload-container">
     <div class="upload-header">
-      <button class="back-button" id="back-button" aria-label="Back">←</button>
+      <div style="width: 32px;"></div>
       <h2>Upload Photos</h2>
       <button class="close-button" id="close-button" aria-label="Close">×</button>
     </div>
@@ -335,24 +256,10 @@
       <!-- Error Display -->
       <div id="error-container"></div>
 
-      <!-- Folder Selection -->
-      <div class="upload-section">
-        <label for="folder-select">Upload to:</label>
-        <div class="folder-selector">
-          <select id="folder-select" class="folder-dropdown">
-            <option value="all-photos">All Photos</option>
-          </select>
-          <button id="new-folder-button" class="new-folder-button" title="Create new folder">+ New Folder</button>
-        </div>
-      </div>
-
-      <!-- Upload Button -->
-      <div class="upload-section">
-        <button id="upload-button" class="upload-button">
-          <span class="upload-icon">📁</span>
-          <span class="upload-text">Choose Photos to Upload</span>
-        </button>
-        <p class="upload-hint">Select multiple photos from your device</p>
+      <!-- Album Display -->
+      <div class="album-display">
+        <span class="album-display-label">Uploading to:</span>
+        <span class="album-display-value" id="album-display">All Photos</span>
       </div>
 
       <!-- Progress Display -->
@@ -390,14 +297,12 @@
       constructor() {
         this.userId = null;
         this.storage = null;
+        this.selectedAlbum = 'all-photos';
         this.isUploading = false;
         this.isReady = false;
 
         // Get DOM elements
-        this.folderSelect = document.getElementById('folder-select');
-        this.newFolderBtn = document.getElementById('new-folder-button');
-        this.uploadBtn = document.getElementById('upload-button');
-        this.backBtn = document.getElementById('back-button');
+        this.albumDisplay = document.getElementById('album-display');
         this.closeBtn = document.getElementById('close-button');
         this.progressSection = document.getElementById('progress-section');
         this.progressFill = document.getElementById('progress-fill');
@@ -425,21 +330,17 @@
       }
 
       setupEventListeners() {
-        // Close buttons
-        this.backBtn.addEventListener('click', () => this.close());
+        // Close button
         this.closeBtn.addEventListener('click', () => this.close());
-
-        // Upload button
-        this.uploadBtn.addEventListener('click', () => this.openFilePicker());
-
-        // New folder button
-        this.newFolderBtn.addEventListener('click', () => this.createNewFolder());
 
         // Listen for initialization data from parent
         window.addEventListener('message', (event) => {
           if (event.data?.type === 'init-upload-modal' && event.data.userId) {
-            logger.info('Received initialization data from parent', { userId: event.data.userId });
-            this.initialize(event.data.userId, event.data.theme);
+            logger.info('Received initialization data from parent', { 
+              userId: event.data.userId,
+              album: event.data.album 
+            });
+            this.initialize(event.data.userId, event.data.theme, event.data.album);
           } else if (event.data?.type === 'theme-change') {
             this.applyTheme(event.data.theme);
           }
@@ -448,8 +349,9 @@
         logger.debug('Event listeners attached');
       }
 
-      async initialize(userId, theme) {
+      async initialize(userId, theme, album = 'all-photos') {
         this.userId = userId;
+        this.selectedAlbum = album;
         
         if (!this.userId) {
           this.showError('User ID not provided. Please close and try again.');
@@ -457,7 +359,10 @@
           return;
         }
 
-        logger.info('Initializing with userId', { userId: this.userId });
+        logger.info('Initializing with userId', { userId: this.userId, album: this.selectedAlbum });
+
+        // Update album display
+        this.albumDisplay.textContent = this.selectedAlbum === 'all-photos' ? 'All Photos' : this.selectedAlbum;
 
         // Get JWT service from parent window
         const jwtService = window.parent?.jwtAuth;
@@ -471,8 +376,7 @@
           this.storage = new PhotoStorageService(this.userId, jwtService);
           logger.info('PhotoStorageService initialized');
 
-          // Load initial data
-          await this.loadFolders();
+          // Update storage display
           await this.updateStorageDisplay();
 
           // Apply theme
@@ -482,6 +386,12 @@
 
           this.isReady = true;
           logger.success('PhotoUploadModal initialized successfully');
+
+          // Auto-open file picker after initialization
+          setTimeout(() => {
+            this.openFilePicker();
+          }, 300);
+
         } catch (error) {
           this.showError('Failed to initialize upload modal: ' + error.message);
           logger.error('Initialization failed', error);
@@ -494,31 +404,6 @@
 
       clearError() {
         this.errorContainer.innerHTML = '';
-      }
-
-      async loadFolders() {
-        try {
-          logger.debug('Loading folders');
-          const folders = await this.storage.listFolders();
-          
-          // Clear existing options
-          this.folderSelect.innerHTML = '<option value="all-photos">All Photos (default)</option>';
-          
-          // Add folders
-          folders.forEach(folder => {
-            if (folder.name !== 'all-photos') {
-              const option = document.createElement('option');
-              option.value = folder.name;
-              option.textContent = `${folder.name} (${folder.photoCount} photos)`;
-              this.folderSelect.appendChild(option);
-            }
-          });
-
-          logger.success('Folders loaded', { count: folders.length });
-        } catch (error) {
-          logger.error('Failed to load folders', error);
-          this.showError('Failed to load folders: ' + error.message);
-        }
       }
 
       async updateStorageDisplay() {
@@ -562,7 +447,16 @@
           const files = Array.from(e.target.files);
           if (files.length > 0) {
             await this.handleUpload(files);
+          } else {
+            // User cancelled - close modal
+            this.close();
           }
+        };
+
+        // Handle cancel (user closes picker without selecting)
+        input.oncancel = () => {
+          logger.info('File picker cancelled by user');
+          this.close();
         };
 
         input.click();
@@ -570,17 +464,15 @@
 
       async handleUpload(files) {
         this.clearError();
-        const folder = this.folderSelect.value;
         
-        logger.info('Starting upload', { fileCount: files.length, folder });
+        logger.info('Starting upload', { fileCount: files.length, album: this.selectedAlbum });
 
         this.isUploading = true;
-        this.uploadBtn.disabled = true;
         this.progressSection.classList.add('active');
 
         try {
           // Upload with progress callback
-          const results = await this.storage.uploadPhotos(files, folder, (percent, filename, current, total) => {
+          const results = await this.storage.uploadPhotos(files, this.selectedAlbum, (percent, filename, current, total) => {
             this.progressFill.style.width = `${percent}%`;
             this.progressPercentage.textContent = `${percent}%`;
             this.progressDetail.textContent = `Photo ${current} of ${total}: ${filename}`;
@@ -601,97 +493,56 @@
           if (failCount > 0) {
             const failures = results.filter(r => !r.success);
             logger.error('Some uploads failed', { failures });
-            this.showError(`Upload complete: ${successCount} succeeded, ${failCount} failed. Check console for details.`);
-          } else {
-            logger.success('All photos uploaded successfully', { count: successCount });
+            this.showError(`Upload complete: ${successCount} succeeded, ${failCount} failed.`);
           }
 
           // Update storage display
           await this.updateStorageDisplay();
 
-          // Notify photos widget to refresh
-          this.notifyPhotosWidget();
+          // Notify parent that photos were uploaded
+          if (window.parent !== window) {
+            window.parent.postMessage({
+              type: 'photos-uploaded',
+              count: successCount
+            }, '*');
+          }
 
-          // Hide progress after a moment
-          setTimeout(() => {
-            this.progressSection.classList.remove('active');
-            this.progressFill.style.width = '0%';
-            if (failCount === 0) {
-              this.clearError();
-            }
-          }, 3000);
+          // Close modal after successful upload (with small delay to show completion)
+          if (successCount > 0) {
+            setTimeout(() => {
+              this.close();
+            }, 1500);
+          }
 
         } catch (error) {
-          logger.error('Upload failed', { error: error.message, stack: error.stack });
-          this.showError(`Upload failed: ${error.message}`);
-          this.progressSection.classList.remove('active');
+          logger.error('Upload failed', error);
+          this.showError('Upload failed: ' + error.message);
         } finally {
           this.isUploading = false;
-          this.uploadBtn.disabled = false;
-        }
-      }
-
-      async createNewFolder() {
-        const folderName = prompt('Enter folder name:');
-        
-        if (!folderName || folderName.trim() === '') {
-          return;
-        }
-
-        try {
-          await this.storage.createFolder(folderName.trim());
-          await this.loadFolders();
-          
-          // Select the newly created folder
-          this.folderSelect.value = folderName.trim();
-          
-          logger.info('New folder created', { folderName: folderName.trim() });
-        } catch (error) {
-          logger.error('Failed to create folder', error);
-          this.showError('Failed to create folder: ' + error.message);
         }
       }
 
       applyTheme(theme) {
-        document.body.className = `theme-${theme}`;
+        if (theme === 'dark') {
+          document.body.classList.add('theme-dark');
+        } else {
+          document.body.classList.remove('theme-dark');
+        }
         logger.debug('Theme applied', { theme });
       }
 
-        notifyPhotosWidget() {
-        // Notify parent to refresh photo data (not the widget directly)
-        if (window.parent !== window) {
-            window.parent.postMessage({
-            type: 'photos-uploaded',
-            folder: this.currentFolder,
-            source: 'photo-upload'
-            }, '*');
-            logger.debug('Sent photos-uploaded message to parent');
-        } else {
-            logger.warn('Could not notify parent - no parent window');
-        }
-        }
-
       close() {
         logger.info('Closing upload modal');
-        
-        // Notify parent to close modal
         if (window.parent !== window) {
           window.parent.postMessage({
-            type: 'close-upload-modal',
-            source: 'photo-upload'
+            type: 'close-upload-modal'
           }, '*');
         }
       }
     }
 
-    // Initialize when DOM is ready
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', () => {
-        new PhotoUploadModal();
-      });
-    } else {
-      new PhotoUploadModal();
-    }
+    // Initialize modal
+    const modal = new PhotoUploadModal();
   </script>
 </body>
 </html>
