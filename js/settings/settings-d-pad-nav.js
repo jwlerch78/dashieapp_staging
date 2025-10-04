@@ -116,7 +116,7 @@ export class SimplifiedNavigation {
     if (current) {
       current.scrollIntoView({
         behavior: 'smooth',
-        block: 'nearest',
+        block: 'center',  // Always center the focused element
         inline: 'nearest'
       });
     }
