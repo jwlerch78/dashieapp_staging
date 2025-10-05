@@ -227,6 +227,8 @@ export class SimplifiedNavigation {
     return element.tagName + (element.id ? '#' + element.id : '');
   }
 
+  // CHANGE SUMMARY: Fixed activateCurrentElement to trigger click on cells without data-navigate (like Photos button)
+
   activateCurrentElement() {
     const current = this.focusableElements[this.focusIndex];
     if (!current) return;
@@ -246,6 +248,11 @@ export class SimplifiedNavigation {
         this.navigateToScreen(navigateTarget);
       } else if (current.classList.contains('selectable')) {
         this.handleSelectionCell(current);
+      } else {
+        // NEW: If no navigate attribute and not selectable, trigger click
+        // This handles special cells like Photos button (#photos-menu-btn)
+        console.log(`⚙️ Cell has no navigate or selectable class - triggering click event`);
+        current.click();
       }
     } else if (current.classList.contains('form-control')) {
       this.activateFormControl(current);
@@ -254,7 +261,7 @@ export class SimplifiedNavigation {
       current.dispatchEvent(new Event('change'));
     }
   }
-
+  
   handleSelectionCell(cell) {
     // Check if this is a time selection cell
     if (this.timeHandler.isTimeSelectionCell(cell)) {

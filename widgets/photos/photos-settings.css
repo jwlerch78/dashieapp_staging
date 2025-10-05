@@ -1,4 +1,5 @@
 /* widgets/photos/photos-settings.css */
+/* CHANGE SUMMARY: Updated to match settings modal - orange highlight, proper focus states */
 
 * {
   margin: 0;
@@ -8,31 +9,33 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: transparent;
-  color: #1a1a1a;
+  background: #F2F2F7;
+  color: #000000;
   overflow: hidden;
+  height: 100vh;
+  width: 100vw;
 }
 
 .modal-container {
   width: 100%;
-  max-width: 500px;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  height: 100%;
+  background: #F2F2F7;
+  border-radius: 0;
+  box-shadow: none;
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  max-height: 90vh;
 }
 
-/* Header */
+/* iOS Navigation Bar - matching settings modal */
 .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e0e0e0;
-  background: #f8f9fa;
+  height: 44px;
+  background: #F5F5F7;
+  border-bottom: 1px solid rgba(60, 60, 67, 0.29);
+  padding: 0 16px;
   flex-shrink: 0;
 }
 
@@ -40,32 +43,29 @@ body {
 .close-button {
   background: none;
   border: none;
-  font-size: 28px;
+  color: #EE9828;
+  font-size: 17px;
+  font-weight: 400;
   cursor: pointer;
-  color: #666;
   padding: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 4px;
-  transition: background 0.2s;
+  min-width: 44px;
+  height: 44px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: opacity 0.2s;
 }
 
 .back-button:hover,
 .back-button:focus,
 .close-button:hover,
 .close-button:focus {
-  background: rgba(0, 0, 0, 0.05);
-  outline: 2px solid #ff6b35;
-  outline-offset: 2px;
+  opacity: 0.6;
 }
 
 .modal-header h2 {
   margin: 0;
-  font-size: 20px;
+  font-size: 17px;
   font-weight: 600;
+  color: #000000;
   flex: 1;
   text-align: center;
 }
@@ -74,135 +74,186 @@ body {
 .modal-body {
   overflow-y: auto;
   flex: 1;
-}
-
-/* Settings List Styles */
-.settings-section {
-  border-bottom: 1px solid #e0e0e0;
-  padding: 0;
-}
-
-.settings-cell {
-  display: flex;
-  align-items: center;
-  padding: 16px 24px;
-  border-bottom: 1px solid #f0f0f0;
-  cursor: pointer;
-  transition: background 0.2s;
-  min-height: 56px;
-}
-
-.settings-cell:last-child {
-  border-bottom: none;
-}
-
-.settings-cell:hover {
-  background: #f8f9fa;
-}
-
-.settings-cell.action-cell {
-  color: #ff6b35;
-  font-weight: 500;
-}
-
-.settings-cell.selectable {
-  position: relative;
-}
-
-.cell-label {
-  flex: 1;
-  font-size: 16px;
-}
-
-.cell-value {
-  color: #8E8E93;
-  font-size: 16px;
-  margin-right: 8px;
-}
-
-.cell-chevron {
-  color: #C7C7CC;
-  font-size: 20px;
-  font-weight: 300;
-}
-
-.cell-checkmark {
-  color: #ff6b35;
-  font-size: 20px;
-  display: none;
-}
-
-.settings-cell.selected .cell-checkmark {
-  display: block;
+  background: #F2F2F7;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Photo Stats Box */
 .photo-stats-box {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 16px;
-  margin: 16px 24px;
+  background: #fff;
+  border-radius: 10px;
+  margin: 16px;
+  padding: 12px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .photo-stat-row {
   display: flex;
   justify-content: space-between;
-  margin-bottom: 8px;
-  font-size: 14px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
 }
 
 .photo-stat-row:last-child {
-  margin-bottom: 0;
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
 .photo-stat-label {
-  color: #666;
+  font-size: 15px;
+  color: #000000;
 }
 
 .photo-stat-value {
-  font-weight: 600;
-  color: #333;
+  font-size: 15px;
+  color: #8e8e93;
 }
 
 .storage-bar {
-  height: 6px;
-  background: #e0e0e0;
-  border-radius: 3px;
+  height: 4px;
+  background: #e5e5ea;
+  border-radius: 2px;
   overflow: hidden;
   margin-top: 8px;
 }
 
 .storage-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #4CAF50 0%, #8BC34A 100%);
+  background: #EE9828;
   transition: width 0.3s ease;
   width: 0%;
 }
 
-/* Progress Section */
-.progress-section {
-  background: #f8f9fa;
-  padding: 16px;
-  margin: 16px 24px;
-  border-radius: 8px;
-  display: none;
+/* Settings Sections - matching settings modal */
+.settings-section {
+  margin: 16px 16px 0 16px;
 }
 
-.progress-section.active {
-  display: block;
+.settings-section:first-child {
+  margin-top: 0;
+}
+
+.settings-cell {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: #fff;
+  border-bottom: 0.5px solid rgba(60, 60, 67, 0.36);
+  cursor: pointer;
+  transition: background 0.2s;
+  min-height: 44px;
+  outline: none;
+}
+
+.settings-cell:first-child {
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+
+.settings-cell:last-child {
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+  border-bottom: none;
+}
+
+.settings-cell:active {
+  background: #f0f0f0;
+}
+
+/* MATCHING SETTINGS MODAL - Orange highlight with outline when focused */
+.settings-cell:focus,
+.settings-cell.focused {
+  background: rgba(238, 152, 40, 0.15);
+  outline: 2px solid #EE9828;
+  outline-offset: -2px;
+}
+
+.cell-label {
+  flex: 1;
+  font-size: 17px;
+  color: #000000;
+}
+
+.cell-value {
+  font-size: 17px;
+  color: #8e8e93;
+  margin-right: 8px;
+}
+
+.cell-chevron {
+  font-size: 20px;
+  color: #c7c7cc;
+  font-weight: 600;
+}
+
+/* Checkmark for selected items */
+.cell-checkmark {
+  font-size: 20px;
+  color: #EE9828;
+  font-weight: 600;
+  margin-left: auto;
+  visibility: hidden;
+}
+
+.settings-cell.selected .cell-checkmark {
+  visibility: visible;
+}
+
+/* File Upload */
+.file-upload-section {
+  padding: 16px;
+}
+
+.file-upload-button {
+  width: 100%;
+  padding: 12px;
+  background: #EE9828;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  outline: none;
+}
+
+.file-upload-button:hover {
+  opacity: 0.8;
+}
+
+.file-upload-button:active {
+  opacity: 0.6;
+}
+
+/* MATCHING SETTINGS MODAL - Orange highlight for focused button */
+.file-upload-button:focus,
+.file-upload-button.focused {
+  background: rgba(238, 152, 40, 0.15);
+  color: #EE9828;
+  outline: 2px solid #EE9828;
+  outline-offset: -2px;
+}
+
+/* Progress Section */
+.progress-section {
+  background: #fff;
+  border-radius: 10px;
+  margin: 16px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .progress-info {
-  display: flex;
-  justify-content: space-between;
+  font-size: 15px;
+  color: #000000;
   margin-bottom: 8px;
-  font-size: 14px;
-  font-weight: 600;
 }
 
 .progress-bar {
   height: 8px;
-  background: #e0e0e0;
+  background: #e5e5ea;
   border-radius: 4px;
   overflow: hidden;
   margin-bottom: 8px;
@@ -210,14 +261,14 @@ body {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #ff6b35 0%, #f7931e 100%);
+  background: #EE9828;
   transition: width 0.3s ease;
   width: 0%;
 }
 
 .progress-detail {
-  font-size: 12px;
-  color: #666;
+  font-size: 13px;
+  color: #8e8e93;
 }
 
 /* Error Message */
@@ -226,9 +277,9 @@ body {
   border: 1px solid #ef5350;
   color: #c62828;
   padding: 12px;
-  border-radius: 6px;
-  margin: 16px 24px;
-  font-size: 14px;
+  border-radius: 10px;
+  margin: 16px;
+  font-size: 15px;
 }
 
 /* Screens */
@@ -240,59 +291,75 @@ body {
   display: block;
 }
 
-/* Dark theme */
+/* Dark theme - matching settings modal */
 body.theme-dark {
-  color: #e0e0e0;
+  background: #000000;
+  color: #ffffff;
 }
 
 body.theme-dark .modal-container {
-  background: #1a1a1a;
+  background: #000000;
 }
 
 body.theme-dark .modal-header {
-  background: #2a2a2a;
-  border-bottom-color: #3a3a3a;
+  background: #1c1c1e;
+  border-bottom-color: rgba(84, 84, 88, 0.65);
 }
 
-body.theme-dark .back-button,
-body.theme-dark .close-button {
-  color: #e0e0e0;
+body.theme-dark .modal-header h2 {
+  color: #ffffff;
 }
 
-body.theme-dark .back-button:hover,
-body.theme-dark .back-button:focus,
-body.theme-dark .close-button:hover,
-body.theme-dark .close-button:focus {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-body.theme-dark .settings-section {
-  border-bottom-color: #3a3a3a;
-}
-
-body.theme-dark .settings-cell {
-  border-bottom-color: #2a2a2a;
-}
-
-body.theme-dark .settings-cell:hover {
-  background: #2a2a2a;
-}
-
-body.theme-dark .cell-label {
-  color: #e0e0e0;
+body.theme-dark .modal-body {
+  background: #000000;
 }
 
 body.theme-dark .photo-stats-box,
+body.theme-dark .settings-cell,
 body.theme-dark .progress-section {
-  background: #2a2a2a;
+  background: #1c1c1e;
 }
 
+body.theme-dark .cell-label,
 body.theme-dark .photo-stat-label,
-body.theme-dark .progress-detail {
-  color: #999;
+body.theme-dark .progress-info {
+  color: #ffffff;
 }
 
+body.theme-dark .cell-value,
 body.theme-dark .photo-stat-value,
-body.theme-dark .progress-info {
-  color: #e0e0e0;
+body.theme-dark .progress-detail {
+  color: #8e8e93;
+}
+
+body.theme-dark .settings-cell {
+  border-bottom-color: rgba(84, 84, 88, 0.65);
+}
+
+body.theme-dark .settings-cell:active {
+  background: #2c2c2e;
+}
+
+body.theme-dark .settings-cell:focus,
+body.theme-dark .settings-cell.focused {
+  background: rgba(238, 152, 40, 0.15);
+  outline: 2px solid #EE9828;
+}
+
+body.theme-dark .storage-bar,
+body.theme-dark .progress-bar {
+  background: #2c2c2e;
+}
+
+/* Desktop styling */
+@media (min-width: 900px) {
+  .modal-container {
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  }
+  
+  .modal-header {
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+  }
 }

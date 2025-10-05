@@ -57,6 +57,13 @@ export class PhotosSettingsManager {
       return;
     }
 
+    // Check if photo service is ready
+    if (!this.photoDataService || !this.photoDataService.isReady()) {
+      logger.warn('Photo service not ready - showing user message');
+      alert('Photo settings are not ready yet. The photo service is still initializing. Please wait a moment and try again.');
+      return;
+    }
+
     logger.info('Opening photos settings modal');
     this.isOpen = true;
     this.iframeReady = false;
@@ -137,12 +144,21 @@ export class PhotosSettingsManager {
       return;
     }
 
-    // Get userId from photoDataService
-    const userId = this.photoDataService?.userId;
-
+    // Get userId from photoDataService OR fallback to jwtAuth
+    let userId = this.photoDataService?.userId;
+    
     if (!userId) {
-      logger.error('No userId available to send to modal');
-      return;
+      // Fallback: try to get userId from jwtAuth
+      userId = window.jwtAuth?.currentUser?.id;
+      
+      if (!userId) {
+        logger.error('No userId available from photoDataService or jwtAuth');
+        alert('Cannot initialize photo settings - user ID not available. Please try again.');
+        this.close();
+        return;
+      }
+      
+      logger.warn('Using userId from jwtAuth (photoDataService not available)', { userId });
     }
 
     // Determine theme
@@ -171,6 +187,11 @@ export class PhotosSettingsManager {
   /**
    * Add modal styles to document
    */
+  // CHANGE SUMMARY: Updated addModalStyles() to make photos modal full-screen on mobile, matching settings modal exactly
+
+  /**
+   * Add modal styles to document
+   */
   addModalStyles() {
     // Check if styles already exist
     if (document.getElementById('photos-settings-modal-styles')) {
@@ -180,6 +201,7 @@ export class PhotosSettingsManager {
     const style = document.createElement('style');
     style.id = 'photos-settings-modal-styles';
     style.textContent = `
+      /* Photos Modal Container - Full screen on mobile, centered on desktop */
       .photos-settings-modal-container {
         position: fixed;
         top: 0;
@@ -198,16 +220,17 @@ export class PhotosSettingsManager {
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0, 0, 0, 0.7);
+        background: rgba(0, 0, 0, 0.9);
         backdrop-filter: blur(4px);
       }
 
       .photos-settings-iframe-wrapper {
         position: relative;
         z-index: 1;
-        width: 90%;
-        max-width: 500px;
-        max-height: 90vh;
+        width: 100%;
+        height: 100%;
+        max-width: 100%;
+        max-height: 100%;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -215,22 +238,40 @@ export class PhotosSettingsManager {
 
       .photos-settings-iframe {
         width: 100%;
-        height: auto;
-        min-height: 400px;
-        max-height: 90vh;
+        height: 100%;
         border: none;
-        border-radius: 12px;
-        background: white;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        border-radius: 0;
+        background: #F2F2F7;
+        box-shadow: none;
       }
 
+      /* Desktop/larger screens - centered modal */
+      @media (min-width: 900px) {
+        .photos-settings-iframe-wrapper {
+          width: 90%;
+          max-width: 500px;
+          height: auto;
+          max-height: 90vh;
+        }
+
+        .photos-settings-iframe {
+          width: 100%;
+          height: auto;
+          min-height: 400px;
+          max-height: 90vh;
+          border-radius: 12px;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+      }
+
+      /* Dark theme support */
       body.theme-dark .photos-settings-iframe {
         background: #1a1a1a;
       }
     `;
 
     document.head.appendChild(style);
-    logger.debug('Modal styles added');
+    logger.debug('Modal styles added - full screen on mobile');
   }
 
   /**

@@ -253,9 +253,12 @@ async function processQueuedRefreshTokens() {
   }
 }
 
+// CHANGE SUMMARY: Fixed initializePhotosSettingsManager to always create window.photosSettingsManager even when photoService isn't ready yet
+
 /**
- * Initialize Photo Upload Manager with retry logic
+ * Initialize Photo Settings Manager with retry logic
  * Called after data manager is ready, with retry if photo service not yet initialized
+ * ALWAYS creates window.photosSettingsManager instance to prevent "not available" errors
  */
 async function initializePhotosSettingsManager() {
   const maxRetries = 5;
@@ -264,9 +267,10 @@ async function initializePhotosSettingsManager() {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       if (window.dataManager?.photoService?.isReady()) {
+        // Photo service is ready - initialize normally
         photosSettingsManager = new PhotosSettingsManager(window.dataManager.photoService);
         window.photosSettingsManager = photosSettingsManager;
-        console.log('📸 Photos settings manager initialized', {
+        console.log('📸 Photos settings manager initialized with ready service', {
           attempt
         });
         return true;
@@ -280,15 +284,26 @@ async function initializePhotosSettingsManager() {
     } catch (error) {
       console.error('❌ Failed to initialize photos settings manager:', error);
       if (attempt === maxRetries) {
-        return false;
+        break; // Exit loop to create fallback instance
       }
     }
   }
   
-  console.warn('⚠️ Photos settings manager not initialized after retries - photo service may still be initializing');
-  return false;
+  // After all retries, create instance anyway so it exists even if service isn't ready
+  // This prevents "PhotosSettingsManager not available" errors
+  // The manager will handle "not ready" state internally when opened
+  console.warn('⚠️ Photo service not ready after retries - creating PhotosSettingsManager anyway');
+  
+  try {
+    photosSettingsManager = new PhotosSettingsManager(window.dataManager?.photoService || null);
+    window.photosSettingsManager = photosSettingsManager;
+    console.log('📸 Photos settings manager created in fallback mode (service may initialize later)');
+    return true; // Return true because manager exists, even if service isn't ready
+  } catch (error) {
+    console.error('❌ Failed to create fallback PhotosSettingsManager:', error);
+    return false;
+  }
 }
-
 
 /**
  * Show mobile landing page
@@ -658,6 +673,10 @@ async function initializeApp() {
       grid.style.display = 'none';
       grid.style.visibility = 'hidden';
     }
+
+    console.log('📸 Mobile: Initializing photos settings manager...');
+    const uploadManagerReady = await initializePhotosSettingsManager();
+
     
     console.log('📱 Mobile initialization complete');
   } else {

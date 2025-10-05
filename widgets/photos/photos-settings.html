@@ -1,4 +1,5 @@
 <!-- Photos-settings.html -->
+<!-- CHANGE SUMMARY: Fixed progress callbacks, settings save, stay on upload screen, add +Create Album option -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -11,7 +12,7 @@
 <body>
   <div class="modal-container">
     <div class="modal-header">
-      <button class="back-button" id="back-button" style="visibility: hidden;">‹</button>
+      <button class="back-button" id="back-button" style="visibility: visible;">‹ Settings</button>
       <h2 id="modal-title">Photos</h2>
       <button class="close-button" id="close-button">×</button>
     </div>
@@ -42,124 +43,109 @@
 
         <!-- Main Menu -->
         <div class="settings-section">
-          <div class="settings-cell action-cell" id="add-photos-menu">
+          <div class="settings-cell" id="add-photos-menu" tabindex="0">
             <span class="cell-label">Add Photos</span>
+            <span class="cell-chevron">›</span>
           </div>
-          <div class="settings-cell" id="delete-photos-menu">
+          <div class="settings-cell" id="delete-photos-menu" tabindex="0">
             <span class="cell-label">Delete Photos</span>
             <span class="cell-chevron">›</span>
           </div>
-          <div class="settings-cell" id="display-album-menu">
+          <div class="settings-cell" id="display-album-menu" tabindex="0">
             <span class="cell-label">Choose Display Album</span>
-            <span class="cell-value" id="display-album-value">Recent Photos</span>
+            <span class="cell-value" id="display-album-value">All Photos</span>
             <span class="cell-chevron">›</span>
           </div>
-          <div class="settings-cell" id="transition-menu">
-            <span class="cell-label">Photo Transition Time</span>
-            <span class="cell-value" id="transition-value">5 sec</span>
+          <div class="settings-cell" id="transition-menu" tabindex="0">
+            <span class="cell-label">Photo Transition</span>
+            <span class="cell-value" id="transition-value">5 seconds</span>
             <span class="cell-chevron">›</span>
           </div>
         </div>
       </div>
 
-      <!-- Add Photos - Album Selection Screen -->
-      <div class="screen" id="add-photos-screen">
+      <!-- Choose Upload Album Screen -->
+      <div class="screen" id="choose-upload-album-screen">
         <div class="settings-section">
-          <div class="settings-cell action-cell" id="create-album-btn">
-            <span class="cell-label">➕ Create New Album</span>
+          <!-- Add Album option at top -->
+          <div class="settings-cell" id="create-album-cell" tabindex="0" style="border-bottom: 0.5px solid rgba(60, 60, 67, 0.36);">
+            <span class="cell-label" style="font-weight: 600;">+ Create Album</span>
+            <span class="cell-chevron">›</span>
           </div>
         </div>
-        
-        <div class="settings-section" id="album-list">
+        <div class="settings-section" id="upload-album-selection-list">
           <!-- Albums populated dynamically -->
         </div>
 
-        <!-- Progress Section (shown during upload) -->
-        <div class="progress-section" id="progress-section">
-          <div class="progress-info">
-            <span class="progress-text">Uploading...</span>
-            <span class="progress-percentage" id="progress-percentage">0%</span>
-          </div>
+        <!-- Upload Progress - stays on this screen -->
+        <div class="progress-section" id="upload-progress-section" style="display: none;">
+          <div class="progress-info" id="upload-progress-info">Uploading...</div>
           <div class="progress-bar">
-            <div class="progress-fill" id="progress-fill"></div>
+            <div class="progress-fill" id="upload-progress-fill"></div>
           </div>
-          <p class="progress-detail" id="progress-detail">Photo 0 of 0</p>
+          <div class="progress-detail" id="upload-progress-detail">0 / 0 files</div>
         </div>
       </div>
 
       <!-- Delete Photos Screen -->
       <div class="screen" id="delete-photos-screen">
         <div class="settings-section">
-          <div style="padding: 40px 24px; text-align: center; color: #666;">
-            <h3 style="margin-bottom: 12px;">Delete Photos</h3>
-            <p>Photo deletion interface coming soon.</p>
-          </div>
+          <p style="padding: 16px; text-align: center; color: #8e8e93;">
+            Delete functionality coming soon
+          </p>
         </div>
       </div>
 
-      <!-- Display Album Selection Screen -->
+      <!-- Display Album Screen -->
       <div class="screen" id="display-album-screen">
-        <div class="settings-section" id="display-album-list">
-          <!-- Display albums populated dynamically -->
+        <div class="settings-section" id="album-selection-list">
+          <!-- Albums populated dynamically -->
         </div>
       </div>
 
-      <!-- Transition Time Selection Screen -->
+      <!-- Photo Transition Screen -->
       <div class="screen" id="transition-screen">
-        <div class="settings-section" id="transition-list">
-          <div class="settings-cell selectable" data-value="5">
+        <div class="settings-section">
+          <div class="settings-cell selectable" data-value="3" tabindex="0">
+            <span class="cell-label">3 seconds</span>
+            <span class="cell-checkmark">✓</span>
+          </div>
+          <div class="settings-cell selectable" data-value="5" tabindex="0">
             <span class="cell-label">5 seconds</span>
             <span class="cell-checkmark">✓</span>
           </div>
-          <div class="settings-cell selectable" data-value="10">
+          <div class="settings-cell selectable" data-value="10" tabindex="0">
             <span class="cell-label">10 seconds</span>
             <span class="cell-checkmark">✓</span>
           </div>
-          <div class="settings-cell selectable" data-value="15">
-            <span class="cell-label">15 seconds</span>
-            <span class="cell-checkmark">✓</span>
-          </div>
-          <div class="settings-cell selectable" data-value="30">
+          <div class="settings-cell selectable" data-value="30" tabindex="0">
             <span class="cell-label">30 seconds</span>
-            <span class="cell-checkmark">✓</span>
-          </div>
-          <div class="settings-cell selectable" data-value="60">
-            <span class="cell-label">1 minute</span>
-            <span class="cell-checkmark">✓</span>
-          </div>
-          <div class="settings-cell selectable" data-value="900">
-            <span class="cell-label">15 minutes</span>
-            <span class="cell-checkmark">✓</span>
-          </div>
-          <div class="settings-cell selectable" data-value="1800">
-            <span class="cell-label">30 minutes</span>
-            <span class="cell-checkmark">✓</span>
-          </div>
-          <div class="settings-cell selectable" data-value="3600">
-            <span class="cell-label">1 hour</span>
             <span class="cell-checkmark">✓</span>
           </div>
         </div>
       </div>
+      
+      <!-- Hidden file input -->
+      <input type="file" id="file-input" accept="image/*" multiple style="display: none;">
     </div>
   </div>
 
   <script type="module">
-    import { PhotoStorageService } from '../../js/supabase/photo-storage-service.js';
     import { createLogger } from '../../js/utils/logger.js';
+    import { PhotoStorageService } from '../../js/supabase/photo-storage-service.js';
 
     const logger = createLogger('PhotosSettingsModal');
 
     class PhotosSettingsModal {
       constructor() {
-        this.userId = null;
         this.storage = null;
-        this.currentScreen = 'main-screen';
-        this.screenStack = ['main-screen'];
-        this.isUploading = false;
+        this.userId = null;
         this.currentSettings = {};
+        this.navigationStack = ['main-screen'];
+        this.currentFocusIndex = 0;
+        this.focusableElements = [];
+        this.pendingUploadAlbum = null;
         
-        // Get DOM elements
         this.backBtn = document.getElementById('back-button');
         this.closeBtn = document.getElementById('close-button');
         this.modalTitle = document.getElementById('modal-title');
@@ -180,8 +166,10 @@
       }
 
       setupEventListeners() {
-        // Close/Back buttons
-        this.backBtn.addEventListener('click', () => this.navigateBack());
+        // Back button
+        this.backBtn.addEventListener('click', () => this.handleBack());
+        
+        // Close button
         this.closeBtn.addEventListener('click', () => this.close());
 
         // Listen for initialization from parent
@@ -191,9 +179,12 @@
           }
         });
 
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => this.handleKeydown(e));
+
         // Main menu navigation
         document.getElementById('add-photos-menu').addEventListener('click', () => {
-          this.navigateTo('add-photos-screen', 'Add Photos');
+          this.navigateTo('choose-upload-album-screen', 'Choose Album');
         });
         
         document.getElementById('delete-photos-menu').addEventListener('click', () => {
@@ -209,11 +200,308 @@
         });
 
         // Create album button
-        document.getElementById('create-album-btn').addEventListener('click', () => {
+        document.getElementById('create-album-cell').addEventListener('click', () => {
           this.handleCreateAlbum();
         });
 
+        // File input handler
+        document.getElementById('file-input').addEventListener('change', (e) => {
+          this.handleFileSelection(e);
+        });
+
+        // Selection handlers for transition time
+        document.querySelectorAll('#transition-screen .selectable').forEach(cell => {
+          cell.addEventListener('click', () => this.handleTransitionSelection(cell));
+        });
+
         logger.debug('Event listeners attached');
+      }
+
+      handleKeydown(e) {
+        const keyMap = {
+          'ArrowUp': 'up',
+          'ArrowDown': 'down',
+          'Enter': 'enter',
+          'Escape': 'escape',
+          'Backspace': 'back'
+        };
+
+        const action = keyMap[e.key];
+        if (!action) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        switch (action) {
+          case 'up':
+            this.moveFocus(-1);
+            break;
+          case 'down':
+            this.moveFocus(1);
+            break;
+          case 'enter':
+            this.activateCurrentElement();
+            break;
+          case 'escape':
+          case 'back':
+            this.handleBack();
+            break;
+        }
+      }
+
+      updateFocusableElements() {
+        const currentScreen = document.querySelector('.screen.active');
+        if (!currentScreen) return;
+
+        this.focusableElements = Array.from(
+          currentScreen.querySelectorAll('.settings-cell')
+        );
+        
+        const currentScreenId = this.getCurrentScreen();
+        if (currentScreenId === 'transition-screen') {
+          const selectedIndex = this.focusableElements.findIndex(el => el.classList.contains('selected'));
+          if (selectedIndex !== -1) {
+            this.currentFocusIndex = selectedIndex;
+          }
+        } else if (currentScreenId === 'display-album-screen') {
+          const selectedIndex = this.focusableElements.findIndex(el => el.classList.contains('selected'));
+          if (selectedIndex !== -1) {
+            this.currentFocusIndex = selectedIndex;
+          }
+        } else {
+          this.currentFocusIndex = 0;
+        }
+
+        this.updateFocus();
+      }
+
+      moveFocus(direction) {
+        if (this.focusableElements.length === 0) return;
+
+        if (this.focusableElements[this.currentFocusIndex]) {
+          this.focusableElements[this.currentFocusIndex].classList.remove('focused');
+        }
+
+        this.currentFocusIndex += direction;
+
+        if (this.currentFocusIndex < 0) {
+          this.currentFocusIndex = this.focusableElements.length - 1;
+        } else if (this.currentFocusIndex >= this.focusableElements.length) {
+          this.currentFocusIndex = 0;
+        }
+
+        this.updateFocus();
+      }
+
+      updateFocus() {
+        this.focusableElements.forEach(el => {
+          el.blur();
+          el.classList.remove('focused');
+        });
+
+        if (this.focusableElements[this.currentFocusIndex]) {
+          this.focusableElements[this.currentFocusIndex].focus();
+          this.focusableElements[this.currentFocusIndex].classList.add('focused');
+        }
+      }
+
+      activateCurrentElement() {
+        const current = this.focusableElements[this.currentFocusIndex];
+        if (current) {
+          logger.debug('Activating element via Enter', { 
+            id: current.id,
+            classList: Array.from(current.classList)
+          });
+          current.click();
+        }
+      }
+
+      handleBack() {
+        const isMainScreen = this.getCurrentScreen() === 'main-screen';
+        
+        if (isMainScreen) {
+          this.close();
+        } else {
+          this.navigateBack();
+        }
+      }
+
+      navigateTo(screenId, title) {
+        const currentScreen = document.querySelector('.screen.active');
+        const nextScreen = document.getElementById(screenId);
+        
+        if (!nextScreen) {
+          logger.error('Screen not found', { screenId });
+          return;
+        }
+
+        this.navigationStack.push(screenId);
+        this.currentFocusIndex = 0;
+
+        currentScreen.classList.remove('active');
+        nextScreen.classList.add('active');
+
+        this.modalTitle.textContent = title;
+        this.updateBackButton();
+        this.updateFocusableElements();
+
+        logger.debug('Navigated to screen', { screenId, title });
+      }
+
+      navigateBack() {
+        if (this.navigationStack.length <= 1) return;
+
+        this.navigationStack.pop();
+        const previousScreenId = this.navigationStack[this.navigationStack.length - 1];
+        
+        const currentScreen = document.querySelector('.screen.active');
+        const previousScreen = document.getElementById(previousScreenId);
+
+        if (!previousScreen) return;
+
+        this.currentFocusIndex = 0;
+        currentScreen.classList.remove('active');
+        previousScreen.classList.add('active');
+
+        const title = previousScreenId === 'main-screen' ? 'Photos' : this.modalTitle.textContent;
+        this.modalTitle.textContent = title;
+        this.updateBackButton();
+        this.updateFocusableElements();
+
+        logger.debug('Navigated back to', { screenId: previousScreenId });
+      }
+
+      getCurrentScreen() {
+        return this.navigationStack[this.navigationStack.length - 1];
+      }
+
+      updateBackButton() {
+        const isMainScreen = this.getCurrentScreen() === 'main-screen';
+        
+        if (isMainScreen) {
+          this.backBtn.textContent = '‹ Settings';
+        } else {
+          this.backBtn.textContent = '‹ Photos';
+        }
+      }
+
+      handleTransitionSelection(cell) {
+        const value = parseInt(cell.dataset.value);
+        
+        document.querySelectorAll('#transition-screen .selectable').forEach(c => {
+          c.classList.remove('selected');
+          c.querySelector('.cell-checkmark').style.visibility = 'hidden';
+        });
+
+        cell.classList.add('selected');
+        cell.querySelector('.cell-checkmark').style.visibility = 'visible';
+
+        document.getElementById('transition-value').textContent = `${value} seconds`;
+
+        this.saveSettingToParent('photos.transitionTime', value);
+
+        logger.info('Transition time selected', { value });
+      }
+
+      async handleAlbumSelection(albumName, isUpload = false) {
+        if (isUpload) {
+          this.pendingUploadAlbum = albumName;
+          logger.info('Album selected for upload', { album: albumName });
+          
+          document.getElementById('file-input').click();
+          
+        } else {
+          document.querySelectorAll('#album-selection-list .selectable').forEach(c => {
+            c.classList.remove('selected');
+            c.querySelector('.cell-checkmark').style.visibility = 'hidden';
+          });
+
+          const selectedCell = document.querySelector(`#album-selection-list [data-album="${albumName}"]`);
+          if (selectedCell) {
+            selectedCell.classList.add('selected');
+            selectedCell.querySelector('.cell-checkmark').style.visibility = 'visible';
+          }
+
+          const displayName = albumName === 'all-photos' ? 'All Photos' : albumName;
+          document.getElementById('display-album-value').textContent = displayName;
+
+          this.saveSettingToParent('photos.source', albumName);
+
+          logger.info('Display album selected', { album: albumName });
+        }
+      }
+
+      async handleCreateAlbum() {
+        const albumName = prompt('Enter new album name:');
+        
+        if (!albumName || albumName.trim() === '') {
+          return;
+        }
+        
+        const sanitized = albumName.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
+        
+        if (sanitized === 'all-photos') {
+          alert('Album name "all-photos" is reserved. Please choose another name.');
+          return;
+        }
+
+        try {
+          await this.storage.createFolder(sanitized);
+          logger.info('Album created', { name: sanitized });
+          
+          await this.loadAlbums();
+          
+          alert(`Album "${sanitized}" created successfully!`);
+        } catch (error) {
+          logger.error('Failed to create album', error);
+          this.showError('Failed to create album: ' + error.message);
+        }
+      }
+
+      saveSettingToParent(path, value) {
+        const keys = path.split('.');
+        let obj = this.currentSettings;
+        for (let i = 0; i < keys.length - 1; i++) {
+          if (!obj[keys[i]]) obj[keys[i]] = {};
+          obj = obj[keys[i]];
+        }
+        obj[keys[keys.length - 1]] = value;
+
+        logger.info('Saving setting to parent', { path, value });
+
+        if (window.parent !== window) {
+          if (window.parent.settingsController) {
+            try {
+              window.parent.settingsController.updateSetting(path, value);
+              logger.success('Setting saved via settingsController');
+              return;
+            } catch (error) {
+              logger.warn('settingsController.updateSetting failed', error);
+            }
+          }
+          
+          const settingsInstance = window.parent.settingsInstance;
+          if (settingsInstance && settingsInstance.controller) {
+            try {
+              const controller = settingsInstance.controller;
+              if (typeof controller.updateSetting === 'function') {
+                controller.updateSetting(path, value);
+                logger.success('Setting saved via settingsInstance.controller');
+                return;
+              }
+            } catch (error) {
+              logger.warn('settingsInstance.controller.updateSetting failed', error);
+            }
+          }
+
+          window.parent.postMessage({
+            type: 'update-setting',
+            path,
+            value
+          }, '*');
+          
+          logger.debug('Setting update message posted');
+        }
       }
 
       async initialize(userId, theme, settings = {}) {
@@ -239,6 +527,7 @@
           await this.loadPhotoStats();
           await this.loadAlbums();
           this.populateCurrentSettings();
+          this.updateFocusableElements();
           
           logger.success('Modal initialized successfully');
         } catch (error) {
@@ -258,7 +547,7 @@
           document.getElementById('storage-used').textContent = `${usage.usedMB} MB / ${usage.quotaMB} MB`;
           document.getElementById('storage-bar-fill').style.width = `${usage.percentUsed}%`;
           
-          logger.debug('Photo stats loaded', { photos: allPhotos.length, albums: folders.length });
+          logger.debug('Photo stats loaded');
         } catch (error) {
           logger.error('Failed to load photo stats', error);
         }
@@ -268,47 +557,36 @@
         try {
           const folders = await this.storage.listFolders();
           
-          // Populate upload album list
-          const albumList = document.getElementById('album-list');
+          const albumList = document.getElementById('album-selection-list');
           albumList.innerHTML = '';
           
           folders.forEach(folder => {
             const cell = document.createElement('div');
             cell.className = 'settings-cell selectable';
             cell.dataset.album = folder.name;
+            cell.tabIndex = 0;
             cell.innerHTML = `
-              <span class="cell-label">${folder.name === 'all-photos' ? 'All Photos' : folder.name} ${folder.photoCount > 0 ? `(${folder.photoCount})` : ''}</span>
-            `;
-            
-            cell.addEventListener('click', () => this.handleAlbumSelect(folder.name));
-            albumList.appendChild(cell);
-          });
-          
-          // Populate display album list (for choosing which to display)
-          const displayAlbumList = document.getElementById('display-album-list');
-          displayAlbumList.innerHTML = '';
-          
-          const displayOptions = [
-            { value: 'recent', label: 'Recent Photos' },
-            { value: 'family', label: 'Family Album' },
-            { value: 'vacation', label: 'Vacation 2024' }
-          ];
-          
-          displayOptions.forEach(option => {
-            const cell = document.createElement('div');
-            cell.className = 'settings-cell selectable';
-            cell.dataset.value = option.value;
-            cell.innerHTML = `
-              <span class="cell-label">${option.label}</span>
+              <span class="cell-label">${folder.name === 'all-photos' ? 'All Photos' : folder.name}</span>
               <span class="cell-checkmark">✓</span>
             `;
-            
-            if (this.currentSettings.photos?.source === option.value) {
-              cell.classList.add('selected');
-            }
-            
-            cell.addEventListener('click', () => this.handleDisplayAlbumSelect(option.value, option.label));
-            displayAlbumList.appendChild(cell);
+            cell.addEventListener('click', () => this.handleAlbumSelection(folder.name, false));
+            albumList.appendChild(cell);
+          });
+
+          const uploadAlbumList = document.getElementById('upload-album-selection-list');
+          uploadAlbumList.innerHTML = '';
+          
+          folders.forEach(folder => {
+            const cell = document.createElement('div');
+            cell.className = 'settings-cell selectable';
+            cell.dataset.album = folder.name;
+            cell.tabIndex = 0;
+            cell.innerHTML = `
+              <span class="cell-label">${folder.name === 'all-photos' ? 'All Photos' : folder.name}</span>
+              <span class="cell-chevron">›</span>
+            `;
+            cell.addEventListener('click', () => this.handleAlbumSelection(folder.name, true));
+            uploadAlbumList.appendChild(cell);
           });
           
           logger.debug('Albums loaded', { count: folders.length });
@@ -318,243 +596,93 @@
       }
 
       populateCurrentSettings() {
-        // Update display album value
-        const albumLabels = {
-          'recent': 'Recent Photos',
-          'family': 'Family Album',
-          'vacation': 'Vacation 2024'
-        };
-        const currentAlbum = this.currentSettings.photos?.source || 'recent';
-        document.getElementById('display-album-value').textContent = albumLabels[currentAlbum] || 'Recent Photos';
-        
-        // Update transition time value
         const transitionTime = this.currentSettings.photos?.transitionTime || 5;
-        const formatTime = (seconds) => {
-          if (seconds < 60) return `${seconds} sec`;
-          if (seconds < 3600) return `${seconds / 60} min`;
-          return `${seconds / 3600} hour`;
-        };
-        document.getElementById('transition-value').textContent = formatTime(transitionTime);
-        
-        // Highlight selected transition time
-        document.querySelectorAll('#transition-list .settings-cell').forEach(cell => {
-          if (parseInt(cell.dataset.value) === transitionTime) {
+        document.querySelectorAll('#transition-screen .selectable').forEach(cell => {
+          const value = parseInt(cell.dataset.value);
+          if (value === transitionTime) {
             cell.classList.add('selected');
+            cell.querySelector('.cell-checkmark').style.visibility = 'visible';
           } else {
             cell.classList.remove('selected');
+            cell.querySelector('.cell-checkmark').style.visibility = 'hidden';
+          }
+        });
+        document.getElementById('transition-value').textContent = `${transitionTime} seconds`;
+
+        const source = this.currentSettings.photos?.source || 'all-photos';
+        const displayName = source === 'all-photos' ? 'All Photos' : source;
+        document.getElementById('display-album-value').textContent = displayName;
+        
+        document.querySelectorAll('#album-selection-list .selectable').forEach(cell => {
+          if (cell.dataset.album === source) {
+            cell.classList.add('selected');
+            cell.querySelector('.cell-checkmark').style.visibility = 'visible';
+          } else {
+            cell.classList.remove('selected');
+            cell.querySelector('.cell-checkmark').style.visibility = 'hidden';
           }
         });
       }
 
-      async handleAlbumSelect(albumName) {
-        logger.info('Album selected for upload', { album: albumName });
-        
-        // Open file picker immediately (user just clicked, so this is allowed)
-        this.openFilePicker(albumName);
-      }
+      async handleFileSelection(event) {
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
 
-      openFilePicker(albumName) {
-        if (this.isUploading) {
-          logger.warn('Upload already in progress');
-          return;
-        }
+        const targetAlbum = this.pendingUploadAlbum || 'all-photos';
+        logger.info('Files selected for upload', { count: files.length, album: targetAlbum });
 
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.multiple = true;
+        const progressSection = document.getElementById('upload-progress-section');
+        const progressInfo = document.getElementById('upload-progress-info');
+        const progressFill = document.getElementById('upload-progress-fill');
+        const progressDetail = document.getElementById('upload-progress-detail');
 
-        input.onchange = async (e) => {
-          const files = Array.from(e.target.files);
-          if (files.length > 0) {
-            await this.handleUpload(files, albumName);
-          }
-        };
-
-        input.click();
-      }
-
-      async handleUpload(files, albumName) {
-        this.clearError();
-        logger.info('Starting upload', { fileCount: files.length, album: albumName });
-
-        this.isUploading = true;
-        const progressSection = document.getElementById('progress-section');
-        progressSection.classList.add('active');
+        progressSection.style.display = 'block';
+        progressInfo.textContent = 'Preparing upload...';
+        progressFill.style.width = '0%';
+        progressDetail.textContent = `0 / ${files.length} files`;
 
         try {
-          const results = await this.storage.uploadPhotos(files, albumName, (percent, filename, current, total) => {
-            document.getElementById('progress-fill').style.width = `${percent}%`;
-            document.getElementById('progress-percentage').textContent = `${percent}%`;
-            document.getElementById('progress-detail').textContent = `Photo ${current} of ${total}: ${filename}`;
+          const results = await this.storage.uploadPhotos(files, targetAlbum, (percent, filename, current, total) => {
+            logger.debug('Upload progress', { percent, current, total, filename });
+            
+            progressFill.style.width = `${percent}%`;
+            progressDetail.textContent = `${current} / ${total} files`;
+            progressInfo.textContent = `Uploading ${filename}...`;
           });
 
-          const successCount = results.filter(r => r.success).length;
-          const failCount = results.length - successCount;
-
-          logger.info('Upload complete', { successful: successCount, failed: failCount });
-
-          if (failCount > 0) {
-            this.showError(`Upload complete: ${successCount} succeeded, ${failCount} failed.`);
+          const successful = results.filter(r => r.success).length;
+          
+          logger.info('Upload complete', { successful, total: files.length });
+          
+          if (successful === files.length) {
+            progressInfo.textContent = 'Upload complete!';
+            progressFill.style.width = '100%';
+            
+            if (window.parent !== window) {
+              window.parent.postMessage({
+                type: 'photos-uploaded'
+              }, '*');
+            }
+          } else {
+            progressInfo.textContent = `${successful} of ${files.length} photos uploaded`;
           }
 
-          // Refresh stats and album list
           await this.loadPhotoStats();
-          await this.loadAlbums();
 
-          // Notify parent
-          if (window.parent !== window) {
-            window.parent.postMessage({
-              type: 'photos-uploaded',
-              count: successCount
-            }, '*');
-          }
+          setTimeout(() => {
+            progressSection.style.display = 'none';
+            progressFill.style.width = '0%';
+          }, 2000);
 
-          // Close modal after successful upload
-          if (successCount > 0) {
-            setTimeout(() => {
-              progressSection.classList.remove('active');
-              this.close();
-            }, 1500);
-          }
+          event.target.value = '';
+          this.pendingUploadAlbum = null;
 
         } catch (error) {
           logger.error('Upload failed', error);
-          this.showError('Upload failed: ' + error.message);
-        } finally {
-          this.isUploading = false;
+          progressInfo.textContent = 'Upload failed: ' + error.message;
+          this.showError(error.message);
+          this.pendingUploadAlbum = null;
         }
-      }
-
-      async handleCreateAlbum() {
-        const albumName = prompt('Enter new album name:');
-        
-        if (!albumName || albumName.trim() === '') {
-          return;
-        }
-        
-        const sanitized = albumName.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
-        
-        if (sanitized === 'all-photos') {
-          alert('Album name "all-photos" is reserved. Please choose another name.');
-          return;
-        }
-        
-        logger.info('Creating new album', { name: sanitized });
-        
-        // Open file picker for new album
-        this.openFilePicker(sanitized);
-      }
-
-      handleDisplayAlbumSelect(value, label) {
-        // Update UI
-        document.querySelectorAll('#display-album-list .settings-cell').forEach(cell => {
-          if (cell.dataset.value === value) {
-            cell.classList.add('selected');
-          } else {
-            cell.classList.remove('selected');
-          }
-        });
-        
-        document.getElementById('display-album-value').textContent = label;
-        
-        // Notify parent to save setting
-        if (window.parent !== window) {
-          window.parent.postMessage({
-            type: 'update-setting',
-            setting: 'photos.source',
-            value: value
-          }, '*');
-        }
-        
-        logger.info('Display album changed', { value, label });
-        
-        // Navigate back
-        setTimeout(() => this.navigateBack(), 300);
-      }
-
-      handleTransitionTimeSelect(value, label) {
-        // Update UI
-        document.querySelectorAll('#transition-list .settings-cell').forEach(cell => {
-          if (parseInt(cell.dataset.value) === value) {
-            cell.classList.add('selected');
-          } else {
-            cell.classList.remove('selected');
-          }
-        });
-        
-        document.getElementById('transition-value').textContent = label;
-        
-        // Notify parent to save setting
-        if (window.parent !== window) {
-          window.parent.postMessage({
-            type: 'update-setting',
-            setting: 'photos.transitionTime',
-            value: value
-          }, '*');
-        }
-        
-        logger.info('Transition time changed', { value });
-        
-        // Navigate back
-        setTimeout(() => this.navigateBack(), 300);
-      }
-
-      navigateTo(screenId, title) {
-        // Setup transition time handlers when navigating to that screen
-        if (screenId === 'transition-screen') {
-          setTimeout(() => {
-            document.querySelectorAll('#transition-list .settings-cell').forEach(cell => {
-              cell.addEventListener('click', () => {
-                const value = parseInt(cell.dataset.value);
-                const label = cell.querySelector('.cell-label').textContent;
-                this.handleTransitionTimeSelect(value, label);
-              });
-            });
-          }, 100);
-        }
-        
-        // Hide current screen
-        document.getElementById(this.currentScreen).classList.remove('active');
-        
-        // Show new screen
-        document.getElementById(screenId).classList.add('active');
-        
-        // Update state
-        this.screenStack.push(screenId);
-        this.currentScreen = screenId;
-        
-        // Update header
-        this.modalTitle.textContent = title;
-        this.backBtn.style.visibility = 'visible';
-        
-        logger.debug('Navigated to', { screen: screenId });
-      }
-
-      navigateBack() {
-        if (this.screenStack.length <= 1) {
-          this.close();
-          return;
-        }
-        
-        // Pop current screen
-        this.screenStack.pop();
-        const previousScreen = this.screenStack[this.screenStack.length - 1];
-        
-        // Hide current screen
-        document.getElementById(this.currentScreen).classList.remove('active');
-        
-        // Show previous screen
-        document.getElementById(previousScreen).classList.add('active');
-        this.currentScreen = previousScreen;
-        
-        // Update header
-        if (previousScreen === 'main-screen') {
-          this.modalTitle.textContent = 'Photos';
-          this.backBtn.style.visibility = 'hidden';
-        }
-        
-        logger.debug('Navigated back to', { screen: previousScreen });
       }
 
       applyTheme(theme) {
@@ -566,11 +694,12 @@
       }
 
       showError(message) {
-        this.errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
-      }
-
-      clearError() {
-        this.errorContainer.innerHTML = '';
+        this.errorContainer.innerHTML = `
+          <div class="error-message">${message}</div>
+        `;
+        setTimeout(() => {
+          this.errorContainer.innerHTML = '';
+        }, 5000);
       }
 
       close() {
@@ -583,8 +712,7 @@
       }
     }
 
-    // Initialize modal
-    new PhotosSettingsModal();
+    const modal = new PhotosSettingsModal();
   </script>
 </body>
 </html>
