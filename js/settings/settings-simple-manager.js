@@ -1,6 +1,5 @@
 // js/settings/settings-simple-manager.js - Auto-save implementation
-// CHANGE SUMMARY: Consolidated selection logic into SettingsSelectionHandler - removed duplicate methods, uses shared handlers
-// LATEST: Removed updateMobileNavBar() and getCurrentScreenId() - now using shared methods, fixed theme/toast issues
+// CHANGE SUMMARY: Restored to working version with D-pad on all platforms
 
 import { SimplifiedNavigation } from './settings-d-pad-nav.js';
 import { setupEventHandlers } from './settings-event-handler.js';
@@ -9,59 +8,50 @@ import { getPlatformDetector } from '../utils/platform-detector.js';
 import { TimeSelectionHandler } from './time-selection-handler.js';
 import { SettingsSelectionHandler } from './settings-selection-handler.js';
 import { buildSettingsUI, populateFormFields, populateSystemStatus } from './settings-ui-builder.js';
-import { initializeUploadHandlers } from '../../widgets/photos/settings-photos.js';
-
 
 export class SimplifiedSettings {
   constructor() {
-  this.isVisible = false;
-  this.overlay = null;
-  this.navigation = null;
-  this.controller = null;
-  this.keydownHandler = null;
-  this.modalNavigation = null;
-  // Create shared handlers for consistent behavior
-  this.timeHandler = new TimeSelectionHandler();
-  this.selectionHandler = new SettingsSelectionHandler(this.timeHandler);
-  this.initializationAttempts = 0;
-  this.maxInitAttempts = 20;
-  
-  // Queue for widget requests that arrive before controller is ready
-  this.pendingWidgetRequests = [];
-  this.controllerReady = false;
-  
-  // Start initialization process with delay
-  setTimeout(() => this.initializeController(), 200);
-
-  // Listen for messages from widgets and modals
-  window.addEventListener('message', (event) => {
-    // Handle family name requests from widgets
-    if (event.data && event.data.type === 'request-family-name') {
-      console.log('👨‍👩‍👧‍👦 Widget requesting family name:', event.data.widget);
-      
-      if (this.controllerReady && this.controller) {
-        this.sendFamilyNameToWidget(event.source);
-      } else {
-        console.log('👨‍👩‍👧‍👦 ⏳ Controller not ready, queuing family name request');
-        this.pendingWidgetRequests.push({
-          type: 'family-name-request',
-          source: event.source,
-          widget: event.data.widget,
-          timestamp: Date.now()
-        });
-      }
-    }
+    this.isVisible = false;
+    this.overlay = null;
+    this.navigation = null;
+    this.controller = null;
+    this.keydownHandler = null;
+    this.modalNavigation = null;
+    this.timeHandler = new TimeSelectionHandler();
+    this.selectionHandler = new SettingsSelectionHandler(this.timeHandler);
+    this.initializationAttempts = 0;
+    this.maxInitAttempts = 20;
+    this.navigationStack = [];
     
-    // Handle setting updates from photos modal
-    if (event.data?.type === 'update-setting') {
-      const { setting, value } = event.data;
-      console.log('⚙️ Received setting update from photos modal', { setting, value });
+    this.pendingWidgetRequests = [];
+    this.controllerReady = false;
+    
+    setTimeout(() => this.initializeController(), 200);
+
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'request-family-name') {
+        console.log('👨‍👩‍👧‍👦 Widget requesting family name:', event.data.widget);
+        
+        if (this.controllerReady && this.controller) {
+          this.sendFamilyNameToWidget(event.source);
+        } else {
+          console.log('👨‍👩‍👧‍👦 ⏳ Controller not ready, queuing family name request');
+          this.pendingWidgetRequests.push({
+            type: 'family-name-request',
+            source: event.source,
+            widget: event.data.widget,
+            timestamp: Date.now()
+          });
+        }
+      }
       
-      // Update the setting
-      this.handleSettingChange(setting, value);
-    }
-  });
-}
+      if (event.data?.type === 'update-setting') {
+        const { setting, value } = event.data;
+        console.log('⚙️ Received setting update from photos modal', { setting, value });
+        this.handleSettingChange(setting, value);
+      }
+    });
+  }
 
   async initializeController() {
     try {
@@ -71,7 +61,6 @@ export class SimplifiedSettings {
       const authStatus = this.checkAuthStatus();
       console.log('⚙️ Auth status check:', authStatus);
       
-      // Initialize the controller
       const { SettingsController } = await import('./settings-controller.js');
       this.controller = new SettingsController();
       
@@ -86,24 +75,33 @@ export class SimplifiedSettings {
         
         if (this.initializationAttempts < this.maxInitAttempts) {
           const delay = Math.min(1000 * this.initializationAttempts, 5000);
-          console.log(`⚙️ Retrying in ${delay}ms...`);
+          console.log(`⚙️ ⏳ Retrying in ${delay}ms...`);
           setTimeout(() => this.initializeController(), delay);
         } else {
-          console.error('⚙️ ❌ Settings controller failed to initialize after max attempts');
+          console.error('⚙️ ❌ Max initialization attempts reached');
         }
       }
-      
     } catch (error) {
-      console.error('⚙️ ❌ Settings controller initialization error:', error);
+      console.error('⚙️ ❌ Settings initialization error:', error);
       
       if (this.initializationAttempts < this.maxInitAttempts) {
         const delay = Math.min(1000 * this.initializationAttempts, 5000);
-        console.log(`⚙️ Retrying in ${delay}ms...`);
         setTimeout(() => this.initializeController(), delay);
-      } else {
-        console.error('⚙️ ❌ Settings controller failed after max retry attempts');
       }
     }
+  }
+
+  checkAuthStatus() {
+    const hasAuth = !!window.dashieAuth;
+    const hasJwt = !!window.jwtAuth;
+    const jwtReady = window.jwtAuth?.isServiceReady();
+    
+    return {
+      hasAuth,
+      hasJwt,
+      jwtReady,
+      status: jwtReady ? 'ready' : hasJwt ? 'initializing' : 'unavailable'
+    };
   }
 
   processPendingWidgetRequests() {
@@ -121,26 +119,22 @@ export class SimplifiedSettings {
   }
 
   sendFamilyNameToWidget(targetWindow) {
-    const familyName = this.controller.getSetting('family.name');
-    console.log(`👨‍👩‍👧‍👦 Sending family name to widget: "${familyName}"`);
-    
-    targetWindow.postMessage({
-      type: 'family-name-response',
-      familyName: familyName || ''
-    }, '*');
-  }
-
-  checkAuthStatus() {
-    if (!window.jwtAuth) {
-      return { ready: false, reason: 'JWT auth service not available' };
+    if (!this.controller) {
+      console.warn('👨‍👩‍👧‍👦 Cannot send family name - controller not ready');
+      return;
     }
     
-    const hasSettings = window.jwtAuth.hasSettings && window.jwtAuth.hasSettings();
+    const familyName = this.controller.getSetting('family.familyName') || 'Dashie';
+    console.log('👨‍👩‍👧‍👦 Sending family name to widget:', familyName);
     
-    return {
-      ready: hasSettings,
-      reason: hasSettings ? 'Settings available' : 'No settings loaded yet'
-    };
+    try {
+      targetWindow.postMessage({
+        type: 'family-name-response',
+        familyName: familyName
+      }, '*');
+    } catch (error) {
+      console.error('👨‍👩‍👧‍👦 Failed to send family name to widget:', error);
+    }
   }
 
   async show() {
@@ -148,7 +142,12 @@ export class SimplifiedSettings {
       console.log('⚙️ Settings already visible');
       return;
     }
-    
+
+    if (!this.controller) {
+      console.warn('⚙️ Settings controller not ready yet');
+      return;
+    }
+
     const platformDetector = getPlatformDetector();
     const isMobile = platformDetector.isMobile();
     
@@ -177,7 +176,6 @@ export class SimplifiedSettings {
       this.setupTouchHandlers();
     } else {
       console.log('⚙️ 🖥️ Desktop mode - adding touch handlers AND registering with modal navigation');
-      // Desktop/TV gets BOTH touch handlers (for touchscreen) AND D-pad navigation
       this.setupTouchHandlers();
       
       this.modalNavigation = createModalNavigation(this.overlay, [], {
@@ -208,28 +206,20 @@ export class SimplifiedSettings {
     }
     
     this.showOverlay();
-    console.log('⚙️ 👁️ Settings shown successfully');
+    console.log('⚙️ Settings displayed');
   }
 
   setupTouchHandlers() {
-    // Navigation cells (cells with chevrons)
     this.overlay.addEventListener('click', (e) => {
       const cell = e.target.closest('.settings-cell[data-navigate]');
-      if (cell) {
+      if (cell && !cell.classList.contains('action-cell')) {
         const targetScreen = cell.dataset.navigate;
         console.log(`📱 Navigating to: ${targetScreen}`);
         this.navigateToScreen(targetScreen);
-
-            // Populate system status if navigating to that screen
+        
         if (targetScreen === 'system-status') {
           setTimeout(() => {
             populateSystemStatus(this.overlay);
-          }, 350);
-        }
-
-        if (targetScreen === 'photos') {
-          setTimeout(() => {
-            initializeUploadHandlers(this.overlay);
           }, 350);
         }
         
@@ -239,7 +229,6 @@ export class SimplifiedSettings {
       }
     });
     
-    // Back button
     const backBtn = this.overlay.querySelector('.nav-back-button');
     if (backBtn) {
       backBtn.addEventListener('click', () => {
@@ -254,10 +243,7 @@ export class SimplifiedSettings {
         }
       });
     }
-
     
-    
-    // Selectable cells (actual setting values)
     this.overlay.addEventListener('click', (e) => {
       const selectableCell = e.target.closest('.settings-cell.selectable');
       if (!selectableCell) return;
@@ -289,7 +275,6 @@ export class SimplifiedSettings {
             this.handleSettingChange(action.setting, action.value);
             this.selectionHandler.updateParentDisplayValue(action.setting, action.value, this.overlay);
             
-            // Navigate directly back to Display screen
             setTimeout(() => {
               this.navigateDirectToScreen('display');
             }, 300);
@@ -312,7 +297,6 @@ export class SimplifiedSettings {
       }
     });
     
-    // Form controls
     this.overlay.addEventListener('change', (e) => {
       if (e.target.matches('.form-control')) {
         const setting = e.target.dataset.setting;
@@ -323,20 +307,19 @@ export class SimplifiedSettings {
     });
     
     this.overlay.addEventListener('click', (e) => {
-        const photosBtn = e.target.closest('#photos-menu-btn');
-        if (photosBtn) {
-          console.log('📸 Photos menu clicked - opening photos settings modal');
-          
-          if (window.photosSettingsManager) {
-            window.photosSettingsManager.open();
-          } else {
-            console.error('📸 PhotosSettingsManager not available');
-            alert('Photo settings not available yet. Please wait a moment and try again.');
-          }
+      const photosBtn = e.target.closest('#photos-menu-btn');
+      if (photosBtn) {
+        console.log('📸 Photos menu clicked - opening photos settings modal');
+        
+        if (window.photosSettingsManager) {
+          window.photosSettingsManager.open();
+        } else {
+          console.error('📸 PhotosSettingsManager not available');
+          alert('Photo settings not available yet. Please wait a moment and try again.');
         }
-      });
+      }
+    });
 
-    
     this.navigationStack = ['root'];
     this.selectionHandler.updateNavBar(this.overlay, this.getCurrentScreenId(), this.navigationStack);
   }
@@ -402,10 +385,8 @@ export class SimplifiedSettings {
     
     console.log(`📱 Navigating directly to: ${targetScreenId}`);
     
-    // Reset stack to include only root and target
     this.navigationStack = ['root', targetScreenId];
     
-    // Animate transition
     currentScreen.classList.remove('active');
     currentScreen.classList.add('sliding-out-right');
     
@@ -438,7 +419,6 @@ export class SimplifiedSettings {
       populateFormFields(this.overlay, settings);
       
       const theme = settings.display?.theme || 'dark';
-      // Apply theme to document body, not overlay
       if (theme === 'dark') {
         document.body.classList.remove('theme-light');
         document.body.classList.add('theme-dark');
@@ -456,7 +436,6 @@ export class SimplifiedSettings {
     console.log(`⚙️ Theme changed to: ${theme}`);
     this.handleSettingChange('display.theme', theme);
     
-    // Apply theme to document body
     if (theme === 'dark') {
       document.body.classList.remove('theme-light');
       document.body.classList.add('theme-dark');
@@ -477,12 +456,10 @@ export class SimplifiedSettings {
     this.controller.setSetting(path, value);
     this.controller.saveSettings();
     
-    // Show save confirmation toast
     this.showSaveToast();
   }
 
   showSaveToast() {
-    // Create or reuse toast element
     let toast = document.getElementById('settings-save-toast');
     if (!toast) {
       toast = document.createElement('div');
@@ -492,12 +469,10 @@ export class SimplifiedSettings {
       document.body.appendChild(toast);
     }
     
-    // Show toast
     requestAnimationFrame(() => {
       toast.classList.add('show');
     });
     
-    // Hide toast after 2 seconds
     setTimeout(() => {
       toast.classList.remove('show');
     }, 2000);
@@ -544,5 +519,4 @@ export class SimplifiedSettings {
   }
 }
 
-// Export as default for backward compatibility
 export default SimplifiedSettings;

@@ -1,9 +1,8 @@
 // js/settings/settings-ui-builder.js
-// CHANGE SUMMARY: Refactored - extracted all HTML templates to settings-templates.js and widget-specific files, keeping only logic here
+// CHANGE SUMMARY: Removed photos settings integration - Photos now use modal only
 
 import { getPlatformDetector } from '../utils/platform-detector.js';
 import * as templates from './settings-templates.js';
-import { buildPhotosSettingsScreens, populatePhotoFields } from '../../widgets/photos/settings-photos.js';
 
 /**
  * Build the complete settings UI
@@ -24,7 +23,6 @@ function buildMobileSettingsUI() {
         <div class="settings-screens">
           ${templates.rootScreen}
           ${templates.displayScreens}
-          ${buildPhotosSettingsScreens()}
           ${templates.calendarScreens}
           ${templates.familyScreen}
           ${templates.systemScreens}
@@ -84,9 +82,6 @@ export function populateFormFields(overlay, settings) {
   if (mobileWakeTimeValue && settings.display?.wakeTime) {
     mobileWakeTimeValue.textContent = formatTime(settings.display.wakeTime);
   }
-  
-  // Delegate photo fields to photo settings module
-  populatePhotoFields(overlay, settings);
 }
 
 /**

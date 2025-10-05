@@ -1,5 +1,5 @@
-    // widgets/photos/photos-settings-modal.js
-// CHANGE SUMMARY: Refactored from photos-settings.html, removed album/folder feature - single folder only
+// widgets/photos/photos-settings-modal.js
+// CHANGE SUMMARY: Fixed: upload overlay, transition selection highlight, early focus, storage display
 
 import { createLogger } from '../../js/utils/logger.js';
 import { PhotoStorageService } from '../../js/supabase/photo-storage-service.js';
@@ -8,45 +8,48 @@ const logger = createLogger('PhotosSettingsModal');
 
 export class PhotosSettingsModal {
   constructor() {
-    this.storage = null;
     this.userId = null;
+    this.storage = null;
     this.currentSettings = {};
-    this.navigationStack = ['main-screen'];
-    this.currentFocusIndex = 0;
-    this.focusableElements = [];
     
+    this.modalTitle = document.getElementById('modal-title');
     this.backBtn = document.getElementById('back-button');
     this.closeBtn = document.getElementById('close-button');
-    this.modalTitle = document.getElementById('modal-title');
     this.errorContainer = document.getElementById('error-container');
     
-    logger.info('PhotosSettingsModal initializing');
-    this.setupEventListeners();
-    this.signalReady();
-  }
-
-  signalReady() {
-    logger.debug('Signaling modal ready to parent');
-    if (window.parent !== window) {
-      window.parent.postMessage({
-        type: 'photos-modal-ready'
-      }, '*');
-    }
-  }
-
-  setupEventListeners() {
-    this.backBtn.addEventListener('click', () => this.handleBack());
-    this.closeBtn.addEventListener('click', () => this.close());
-
+    this.navigationStack = ['main-screen'];
+    this.focusableElements = [];
+    this.currentFocusIndex = 0;
+    
+    this.attachEventListeners();
+    
+    // Signal ready immediately and highlight first item
+    this.updateFocusableElements();
+    
     window.addEventListener('message', (event) => {
       if (event.data?.type === 'init-photos-modal') {
-        this.initialize(event.data.userId, event.data.theme, event.data.settings);
+        this.initialize(
+          event.data.userId,
+          event.data.theme,
+          event.data.settings
+        );
       }
     });
+    
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'photos-modal-ready' }, '*');
+    }
+    
+    logger.info('PhotosSettingsModal created');
+  }
 
+  attachEventListeners() {
+    this.closeBtn.addEventListener('click', () => this.close());
+    this.backBtn.addEventListener('click', () => this.handleBack());
+    
     document.addEventListener('keydown', (e) => this.handleKeydown(e));
 
-    // CHANGED: Add Photos now opens file picker directly (no album selection)
+    // Add Photos opens file picker directly
     const addPhotosBtn = document.getElementById('add-photos-menu');
     if (addPhotosBtn) {
       addPhotosBtn.addEventListener('click', () => {
@@ -241,13 +244,21 @@ export class PhotosSettingsModal {
   handleTransitionSelection(cell) {
     const value = parseInt(cell.dataset.value);
     
+    // Remove selection from all cells
     document.querySelectorAll('#transition-screen .selectable').forEach(c => {
       c.classList.remove('selected');
-      c.querySelector('.cell-checkmark').style.visibility = 'hidden';
+      const checkmark = c.querySelector('.cell-checkmark');
+      if (checkmark) {
+        checkmark.style.visibility = 'hidden';
+      }
     });
 
+    // Add selection to clicked cell
     cell.classList.add('selected');
-    cell.querySelector('.cell-checkmark').style.visibility = 'visible';
+    const checkmark = cell.querySelector('.cell-checkmark');
+    if (checkmark) {
+      checkmark.style.visibility = 'visible';
+    }
 
     document.getElementById('transition-value').textContent = `${value} seconds`;
 
@@ -312,9 +323,10 @@ export class PhotosSettingsModal {
         this.applyTheme(theme);
       }
 
-      await this.loadPhotoStats();
+      // Load stats asynchronously (don't wait for it)
+      this.loadPhotoStats();
+      
       this.populateCurrentSettings();
-      this.updateFocusableElements();
       
       logger.success('Modal initialized successfully');
     } catch (error) {
@@ -326,12 +338,51 @@ export class PhotosSettingsModal {
   async loadPhotoStats() {
     try {
       const usage = await this.storage.getStorageUsage();
-      // CHANGED: Always load from default folder (no album selection)
       const allPhotos = await this.storage.listPhotos(null, 1000);
       
       document.getElementById('photo-count').textContent = allPhotos.length;
-      document.getElementById('storage-used').textContent = `${usage.usedMB} MB / ${usage.quotaMB} MB`;
+      
+      // Format storage: Show GB if over 1000 MB, otherwise MB
+      const usedDisplay = usage.usedMB >= 1000 
+        ? `${(usage.usedMB / 1024).toFixed(1)} GB`
+        : `${usage.usedMB} MB`;
+      
+      const quotaDisplay = usage.quotaMB >= 1000
+        ? `${(usage.quotaMB / 1024).toFixed(1)} GB`
+        : `${usage.quotaMB} MB`;
+      
+      // Update storage text (without percentage)
+      document.getElementById('storage-used').textContent = `${usedDisplay} / ${quotaDisplay}`;
+      
+      // Update storage bar
       document.getElementById('storage-bar-fill').style.width = `${usage.percentUsed}%`;
+      
+      // Add/update percentage text below bar
+      let percentText = document.getElementById('storage-percent-text');
+      if (!percentText) {
+        // Create the element if it doesn't exist
+        percentText = document.createElement('div');
+        percentText.id = 'storage-percent-text';
+        percentText.style.cssText = `
+          font-size: 13px;
+          color: #8e8e93;
+          text-align: center;
+          margin-top: 4px;
+        `;
+        
+        // Insert after storage bar
+        const storageBar = document.querySelector('.storage-bar');
+        if (storageBar && storageBar.parentNode) {
+          storageBar.parentNode.insertBefore(percentText, storageBar.nextSibling);
+        }
+      }
+      
+      percentText.textContent = `${Math.round(usage.percentUsed)}% of storage used`;
+      
+      // Apply dark theme styling if needed
+      if (document.body.classList.contains('theme-dark')) {
+        percentText.style.color = '#8e8e93';
+      }
       
       logger.debug('Photo stats loaded');
     } catch (error) {
@@ -345,10 +396,16 @@ export class PhotosSettingsModal {
       const value = parseInt(cell.dataset.value);
       if (value === transitionTime) {
         cell.classList.add('selected');
-        cell.querySelector('.cell-checkmark').style.visibility = 'visible';
+        const checkmark = cell.querySelector('.cell-checkmark');
+        if (checkmark) {
+          checkmark.style.visibility = 'visible';
+        }
       } else {
         cell.classList.remove('selected');
-        cell.querySelector('.cell-checkmark').style.visibility = 'hidden';
+        const checkmark = cell.querySelector('.cell-checkmark');
+        if (checkmark) {
+          checkmark.style.visibility = 'hidden';
+        }
       }
     });
     document.getElementById('transition-value').textContent = `${transitionTime} seconds`;
@@ -358,27 +415,36 @@ export class PhotosSettingsModal {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
-    // CHANGED: Always upload to default folder (no album selection)
     const targetFolder = 'all-photos';
     logger.info('Files selected for upload', { count: files.length, folder: targetFolder });
 
-    const progressSection = document.getElementById('upload-progress-section');
-    const progressInfo = document.getElementById('upload-progress-info');
-    const progressFill = document.getElementById('upload-progress-fill');
-    const progressDetail = document.getElementById('upload-progress-detail');
+    // Show upload modal overlay
+    this.showUploadOverlay();
+    this.cancelUpload = false;
 
-    progressSection.style.display = 'block';
+    // Get modal progress elements
+    const progressInfo = document.getElementById('modal-upload-info');
+    const progressFill = document.getElementById('modal-upload-fill');
+    const progressDetail = document.getElementById('modal-upload-detail');
+
     progressInfo.textContent = 'Preparing upload...';
     progressFill.style.width = '0%';
     progressDetail.textContent = `0 / ${files.length} files`;
 
     try {
+      let uploadedCount = 0;
       const results = await this.storage.uploadPhotos(files, targetFolder, (percent, filename, current, total) => {
+        // Check if upload was cancelled
+        if (this.cancelUpload) {
+          throw new Error('Upload cancelled by user');
+        }
+        
         logger.debug('Upload progress', { percent, current, total, filename });
         
         progressFill.style.width = `${percent}%`;
         progressDetail.textContent = `${current} / ${total} files`;
         progressInfo.textContent = `Uploading ${filename}...`;
+        uploadedCount = current;
       });
 
       const successful = results.filter(r => r.success).length;
@@ -401,16 +467,114 @@ export class PhotosSettingsModal {
       await this.loadPhotoStats();
 
       setTimeout(() => {
-        progressSection.style.display = 'none';
-        progressFill.style.width = '0%';
+        this.hideUploadOverlay();
       }, 2000);
 
       event.target.value = '';
 
     } catch (error) {
       logger.error('Upload failed', error);
-      progressInfo.textContent = 'Upload failed: ' + error.message;
-      this.showError(error.message);
+      
+      if (error.message === 'Upload cancelled by user') {
+        progressInfo.textContent = 'Upload cancelled';
+        progressInfo.style.color = '#ff3b30';
+      } else {
+        progressInfo.textContent = 'Upload failed: ' + error.message;
+        progressInfo.style.color = '#ff3b30';
+        this.showError(error.message);
+      }
+      
+      setTimeout(() => {
+        this.hideUploadOverlay();
+      }, 2000);
+    }
+  }
+
+  showUploadOverlay() {
+    let overlay = document.getElementById('upload-blocking-overlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'upload-blocking-overlay';
+      overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 9998;
+        pointer-events: all;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      `;
+      document.body.appendChild(overlay);
+      
+      // Create the upload modal inside the overlay
+      const uploadModal = document.createElement('div');
+      uploadModal.id = 'upload-progress-modal';
+      uploadModal.style.cssText = `
+        background: #fff;
+        border-radius: 12px;
+        padding: 24px;
+        width: 90%;
+        max-width: 400px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      `;
+      
+      // Add dark theme support
+      if (document.body.classList.contains('theme-dark')) {
+        uploadModal.style.background = '#1c1c1e';
+        uploadModal.style.color = '#ffffff';
+      }
+      
+      uploadModal.innerHTML = `
+        <h3 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600;">Uploading Photos</h3>
+        <div id="modal-upload-info" style="font-size: 15px; color: #8e8e93; margin-bottom: 12px;">Preparing...</div>
+        <div style="background: #e5e5ea; border-radius: 4px; height: 8px; overflow: hidden; margin-bottom: 8px;">
+          <div id="modal-upload-fill" style="height: 100%; background: #EE9828; width: 0%; transition: width 0.3s ease;"></div>
+        </div>
+        <div id="modal-upload-detail" style="font-size: 13px; color: #8e8e93; margin-bottom: 16px;">0 / 0 files</div>
+        <button id="cancel-upload-btn" style="
+          width: 100%;
+          padding: 12px;
+          background: transparent;
+          border: 1px solid #8e8e93;
+          border-radius: 8px;
+          color: #8e8e93;
+          font-size: 16px;
+          cursor: pointer;
+          transition: all 0.2s;
+        ">Cancel Upload</button>
+      `;
+      
+      overlay.appendChild(uploadModal);
+      
+      // Style the cancel button on hover
+      const cancelBtn = uploadModal.querySelector('#cancel-upload-btn');
+      cancelBtn.addEventListener('mouseenter', () => {
+        cancelBtn.style.background = 'rgba(142, 142, 147, 0.1)';
+      });
+      cancelBtn.addEventListener('mouseleave', () => {
+        cancelBtn.style.background = 'transparent';
+      });
+      
+      // Add cancel functionality (will be implemented in handleFileSelection)
+      cancelBtn.addEventListener('click', () => {
+        this.cancelUpload = true;
+        cancelBtn.disabled = true;
+        cancelBtn.textContent = 'Cancelling...';
+        cancelBtn.style.opacity = '0.5';
+      });
+    }
+    overlay.style.display = 'flex';
+  }
+
+  hideUploadOverlay() {
+    const overlay = document.getElementById('upload-blocking-overlay');
+    if (overlay) {
+      overlay.style.display = 'none';
+      overlay.remove();
     }
   }
 
