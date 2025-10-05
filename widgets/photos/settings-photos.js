@@ -336,6 +336,7 @@ export async function populatePhotoStats(overlay) {
 }
 
 
+
 /**
  * Initialize upload functionality on the photos screen
  * @param {HTMLElement} overlay - The settings overlay element
@@ -365,6 +366,62 @@ export function initializeUploadHandlers(overlay) {
   
   console.log('📸 Upload handlers initialized');
 }
+
+
+/**
+ * Highlight photo menu items based on current settings
+ * This is synchronous and happens immediately for responsive UI
+ * @param {HTMLElement} overlay - The settings overlay element  
+ * @param {Object} settings - Current settings object
+ */
+export function highlightPhotoSettings(overlay, settings) {
+  // Photo transition selection cells
+  const photoTransitionCells = overlay.querySelectorAll('.settings-cell[data-setting="photos.transitionTime"]');
+  photoTransitionCells.forEach(cell => {
+    if (parseInt(cell.dataset.value) === settings.photos?.transitionTime) {
+      cell.classList.add('selected');
+    } else {
+      cell.classList.remove('selected');
+    }
+  });
+  
+  // Photo album value display
+  const mobilePhotoAlbumValue = overlay.querySelector('#mobile-photo-album-value');
+  if (mobilePhotoAlbumValue && settings.photos?.source) {
+    const albumLabels = {
+      'recent': 'Recent Photos',
+      'family': 'Family Album',
+      'vacation': 'Vacation 2024'
+    };
+    mobilePhotoAlbumValue.textContent = albumLabels[settings.photos.source] || 'Recent Photos';
+  }
+  
+  // Photo album selection cells
+  const photoAlbumCells = overlay.querySelectorAll('.settings-cell[data-setting="photos.source"]');
+  photoAlbumCells.forEach(cell => {
+    if (cell.dataset.value === settings.photos?.source) {
+      cell.classList.add('selected');
+    } else {
+      cell.classList.remove('selected');
+    }
+  });
+  
+  // ADDED: Immediately highlight the first menu item on photos screen
+  const photosScreen = overlay.querySelector('[data-screen="photos"]');
+  if (photosScreen && photosScreen.classList.contains('active')) {
+    const menuCells = photosScreen.querySelectorAll('.settings-cell');
+    if (menuCells.length > 0) {
+      // Remove any existing focused class
+      menuCells.forEach(cell => cell.classList.remove('focused'));
+      // Add focused to first menu item (after the stats box)
+      const firstMenuCell = photosScreen.querySelector('.settings-section:not(:first-child) .settings-cell');
+      if (firstMenuCell) {
+        firstMenuCell.classList.add('focused');
+      }
+    }
+  }
+}
+
 
 /**
  * Populate album list for selection

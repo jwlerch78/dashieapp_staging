@@ -293,57 +293,66 @@ export class SettingsControllerCore {
     return current;
   }
 
-  // Set setting with immediate application
-  setSetting(path, value) {
-    if (!this.isInitialized) {
-      console.warn('⚙️ Settings not initialized, cannot set:', path);
-      return false;
-    }
+  // js/settings/settings-controller-core.js
+// CHANGE SUMMARY: Added validation for undefined/null path in setSetting method to prevent split() error
 
-    const keys = path.split('.');
-    let current = this.currentSettings;
-    
-    // Navigate to the parent object, creating nested objects as needed
-    for (let i = 0; i < keys.length - 1; i++) {
-      const key = keys[i];
-      if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
-        current[key] = {};
-      }
-      current = current[key];
-    }
-    
-    // Set the final value
-    const finalKey = keys[keys.length - 1];
-    const oldValue = current[finalKey];
-    current[finalKey] = value;
-    
-    // Mark as dirty if value changed
-    if (oldValue !== value) {
-      this.isDirty = true;
-      this.currentSettings.lastModified = Date.now();
-      
-      // Apply immediate changes for specific settings
-      if (path === 'display.theme') {
-        this.applyThemeImmediate(value);
-      }
-      
-      if (path === 'family.familyName') {
-        this.applyFamilyNameImmediate(value);
-      }
-      
-      if (path === 'system.activeSite') {
-        this.handleSiteChange(value);
-      }
-      
-      // Auto-save after a short delay (debounced)
-      this.scheduleAutoSave();
-      this.saveToLocalStorage();
-      return true;
-    } else {
-      this.saveToLocalStorage();
-      return true;
-    }
+// Set setting with immediate application
+setSetting(path, value) {
+  // ADDED: Validate path parameter
+  if (!path || typeof path !== 'string') {
+    console.error('⚙️ Invalid setting path:', path);
+    return false;
   }
+
+  if (!this.isInitialized) {
+    console.warn('⚙️ Settings not initialized, cannot set:', path);
+    return false;
+  }
+
+  const keys = path.split('.');
+  let current = this.currentSettings;
+  
+  // Navigate to the parent object, creating nested objects as needed
+  for (let i = 0; i < keys.length - 1; i++) {
+    const key = keys[i];
+    if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
+      current[key] = {};
+    }
+    current = current[key];
+  }
+  
+  // Set the final value
+  const finalKey = keys[keys.length - 1];
+  const oldValue = current[finalKey];
+  current[finalKey] = value;
+  
+  // Mark as dirty if value changed
+  if (oldValue !== value) {
+    this.isDirty = true;
+    this.currentSettings.lastModified = Date.now();
+    
+    // Apply immediate changes for specific settings
+    if (path === 'display.theme') {
+      this.applyThemeImmediate(value);
+    }
+    
+    if (path === 'family.familyName') {
+      this.applyFamilyNameImmediate(value);
+    }
+    
+    if (path === 'system.activeSite') {
+      this.handleSiteChange(value);
+    }
+    
+    // Auto-save after a short delay (debounced)
+    this.scheduleAutoSave();
+    this.saveToLocalStorage();
+    return true;
+  } else {
+    this.saveToLocalStorage();
+    return true;
+  }
+}
 
   // Get all settings for a category
   getCategorySettings(categoryId) {

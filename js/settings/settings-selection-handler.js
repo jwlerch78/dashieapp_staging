@@ -1,6 +1,5 @@
 // js/settings/settings-selection-handler.js
-// CHANGE SUMMARY: Consolidated selection logic from settings-simplified-manager and settings-d-pad-nav
-// LATEST: Added updateNavBar() and getCurrentScreenId() shared methods
+// CHANGE SUMMARY: Updated highlightCurrentSelections to use sync highlightPhotoSettings for photos screen instead of async populatePhotoStats
 
 import { TimeSelectionHandler } from './time-selection-handler.js';
 
@@ -109,6 +108,23 @@ export class SettingsSelectionHandler {
     if (currentScreenId.includes('sleep-time') || currentScreenId.includes('wake-time')) {
       this.timeHandler.highlightCurrentTimeSelection(overlay, currentScreenId);
       return;
+    }
+    
+    // CHANGED: For photos screen, use synchronous highlighting first
+    if (currentScreenId === 'photos') {
+      // Get current settings for highlighting
+      const settings = window.settingsInstance?.controller?.getSettings() || {};
+      
+      // Import and call highlightPhotoSettings (synchronous) for immediate UI response
+      import('../../widgets/photos/settings-photos.js').then(({ highlightPhotoSettings, populatePhotoStats }) => {
+        // Synchronous highlighting happens first
+        highlightPhotoSettings(overlay, settings);
+        
+        // Then trigger async data loading (doesn't block UI)
+        populatePhotoStats(overlay);
+      });
+      
+      return; // Exit early - photos handled separately
     }
     
     const selectableCells = activeScreen.querySelectorAll('.settings-cell.selectable[data-setting]');
