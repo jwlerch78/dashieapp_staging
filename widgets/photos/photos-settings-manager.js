@@ -1,0 +1,262 @@
+// widgets/photos/photos-settings-manager.js
+// CHANGE SUMMARY: Renamed from photo-upload-manager.js, updated to use photos-settings.html modal
+
+import { createLogger } from '../../js/utils/logger.js';
+
+const logger = createLogger('PhotosSettingsManager');
+
+/**
+ * PhotosSettingsManager - Manages the photos settings modal iframe
+ * Handles loading the iframe, passing userId, and coordinating navigation
+ */
+export class PhotosSettingsManager {
+  constructor(photoDataService) {
+    this.photoDataService = photoDataService;
+    this.modalIframe = null;
+    this.modalContainer = null;
+    this.isOpen = false;
+    this.iframeReady = false;
+    
+    logger.info('PhotosSettingsManager initialized');
+    
+    // Listen for messages from the modal iframe
+    this.setupMessageListener();
+  }
+
+  setupMessageListener() {
+    window.addEventListener('message', (event) => {
+      const data = event.data;
+      
+      if (data?.type === 'photos-modal-ready') {
+        logger.debug('Photos modal iframe signaled ready');
+        this.iframeReady = true;
+        this.sendInitializationData();
+      } else if (data?.type === 'close-photos-modal') {
+        logger.debug('Photos modal requested close');
+        this.close();
+      } else if (data?.type === 'photos-uploaded') {
+        logger.info('Photos uploaded - triggering data refresh');
+        // Trigger DataManager to refresh photos so they appear immediately
+        if (window.dataManager) {
+          window.dataManager.refreshPhotosData(true).catch(err => {
+            logger.error('Failed to refresh photos after upload', err);
+          });
+        } else {
+          logger.warn('DataManager not available for photo refresh');
+        }
+      }
+    });
+  }
+
+  /**
+   * Open the photos settings modal
+   */
+  async open() {
+    if (this.isOpen) {
+      logger.warn('Photos modal already open');
+      return;
+    }
+
+    logger.info('Opening photos settings modal');
+    this.isOpen = true;
+    this.iframeReady = false;
+
+    // Create modal container and iframe
+    this.createModal();
+
+    // Register with modal navigation manager
+    try {
+      if (window.dashieModalManager) {
+        window.dashieModalManager.registerModal(this.modalContainer, {
+          buttons: [],
+          horizontalNavigation: false,
+          onEscape: () => this.close()
+        });
+        logger.debug('Registered with modal navigation manager');
+      } else {
+        logger.warn('Modal navigation manager not found');
+      }
+    } catch (error) {
+      logger.warn('Failed to register with modal navigation, continuing anyway', error);
+    }
+  }
+
+  /**
+   * Create the modal DOM structure with iframe
+   */
+  createModal() {
+    // Remove existing modal if present
+    const existing = document.getElementById('photosSettingsModalContainer');
+    if (existing) {
+      existing.remove();
+    }
+
+    // Create modal container
+    const container = document.createElement('div');
+    container.id = 'photosSettingsModalContainer';
+    container.className = 'photos-settings-modal-container';
+    
+    // Create backdrop
+    const backdrop = document.createElement('div');
+    backdrop.className = 'photos-settings-backdrop';
+    backdrop.addEventListener('click', () => this.close());
+    
+    // Create iframe wrapper
+    const wrapper = document.createElement('div');
+    wrapper.className = 'photos-settings-iframe-wrapper';
+    
+    // Create iframe
+    const iframe = document.createElement('iframe');
+    iframe.className = 'photos-settings-iframe';
+    iframe.src = 'widgets/photos/photos-settings.html';
+    iframe.setAttribute('title', 'Photos Settings');
+    
+    // Store reference
+    this.modalIframe = iframe;
+    
+    // Add styles
+    this.addModalStyles();
+    
+    // Assemble
+    wrapper.appendChild(iframe);
+    container.appendChild(backdrop);
+    container.appendChild(wrapper);
+    document.body.appendChild(container);
+    
+    this.modalContainer = container;
+    
+    logger.debug('Modal DOM created');
+  }
+
+  /**
+   * Send initialization data to the iframe once it signals ready
+   */
+  sendInitializationData() {
+    if (!this.iframeReady || !this.modalIframe) {
+      logger.warn('Cannot send initialization - iframe not ready');
+      return;
+    }
+
+    // Get userId from photoDataService
+    const userId = this.photoDataService?.userId;
+
+    if (!userId) {
+      logger.error('No userId available to send to modal');
+      return;
+    }
+
+    // Determine theme
+    const theme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+
+    // Get current settings from parent
+    const settings = window.parent?.settingsController?.getSettings() || {};
+
+    // Send initialization message to iframe
+    const initMessage = {
+      type: 'init-photos-modal',
+      userId: userId,
+      theme: theme,
+      settings: settings
+    };
+
+    logger.info('Sending initialization data to iframe', { 
+      userId: initMessage.userId, 
+      theme,
+      hasSettings: !!settings.photos
+    });
+    
+    this.modalIframe.contentWindow.postMessage(initMessage, '*');
+  }
+
+  /**
+   * Add modal styles to document
+   */
+  addModalStyles() {
+    // Check if styles already exist
+    if (document.getElementById('photos-settings-modal-styles')) {
+      return;
+    }
+
+    const style = document.createElement('style');
+    style.id = 'photos-settings-modal-styles';
+    style.textContent = `
+      .photos-settings-modal-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 10000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .photos-settings-backdrop {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(4px);
+      }
+
+      .photos-settings-iframe-wrapper {
+        position: relative;
+        z-index: 1;
+        width: 90%;
+        max-width: 500px;
+        max-height: 90vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .photos-settings-iframe {
+        width: 100%;
+        height: auto;
+        min-height: 400px;
+        max-height: 90vh;
+        border: none;
+        border-radius: 12px;
+        background: white;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      }
+
+      body.theme-dark .photos-settings-iframe {
+        background: #1a1a1a;
+      }
+    `;
+
+    document.head.appendChild(style);
+    logger.debug('Modal styles added');
+  }
+
+  /**
+   * Close the modal
+   */
+  close() {
+    if (!this.isOpen) {
+      return;
+    }
+
+    logger.info('Closing photos settings modal');
+    this.isOpen = false;
+    this.iframeReady = false;
+
+    // Unregister from modal navigation
+    if (window.dashieModalManager && window.dashieModalManager.hasActiveModal()) {
+      window.dashieModalManager.unregisterModal();
+    }
+
+    // Remove modal from DOM
+    if (this.modalContainer) {
+      this.modalContainer.remove();
+      this.modalContainer = null;
+      this.modalIframe = null;
+    }
+
+    logger.debug('Photos settings modal closed');
+  }
+}

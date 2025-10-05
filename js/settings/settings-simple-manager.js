@@ -12,47 +12,56 @@ import { buildSettingsUI, populateFormFields, populateSystemStatus } from './set
 import { initializeUploadHandlers } from '../../widgets/photos/settings-photos.js';
 
 
-
 export class SimplifiedSettings {
   constructor() {
-    this.isVisible = false;
-    this.overlay = null;
-    this.navigation = null;
-    this.controller = null;
-    this.keydownHandler = null;
-    this.modalNavigation = null;
-    // Create shared handlers for consistent behavior
-    this.timeHandler = new TimeSelectionHandler();
-    this.selectionHandler = new SettingsSelectionHandler(this.timeHandler);
-    this.initializationAttempts = 0;
-    this.maxInitAttempts = 20;
-    
-    // Queue for widget requests that arrive before controller is ready
-    this.pendingWidgetRequests = [];
-    this.controllerReady = false;
-    
-    // Start initialization process with delay
-    setTimeout(() => this.initializeController(), 200);
+  this.isVisible = false;
+  this.overlay = null;
+  this.navigation = null;
+  this.controller = null;
+  this.keydownHandler = null;
+  this.modalNavigation = null;
+  // Create shared handlers for consistent behavior
+  this.timeHandler = new TimeSelectionHandler();
+  this.selectionHandler = new SettingsSelectionHandler(this.timeHandler);
+  this.initializationAttempts = 0;
+  this.maxInitAttempts = 20;
+  
+  // Queue for widget requests that arrive before controller is ready
+  this.pendingWidgetRequests = [];
+  this.controllerReady = false;
+  
+  // Start initialization process with delay
+  setTimeout(() => this.initializeController(), 200);
 
-    // Listen for widget requests for family name and queue them if needed
-    window.addEventListener('message', (event) => {
-      if (event.data && event.data.type === 'request-family-name') {
-        console.log('👨‍👩‍👧‍👦 Widget requesting family name:', event.data.widget);
-        
-        if (this.controllerReady && this.controller) {
-          this.sendFamilyNameToWidget(event.source);
-        } else {
-          console.log('👨‍👩‍👧‍👦 ⏳ Controller not ready, queuing family name request');
-          this.pendingWidgetRequests.push({
-            type: 'family-name-request',
-            source: event.source,
-            widget: event.data.widget,
-            timestamp: Date.now()
-          });
-        }
+  // Listen for messages from widgets and modals
+  window.addEventListener('message', (event) => {
+    // Handle family name requests from widgets
+    if (event.data && event.data.type === 'request-family-name') {
+      console.log('👨‍👩‍👧‍👦 Widget requesting family name:', event.data.widget);
+      
+      if (this.controllerReady && this.controller) {
+        this.sendFamilyNameToWidget(event.source);
+      } else {
+        console.log('👨‍👩‍👧‍👦 ⏳ Controller not ready, queuing family name request');
+        this.pendingWidgetRequests.push({
+          type: 'family-name-request',
+          source: event.source,
+          widget: event.data.widget,
+          timestamp: Date.now()
+        });
       }
-    });
-  }
+    }
+    
+    // Handle setting updates from photos modal
+    if (event.data?.type === 'update-setting') {
+      const { setting, value } = event.data;
+      console.log('⚙️ Received setting update from photos modal', { setting, value });
+      
+      // Update the setting
+      this.handleSettingChange(setting, value);
+    }
+  });
+}
 
   async initializeController() {
     try {
@@ -218,14 +227,7 @@ export class SimplifiedSettings {
           }, 350);
         }
 
-        if (targetScreen === 'add-photos') {
-          setTimeout(() => {
-            initializeUploadHandlers(this.overlay);
-          }, 350);
-        }
-
-        // ALSO initialize handlers when navigating to select-upload-album
-        if (targetScreen === 'select-upload-album') {
+        if (targetScreen === 'photos') {
           setTimeout(() => {
             initializeUploadHandlers(this.overlay);
           }, 350);

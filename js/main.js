@@ -7,7 +7,7 @@ import { renderGrid, renderSidebar } from './ui/grid.js';
 import { autoInitialize } from './settings/settings-main.js';
 import { initializeJWTService } from './apis/api-auth/jwt-token-operations.js';
 import { processPendingRefreshTokens } from './apis/api-auth/providers/web-oauth.js';
-import { PhotoUploadManager } from '../widgets/photos/photo-upload-manager.js';
+import { PhotosSettingsManager } from '../widgets/photos/photos-settings-manager.js';
 import { showLoadingOverlay, updateLoadingProgress, hideLoadingOverlay, isLoadingOverlayVisible } from './ui/loading-overlay.js';
 import { WidgetRegistrationCoordinator } from './core/widget-registration-coordinator.js';
 import { getPlatformDetector } from './utils/platform-detector.js';
@@ -23,8 +23,8 @@ const initState = {
   servicesReady: 'pending'
 };
 
-// Global photo upload manager instance
-let photoUploadManager = null;
+// Global photo settings manager instance
+let photosSettingsManager = null;
 
 // Widget registration coordinator - created at start so it listens to direct postMessages
 let widgetCoordinator = null;
@@ -257,16 +257,16 @@ async function processQueuedRefreshTokens() {
  * Initialize Photo Upload Manager with retry logic
  * Called after data manager is ready, with retry if photo service not yet initialized
  */
-async function initializePhotoUploadManager() {
+async function initializePhotosSettingsManager() {
   const maxRetries = 5;
   const retryDelay = 1000; // 1 second
   
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       if (window.dataManager?.photoService?.isReady()) {
-        photoUploadManager = new PhotoUploadManager(window.dataManager.photoService);
-        window.photoUploadManager = photoUploadManager;
-        console.log('📸 Photo upload manager initialized', {
+        photosSettingsManager = new PhotosSettingsManager(window.dataManager.photoService);
+        window.photosSettingsManager = photosSettingsManager;
+        console.log('📸 Photos settings manager initialized', {
           attempt
         });
         return true;
@@ -278,16 +278,17 @@ async function initializePhotoUploadManager() {
         }
       }
     } catch (error) {
-      console.error('❌ Failed to initialize photo upload manager:', error);
+      console.error('❌ Failed to initialize photos settings manager:', error);
       if (attempt === maxRetries) {
         return false;
       }
     }
   }
   
-  console.warn('⚠️ Photo upload manager not initialized after retries - photo service may still be initializing');
+  console.warn('⚠️ Photos settings manager not initialized after retries - photo service may still be initializing');
   return false;
 }
+
 
 /**
  * Show mobile landing page
@@ -711,7 +712,7 @@ async function initializeApp() {
     }
     
     // Initialize Photo Upload Manager with retry logic
-    const uploadManagerReady = await initializePhotoUploadManager();
+    const uploadManagerReady = await initializePhotosSettingsManager();
     
     if (!uploadManagerReady) {
       console.warn('⚠️ Photo upload functionality may not be available yet');
@@ -759,12 +760,12 @@ if (isDev && window.APP_VERSION) {
 // Listen for upload modal requests from widgets
 window.addEventListener('message', (event) => {
   if (event.data?.type === 'request-upload-modal') {
-    console.log('📸 Upload modal requested by widget:', event.data.widget);
+    console.log('📸 Photos settings modal requested by widget:', event.data.widget);
     
-    if (photoUploadManager) {
-      photoUploadManager.open();
+    if (photosSettingsManager) {
+      photosSettingsManager.open();
     } else {
-      console.error('❌ Photo upload manager not initialized');
+      console.error('❌ Photos settings manager not initialized');
     }
   }
 });

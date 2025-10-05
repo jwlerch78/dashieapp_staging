@@ -1,0 +1,590 @@
+<!-- Photos-settings.html -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Photos Settings</title>
+  <link rel="stylesheet" href="photos-settings.css">
+</head>
+<body>
+  <div class="modal-container">
+    <div class="modal-header">
+      <button class="back-button" id="back-button" style="visibility: hidden;">‹</button>
+      <h2 id="modal-title">Photos</h2>
+      <button class="close-button" id="close-button">×</button>
+    </div>
+    
+    <div class="modal-body">
+      <div id="error-container"></div>
+
+      <!-- Main Photos Screen -->
+      <div class="screen active" id="main-screen">
+        <!-- Photo Stats Box -->
+        <div class="photo-stats-box">
+          <div class="photo-stat-row">
+            <span class="photo-stat-label">Photos</span>
+            <span class="photo-stat-value" id="photo-count">Loading...</span>
+          </div>
+          <div class="photo-stat-row">
+            <span class="photo-stat-label">Albums</span>
+            <span class="photo-stat-value" id="album-count">Loading...</span>
+          </div>
+          <div class="photo-stat-row">
+            <span class="photo-stat-label">Storage</span>
+            <span class="photo-stat-value" id="storage-used">Loading...</span>
+          </div>
+          <div class="storage-bar">
+            <div class="storage-bar-fill" id="storage-bar-fill"></div>
+          </div>
+        </div>
+
+        <!-- Main Menu -->
+        <div class="settings-section">
+          <div class="settings-cell action-cell" id="add-photos-menu">
+            <span class="cell-label">Add Photos</span>
+          </div>
+          <div class="settings-cell" id="delete-photos-menu">
+            <span class="cell-label">Delete Photos</span>
+            <span class="cell-chevron">›</span>
+          </div>
+          <div class="settings-cell" id="display-album-menu">
+            <span class="cell-label">Choose Display Album</span>
+            <span class="cell-value" id="display-album-value">Recent Photos</span>
+            <span class="cell-chevron">›</span>
+          </div>
+          <div class="settings-cell" id="transition-menu">
+            <span class="cell-label">Photo Transition Time</span>
+            <span class="cell-value" id="transition-value">5 sec</span>
+            <span class="cell-chevron">›</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add Photos - Album Selection Screen -->
+      <div class="screen" id="add-photos-screen">
+        <div class="settings-section">
+          <div class="settings-cell action-cell" id="create-album-btn">
+            <span class="cell-label">➕ Create New Album</span>
+          </div>
+        </div>
+        
+        <div class="settings-section" id="album-list">
+          <!-- Albums populated dynamically -->
+        </div>
+
+        <!-- Progress Section (shown during upload) -->
+        <div class="progress-section" id="progress-section">
+          <div class="progress-info">
+            <span class="progress-text">Uploading...</span>
+            <span class="progress-percentage" id="progress-percentage">0%</span>
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="progress-fill"></div>
+          </div>
+          <p class="progress-detail" id="progress-detail">Photo 0 of 0</p>
+        </div>
+      </div>
+
+      <!-- Delete Photos Screen -->
+      <div class="screen" id="delete-photos-screen">
+        <div class="settings-section">
+          <div style="padding: 40px 24px; text-align: center; color: #666;">
+            <h3 style="margin-bottom: 12px;">Delete Photos</h3>
+            <p>Photo deletion interface coming soon.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Display Album Selection Screen -->
+      <div class="screen" id="display-album-screen">
+        <div class="settings-section" id="display-album-list">
+          <!-- Display albums populated dynamically -->
+        </div>
+      </div>
+
+      <!-- Transition Time Selection Screen -->
+      <div class="screen" id="transition-screen">
+        <div class="settings-section" id="transition-list">
+          <div class="settings-cell selectable" data-value="5">
+            <span class="cell-label">5 seconds</span>
+            <span class="cell-checkmark">✓</span>
+          </div>
+          <div class="settings-cell selectable" data-value="10">
+            <span class="cell-label">10 seconds</span>
+            <span class="cell-checkmark">✓</span>
+          </div>
+          <div class="settings-cell selectable" data-value="15">
+            <span class="cell-label">15 seconds</span>
+            <span class="cell-checkmark">✓</span>
+          </div>
+          <div class="settings-cell selectable" data-value="30">
+            <span class="cell-label">30 seconds</span>
+            <span class="cell-checkmark">✓</span>
+          </div>
+          <div class="settings-cell selectable" data-value="60">
+            <span class="cell-label">1 minute</span>
+            <span class="cell-checkmark">✓</span>
+          </div>
+          <div class="settings-cell selectable" data-value="900">
+            <span class="cell-label">15 minutes</span>
+            <span class="cell-checkmark">✓</span>
+          </div>
+          <div class="settings-cell selectable" data-value="1800">
+            <span class="cell-label">30 minutes</span>
+            <span class="cell-checkmark">✓</span>
+          </div>
+          <div class="settings-cell selectable" data-value="3600">
+            <span class="cell-label">1 hour</span>
+            <span class="cell-checkmark">✓</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { PhotoStorageService } from '../../js/supabase/photo-storage-service.js';
+    import { createLogger } from '../../js/utils/logger.js';
+
+    const logger = createLogger('PhotosSettingsModal');
+
+    class PhotosSettingsModal {
+      constructor() {
+        this.userId = null;
+        this.storage = null;
+        this.currentScreen = 'main-screen';
+        this.screenStack = ['main-screen'];
+        this.isUploading = false;
+        this.currentSettings = {};
+        
+        // Get DOM elements
+        this.backBtn = document.getElementById('back-button');
+        this.closeBtn = document.getElementById('close-button');
+        this.modalTitle = document.getElementById('modal-title');
+        this.errorContainer = document.getElementById('error-container');
+        
+        logger.info('PhotosSettingsModal initializing');
+        this.setupEventListeners();
+        this.signalReady();
+      }
+
+      signalReady() {
+        logger.debug('Signaling modal ready to parent');
+        if (window.parent !== window) {
+          window.parent.postMessage({
+            type: 'photos-modal-ready'
+          }, '*');
+        }
+      }
+
+      setupEventListeners() {
+        // Close/Back buttons
+        this.backBtn.addEventListener('click', () => this.navigateBack());
+        this.closeBtn.addEventListener('click', () => this.close());
+
+        // Listen for initialization from parent
+        window.addEventListener('message', (event) => {
+          if (event.data?.type === 'init-photos-modal') {
+            this.initialize(event.data.userId, event.data.theme, event.data.settings);
+          }
+        });
+
+        // Main menu navigation
+        document.getElementById('add-photos-menu').addEventListener('click', () => {
+          this.navigateTo('add-photos-screen', 'Add Photos');
+        });
+        
+        document.getElementById('delete-photos-menu').addEventListener('click', () => {
+          this.navigateTo('delete-photos-screen', 'Delete Photos');
+        });
+        
+        document.getElementById('display-album-menu').addEventListener('click', () => {
+          this.navigateTo('display-album-screen', 'Choose Display Album');
+        });
+        
+        document.getElementById('transition-menu').addEventListener('click', () => {
+          this.navigateTo('transition-screen', 'Photo Transition');
+        });
+
+        // Create album button
+        document.getElementById('create-album-btn').addEventListener('click', () => {
+          this.handleCreateAlbum();
+        });
+
+        logger.debug('Event listeners attached');
+      }
+
+      async initialize(userId, theme, settings = {}) {
+        this.userId = userId;
+        this.currentSettings = settings;
+        
+        if (!this.userId) {
+          this.showError('User ID not provided');
+          return;
+        }
+
+        logger.info('Initializing', { userId: this.userId });
+
+        const jwtService = window.parent?.jwtAuth;
+        
+        try {
+          this.storage = new PhotoStorageService(this.userId, jwtService);
+          
+          if (theme) {
+            this.applyTheme(theme);
+          }
+
+          await this.loadPhotoStats();
+          await this.loadAlbums();
+          this.populateCurrentSettings();
+          
+          logger.success('Modal initialized successfully');
+        } catch (error) {
+          this.showError('Failed to initialize: ' + error.message);
+          logger.error('Initialization failed', error);
+        }
+      }
+
+      async loadPhotoStats() {
+        try {
+          const usage = await this.storage.getStorageUsage();
+          const folders = await this.storage.listFolders();
+          const allPhotos = await this.storage.listPhotos(null, 1000);
+          
+          document.getElementById('photo-count').textContent = allPhotos.length;
+          document.getElementById('album-count').textContent = folders.length;
+          document.getElementById('storage-used').textContent = `${usage.usedMB} MB / ${usage.quotaMB} MB`;
+          document.getElementById('storage-bar-fill').style.width = `${usage.percentUsed}%`;
+          
+          logger.debug('Photo stats loaded', { photos: allPhotos.length, albums: folders.length });
+        } catch (error) {
+          logger.error('Failed to load photo stats', error);
+        }
+      }
+
+      async loadAlbums() {
+        try {
+          const folders = await this.storage.listFolders();
+          
+          // Populate upload album list
+          const albumList = document.getElementById('album-list');
+          albumList.innerHTML = '';
+          
+          folders.forEach(folder => {
+            const cell = document.createElement('div');
+            cell.className = 'settings-cell selectable';
+            cell.dataset.album = folder.name;
+            cell.innerHTML = `
+              <span class="cell-label">${folder.name === 'all-photos' ? 'All Photos' : folder.name} ${folder.photoCount > 0 ? `(${folder.photoCount})` : ''}</span>
+            `;
+            
+            cell.addEventListener('click', () => this.handleAlbumSelect(folder.name));
+            albumList.appendChild(cell);
+          });
+          
+          // Populate display album list (for choosing which to display)
+          const displayAlbumList = document.getElementById('display-album-list');
+          displayAlbumList.innerHTML = '';
+          
+          const displayOptions = [
+            { value: 'recent', label: 'Recent Photos' },
+            { value: 'family', label: 'Family Album' },
+            { value: 'vacation', label: 'Vacation 2024' }
+          ];
+          
+          displayOptions.forEach(option => {
+            const cell = document.createElement('div');
+            cell.className = 'settings-cell selectable';
+            cell.dataset.value = option.value;
+            cell.innerHTML = `
+              <span class="cell-label">${option.label}</span>
+              <span class="cell-checkmark">✓</span>
+            `;
+            
+            if (this.currentSettings.photos?.source === option.value) {
+              cell.classList.add('selected');
+            }
+            
+            cell.addEventListener('click', () => this.handleDisplayAlbumSelect(option.value, option.label));
+            displayAlbumList.appendChild(cell);
+          });
+          
+          logger.debug('Albums loaded', { count: folders.length });
+        } catch (error) {
+          logger.error('Failed to load albums', error);
+        }
+      }
+
+      populateCurrentSettings() {
+        // Update display album value
+        const albumLabels = {
+          'recent': 'Recent Photos',
+          'family': 'Family Album',
+          'vacation': 'Vacation 2024'
+        };
+        const currentAlbum = this.currentSettings.photos?.source || 'recent';
+        document.getElementById('display-album-value').textContent = albumLabels[currentAlbum] || 'Recent Photos';
+        
+        // Update transition time value
+        const transitionTime = this.currentSettings.photos?.transitionTime || 5;
+        const formatTime = (seconds) => {
+          if (seconds < 60) return `${seconds} sec`;
+          if (seconds < 3600) return `${seconds / 60} min`;
+          return `${seconds / 3600} hour`;
+        };
+        document.getElementById('transition-value').textContent = formatTime(transitionTime);
+        
+        // Highlight selected transition time
+        document.querySelectorAll('#transition-list .settings-cell').forEach(cell => {
+          if (parseInt(cell.dataset.value) === transitionTime) {
+            cell.classList.add('selected');
+          } else {
+            cell.classList.remove('selected');
+          }
+        });
+      }
+
+      async handleAlbumSelect(albumName) {
+        logger.info('Album selected for upload', { album: albumName });
+        
+        // Open file picker immediately (user just clicked, so this is allowed)
+        this.openFilePicker(albumName);
+      }
+
+      openFilePicker(albumName) {
+        if (this.isUploading) {
+          logger.warn('Upload already in progress');
+          return;
+        }
+
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.multiple = true;
+
+        input.onchange = async (e) => {
+          const files = Array.from(e.target.files);
+          if (files.length > 0) {
+            await this.handleUpload(files, albumName);
+          }
+        };
+
+        input.click();
+      }
+
+      async handleUpload(files, albumName) {
+        this.clearError();
+        logger.info('Starting upload', { fileCount: files.length, album: albumName });
+
+        this.isUploading = true;
+        const progressSection = document.getElementById('progress-section');
+        progressSection.classList.add('active');
+
+        try {
+          const results = await this.storage.uploadPhotos(files, albumName, (percent, filename, current, total) => {
+            document.getElementById('progress-fill').style.width = `${percent}%`;
+            document.getElementById('progress-percentage').textContent = `${percent}%`;
+            document.getElementById('progress-detail').textContent = `Photo ${current} of ${total}: ${filename}`;
+          });
+
+          const successCount = results.filter(r => r.success).length;
+          const failCount = results.length - successCount;
+
+          logger.info('Upload complete', { successful: successCount, failed: failCount });
+
+          if (failCount > 0) {
+            this.showError(`Upload complete: ${successCount} succeeded, ${failCount} failed.`);
+          }
+
+          // Refresh stats and album list
+          await this.loadPhotoStats();
+          await this.loadAlbums();
+
+          // Notify parent
+          if (window.parent !== window) {
+            window.parent.postMessage({
+              type: 'photos-uploaded',
+              count: successCount
+            }, '*');
+          }
+
+          // Close modal after successful upload
+          if (successCount > 0) {
+            setTimeout(() => {
+              progressSection.classList.remove('active');
+              this.close();
+            }, 1500);
+          }
+
+        } catch (error) {
+          logger.error('Upload failed', error);
+          this.showError('Upload failed: ' + error.message);
+        } finally {
+          this.isUploading = false;
+        }
+      }
+
+      async handleCreateAlbum() {
+        const albumName = prompt('Enter new album name:');
+        
+        if (!albumName || albumName.trim() === '') {
+          return;
+        }
+        
+        const sanitized = albumName.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-');
+        
+        if (sanitized === 'all-photos') {
+          alert('Album name "all-photos" is reserved. Please choose another name.');
+          return;
+        }
+        
+        logger.info('Creating new album', { name: sanitized });
+        
+        // Open file picker for new album
+        this.openFilePicker(sanitized);
+      }
+
+      handleDisplayAlbumSelect(value, label) {
+        // Update UI
+        document.querySelectorAll('#display-album-list .settings-cell').forEach(cell => {
+          if (cell.dataset.value === value) {
+            cell.classList.add('selected');
+          } else {
+            cell.classList.remove('selected');
+          }
+        });
+        
+        document.getElementById('display-album-value').textContent = label;
+        
+        // Notify parent to save setting
+        if (window.parent !== window) {
+          window.parent.postMessage({
+            type: 'update-setting',
+            setting: 'photos.source',
+            value: value
+          }, '*');
+        }
+        
+        logger.info('Display album changed', { value, label });
+        
+        // Navigate back
+        setTimeout(() => this.navigateBack(), 300);
+      }
+
+      handleTransitionTimeSelect(value, label) {
+        // Update UI
+        document.querySelectorAll('#transition-list .settings-cell').forEach(cell => {
+          if (parseInt(cell.dataset.value) === value) {
+            cell.classList.add('selected');
+          } else {
+            cell.classList.remove('selected');
+          }
+        });
+        
+        document.getElementById('transition-value').textContent = label;
+        
+        // Notify parent to save setting
+        if (window.parent !== window) {
+          window.parent.postMessage({
+            type: 'update-setting',
+            setting: 'photos.transitionTime',
+            value: value
+          }, '*');
+        }
+        
+        logger.info('Transition time changed', { value });
+        
+        // Navigate back
+        setTimeout(() => this.navigateBack(), 300);
+      }
+
+      navigateTo(screenId, title) {
+        // Setup transition time handlers when navigating to that screen
+        if (screenId === 'transition-screen') {
+          setTimeout(() => {
+            document.querySelectorAll('#transition-list .settings-cell').forEach(cell => {
+              cell.addEventListener('click', () => {
+                const value = parseInt(cell.dataset.value);
+                const label = cell.querySelector('.cell-label').textContent;
+                this.handleTransitionTimeSelect(value, label);
+              });
+            });
+          }, 100);
+        }
+        
+        // Hide current screen
+        document.getElementById(this.currentScreen).classList.remove('active');
+        
+        // Show new screen
+        document.getElementById(screenId).classList.add('active');
+        
+        // Update state
+        this.screenStack.push(screenId);
+        this.currentScreen = screenId;
+        
+        // Update header
+        this.modalTitle.textContent = title;
+        this.backBtn.style.visibility = 'visible';
+        
+        logger.debug('Navigated to', { screen: screenId });
+      }
+
+      navigateBack() {
+        if (this.screenStack.length <= 1) {
+          this.close();
+          return;
+        }
+        
+        // Pop current screen
+        this.screenStack.pop();
+        const previousScreen = this.screenStack[this.screenStack.length - 1];
+        
+        // Hide current screen
+        document.getElementById(this.currentScreen).classList.remove('active');
+        
+        // Show previous screen
+        document.getElementById(previousScreen).classList.add('active');
+        this.currentScreen = previousScreen;
+        
+        // Update header
+        if (previousScreen === 'main-screen') {
+          this.modalTitle.textContent = 'Photos';
+          this.backBtn.style.visibility = 'hidden';
+        }
+        
+        logger.debug('Navigated back to', { screen: previousScreen });
+      }
+
+      applyTheme(theme) {
+        if (theme === 'dark') {
+          document.body.classList.add('theme-dark');
+        } else {
+          document.body.classList.remove('theme-dark');
+        }
+      }
+
+      showError(message) {
+        this.errorContainer.innerHTML = `<div class="error-message">${message}</div>`;
+      }
+
+      clearError() {
+        this.errorContainer.innerHTML = '';
+      }
+
+      close() {
+        logger.info('Closing modal');
+        if (window.parent !== window) {
+          window.parent.postMessage({
+            type: 'close-photos-modal'
+          }, '*');
+        }
+      }
+    }
+
+    // Initialize modal
+    new PhotosSettingsModal();
+  </script>
+</body>
+</html>

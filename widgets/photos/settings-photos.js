@@ -32,9 +32,8 @@ export function buildPhotosSettingsScreens() {
         </div>
         
         <div class="settings-section">
-          <div class="settings-cell" data-navigate="add-photos">
+          <div class="settings-cell action-cell" id="add-photos-btn">
             <span class="cell-label">Add Photos</span>
-            <span class="cell-chevron">›</span>
           </div>
           <div class="settings-cell" data-navigate="delete-photos">
             <span class="cell-label">Delete Photos</span>
@@ -336,26 +335,33 @@ export async function populatePhotoStats(overlay) {
   }
 }
 
+
 /**
- * Initialize upload functionality on the add-photos screen
+ * Initialize upload functionality on the photos screen
  * @param {HTMLElement} overlay - The settings overlay element
  */
 export function initializeUploadHandlers(overlay) {
-  const createAlbumBtn = overlay.querySelector('#create-new-album-btn');
+  const addPhotosBtn = overlay.querySelector('#add-photos-btn');
   
-  if (createAlbumBtn) {
+  if (addPhotosBtn) {
     // Remove existing listener if any
-    const newCreateBtn = createAlbumBtn.cloneNode(true);
-    createAlbumBtn.parentNode.replaceChild(newCreateBtn, createAlbumBtn);
+    const newBtn = addPhotosBtn.cloneNode(true);
+    addPhotosBtn.parentNode.replaceChild(newBtn, addPhotosBtn);
     
-    // Add click handler
-    newCreateBtn.addEventListener('click', () => {
-      handleCreateAlbum(overlay);
+    // Add click handler to open photos settings modal
+    newBtn.addEventListener('click', () => {
+      console.log('📸 Add Photos clicked - opening photos settings modal');
+      
+      // CHANGED FROM: window.photoUploadManager
+      // CHANGED TO: window.photosSettingsManager
+      if (window.photosSettingsManager) {
+        window.photosSettingsManager.open();
+      } else {
+        console.error('📸 PhotosSettingsManager not available');
+        alert('Photo settings not available yet. Please wait a moment and try again.');
+      }
     });
   }
-  
-  // Populate album list
-  populateAlbumList(overlay);
   
   console.log('📸 Upload handlers initialized');
 }
@@ -426,7 +432,7 @@ async function populateAlbumList(overlay) {
  * @param {HTMLElement} overlay - The settings overlay element
  * @param {string} albumName - Album name to select
  */
-function selectAlbum(overlay, albumName) {
+async function selectAlbum(overlay, albumName) {
   // Update selected state in album list
   const albumCells = overlay.querySelectorAll('#upload-album-list .settings-cell');
   albumCells.forEach(cell => {
@@ -452,18 +458,42 @@ function selectAlbum(overlay, albumName) {
   console.log('📸 Album selected', { album: albumName });
   
   // Open upload modal with selected album
-  if (window.photoUploadManager) {
-    window.photoUploadManager.open(albumName);
-    console.log('📸 Opening upload modal for album:', albumName);
-  } else {
-    console.error('📸 PhotoUploadManager not available');
-    alert('Photo upload not available. Please try again.');
-  }
+  console.log('📸 Checking for PhotoUploadManager...', { 
+    exists: !!window.photoUploadManager,
+    dataManager: !!window.dataManager,
+    photoService: !!window.dataManager?.photoService 
+  });
   
-  // Navigate back to add-photos screen
-  const backBtn = overlay.querySelector('.nav-back-button');
-  if (backBtn) {
-    backBtn.click();
+  if (window.photoUploadManager) {
+    console.log('📸 Opening upload modal for album:', albumName);
+    window.photoUploadManager.open(albumName);
+    
+    // Navigate back to add-photos screen
+    setTimeout(() => {
+      const backBtn = overlay.querySelector('.nav-back-button');
+      if (backBtn) {
+        backBtn.click();
+      }
+    }, 100);
+  } else {
+    console.error('📸 PhotoUploadManager not available - attempting to initialize');
+    
+    // Try to initialize it now
+    if (window.dataManager?.photoService?.isReady()) {
+      const { PhotoUploadManager } = await import('./photo-upload-manager.js');
+      window.photoUploadManager = new PhotoUploadManager(window.dataManager.photoService);
+      console.log('📸 PhotoUploadManager initialized on-demand');
+      window.photoUploadManager.open(albumName);
+      
+      setTimeout(() => {
+        const backBtn = overlay.querySelector('.nav-back-button');
+        if (backBtn) {
+          backBtn.click();
+        }
+      }, 100);
+    } else {
+      alert('Photo upload not available yet. Please wait a moment and try again.');
+    }
   }
 }
 

@@ -17,6 +17,7 @@ export class PhotoDataService {
     this.storage = null;
     this.currentPhotos = null;
     this.lastRefresh = null;
+    this.userId = null;
     this.isInitialized = false;
     this.refreshInterval = null; // Timer for periodic URL refresh
     this.refreshTimeout = null; // Backup timer using setTimeout
@@ -39,6 +40,7 @@ export class PhotoDataService {
     }
 
     try {
+      this.userId = userId;
       this.storage = new PhotoStorageService(userId, jwtService);
       this.isInitialized = true;
       
