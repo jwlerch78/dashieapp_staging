@@ -1,5 +1,5 @@
 // widgets/photos/photos-settings-modal.js
-// CHANGE SUMMARY: Refactored to use photos-modal-overlays.js for cleaner code organization
+// CHANGE SUMMARY: Refactored QR code functionality to photos-modal-overlays.js for better code organization
 
 import { createLogger } from '../../js/utils/logger.js';
 import { PhotoStorageService } from '../../js/supabase/photo-storage-service.js';
@@ -8,7 +8,9 @@ import {
   hideUploadOverlay,
   showConfirmationModal,
   showDeleteProgress,
-  hideDeleteProgress
+  hideDeleteProgress,
+  showQRCodeModal,
+  hideQRCodeModal
 } from './photos-modal-overlays.js';
 
 const logger = createLogger('PhotosSettingsModal');
@@ -27,6 +29,9 @@ export class PhotosSettingsModal {
     this.navigationStack = ['main-screen'];
     this.focusableElements = [];
     this.currentFocusIndex = 0;
+    
+    // Read platform config
+    this.platformConfig = this.getPlatformConfig();
     
     this.attachEventListeners();
     
@@ -54,7 +59,34 @@ export class PhotosSettingsModal {
       window.parent.postMessage({ type: 'photos-modal-ready' }, '*');
     }
     
-    logger.info('PhotosSettingsModal created');
+    logger.info('PhotosSettingsModal created', { isTV: this.platformConfig.isTV });
+  }
+
+  /**
+   * Get platform configuration from parent window or localStorage
+   */
+  getPlatformConfig() {
+    // Try parent window first
+    if (window.parent && window.parent.dashiePlatformConfig) {
+      return window.parent.dashiePlatformConfig;
+    }
+    
+    // Fallback to localStorage
+    try {
+      const stored = localStorage.getItem('dashie-platform-config');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (error) {
+      logger.warn('Could not read platform config from localStorage', error);
+    }
+    
+    // Default fallback
+    return {
+      isTV: false,
+      platform: 'browser',
+      uploadUrl: 'https://dashieapp.com#photos'
+    };
   }
 
   attachEventListeners() {
@@ -63,12 +95,19 @@ export class PhotosSettingsModal {
     
     document.addEventListener('keydown', (e) => this.handleKeydown(e));
 
-    // Add Photos opens file picker directly
+    // Add Photos - check platform before opening file picker
     const addPhotosBtn = document.getElementById('add-photos-menu');
     if (addPhotosBtn) {
       addPhotosBtn.addEventListener('click', () => {
-        logger.info('Add Photos clicked - opening file picker');
-        document.getElementById('file-input').click();
+        logger.info('Add Photos clicked', { isTV: this.platformConfig.isTV });
+        
+        if (this.platformConfig.isTV) {
+          // TV device - show QR code modal
+          showQRCodeModal(this.platformConfig.uploadUrl);
+        } else {
+          // Non-TV device - open file picker
+          document.getElementById('file-input').click();
+        }
       });
     }
     

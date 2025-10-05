@@ -256,3 +256,181 @@ export function hideDeleteProgress() {
     overlay.remove();
   }
 }
+
+// Add these functions to photos-modal-overlays.js
+
+/**
+ * Show QR code modal for TV devices
+ * @param {string} uploadUrl - The URL to encode in the QR code
+ * @param {Function} onClose - Optional callback when modal closes
+ */
+export function showQRCodeModal(uploadUrl, onClose = null) {
+  const logger = window.createLogger ? window.createLogger('QRModal') : console;
+  logger.info?.('Showing QR code modal for TV upload');
+  
+  // Create blocking overlay
+  let overlay = document.getElementById('qr-code-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'qr-code-overlay';
+    overlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+    document.body.appendChild(overlay);
+    
+    // Create QR modal
+    const qrModal = document.createElement('div');
+    qrModal.id = 'qr-code-modal';
+    qrModal.style.cssText = `
+      background: #fff;
+      border-radius: 12px;
+      padding: 40px;
+      width: 90%;
+      max-width: 500px;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      text-align: center;
+    `;
+    
+    // Add dark theme support
+    if (document.body.classList.contains('theme-dark')) {
+      qrModal.style.background = '#1c1c1e';
+      qrModal.style.color = '#ffffff';
+    }
+    
+    qrModal.innerHTML = `
+      <p style="margin: 0 0 20px 0; font-size: 12px; color: #666; text-align: center;">To upload photos to Dashie:</p>
+      <div id="qr-code-container" style="margin: 0 auto 20px auto; padding: 12px; background: white; border-radius: 8px; display: inline-block;">
+        <!-- QR code will be generated here -->
+      </div>
+      <p style="font-size: 12px; color: #8e8e93; margin: 0 0 6px 0;">Scan with your phone or visit:</p>
+      <p style="font-size: 13px; font-weight: 600; margin: 6px 0 24px 0; color: #EE9828;">${uploadUrl.replace('#photos', '')}</p>
+      <button id="qr-close-btn" style="
+        width: 50%;
+        padding: 8px;
+        background: #EE9828;
+        border: none;
+        border-radius: 8px;
+        color: white;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: opacity 0.2s;
+        margin: 0 auto;
+        display: block;
+      ">Close</button>
+    `;
+    
+    overlay.appendChild(qrModal);
+    
+    // Generate QR code
+    generateQRCode('qr-code-container', uploadUrl);
+    
+    // Close button handler
+    const closeBtn = qrModal.querySelector('#qr-close-btn');
+    closeBtn.addEventListener('click', () => {
+      hideQRCodeModal();
+      if (onClose) onClose();
+    });
+    closeBtn.addEventListener('mouseenter', () => {
+      closeBtn.style.opacity = '0.8';
+    });
+    closeBtn.addEventListener('mouseleave', () => {
+      closeBtn.style.opacity = '1';
+    });
+    
+    // Auto-focus the close button so "select" on remote closes it
+    setTimeout(() => {
+      closeBtn.focus();
+    }, 100);
+    
+    // Also allow overlay click to close
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) {
+        hideQRCodeModal();
+        if (onClose) onClose();
+      }
+    });
+  }
+  
+  overlay.style.display = 'flex';
+}
+
+/**
+ * Hide QR code modal
+ */
+export function hideQRCodeModal() {
+  const overlay = document.getElementById('qr-code-overlay');
+  if (overlay) {
+    overlay.remove();
+  }
+}
+
+/**
+ * Generate QR code using qrcode library from CDN
+ * @param {string} containerId - ID of the container element
+ * @param {string} url - URL to encode
+ */
+function generateQRCode(containerId, url) {
+  const logger = window.createLogger ? window.createLogger('QRModal') : console;
+  const container = document.getElementById(containerId);
+  
+  if (!container) {
+    logger.error?.('QR code container not found');
+    return;
+  }
+  
+  // Check if qrcode library is loaded
+  if (typeof QRCode === 'undefined') {
+    // Load QRCode library from CDN
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    script.onload = () => {
+      createQRCode(container, url);
+    };
+    script.onerror = () => {
+      logger.error?.('Failed to load QR code library');
+      container.innerHTML = '<p style="color: #ff3b30;">Failed to generate QR code</p>';
+    };
+    document.head.appendChild(script);
+  } else {
+    createQRCode(container, url);
+  }
+}
+
+/**
+ * Create QR code instance
+ * @param {HTMLElement} container - Container element
+ * @param {string} url - URL to encode
+ */
+function createQRCode(container, url) {
+  const logger = window.createLogger ? window.createLogger('QRModal') : console;
+  
+  // Clear container
+  container.innerHTML = '';
+  
+  try {
+    new QRCode(container, {
+      text: url,
+      width: 100,
+      height: 100,
+      colorDark: "#EE9828",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.H
+    });
+    logger.info?.('QR code generated', { url });
+  } catch (error) {
+    logger.error?.('Failed to create QR code', error);
+    container.innerHTML = '<p style="color: #ff3b30;">Failed to generate QR code</p>';
+  }
+}

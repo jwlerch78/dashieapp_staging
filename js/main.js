@@ -1,5 +1,5 @@
 // js/main.js
-// CHANGE SUMMARY: Refactored to extract mobile and init helpers for better organization
+// CHANGE SUMMARY: Added QR code upload support - platform config storage, URL parameter handling, auto-trigger upload after login
 
 // ============================================
 // IMPORTS
@@ -59,6 +59,39 @@ let platformDetector = null;
 // ============================================
 
 /**
+ * Get current upload URL based on environment
+ */
+function getCurrentUploadUrl() {
+  const hostname = window.location.hostname;
+  const isDev = hostname.includes('dev') || hostname === 'localhost' || hostname.startsWith('localhost');
+  const baseUrl = isDev ? 'https://dev.dashieapp.com' : 'https://dashieapp.com';
+  return `${baseUrl}#photos`;
+}
+
+/**
+ * Focus photos widget and trigger upload modal
+ */
+function focusPhotosWidgetAndOpenUpload() {
+  console.log('📸 QR upload: Attempting to focus photos widget and open upload');
+  
+  // Find the photos widget iframe
+  const photosWidget = document.querySelector('iframe[src*="photos.html"]');
+  
+  if (!photosWidget) {
+    console.warn('📸 Photos widget iframe not found');
+    return;
+  }
+  
+  // Send select command to photos widget to trigger upload
+  try {
+    photosWidget.contentWindow.postMessage({ action: 'select' }, '*');
+    console.log('📸 Sent select command to photos widget to trigger upload');
+  } catch (error) {
+    console.error('📸 Failed to send select command to photos widget', error);
+  }
+}
+
+/**
  * Update progress for both mobile and desktop
  */
 function updateProgress(isMobile, percent, mobileMsg, desktopMsg) {
@@ -79,6 +112,15 @@ function updateProgress(isMobile, percent, mobileMsg, desktopMsg) {
 async function initializeApp() {
   console.log('🚀 Starting Dashie initialization sequence...');
   
+  // STEP 1: Check for QR parameter VERY EARLY (before auth)
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('qr') === 'photos') {
+    console.log('📸 QR code scan detected - storing pending upload flag');
+    sessionStorage.setItem('pendingPhotoUpload', 'true');
+    // Clean URL immediately so it doesn't show in address bar
+    window.history.replaceState({}, '', window.location.pathname);
+  }
+  
   // Detect platform first
   platformDetector = getPlatformDetector();
   const isMobile = platformDetector.isMobile();
@@ -88,6 +130,20 @@ async function initializeApp() {
     deviceType: platformDetector.deviceType,
     isMobile: isMobile
   });
+  
+  // STEP 2: Store platform config for use by modals
+  window.dashiePlatformConfig = {
+    isTV: platformDetector.isTV(),
+    platform: platformDetector.platform,
+    uploadUrl: getCurrentUploadUrl()
+  };
+  
+  try {
+    localStorage.setItem('dashie-platform-config', JSON.stringify(window.dashiePlatformConfig));
+    console.log('📱 Stored platform config:', window.dashiePlatformConfig);
+  } catch (error) {
+    console.warn('⚠️ Could not store platform config to localStorage:', error);
+  }
   
   // CRITICAL: Create widget coordinator FIRST so it listens to postMessages
   widgetCoordinator = new WidgetRegistrationCoordinator();
@@ -123,7 +179,7 @@ async function initializeApp() {
   
   initState.auth = 'ready';
   
-  // Show loading overlay AFTER authentication
+  // Show loading AFTER authentication completes
   if (isMobile) {
     showMobileLoadingBar();
     updateMobileLoadingProgress(10, 'Authentication complete');
@@ -377,6 +433,17 @@ async function completeDesktopInit() {
   // Mark app as authenticated for CSS styling
   document.body.classList.add('authenticated');
   console.log('🔐 App marked as authenticated');
+  
+  // STEP 3: Check for pending photo upload after everything is ready
+  if (sessionStorage.getItem('pendingPhotoUpload') === 'true') {
+    console.log('📸 QR upload: Pending upload detected, triggering photo upload...');
+    sessionStorage.removeItem('pendingPhotoUpload');
+    
+    // Wait a bit for widgets to fully settle
+    setTimeout(() => {
+      focusPhotosWidgetAndOpenUpload();
+    }, 1000);
+  }
 }
 
 // ============================================
@@ -387,8 +454,8 @@ window.addEventListener('message', (event) => {
   if (event.data?.type === 'request-upload-modal') {
     console.log('📸 Photos settings modal requested by widget:', event.data.widget);
     
-    if (photosSettingsManager) {
-      photosSettingsManager.open();
+    if (window.photosSettingsManager) {
+      window.photosSettingsManager.open();
     } else {
       console.error('❌ Photos settings manager not initialized');
     }
@@ -398,11 +465,11 @@ window.addEventListener('message', (event) => {
   if (event.data?.type === 'open-photos-settings-and-upload') {
     console.log('📸 Empty photos widget clicked - opening settings and triggering upload');
     
-    if (photosSettingsManager) {
-      photosSettingsManager.open().then(() => {
+    if (window.photosSettingsManager) {
+      window.photosSettingsManager.open().then(() => {
         // Wait for modal to be ready, then trigger file picker
         setTimeout(() => {
-          const iframe = photosSettingsManager.modalIframe;
+          const iframe = window.photosSettingsManager.modalIframe;
           if (iframe && iframe.contentWindow) {
             iframe.contentWindow.postMessage({
               type: 'trigger-file-picker'
