@@ -322,6 +322,21 @@ export class SimplifiedSettings {
       }
     });
     
+    this.overlay.addEventListener('click', (e) => {
+        const photosBtn = e.target.closest('#photos-menu-btn');
+        if (photosBtn) {
+          console.log('📸 Photos menu clicked - opening photos settings modal');
+          
+          if (window.photosSettingsManager) {
+            window.photosSettingsManager.open();
+          } else {
+            console.error('📸 PhotosSettingsManager not available');
+            alert('Photo settings not available yet. Please wait a moment and try again.');
+          }
+        }
+      });
+
+    
     this.navigationStack = ['root'];
     this.selectionHandler.updateNavBar(this.overlay, this.getCurrentScreenId(), this.navigationStack);
   }

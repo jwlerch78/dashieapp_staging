@@ -24,7 +24,7 @@ export const rootScreen = `
           <span class="cell-label">Display</span>
           <span class="cell-chevron">›</span>
         </div>
-        <div class="settings-cell" data-navigate="photos">
+        <div class="settings-cell action-cell" id="photos-menu-btn">
           <span class="cell-label">Photos</span>
           <span class="cell-chevron">›</span>
         </div>
