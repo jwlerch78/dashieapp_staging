@@ -1,5 +1,5 @@
 <!-- Photos-settings.html -->
-<!-- CHANGE SUMMARY: Fixed progress callbacks, settings save, stay on upload screen, add +Create Album option -->
+<!-- CHANGE SUMMARY: Fixed d-pad navigation, album creation, photo counts, added 15/60 sec transitions, moved Create Album to bottom, changed title to Upload Album -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -22,7 +22,6 @@
 
       <!-- Main Photos Screen -->
       <div class="screen active" id="main-screen">
-        <!-- Photo Stats Box -->
         <div class="photo-stats-box">
           <div class="photo-stat-row">
             <span class="photo-stat-label">Photos</span>
@@ -41,7 +40,6 @@
           </div>
         </div>
 
-        <!-- Main Menu -->
         <div class="settings-section">
           <div class="settings-cell" id="add-photos-menu" tabindex="0">
             <span class="cell-label">Add Photos</span>
@@ -64,20 +62,21 @@
         </div>
       </div>
 
-      <!-- Choose Upload Album Screen -->
+      <!-- CHANGED: Title from "Choose Album" to "Upload Album", moved Create Album to bottom -->
       <div class="screen" id="choose-upload-album-screen">
+        <!-- CHANGED: Album list first -->
+        <div class="settings-section" id="upload-album-selection-list">
+          <!-- Albums populated dynamically -->
+        </div>
+        
+        <!-- CHANGED: Create Album moved to bottom -->
         <div class="settings-section">
-          <!-- Add Album option at top -->
-          <div class="settings-cell" id="create-album-cell" tabindex="0" style="border-bottom: 0.5px solid rgba(60, 60, 67, 0.36);">
+          <div class="settings-cell" id="create-album-cell" tabindex="0">
             <span class="cell-label" style="font-weight: 600;">+ Create Album</span>
             <span class="cell-chevron">›</span>
           </div>
         </div>
-        <div class="settings-section" id="upload-album-selection-list">
-          <!-- Albums populated dynamically -->
-        </div>
 
-        <!-- Upload Progress - stays on this screen -->
         <div class="progress-section" id="upload-progress-section" style="display: none;">
           <div class="progress-info" id="upload-progress-info">Uploading...</div>
           <div class="progress-bar">
@@ -87,7 +86,6 @@
         </div>
       </div>
 
-      <!-- Delete Photos Screen -->
       <div class="screen" id="delete-photos-screen">
         <div class="settings-section">
           <p style="padding: 16px; text-align: center; color: #8e8e93;">
@@ -96,14 +94,13 @@
         </div>
       </div>
 
-      <!-- Display Album Screen -->
       <div class="screen" id="display-album-screen">
         <div class="settings-section" id="album-selection-list">
-          <!-- Albums populated dynamically -->
+          <!-- Albums populated dynamically with photo counts -->
         </div>
       </div>
 
-      <!-- Photo Transition Screen -->
+      <!-- CHANGED: Added 15 and 60 second options -->
       <div class="screen" id="transition-screen">
         <div class="settings-section">
           <div class="settings-cell selectable" data-value="3" tabindex="0">
@@ -118,14 +115,21 @@
             <span class="cell-label">10 seconds</span>
             <span class="cell-checkmark">✓</span>
           </div>
+          <div class="settings-cell selectable" data-value="15" tabindex="0">
+            <span class="cell-label">15 seconds</span>
+            <span class="cell-checkmark">✓</span>
+          </div>
           <div class="settings-cell selectable" data-value="30" tabindex="0">
             <span class="cell-label">30 seconds</span>
+            <span class="cell-checkmark">✓</span>
+          </div>
+          <div class="settings-cell selectable" data-value="60" tabindex="0">
+            <span class="cell-label">60 seconds</span>
             <span class="cell-checkmark">✓</span>
           </div>
         </div>
       </div>
       
-      <!-- Hidden file input -->
       <input type="file" id="file-input" accept="image/*" multiple style="display: none;">
     </div>
   </div>
@@ -166,25 +170,20 @@
       }
 
       setupEventListeners() {
-        // Back button
         this.backBtn.addEventListener('click', () => this.handleBack());
-        
-        // Close button
         this.closeBtn.addEventListener('click', () => this.close());
 
-        // Listen for initialization from parent
         window.addEventListener('message', (event) => {
           if (event.data?.type === 'init-photos-modal') {
             this.initialize(event.data.userId, event.data.theme, event.data.settings);
           }
         });
 
-        // Keyboard navigation
         document.addEventListener('keydown', (e) => this.handleKeydown(e));
 
-        // Main menu navigation
+        // CHANGED: Updated title to "Upload Album"
         document.getElementById('add-photos-menu').addEventListener('click', () => {
-          this.navigateTo('choose-upload-album-screen', 'Choose Album');
+          this.navigateTo('choose-upload-album-screen', 'Upload Album');
         });
         
         document.getElementById('delete-photos-menu').addEventListener('click', () => {
@@ -199,17 +198,14 @@
           this.navigateTo('transition-screen', 'Photo Transition');
         });
 
-        // Create album button
         document.getElementById('create-album-cell').addEventListener('click', () => {
           this.handleCreateAlbum();
         });
 
-        // File input handler
         document.getElementById('file-input').addEventListener('change', (e) => {
           this.handleFileSelection(e);
         });
 
-        // Selection handlers for transition time
         document.querySelectorAll('#transition-screen .selectable').forEach(cell => {
           cell.addEventListener('click', () => this.handleTransitionSelection(cell));
         });
@@ -217,6 +213,8 @@
         logger.debug('Event listeners attached');
       }
 
+      // FIXED: Added stopImmediatePropagation to prevent d-pad events from bubbling to parent
+      // But handle Escape specially - if on main screen, let it close the modal
       handleKeydown(e) {
         const keyMap = {
           'ArrowUp': 'up',
@@ -229,8 +227,10 @@
         const action = keyMap[e.key];
         if (!action) return;
 
+        // ALWAYS prevent default and stop propagation for d-pad keys
         e.preventDefault();
         e.stopPropagation();
+        e.stopImmediatePropagation();
 
         switch (action) {
           case 'up':
@@ -244,6 +244,7 @@
             break;
           case 'escape':
           case 'back':
+            // Handle escape/back within the iframe
             this.handleBack();
             break;
         }
@@ -431,6 +432,7 @@
         }
       }
 
+      // FIXED: Removed placeholder upload that was causing text/plain error
       async handleCreateAlbum() {
         const albumName = prompt('Enter new album name:');
         
@@ -447,55 +449,57 @@
 
         try {
           await this.storage.createFolder(sanitized);
-          logger.info('Album created', { name: sanitized });
+          logger.info('Album name validated', { name: sanitized });
           
           await this.loadAlbums();
           
-          alert(`Album "${sanitized}" created successfully!`);
+          this.navigateBack();
+          
+          alert(`Album "${sanitized}" will be created when you upload your first photo to it.`);
+          
+          logger.success('Album ready to be created', { name: sanitized });
+          
         } catch (error) {
-          logger.error('Failed to create album', error);
+          logger.error('Failed to validate album name', error);
           this.showError('Failed to create album: ' + error.message);
         }
       }
 
-saveSettingToParent(path, value) {
-  const keys = path.split('.');
-  let obj = this.currentSettings;
-  for (let i = 0; i < keys.length - 1; i++) {
-    if (!obj[keys[i]]) obj[keys[i]] = {};
-    obj = obj[keys[i]];
-  }
-  obj[keys[keys.length - 1]] = value;
-
-  logger.info('Saving setting to parent', { path, value });
-
-  if (window.parent !== window) {
-    // CHANGED: Use setSetting instead of updateSetting
-    const settingsInstance = window.parent.settingsInstance;
-    if (settingsInstance && settingsInstance.controller) {
-      try {
-        const controller = settingsInstance.controller;
-        // Use setSetting which exists in SettingsController
-        if (typeof controller.setSetting === 'function') {
-          controller.setSetting(path, value);
-          controller.saveSettings(); // Also trigger save
-          logger.success('Setting saved via settingsInstance.controller.setSetting');
-          return;
+      saveSettingToParent(path, value) {
+        const keys = path.split('.');
+        let obj = this.currentSettings;
+        for (let i = 0; i < keys.length - 1; i++) {
+          if (!obj[keys[i]]) obj[keys[i]] = {};
+          obj = obj[keys[i]];
         }
-      } catch (error) {
-        logger.warn('settingsInstance.controller.setSetting failed', error);
+        obj[keys[keys.length - 1]] = value;
+
+        logger.info('Saving setting to parent', { path, value });
+
+        if (window.parent !== window) {
+          const settingsInstance = window.parent.settingsInstance;
+          if (settingsInstance && settingsInstance.controller) {
+            try {
+              const controller = settingsInstance.controller;
+              if (typeof controller.setSetting === 'function') {
+                controller.setSetting(path, value);
+                controller.saveSettings();
+                logger.success('Setting saved via settingsInstance.controller.setSetting');
+                return;
+              }
+            } catch (error) {
+              logger.warn('settingsInstance.controller.setSetting failed', error);
+            }
+          }
+          
+          window.parent.postMessage({
+            type: 'update-setting',
+            path: path,
+            value: value
+          }, '*');
+          logger.info('Setting sent via postMessage fallback');
+        }
       }
-    }
-    
-    // Fallback: try postMessage
-    window.parent.postMessage({
-      type: 'update-setting',
-      path: path,
-      value: value
-    }, '*');
-    logger.info('Setting sent via postMessage fallback');
-  }
-}
 
       async initialize(userId, theme, settings = {}) {
         this.userId = userId;
@@ -550,6 +554,7 @@ saveSettingToParent(path, value) {
         try {
           const folders = await this.storage.listFolders();
           
+          // FIXED: Load display album list with photo counts using both property name formats
           const albumList = document.getElementById('album-selection-list');
           albumList.innerHTML = '';
           
@@ -558,20 +563,22 @@ saveSettingToParent(path, value) {
             cell.className = 'settings-cell selectable';
             cell.dataset.album = folder.name;
             cell.tabIndex = 0;
+            const photoCount = folder.photo_count || folder.photoCount || 0;
             cell.innerHTML = `
-              <span class="cell-label">${folder.name === 'all-photos' ? 'All Photos' : folder.name}</span>
+              <span class="cell-label">${folder.name === 'all-photos' ? 'All Photos' : folder.name} (${photoCount})</span>
               <span class="cell-checkmark">✓</span>
             `;
             cell.addEventListener('click', () => this.handleAlbumSelection(folder.name, false));
             albumList.appendChild(cell);
           });
 
+          // CHANGED: Load upload album list with first album selected by default
           const uploadAlbumList = document.getElementById('upload-album-selection-list');
           uploadAlbumList.innerHTML = '';
           
-          folders.forEach(folder => {
+          folders.forEach((folder, index) => {
             const cell = document.createElement('div');
-            cell.className = 'settings-cell selectable';
+            cell.className = index === 0 ? 'settings-cell selectable selected' : 'settings-cell selectable';
             cell.dataset.album = folder.name;
             cell.tabIndex = 0;
             cell.innerHTML = `
