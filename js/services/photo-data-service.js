@@ -269,6 +269,9 @@ export class PhotoDataService {
     }
   }
 
+// js/services/photo-data-service.js
+// CHANGE SUMMARY: Added deleteAllPhotos() method after existing deletePhoto() method
+
   /**
    * Delete a photo
    * @param {string} photoId - Photo ID to delete
@@ -295,6 +298,38 @@ export class PhotoDataService {
 
     } catch (error) {
       logger.error('Failed to delete photo', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete all photos
+   * @returns {Promise<Object>} Deletion results with count
+   */
+  async deleteAllPhotos() {
+    if (!this.isInitialized) {
+      throw new Error('Photo service not initialized');
+    }
+
+    try {
+      logger.info('Deleting all photos');
+      
+      const result = await this.storage.deleteAllPhotos();
+      
+      // Refresh photo list after deletion (will be empty)
+      await this.loadPhotos(this.currentPhotos?.folder);
+      
+      // Emit data loaded event
+      eventSystem.data.emitLoaded('photos', this.currentPhotos);
+
+      logger.success('All photos deleted', { 
+        count: result.photo_count 
+      });
+      
+      return result;
+
+    } catch (error) {
+      logger.error('Failed to delete all photos', error);
       throw error;
     }
   }

@@ -567,6 +567,10 @@ export class PhotoStorageService {
    * Delete a photo
    * @param {string} photoId - Photo ID to delete
    */
+   /**
+   * Delete a photo
+   * @param {string} photoId - Photo ID to delete
+   */
   async deletePhoto(photoId) {
     try {
       logger.debug('Deleting photo', { photoId });
@@ -578,7 +582,8 @@ export class PhotoStorageService {
 
       // Delete from storage bucket if we got the path
       if (result.storage_path) {
-        const { error: storageError } = await supabase.storage
+        const authClient = await this._getAuthenticatedClient();
+        const { error: storageError } = await authClient.storage
           .from(this.bucketName)
           .remove([result.storage_path]);
 
@@ -591,6 +596,57 @@ export class PhotoStorageService {
 
     } catch (error) {
       logger.error('Failed to delete photo', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete all photos for the user
+   * @returns {Promise<Object>} Deletion results with count
+   */
+  async deleteAllPhotos() {
+    try {
+      logger.info('Deleting all photos');
+
+      // Delete from database via edge function (gets storage_paths back)
+      const result = await this._callEdgeFunction('delete_all_photos');
+
+      if (!result.deleted) {
+        throw new Error('Failed to delete photo records');
+      }
+
+      logger.debug('Database records deleted', { 
+        count: result.photo_count 
+      });
+
+      // Delete from storage bucket if we have paths
+      if (result.storage_paths && result.storage_paths.length > 0) {
+        const authClient = await this._getAuthenticatedClient();
+        const { error: storageError } = await authClient.storage
+          .from(this.bucketName)
+          .remove(result.storage_paths);
+
+        if (storageError) {
+          logger.warn('Storage deletion warning', storageError);
+          // Continue even if storage deletion has issues
+        }
+
+        logger.debug('Storage files deleted', { 
+          count: result.storage_paths.length 
+        });
+      }
+
+      logger.success('All photos deleted', { 
+        count: result.photo_count 
+      });
+
+      return {
+        success: true,
+        photo_count: result.photo_count
+      };
+
+    } catch (error) {
+      logger.error('Failed to delete all photos', error);
       throw error;
     }
   }

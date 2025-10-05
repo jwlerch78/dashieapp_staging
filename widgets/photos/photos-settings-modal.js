@@ -1,8 +1,15 @@
 // widgets/photos/photos-settings-modal.js
-// CHANGE SUMMARY: Fixed: upload overlay, transition selection highlight, early focus, storage display
+// CHANGE SUMMARY: Refactored to use photos-modal-overlays.js for cleaner code organization
 
 import { createLogger } from '../../js/utils/logger.js';
 import { PhotoStorageService } from '../../js/supabase/photo-storage-service.js';
+import { 
+  showUploadOverlay, 
+  hideUploadOverlay,
+  showConfirmationModal,
+  showDeleteProgress,
+  hideDeleteProgress
+} from './photos-modal-overlays.js';
 
 const logger = createLogger('PhotosSettingsModal');
 
@@ -33,6 +40,13 @@ export class PhotosSettingsModal {
           event.data.theme,
           event.data.settings
         );
+      } else if (event.data?.type === 'trigger-file-picker') {
+        // Triggered from empty photos widget click - open file picker
+        logger.info('Triggering file picker from parent request');
+        const fileInput = document.getElementById('file-input');
+        if (fileInput) {
+          fileInput.click();
+        }
       }
     });
     
@@ -59,7 +73,18 @@ export class PhotosSettingsModal {
     }
     
     document.getElementById('delete-photos-menu')?.addEventListener('click', () => {
+      // Check if button is disabled (no photos)
+      const deletePhotosBtn = document.getElementById('delete-photos-menu');
+      if (deletePhotosBtn && deletePhotosBtn.style.pointerEvents === 'none') {
+        logger.debug('Delete photos clicked but disabled - no photos available');
+        return;
+      }
       this.navigateTo('delete-photos-screen', 'Delete Photos');
+    });
+    
+    // Delete All Photos button
+    document.getElementById('delete-all-photos-btn')?.addEventListener('click', () => {
+      this.handleDeleteAllConfirmation();
     });
     
     document.getElementById('transition-menu')?.addEventListener('click', () => {
@@ -340,7 +365,22 @@ export class PhotosSettingsModal {
       const usage = await this.storage.getStorageUsage();
       const allPhotos = await this.storage.listPhotos(null, 1000);
       
-      document.getElementById('photo-count').textContent = allPhotos.length;
+      const photoCount = allPhotos.length;
+      document.getElementById('photo-count').textContent = photoCount;
+      
+      // Enable/disable delete photos button based on photo count
+      const deletePhotosBtn = document.getElementById('delete-photos-menu');
+      if (deletePhotosBtn) {
+        if (photoCount === 0) {
+          deletePhotosBtn.style.opacity = '0.4';
+          deletePhotosBtn.style.pointerEvents = 'none';
+          deletePhotosBtn.style.cursor = 'not-allowed';
+        } else {
+          deletePhotosBtn.style.opacity = '1';
+          deletePhotosBtn.style.pointerEvents = 'auto';
+          deletePhotosBtn.style.cursor = 'pointer';
+        }
+      }
       
       // Format storage: Show GB if over 1000 MB, otherwise MB
       const usedDisplay = usage.usedMB >= 1000 
@@ -419,7 +459,7 @@ export class PhotosSettingsModal {
     logger.info('Files selected for upload', { count: files.length, folder: targetFolder });
 
     // Show upload modal overlay
-    this.showUploadOverlay();
+    const overlay = showUploadOverlay();
     this.cancelUpload = false;
 
     // Get modal progress elements
@@ -430,6 +470,15 @@ export class PhotosSettingsModal {
     progressInfo.textContent = 'Preparing upload...';
     progressFill.style.width = '0%';
     progressDetail.textContent = `0 / ${files.length} files`;
+
+    // Setup cancel functionality
+    const cancelBtn = document.getElementById('cancel-upload-btn');
+    cancelBtn.onclick = () => {
+      this.cancelUpload = true;
+      cancelBtn.disabled = true;
+      cancelBtn.textContent = 'Cancelling...';
+      cancelBtn.style.opacity = '0.5';
+    };
 
     try {
       let uploadedCount = 0;
@@ -467,7 +516,7 @@ export class PhotosSettingsModal {
       await this.loadPhotoStats();
 
       setTimeout(() => {
-        this.hideUploadOverlay();
+        hideUploadOverlay();
       }, 2000);
 
       event.target.value = '';
@@ -485,96 +534,68 @@ export class PhotosSettingsModal {
       }
       
       setTimeout(() => {
-        this.hideUploadOverlay();
+        hideUploadOverlay();
       }, 2000);
     }
   }
 
-  showUploadOverlay() {
-    let overlay = document.getElementById('upload-blocking-overlay');
-    if (!overlay) {
-      overlay = document.createElement('div');
-      overlay.id = 'upload-blocking-overlay';
-      overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: rgba(0, 0, 0, 0.7);
-        z-index: 9998;
-        pointer-events: all;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      `;
-      document.body.appendChild(overlay);
-      
-      // Create the upload modal inside the overlay
-      const uploadModal = document.createElement('div');
-      uploadModal.id = 'upload-progress-modal';
-      uploadModal.style.cssText = `
-        background: #fff;
-        border-radius: 12px;
-        padding: 24px;
-        width: 90%;
-        max-width: 400px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-      `;
-      
-      // Add dark theme support
-      if (document.body.classList.contains('theme-dark')) {
-        uploadModal.style.background = '#1c1c1e';
-        uploadModal.style.color = '#ffffff';
-      }
-      
-      uploadModal.innerHTML = `
-        <h3 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600;">Uploading Photos</h3>
-        <div id="modal-upload-info" style="font-size: 15px; color: #8e8e93; margin-bottom: 12px;">Preparing...</div>
-        <div style="background: #e5e5ea; border-radius: 4px; height: 8px; overflow: hidden; margin-bottom: 8px;">
-          <div id="modal-upload-fill" style="height: 100%; background: #EE9828; width: 0%; transition: width 0.3s ease;"></div>
-        </div>
-        <div id="modal-upload-detail" style="font-size: 13px; color: #8e8e93; margin-bottom: 16px;">0 / 0 files</div>
-        <button id="cancel-upload-btn" style="
-          width: 100%;
-          padding: 12px;
-          background: transparent;
-          border: 1px solid #8e8e93;
-          border-radius: 8px;
-          color: #8e8e93;
-          font-size: 16px;
-          cursor: pointer;
-          transition: all 0.2s;
-        ">Cancel Upload</button>
-      `;
-      
-      overlay.appendChild(uploadModal);
-      
-      // Style the cancel button on hover
-      const cancelBtn = uploadModal.querySelector('#cancel-upload-btn');
-      cancelBtn.addEventListener('mouseenter', () => {
-        cancelBtn.style.background = 'rgba(142, 142, 147, 0.1)';
-      });
-      cancelBtn.addEventListener('mouseleave', () => {
-        cancelBtn.style.background = 'transparent';
-      });
-      
-      // Add cancel functionality (will be implemented in handleFileSelection)
-      cancelBtn.addEventListener('click', () => {
-        this.cancelUpload = true;
-        cancelBtn.disabled = true;
-        cancelBtn.textContent = 'Cancelling...';
-        cancelBtn.style.opacity = '0.5';
-      });
-    }
-    overlay.style.display = 'flex';
+  /**
+   * Show confirmation modal for delete all
+   */
+  handleDeleteAllConfirmation() {
+    // Get current photo count for confirmation message
+    const photoCountEl = document.getElementById('photo-count');
+    const photoCount = photoCountEl ? photoCountEl.textContent : '0';
+    
+    showConfirmationModal(photoCount, () => this.handleDeleteAllPhotos());
   }
 
-  hideUploadOverlay() {
-    const overlay = document.getElementById('upload-blocking-overlay');
-    if (overlay) {
-      overlay.style.display = 'none';
-      overlay.remove();
+  /**
+   * Handle delete all photos
+   */
+  async handleDeleteAllPhotos() {
+    try {
+      logger.info('Starting delete all photos');
+      
+      // Show progress overlay
+      showDeleteProgress();
+      
+      // Access photo data service through dataManager (same pattern as upload)
+      const dataManager = window.parent?.dataManager;
+      
+      if (!dataManager || !dataManager.photoService) {
+        throw new Error('Photo data service not available');
+      }
+      
+      // Perform deletion
+      const result = await dataManager.photoService.deleteAllPhotos();
+      
+      logger.success('Delete all completed', { count: result.photo_count });
+      
+      // Update progress message
+      const progressInfo = document.getElementById('delete-progress-info');
+      if (progressInfo) {
+        progressInfo.textContent = `Deleted ${result.photo_count} photo${result.photo_count !== 1 ? 's' : ''}`;
+      }
+      
+      // Wait a moment to show success message
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Hide progress overlay
+      hideDeleteProgress();
+      
+      // Reload stats to show 0 photos and 0 storage
+      await this.loadPhotoStats();
+      
+      // Navigate back to main screen
+      this.navigateBack();
+      
+      logger.info('Delete all photos completed successfully');
+      
+    } catch (error) {
+      logger.error('Failed to delete all photos', error);
+      hideDeleteProgress();
+      this.showError('Failed to delete photos: ' + error.message);
     }
   }
 

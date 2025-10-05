@@ -1,5 +1,5 @@
 <!-- widgets/photos/photos.html -->
-<!-- CHANGE SUMMARY: Updated to import PhotosWidget from photos.js module instead of inline class definition -->
+<!-- CHANGE SUMMARY: Added empty state with large plus sign and click-to-add functionality -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -59,6 +59,39 @@
       to { opacity: 1.0; }
     }
 
+    /* Empty state styling */
+    #empty-state {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      user-select: none;
+    }
+
+    #empty-state:hover {
+      opacity: 0.8;
+    }
+
+    #empty-state:active {
+      opacity: 0.6;
+    }
+
+    .plus-sign {
+      font-size: 120px;
+      line-height: 1;
+      color: #EE9828;
+      font-weight: 300;
+      margin-bottom: 20px;
+    }
+
+    .empty-helper-text {
+      font-size: 16px;
+      color: #8e8e93;
+      text-align: center;
+    }
+
     /* Photo styling with proper transitions */
     #photo-container img {
       position: absolute;
@@ -81,17 +114,12 @@
     }
 
     /* Error state styling */
-    .error-message,
-    .empty-message {
+    .error-message {
       color: var(--text-secondary);
       text-align: center;
       padding: 2rem;
       font-size: 1.1rem;
       transition: color var(--transition-medium);
-    }
-
-    .empty-message {
-      color: var(--text-muted);
     }
 
     /* Widget focus indicator */
@@ -106,6 +134,10 @@
     <div id="loading" class="loading">
       <div>Loading photos...</div>
       <div class="status">📸</div>
+    </div>
+    <div id="empty-state">
+      <div class="plus-sign">+</div>
+      <div class="empty-helper-text">Click me to add photos</div>
     </div>
     <img id="photo-display" src="" alt="Photo" style="display: none;" />
   </div>

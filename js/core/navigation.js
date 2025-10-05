@@ -262,6 +262,10 @@ export function moveFocus(dir) {
 }
 
 // Handle Enter key for selection
+// js/core/navigation.js
+// CHANGE SUMMARY: Added focus message to widget iframe when Enter is pressed to select it
+
+// Handle Enter key for selection
 export function handleEnter() {
   // Reset timer on Enter
   resetHighlightTimer();
@@ -283,6 +287,18 @@ export function handleEnter() {
       if (widgetElement && widgetElement.classList) {
         setSelectedCell(widgetElement);
         console.log(`Selected widget element:`, widgetElement);
+        
+        // ADDED: Send focus message to the widget iframe
+        const iframe = widgetElement.querySelector("iframe");
+        if (iframe && iframe.contentWindow) {
+          try {
+            iframe.contentWindow.postMessage({ action: "focus" }, "*");
+            console.log("✓ Sent 'focus' message to widget iframe");
+          } catch (error) {
+            console.warn("Failed to send focus message to widget:", error);
+          }
+        }
+        
         updateFocus();
       } else {
         console.warn(`No valid widget DOM element found at position (${state.focus.row},${state.focus.col})`);

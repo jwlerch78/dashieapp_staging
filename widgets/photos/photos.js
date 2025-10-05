@@ -1,138 +1,103 @@
 // widgets/photos/photos.js
-// CHANGE SUMMARY: Fixed theme change detection in applyTheme() to prevent redundant applications, simplified logging to reduce noise - only logs relevant updates
+// CHANGE SUMMARY: Added empty state click handler to open photos settings and trigger file picker
 
 import { createLogger } from '../../js/utils/logger.js';
 
 const logger = createLogger('PhotosWidget');
 
-/**
- * PhotosWidget - Displays slideshow from parent-provided photo data
- * Sends upload requests to parent instead of handling uploads internally
- */
-class PhotosWidget {
+export class PhotosWidget {
   constructor() {
-    this.currentPhotoIndex = 0;
     this.photoUrls = [];
-    this.isTransitioning = false;
+    this.currentPhotoIndex = 0;
     this.autoAdvanceInterval = null;
-    this.transitionTime = 10; // seconds
-    this.isFocused = false;
+    this.transitionTime = 5000;
+    this.currentFolder = null;
+    this.isTransitioning = false;
     this.currentTheme = null;
-    this.currentFolder = null; // null = all photos
-
-    // DOM elements
+    this.isFocused = false;
+    
+    this.photoContainer = document.getElementById('photo-container');
     this.loadingDiv = document.getElementById('loading');
+    this.emptyStateDiv = document.getElementById('empty-state');
     this.photoImg = document.getElementById('photo-display');
-
-    this.initialize();
+    
+    this.setupMessageListener();
+    this.setupEmptyStateHandler();
+    this.signalReady();
+    
+    logger.info('PhotosWidget initialized');
   }
 
   /**
-   * Initialize widget - set up listeners and signal ready
+   * Set up empty state click handler
    */
-  async initialize() {
-    // Set up event listeners
-    this.setupEventListeners();
+  setupEmptyStateHandler() {
+    if (this.emptyStateDiv) {
+      this.emptyStateDiv.addEventListener('click', () => {
+        this.handleEmptyStateClick();
+      });
+      logger.debug('Empty state click handler attached');
+    }
+  }
 
-    // Apply initial theme detection
-    this.detectAndApplyInitialTheme();
-
-    // Signal ready to parent (will receive photo data via widget-update)
+  /**
+   * Handle empty state click - open photos settings and trigger upload
+   */
+  handleEmptyStateClick() {
+    logger.info('Empty state clicked - opening photos settings');
+    
+    // Send message to parent to open photos settings modal
     if (window.parent !== window) {
-      window.parent.postMessage({ 
-        type: 'widget-ready', 
-        widget: 'photos' 
+      window.parent.postMessage({
+        type: 'open-photos-settings-and-upload'
       }, '*');
     }
   }
 
   /**
-   * Detect initial theme from DOM or localStorage
+   * Signal ready to parent
    */
-  detectAndApplyInitialTheme() {
-    let initialTheme = 'dark'; // fallback
-
-    // Try to detect theme from body class (applied by early theme loading)
-    if (document.body.classList.contains('theme-light')) {
-      initialTheme = 'light';
-    } else if (document.body.classList.contains('theme-dark')) {
-      initialTheme = 'dark';
-    } else {
-      // Fallback: try localStorage
-      try {
-        const savedTheme = localStorage.getItem('dashie-theme');
-        if (savedTheme && (savedTheme === 'dark' || savedTheme === 'light')) {
-          initialTheme = savedTheme;
-        }
-      } catch (error) {
-        logger.debug('Could not read theme from localStorage, using default');
-      }
+  signalReady() {
+    if (window.parent !== window) {
+      window.parent.postMessage({
+        type: 'widget-ready',
+        widget: 'photos'
+      }, '*');
+      logger.debug('Ready signal sent to parent');
     }
-
-    // Apply the detected theme immediately
-    this.applyTheme(initialTheme);
-    
   }
 
   /**
-   * Set up event listeners for message handling
+   * Set up message listener for parent communication
    */
-  setupEventListeners() {
-    // Listen for widget-messenger communications
+  setupMessageListener() {
     window.addEventListener('message', (event) => {
-      // Handle navigation commands (single action strings)
-      if (event.data && typeof event.data.action === 'string' && !event.data.type) {
-        this.handleCommand(event.data.action);
+      const data = event.data;
+      
+      if (!data) return;
+
+      // Handle focus/blur actions FIRST (before other commands)
+      if (data.action === 'focus') {
+        this.handleFocusChange(true);
+        return;
+      } else if (data.action === 'blur') {
+        this.handleFocusChange(false);
+        return;
       }
-      // Handle message objects with type
-      if (event.data && event.data.type) {
-        this.handleSystemMessage(event.data);
+
+      // Handle navigation commands (action without type)
+      if (data.action && typeof data.action === 'string' && !data.type) {
+        this.handleCommand(data.action);
+        return;
+      }
+
+      // Handle system messages with type
+      if (data.type) {
+        this.handleSystemMessage(data);
       }
     });
 
-    // Signal widget ready on load
-    window.addEventListener('load', () => {
-      if (window.parent !== window) {
-        window.parent.postMessage({ 
-          type: 'widget-ready', 
-          widget: 'photos' 
-        }, '*');
-      }
-    });
-  }
-
-  /**
-   * Handle navigation commands
-   */
-  handleCommand(action) {
-    logger.debug('Photos widget received command', { action });
-
-    switch (action) {
-      case 'left':
-        this.previousPhoto();
-        break;
-      case 'right':
-        this.nextPhoto();
-        break;
-      case 'select':
-        // Request upload modal from parent
-        if (window.parent !== window) {
-          window.parent.postMessage({
-            type: 'open-upload-modal',
-            widget: 'photos'
-          }, '*');
-          logger.info('Requesting photo upload modal from parent');
-        }
-        break;
-      case 'up':
-      case 'down':
-      case 'back':
-        // No action for these in photos widget
-        break;
-      default:
-        logger.debug('Unhandled command', { action });
-        break;
-    }
+    logger.debug('Message listener set up');
   }
 
   /**
@@ -197,14 +162,18 @@ class PhotosWidget {
       this.currentFolder = photoData.folder || null;
 
       if (this.photoUrls.length === 0) {
-        logger.warn('No photos available');
-        this.loadingDiv.innerHTML = '<div class="empty-message">No photos yet. Press Enter to upload.</div>';
-        this.loadingDiv.style.display = 'block';
+        logger.warn('No photos available - showing empty state');
+        this.loadingDiv.style.display = 'none';
         this.photoImg.style.display = 'none';
+        this.emptyStateDiv.style.display = 'flex';
         return;
       }
 
       logger.success('Photos loaded from parent', { count: this.photoUrls.length });
+
+      // Hide empty state, show photos
+      this.emptyStateDiv.style.display = 'none';
+      this.loadingDiv.style.display = 'none';
 
       // Show first photo
       this.currentPhotoIndex = 0;
@@ -219,6 +188,44 @@ class PhotosWidget {
       logger.error('Failed to load photos from parent', error);
       this.loadingDiv.innerHTML = '<div class="error-message">Failed to load photos</div>';
       this.loadingDiv.style.display = 'block';
+      this.emptyStateDiv.style.display = 'none';
+    }
+  }
+
+  /**
+   * Handle navigation commands
+   */
+  handleCommand(action) {
+    logger.debug('Photos widget received command', { action });
+
+    switch (action) {
+      case 'left':
+        this.previousPhoto();
+        break;
+      case 'right':
+        this.nextPhoto();
+        break;
+      case 'select':
+      case 'enter':
+        // If no photos, open settings; otherwise request upload modal
+        if (this.photoUrls.length === 0) {
+          this.handleEmptyStateClick();
+        } else if (window.parent !== window) {
+          window.parent.postMessage({
+            type: 'request-upload-modal',
+            widget: 'photos'
+          }, '*');
+          logger.info('Requesting photo upload modal from parent');
+        }
+        break;
+      case 'up':
+      case 'down':
+      case 'back':
+        // No action for these in photos widget
+        break;
+      default:
+        logger.debug('Unhandled command', { action });
+        break;
     }
   }
 
@@ -233,11 +240,37 @@ class PhotosWidget {
       // Widget gained focus
       document.body.classList.add('widget-focused');
       logger.debug('Photos widget gained focus');
+      
+      // If focused and no photos, open settings immediately
+      if (this.photoUrls.length === 0) {
+        logger.info('Widget focused with no photos - opening settings');
+        this.handleEmptyStateClick();
+      }
     } else if (!focused && wasFocused) {
       // Widget lost focus
       document.body.classList.remove('widget-focused');
       logger.debug('Photos widget lost focus');
     }
+  }
+
+  /**
+   * Navigate to next photo
+   */
+  nextPhoto() {
+    this.stopAutoAdvance();
+    this.showPhoto(this.currentPhotoIndex + 1, true);
+    this.startAutoAdvance();
+    logger.debug('Manual navigation to next photo');
+  }
+
+  /**
+   * Navigate to previous photo
+   */
+  previousPhoto() {
+    this.stopAutoAdvance();
+    this.showPhoto(this.currentPhotoIndex - 1, true);
+    this.startAutoAdvance();
+    logger.debug('Manual navigation to previous photo');
   }
 
   /**
@@ -257,7 +290,6 @@ class PhotosWidget {
     
     // Apply new theme class
     document.body.classList.add(`theme-${theme}`);
-    
   }
 
   /**
@@ -297,6 +329,7 @@ class PhotosWidget {
     this.photoImg.src = photoUrl;
     this.photoImg.onload = () => {
       this.loadingDiv.style.display = 'none';
+      this.emptyStateDiv.style.display = 'none';
       this.photoImg.style.display = 'block';
       
       if (this.isTransitioning) {
@@ -314,29 +347,8 @@ class PhotosWidget {
 
     this.photoImg.onerror = () => {
       logger.error('Failed to load photo', { url: photoUrl });
-      this.loadingDiv.innerHTML = '<div class="error-message">Failed to load photo</div>';
-      this.loadingDiv.style.display = 'block';
+      this.showPhoto(this.currentPhotoIndex + 1, false);
     };
-  }
-
-  /**
-   * Navigate to next photo
-   */
-  nextPhoto() {
-    this.stopAutoAdvance();
-    this.showPhoto(this.currentPhotoIndex + 1, true);
-    this.startAutoAdvance();
-    logger.debug('Manual navigation to next photo');
-  }
-
-  /**
-   * Navigate to previous photo
-   */
-  previousPhoto() {
-    this.stopAutoAdvance();
-    this.showPhoto(this.currentPhotoIndex - 1, true);
-    this.startAutoAdvance();
-    logger.debug('Manual navigation to previous photo');
   }
 
   /**
@@ -344,10 +356,14 @@ class PhotosWidget {
    */
   startAutoAdvance() {
     this.stopAutoAdvance();
+
+    if (this.photoUrls.length <= 1) return;
+
     this.autoAdvanceInterval = setInterval(() => {
-      this.showPhoto(this.currentPhotoIndex + 1, true);
-    }, this.transitionTime * 1000);
-    logger.debug('Auto-advance started', { intervalSeconds: this.transitionTime });
+      this.showPhoto(this.currentPhotoIndex + 1);
+    }, this.transitionTime);
+
+    logger.debug('Auto-advance started', { interval: this.transitionTime });
   }
 
   /**
@@ -357,6 +373,7 @@ class PhotosWidget {
     if (this.autoAdvanceInterval) {
       clearInterval(this.autoAdvanceInterval);
       this.autoAdvanceInterval = null;
+      logger.debug('Auto-advance stopped');
     }
   }
 
@@ -364,14 +381,14 @@ class PhotosWidget {
    * Update transition time
    */
   updateTransitionTime(seconds) {
-    this.transitionTime = seconds;
+    this.transitionTime = seconds * 1000;
+    logger.info('Transition time updated', { seconds });
+
     if (this.autoAdvanceInterval) {
       this.startAutoAdvance();
     }
-    logger.info('Transition time updated', { seconds });
   }
 }
 
-// Initialize the widget
-export { PhotosWidget };
+// Auto-initialize when module loads
 new PhotosWidget();
