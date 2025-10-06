@@ -1,5 +1,5 @@
 // widgets/photos/photos-settings-manager.js
-// CHANGE SUMMARY: Renamed from photo-upload-manager.js, updated to use photos-settings.html modal
+// CHANGE SUMMARY: Fixed modal unregistration - removed conditional check that prevented proper cleanup
 
 import { createLogger } from '../../js/utils/logger.js';
 
@@ -158,10 +158,10 @@ export class PhotosSettingsManager {
         return;
       }
       
-      logger.warn('Using userId from jwtAuth (photoDataService not available)', { userId });
+      logger.warn('Using fallback userId from jwtAuth', { userId });
     }
 
-    // Determine theme
+    // Get theme from body class
     const theme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
 
     // Get current settings from parent
@@ -183,11 +183,6 @@ export class PhotosSettingsManager {
     
     this.modalIframe.contentWindow.postMessage(initMessage, '*');
   }
-
-  /**
-   * Add modal styles to document
-   */
-  // CHANGE SUMMARY: Updated addModalStyles() to make photos modal full-screen on mobile, matching settings modal exactly
 
   /**
    * Add modal styles to document
@@ -286,9 +281,10 @@ export class PhotosSettingsManager {
     this.isOpen = false;
     this.iframeReady = false;
 
-    // Unregister from modal navigation
-    if (window.dashieModalManager && window.dashieModalManager.hasActiveModal()) {
+    // Unregister from modal navigation - ALWAYS unregister, don't check hasActiveModal()
+    if (window.dashieModalManager) {
       window.dashieModalManager.unregisterModal();
+      logger.debug('Unregistered from modal navigation manager');
     }
 
     // Remove modal from DOM
@@ -298,6 +294,6 @@ export class PhotosSettingsManager {
       this.modalIframe = null;
     }
 
-    logger.debug('Photos settings modal closed');
+    logger.debug('Photos settings modal closed and cleaned up');
   }
 }
