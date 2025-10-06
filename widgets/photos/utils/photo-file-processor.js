@@ -39,23 +39,27 @@ export class PhotoFileProcessor {
       // Step 1: Convert HEIC/HEIF to JPEG if needed
       const convertedFile = await this.convertToJPEGIfNeeded(file);
 
-      // Step 2: Generate thumbnail
-      const thumbnail = await this.generateThumbnail(convertedFile);
+      // Step 2: Compress and resize for optimal storage
+      const compressedFile = await this.compressAndResize(convertedFile);
 
-      // Step 3: Extract metadata
-      const metadata = this.extractMetadata(convertedFile, file);
+      // Step 3: Generate thumbnail
+      const thumbnail = await this.generateThumbnail(compressedFile);
+
+      // Step 4: Extract metadata
+      const metadata = this.extractMetadata(compressedFile, file);
 
       logger.success('File processed successfully', {
         originalName: file.name,
-        convertedName: convertedFile.name,
+        convertedName: compressedFile.name,
         hasThumbnail: !!thumbnail,
         originalSize: file.size,
-        convertedSize: convertedFile.size,
+        compressedSize: compressedFile.size,
+        compressionRatio: (file.size / compressedFile.size).toFixed(2) + 'x',
         thumbnailSize: thumbnail?.size || 0
       });
 
       return {
-        original: convertedFile,
+        original: compressedFile,
         thumbnail,
         metadata
       };
@@ -250,6 +254,85 @@ export class PhotoFileProcessor {
    */
   replaceExtension(filename, newExtension) {
     return filename.replace(/\.(heic|heif)$/i, newExtension);
+  }
+
+  /**
+   * Compress and resize image for optimal storage
+   * @param {File} file - Image file to compress
+   * @returns {Promise<File>} - Compressed file
+   */
+  async compressAndResize(file) {
+    try {
+      logger.debug('Compressing and resizing image', { 
+        filename: file.name,
+        originalSize: file.size 
+      });
+
+      // Load image
+      const img = await this.loadImage(file);
+
+      // Check if resize is needed
+      const needsResize = img.width > this.maxDimension || img.height > this.maxDimension;
+
+      if (!needsResize) {
+        logger.debug('Image within size limits, applying compression only', {
+          dimensions: `${img.width}x${img.height}`,
+          maxDimension: this.maxDimension
+        });
+      }
+
+      // Calculate new dimensions if resize needed
+      let newWidth = img.width;
+      let newHeight = img.height;
+
+      if (needsResize) {
+        const scale = this.maxDimension / Math.max(img.width, img.height);
+        newWidth = Math.round(img.width * scale);
+        newHeight = Math.round(img.height * scale);
+      }
+
+      // Create canvas and draw resized image
+      const canvas = document.createElement('canvas');
+      canvas.width = newWidth;
+      canvas.height = newHeight;
+
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, newWidth, newHeight);
+
+      // Convert to blob with compression
+      const compressedBlob = await new Promise((resolve, reject) => {
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Failed to compress image'));
+            }
+          },
+          'image/jpeg',
+          this.compressionQuality
+        );
+      });
+
+      // Create new File object
+      const compressedFile = new File([compressedBlob], file.name, { type: 'image/jpeg' });
+
+      logger.success('Image compressed', {
+        filename: file.name,
+        originalDimensions: `${img.width}x${img.height}`,
+        newDimensions: `${newWidth}x${newHeight}`,
+        originalSize: file.size,
+        compressedSize: compressedFile.size,
+        savedBytes: file.size - compressedFile.size,
+        compressionRatio: (file.size / compressedFile.size).toFixed(2) + 'x'
+      });
+
+      return compressedFile;
+
+    } catch (error) {
+      logger.error('Compression failed, using original', { filename: file.name, error });
+      return file; // Return original on error
+    }
   }
 
   /**
