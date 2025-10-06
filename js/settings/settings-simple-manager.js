@@ -1,5 +1,5 @@
 // js/settings/settings-simple-manager.js - Auto-save implementation
-// CHANGE SUMMARY: Restored to working version with D-pad on all platforms
+// CHANGE SUMMARY: Added debug logging to customHandler and null check for this.navigation to diagnose escape key issue
 
 import { SimplifiedNavigation } from './settings-d-pad-nav.js';
 import { setupEventHandlers } from './settings-event-handler.js';
@@ -181,6 +181,9 @@ export class SimplifiedSettings {
       this.modalNavigation = createModalNavigation(this.overlay, [], {
         onEscape: () => this.handleCancel(),
         customHandler: (action) => {
+          console.log('⚙️ 🔧 CustomHandler called with action:', action);
+          console.log('⚙️ 🔧 this.navigation exists?', !!this.navigation);
+          
           const actionToKeyMap = {
             'up': 'ArrowUp',
             'down': 'ArrowDown',
@@ -191,7 +194,21 @@ export class SimplifiedSettings {
           };
           
           const key = actionToKeyMap[action];
-          if (!key) return false;
+          if (!key) {
+            console.log('⚙️ 🔧 No key mapping for action:', action);
+            return false;
+          }
+          
+          if (!this.navigation) {
+            console.error('⚙️ ❌ this.navigation is null! Cannot handle action:', action);
+            // Fallback: if escape and navigation not ready, just close
+            if (action === 'escape') {
+              console.log('⚙️ 🔧 Fallback: calling handleCancel directly');
+              this.handleCancel();
+              return true;
+            }
+            return false;
+          }
           
           const syntheticEvent = {
             key: key,
@@ -200,7 +217,11 @@ export class SimplifiedSettings {
             stopImmediatePropagation: () => {}
           };
           
-          return this.navigation.handleKeyPress(syntheticEvent);
+          console.log('⚙️ 🔧 Calling this.navigation.handleKeyPress with key:', key);
+          const result = this.navigation.handleKeyPress(syntheticEvent);
+          console.log('⚙️ 🔧 handleKeyPress returned:', result);
+          
+          return result;
         }
       });
     }
