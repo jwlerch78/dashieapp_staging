@@ -165,7 +165,7 @@ export class PhotosSettingsManager {
     const theme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
 
     // Get current settings from parent
-    const settings = window.parent?.settingsController?.getSettings() || {};
+    const settings = window.parent?.settingsInstance?.controller?.getSettings() || {};
 
     // Send initialization message to iframe
     const initMessage = {

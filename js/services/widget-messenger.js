@@ -78,6 +78,26 @@ export class WidgetMessenger {
       this.broadcastCurrentState();
     });
 
+    // Listen for settings changes
+    window.addEventListener('settingsUpdated', (event) => {
+      const { changedPath, changedValue } = event.detail;
+      
+      // Handle photo transition time changes
+      if (changedPath === 'photos.transitionTime') {
+        const allIframes = document.querySelectorAll('iframe[src*="photos.html"]');
+        allIframes.forEach(iframe => {
+          if (iframe.contentWindow) {
+            iframe.contentWindow.postMessage({
+              type: 'update-settings',
+              photoTransitionTime: changedValue
+            }, '*');
+            logger.debug('Sent photo transition time to widget', { value: changedValue });
+          }
+        });
+      }
+    });
+
+
     // Listen for theme changes
     eventSystem.on(EVENTS.THEME_CHANGED, (themeData) => {
       const oldTheme = this.currentState.theme;
