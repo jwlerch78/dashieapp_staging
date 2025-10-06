@@ -1,5 +1,5 @@
 // js/main.js
-// CHANGE SUMMARY: Added QR code upload support - platform config storage, URL parameter handling, auto-trigger upload after login
+// CHANGE SUMMARY: Added QR code upload support - platform config storage, hash detection, auto-trigger upload, direct QR modal on TV
 
 // ============================================
 // IMPORTS
@@ -35,6 +35,9 @@ import {
   processQueuedRefreshTokens,
   initializePhotosSettingsManager
 } from './core/init-helpers.js';
+
+// Photos QR code modal
+import { showQRCodeModal } from '../widgets/photos/photos-modal-overlays.js';
 
 // ============================================
 // GLOBAL STATE
@@ -112,12 +115,11 @@ function updateProgress(isMobile, percent, mobileMsg, desktopMsg) {
 async function initializeApp() {
   console.log('🚀 Starting Dashie initialization sequence...');
   
-  // STEP 1: Check for QR parameter VERY EARLY (before auth)
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('qr') === 'photos') {
-    console.log('📸 QR code scan detected - storing pending upload flag');
+  // STEP 1: Check for hash fragment VERY EARLY (before auth)
+  if (window.location.hash === '#photos') {
+    console.log('📸 Photos hash detected - storing pending upload flag');
     sessionStorage.setItem('pendingPhotoUpload', 'true');
-    // Clean URL immediately so it doesn't show in address bar
+    // Clean hash immediately so it doesn't show in address bar
     window.history.replaceState({}, '', window.location.pathname);
   }
   
@@ -461,25 +463,36 @@ window.addEventListener('message', (event) => {
     }
   }
   
-  // NEW: Handle empty state click - open settings and trigger file picker
+  // Handle empty state click - check if TV and show QR directly, otherwise open settings
   if (event.data?.type === 'open-photos-settings-and-upload') {
-    console.log('📸 Empty photos widget clicked - opening settings and triggering upload');
+    console.log('📸 Empty photos widget clicked');
     
-    if (window.photosSettingsManager) {
-      window.photosSettingsManager.open().then(() => {
-        // Wait for modal to be ready, then trigger file picker
-        setTimeout(() => {
-          const iframe = window.photosSettingsManager.modalIframe;
-          if (iframe && iframe.contentWindow) {
-            iframe.contentWindow.postMessage({
-              type: 'trigger-file-picker'
-            }, '*');
-            console.log('✓ Sent file picker trigger to photos modal');
-          }
-        }, 500); // Wait for modal initialization
-      });
+    // Check if TV platform
+    if (window.dashiePlatformConfig?.isTV) {
+      // TV: Show QR modal directly, skip settings
+      console.log('📸 Fire TV detected - showing QR modal directly');
+      const uploadUrl = window.dashiePlatformConfig.uploadUrl || 'https://dashieapp.com#photos';
+      showQRCodeModal(uploadUrl);
     } else {
-      console.error('❌ Photos settings manager not initialized');
+      // Desktop/Mobile: Open settings and trigger file picker
+      console.log('📸 Desktop/Mobile - opening settings and triggering upload');
+      
+      if (window.photosSettingsManager) {
+        window.photosSettingsManager.open().then(() => {
+          // Wait for modal to be ready, then trigger file picker
+          setTimeout(() => {
+            const iframe = window.photosSettingsManager.modalIframe;
+            if (iframe && iframe.contentWindow) {
+              iframe.contentWindow.postMessage({
+                type: 'trigger-file-picker'
+              }, '*');
+              console.log('✓ Sent file picker trigger to photos modal');
+            }
+          }, 500);
+        });
+      } else {
+        console.error('❌ Photos settings manager not initialized');
+      }
     }
   }
 });

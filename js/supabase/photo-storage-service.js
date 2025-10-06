@@ -1,9 +1,10 @@
 // js/supabase/photo-storage-service.js
-// CHANGE SUMMARY: Added authenticated Supabase client creation for storage operations to pass RLS policies
+// CHANGE SUMMARY: Integrated PhotoFileProcessor for HEIC conversion, compression, and thumbnail generation; updated upload flow to handle both full-size and thumbnail uploads
 
 import { supabase } from './supabase-config.js';
 import { createClient } from 'https://cdn.skypack.dev/@supabase/supabase-js@2';
 import { createLogger } from '../utils/logger.js';
+import { PhotoFileProcessor } from '../../widgets/photos/utils/photo-file-processor.js';
 
 const logger = createLogger('PhotoStorage');
 
@@ -20,6 +21,7 @@ export class PhotoStorageService {
     this.defaultFolder = 'all-photos';
     this.edgeFunctionUrl = null;
     this.authenticatedClient = null; // Cached authenticated client
+    this.fileProcessor = new PhotoFileProcessor(); // File processor for HEIC, compression, and thumbnails
     
     // Configure edge function URL
     this._configureEdgeFunction();
@@ -58,22 +60,22 @@ export class PhotoStorageService {
       }
 
       // Create authenticated client with JWT in headers
-     this.authenticatedClient = createClient(
-      supabaseUrl,
-      supabaseAnonKey,
-      {
-        global: {
-          headers: {
-            Authorization: `Bearer ${jwtToken}`
+      this.authenticatedClient = createClient(
+        supabaseUrl,
+        supabaseAnonKey,
+        {
+          global: {
+            headers: {
+              Authorization: `Bearer ${jwtToken}`
+            }
+          },
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: false
           }
-        },
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,  // ADD THIS
-          detectSessionInUrl: false  // ADD THIS
         }
-      }
-    );
+      );
 
       logger.debug('Created authenticated Supabase client for storage');
       return this.authenticatedClient;
@@ -119,7 +121,7 @@ export class PhotoStorageService {
     }
 
     try {
-      // Get current JWT token (method is getSupabaseJWT, not getValidJWT)
+      // Get current JWT token
       const jwtToken = await this.jwtService.getSupabaseJWT();
       if (!jwtToken) {
         throw new Error('Failed to get valid JWT token');
@@ -183,6 +185,15 @@ export class PhotoStorageService {
     const sanitizedFolder = this.sanitizeFolderName(folder || this.defaultFolder);
     const sanitizedFilename = this.sanitizeFilename(filename);
     return `${this.getUserPrefix()}/${sanitizedFolder}/${sanitizedFilename}`;
+  }
+
+  /**
+   * Build thumbnail storage path: {userId}/{folder}/thumbs/{filename}
+   */
+  buildThumbnailPath(folder, filename) {
+    const sanitizedFolder = this.sanitizeFolderName(folder || this.defaultFolder);
+    const sanitizedFilename = this.sanitizeFilename(filename);
+    return `${this.getUserPrefix()}/${sanitizedFolder}/thumbs/${sanitizedFilename}`;
   }
 
   /**
@@ -311,47 +322,72 @@ export class PhotoStorageService {
     try {
       logger.debug('Uploading photo', { filename: file.name, size: file.size, folder });
 
-      // Process file (HEIC conversion if needed)
-      const processedFile = await this.processFile(file);
+      // Process file (HEIC conversion + compression + thumbnail generation)
+      const processed = await this.fileProcessor.processFile(file);
 
-      // Generate storage path
-      const storagePath = this.buildStoragePath(folder, processedFile.name);
+      // Generate storage paths
+      const storagePath = this.buildStoragePath(folder, processed.original.name);
+      const thumbnailPath = processed.thumbnail 
+        ? this.buildThumbnailPath(folder, processed.original.name)
+        : null;
 
       // Get authenticated client for storage operation
       const authClient = await this._getAuthenticatedClient();
 
-      // Upload to storage bucket with authenticated client
+      // Upload full-size photo to storage bucket
       const { data: uploadData, error: uploadError } = await authClient.storage
         .from(this.bucketName)
-        .upload(storagePath, processedFile, {
+        .upload(storagePath, processed.original, {
           cacheControl: '3600',
           upsert: false
         });
 
       if (uploadError) throw uploadError;
 
-      logger.debug('File uploaded to storage', { path: storagePath });
+      logger.debug('Full-size photo uploaded to storage', { path: storagePath });
+
+      // Upload thumbnail if generated
+      if (processed.thumbnail && thumbnailPath) {
+        const { error: thumbError } = await authClient.storage
+          .from(this.bucketName)
+          .upload(thumbnailPath, processed.thumbnail, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (thumbError) {
+          logger.warn('Thumbnail upload failed, continuing without thumbnail', thumbError);
+        } else {
+          logger.debug('Thumbnail uploaded to storage', { path: thumbnailPath });
+        }
+      }
 
       // Record in database via edge function
       await this._callEdgeFunction('create_photo_record', {
         storage_path: storagePath,
-        filename: processedFile.name,
+        thumbnail_path: thumbnailPath,
+        filename: processed.original.name,
         folder_name: folder,
-        file_size: processedFile.size,
-        mime_type: processedFile.type
+        file_size: processed.original.size,
+        mime_type: processed.original.type
       });
 
-      // Update storage quota via edge function
+      // Update storage quota via edge function (include thumbnail size if exists)
+      const totalSize = processed.original.size + (processed.thumbnail?.size || 0);
       await this._callEdgeFunction('update_storage_quota', {
-        bytes_to_add: processedFile.size
+        bytes_to_add: totalSize
       });
 
-      logger.success('Photo uploaded successfully', { filename: processedFile.name });
+      logger.success('Photo uploaded successfully', { 
+        filename: processed.original.name,
+        hasThumbnail: !!processed.thumbnail
+      });
 
       return {
         success: true,
-        filename: processedFile.name,
-        path: storagePath
+        filename: processed.original.name,
+        path: storagePath,
+        thumbnailPath: thumbnailPath
       };
 
     } catch (error) {
@@ -362,47 +398,6 @@ export class PhotoStorageService {
         error: error.message
       };
     }
-  }
-
-  /**
-   * Process file before upload (HEIC conversion, etc.)
-   * @param {File} file 
-   * @returns {Promise<File>}
-   */
-  async processFile(file) {
-    // Check if HEIC/HEIF format
-    const isHEIC = /\.heic$/i.test(file.name) || /\.heif$/i.test(file.name);
-    
-    if (isHEIC) {
-      logger.debug('Converting HEIC to JPEG', { filename: file.name });
-      try {
-        // Convert HEIC to JPEG using heic2any library (if available)
-        if (window.heic2any) {
-          const convertedBlob = await window.heic2any({
-            blob: file,
-            toType: 'image/jpeg',
-            quality: 0.9
-          });
-          
-          // Create new File object with .jpg extension
-          const newFilename = file.name.replace(/\.heic$/i, '.jpg').replace(/\.heif$/i, '.jpg');
-          const convertedFile = new File([convertedBlob], newFilename, { type: 'image/jpeg' });
-          
-          logger.success('HEIC converted to JPEG', { 
-            originalName: file.name, 
-            newName: newFilename 
-          });
-          
-          return convertedFile;
-        } else {
-          logger.warn('heic2any library not available, uploading as-is');
-        }
-      } catch (error) {
-        logger.error('HEIC conversion failed, uploading as-is', error);
-      }
-    }
-    
-    return file;
   }
 
   // ==================== QUOTA OPERATIONS ====================
@@ -437,7 +432,7 @@ export class PhotoStorageService {
 
   /**
    * Get storage usage for user
-   * @returns {Promise<Object>}
+   * @returns {Promise<{used: number, quota: number, usedMB: number, quotaMB: number, percentUsed: number}>}
    */
   async getStorageUsage() {
     try {
@@ -483,19 +478,22 @@ export class PhotoStorageService {
     }
   }
 
-  // ==================== PHOTO RETRIEVAL OPERATIONS ====================
+  // ==================== LIST OPERATIONS ====================
 
   /**
-   * List photos from database
-   * @param {string|null} folder - Folder to list, or null for all
-   * @param {number} limit - Max photos to return
+   * List photos from storage
+   * @param {string|null} folder - Folder to list from, or null for all
+   * @param {number} limit - Maximum number of photos to return
    * @returns {Promise<Array>}
    */
   async listPhotos(folder = null, limit = 100) {
     try {
       logger.debug('Listing photos', { folder, limit });
 
-      const result = await this._callEdgeFunction('list_photos', { folder, limit });
+      const result = await this._callEdgeFunction('list_photos', {
+        folder,
+        limit
+      });
 
       logger.success('Photos listed', { count: result.photos.length });
       return result.photos;
@@ -563,11 +561,9 @@ export class PhotoStorageService {
     }
   }
 
+  // ==================== DELETE OPERATIONS ====================
+
   /**
-   * Delete a photo
-   * @param {string} photoId - Photo ID to delete
-   */
-   /**
    * Delete a photo
    * @param {string} photoId - Photo ID to delete
    */
