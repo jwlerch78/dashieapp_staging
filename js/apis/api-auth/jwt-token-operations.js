@@ -309,56 +309,58 @@ export class JWTTokenOperations extends JWTServiceCore {
   /**
    * List all stored token accounts
    */
-  async listTokenAccounts() {
-    if (!this.isServiceReady()) {
-      throw new Error('JWT service not ready for list accounts operation');
-    }
-
-    const timer = logger.startTimer('JWT List Accounts');
-    
-    try {
-      await this._ensureValidJWT();
-      const googleAccessToken = this._getGoogleAccessToken();
-      if (!googleAccessToken) {
-        throw new Error('No Google access token available');
-      }
-
-      const requestBody = {
-        googleAccessToken,
-        operation: 'list_accounts'
-      };
-
-      const response = await fetch(this.edgeFunctionUrl, {
-        method: 'POST',
-        headers: this._getSupabaseHeaders(),
-        body: JSON.stringify(requestBody)
-      });
-
-      const duration = timer();
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`JWT list accounts failed: ${response.status} ${errorText}`);
-      }
-
-      const result = await response.json();
-      
-      logger.success('JWT accounts listed', {
-        success: result.success,
-        count: result.accounts?.length || 0,
-        duration
-      });
-
-      this.lastOperationTime = Date.now();
-
-      return result;
-
-    } catch (error) {
-      timer();
-      logger.error('JWT list accounts failed', error);
-      throw error;
-    }
+  /**
+ * List all stored token accounts
+ * FIXED: Now uses JWT authentication instead of expired Google session token
+ */
+async listTokenAccounts() {
+  if (!this.isServiceReady()) {
+    throw new Error('JWT service not ready for list accounts operation');
   }
+
+  const timer = logger.startTimer('JWT List Accounts');
+  
+  try {
+    await this._ensureValidJWT();
+
+    const requestBody = {
+      operation: 'list_accounts'
+    };
+
+    // Use Supabase JWT in Authorization header (not Google token)
+    const headers = this._getSupabaseHeaders(true);
+
+    const response = await fetch(this.edgeFunctionUrl, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(requestBody)
+    });
+
+    const duration = timer();
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`JWT list accounts failed: ${response.status} ${errorText}`);
+    }
+
+    const result = await response.json();
+    
+    logger.success('JWT accounts listed', {
+      success: result.success,
+      count: result.accounts?.length || 0,
+      duration
+    });
+
+    this.lastOperationTime = Date.now();
+
+    return result;
+
+  } catch (error) {
+    timer();
+    logger.error('JWT list accounts failed', error);
+    throw error;
+  }
+}
 
   /**
    * Remove a token account
