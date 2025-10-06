@@ -5,6 +5,7 @@
 import { TimeSelectionHandler } from './time-selection-handler.js';
 import { SettingsSelectionHandler } from './settings-selection-handler.js';
 import { populateSystemStatus } from './settings-ui-builder.js';
+import { CalendarSettingsManager } from '../../widgets/dcal/dcal-settings/dcal-settings-manager.js';
 
 
 export class SimplifiedNavigation {
@@ -229,50 +230,60 @@ export class SimplifiedNavigation {
 
   // CHANGE SUMMARY: Fixed activateCurrentElement to trigger click on cells without data-navigate (like Photos button)
 
-  activateCurrentElement() {
-    const current = this.focusableElements[this.focusIndex];
-    if (!current) return;
+  // CHANGE SUMMARY: Add calendar-item handling to activateCurrentElement method
 
-    console.log(`⚙️ Activating: ${this.getElementDescription(current)}`);
+// Find the activateCurrentElement() method and UPDATE it to handle calendar items:
 
-    if (current.classList.contains('settings-cell')) {
-      
-      // NEW: Check if this is a toggle cell first
-      if (current.classList.contains('toggle-cell')) {
-        const toggle = current.querySelector('input[type="checkbox"]');
-        if (toggle) {
-          toggle.checked = !toggle.checked;
-          toggle.dispatchEvent(new Event('change', { bubbles: true }));
-          console.log(`⚙️ Toggled checkbox in cell to: ${toggle.checked}`);
-          return;
-        }
-      }
-      
-      // CRITICAL FIX: Check if it's a time selection cell FIRST, before navigation
-      if (this.timeHandler.isTimeSelectionCell(current)) {
-        this.handleSelectionCell(current);
+activateCurrentElement() {
+  const current = this.focusableElements[this.focusIndex];
+  if (!current) return;
+
+  console.log(`⚙️ Activating: ${this.getElementDescription(current)}`);
+
+  if (current.classList.contains('settings-cell')) {
+    
+    // NEW: Check if this is a calendar item - trigger click directly
+    if (current.classList.contains('calendar-item')) {
+      console.log(`⚙️ Triggering calendar item toggle`);
+      current.click();
+      return;
+    }
+    
+    // Check if this is a toggle cell
+    if (current.classList.contains('toggle-cell')) {
+      const toggle = current.querySelector('input[type="checkbox"]');
+      if (toggle) {
+        toggle.checked = !toggle.checked;
+        toggle.dispatchEvent(new Event('change', { bubbles: true }));
+        console.log(`⚙️ Toggled checkbox in cell to: ${toggle.checked}`);
         return;
       }
-      
-      // Then check for navigation
-      const navigateTarget = current.dataset.navigate;
-      if (navigateTarget) {
-        this.navigateToScreen(navigateTarget);
-      } else if (current.classList.contains('selectable')) {
-        this.handleSelectionCell(current);
-      } else {
-        // NEW: If no navigate attribute and not selectable, trigger click
-        // This handles special cells like Photos button (#photos-menu-btn)
-        console.log(`⚙️ Cell has no navigate or selectable class - triggering click event`);
-        current.click();
-      }
-    } else if (current.classList.contains('form-control')) {
-      this.activateFormControl(current);
-    } else if (current.type === 'checkbox') {
-      current.checked = !current.checked;
-      current.dispatchEvent(new Event('change'));
     }
+    
+    // Check if it's a time selection cell FIRST, before navigation
+    if (this.timeHandler.isTimeSelectionCell(current)) {
+      this.handleSelectionCell(current);
+      return;
+    }
+    
+    // Then check for navigation
+    const navigateTarget = current.dataset.navigate;
+    if (navigateTarget) {
+      this.navigateToScreen(navigateTarget);
+    } else if (current.classList.contains('selectable')) {
+      this.handleSelectionCell(current);
+    } else {
+      // If no navigate attribute and not selectable, trigger click
+      console.log(`⚙️ Cell has no navigate or selectable class - triggering click event`);
+      current.click();
+    }
+  } else if (current.classList.contains('form-control')) {
+    this.activateFormControl(current);
+  } else if (current.type === 'checkbox') {
+    current.checked = !current.checked;
+    current.dispatchEvent(new Event('change'));
   }
+}
   
   handleSelectionCell(cell) {
     // Check if this is a time selection cell
@@ -349,38 +360,46 @@ export class SimplifiedNavigation {
     }
   }
 
-  navigateToScreen(screenId) {
-    const currentScreen = this.overlay.querySelector('.settings-screen.active');
-    const nextScreen = this.overlay.querySelector(`[data-screen="${screenId}"]`);
+navigateToScreen(screenId) {
+  const currentScreen = this.overlay.querySelector('.settings-screen.active');
+  const nextScreen = this.overlay.querySelector(`[data-screen="${screenId}"]`);
+  
+  if (!nextScreen) {
+    console.error(`⚙️ Screen not found: ${screenId}`);
+    return;
+  }
+  
+  console.log(`⚙️ Navigating to screen: ${screenId}`);
+  
+  this.navigationStack.push(screenId);
+  
+  currentScreen.classList.remove('active');
+  currentScreen.classList.add('sliding-out-left');
+  
+  nextScreen.classList.add('sliding-in-right', 'active');
+  
+  setTimeout(() => {
+    currentScreen.classList.remove('sliding-out-left');
+    nextScreen.classList.remove('sliding-in-right');
     
-    if (!nextScreen) {
-      console.error(`⚙️ Screen not found: ${screenId}`);
-      return;
+    this.focusIndex = 0;
+    this.updateFocusableElements();
+    this.updateFocus();
+    this.selectionHandler.updateNavBar(this.overlay, this.getCurrentScreenId(), this.navigationStack);
+
+    if (screenId === 'system-status') {
+      populateSystemStatus(this.overlay);
     }
     
-    console.log(`⚙️ Navigating to screen: ${screenId}`);
-    
-    this.navigationStack.push(screenId);
-    
-    currentScreen.classList.remove('active');
-    currentScreen.classList.add('sliding-out-left');
-    
-    nextScreen.classList.add('sliding-in-right', 'active');
-    
-    setTimeout(() => {
-      currentScreen.classList.remove('sliding-out-left');
-      nextScreen.classList.remove('sliding-in-right');
-      
-      this.focusIndex = 0;
-      this.updateFocusableElements();
-      this.updateFocus();
-      this.selectionHandler.updateNavBar(this.overlay, this.getCurrentScreenId(), this.navigationStack);
-
-      if (screenId === 'system-status') {
-        populateSystemStatus(this.overlay);
+    if (screenId === 'manage-calendars' || screenId === 'calendar') {
+      if (!window.calendarSettingsManager) {
+        // IMPORTANT: Use this.overlay, not just overlay
+        window.calendarSettingsManager = new CalendarSettingsManager(this.overlay, this);
       }
-    }, 300);
-  }
+      window.calendarSettingsManager.initialize();
+    }
+  }, 300);
+}
 
   navigateBack() {
     if (this.navigationStack.length <= 1) return;

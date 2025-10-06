@@ -1,0 +1,141 @@
+/* widgets/dcal/dcal-settings/dcal-settings.css */
+/* CHANGE SUMMARY: Updated opacity for disabled calendars (0.4), added focused state styling, fixed checkmark visibility */
+
+/* Calendar Item Styles */
+.calendar-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  transition: all 0.2s ease;
+}
+
+/* Calendar Color Dot */
+.calendar-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* Calendar Item States */
+.calendar-item.enabled {
+  font-weight: 600;
+  opacity: 1;
+}
+
+.calendar-item.enabled .cell-label {
+  font-weight: 600;
+}
+
+.calendar-item:not(.enabled) {
+  opacity: 0.4; /* More faded - reduced from 0.6 */
+}
+
+.calendar-item:not(.enabled) .calendar-color-dot {
+  opacity: 0.3; /* Even more faded for color dot */
+}
+
+/* Checkmark visibility - Match existing settings pattern using opacity */
+.calendar-item .cell-checkmark {
+  margin-left: auto;
+  color: #ff9500;
+  font-size: 20px;
+  font-weight: 600;
+  opacity: 0; /* Hidden by default - matches existing settings pattern */
+}
+
+.calendar-item.enabled .cell-checkmark {
+  opacity: 1; /* Show when enabled */
+}
+
+/* Account Section Headers */
+.calendar-account-header {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 12px 16px 8px 16px;
+  color: var(--text-secondary, #999);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Dark theme adjustments */
+.theme-dark .calendar-account-header {
+  color: #999;
+}
+
+/* Light theme adjustments */
+.theme-light .calendar-account-header {
+  color: #666;
+}
+
+/* Focus state (orange highlight for d-pad navigation) - CRITICAL */
+.calendar-item.focused {
+  background: linear-gradient(90deg, 
+    rgba(255, 149, 0, 0.15) 0%, 
+    rgba(255, 149, 0, 0.05) 100%) !important; /* !important to override other styles */
+  border-left: 3px solid #ff9500;
+  padding-left: 13px; /* Adjust for border */
+}
+
+/* Hover state for touch/mouse */
+.calendar-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+
+.theme-light .calendar-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Account section spacing */
+.calendar-account-section {
+  margin-bottom: 8px;
+}
+
+.calendar-account-section:last-child {
+  margin-bottom: 0;
+}
+
+/* Coming soon placeholder */
+.coming-soon {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary, #999);
+}
+
+.coming-soon h3 {
+  font-size: 18px;
+  margin-bottom: 12px;
+  color: var(--text-primary, #fff);
+}
+
+.coming-soon p {
+  font-size: 14px;
+  line-height: 1.6;
+  margin: 8px 0;
+}
+
+/* Ensure calendar items work with existing settings-cell styles */
+.settings-cell.calendar-item {
+  /* Inherit base settings-cell styles */
+  min-height: 44px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .calendar-color-dot {
+    width: 8px;
+    height: 8px;
+  }
+  
+  .calendar-item {
+    padding: 10px 14px;
+  }
+  
+  .calendar-account-header {
+    font-size: 12px;
+    padding: 10px 14px 6px 14px;
+  }
+}

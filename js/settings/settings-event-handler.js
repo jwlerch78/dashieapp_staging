@@ -1,6 +1,7 @@
 // js/settings/settings-event-handler.js
 // CHANGE SUMMARY: Added sleep timer toggle handler to update UI states and save setting
 
+
 export function setupEventHandlers(overlay, settingsManager) {
   console.log('⚙️ Setting up event handlers');
   

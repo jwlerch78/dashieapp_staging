@@ -157,6 +157,14 @@ export class SimplifiedSettings {
     this.overlay.className = 'settings-overlay';
     this.overlay.innerHTML = buildSettingsUI(isMobile);
     document.body.appendChild(this.overlay);
+
+    // Load calendar settings CSS
+    const calendarCSS = document.createElement('link');
+    calendarCSS.rel = 'stylesheet';
+    calendarCSS.href = 'widgets/dcal/dcal-settings/dcal-settings.css'; // CORRECTED PATH
+    document.head.appendChild(calendarCSS);
+    console.log('⚙️ Calendar settings CSS loaded');
+
     
     await this.loadCurrentSettings();
     
