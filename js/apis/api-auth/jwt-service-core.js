@@ -554,29 +554,6 @@ export class JWTServiceCore {
     });
   }
 
-  /**
-   * Force JWT refresh (bypasses expiry check)
-   * Used when we want to refresh even if token isn't technically expired yet
-   * @private
-   */
-  async _forceRefreshJWT() {
-    logger.info('🔄 Force refreshing JWT...');
-
-    const refreshResult = await this._testConnectionAndGetJWT();
-    if (refreshResult.success) {
-      this.currentJWT = refreshResult.jwtToken;
-      this.currentUser = refreshResult.user;
-      this._parseJWTExpiry();
-      this._saveJWTToStorage();
-      this._startRefreshTimer(); // Set new timer with fresh JWT
-      logger.success('✅ JWT force refresh successful');
-      return true;
-    } else {
-      logger.error('❌ JWT force refresh failed:', refreshResult.error);
-      this._handleJWTFailure();
-      return false;
-    }
-  }
 
   /**
    * Stop the refresh timer (cleanup)
