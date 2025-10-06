@@ -462,31 +462,82 @@ export class JWTServiceCore {
     }
   }
 
-  /**
-   * Start proactive JWT refresh timer (every 24 hours)
-   * This ensures JWT is refreshed while still valid, avoiding expiry deadlock
-   * NOTE: JWT now has 72h expiry on server side, so 24h timer gives 3x safety margin
+     /**
+   * Start proactive JWT refresh timer
+   * Refreshes when JWT reaches 24 hours remaining (not a fixed interval)
+   * If already less than 24 hours, refreshes immediately
+   * NOTE: JWT has 72h expiry on server side
    * @private
    */
   _startRefreshTimer() {
-    // Clear any existing timer
-    if (this.refreshInterval) {
-      clearInterval(this.refreshInterval);
+  // Clear any existing timer
+  if (this.refreshInterval) {
+    clearTimeout(this.refreshInterval);
+    this.refreshInterval = null;
+  }
+
+  if (!this.jwtExpiry) {
+    logger.warn('Cannot start refresh timer: no JWT expiry time available');
+    return;
+  }
+
+  const now = Date.now();
+  const timeUntilExpiry = this.jwtExpiry - now;
+  const REFRESH_THRESHOLD = 24 * 60 * 60 * 1000; // 24 hours
+
+  const timeUntilRefresh = timeUntilExpiry - REFRESH_THRESHOLD;
+
+  if (timeUntilRefresh <= 0) {
+    // Less than 24 hours - refresh immediately
+    logger.info('🔄 JWT has less than 24 hours remaining, refreshing now...');
+    
+    this._ensureValidJWT().catch(error => {
+      logger.error('Immediate JWT refresh failed', error);
+    });
+    
+    return;
+  }
+
+  // Schedule refresh at 24-hour threshold
+  this.refreshInterval = setTimeout(async () => {
+    logger.info('🔄 Proactive JWT refresh (reached 24-hour threshold)');
+    try {
+      await this._ensureValidJWT();
+    } catch (error) {
+      logger.error('Background JWT refresh failed', error);
     }
+  }, timeUntilRefresh);
 
-    // Refresh every 24 hours (JWT has 72h expiry, so this gives us 3x safety margin)
-    const REFRESH_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+  const refreshTime = new Date(now + timeUntilRefresh);
+  logger.debug('JWT refresh timer started', {
+    expiresIn: Math.round(timeUntilExpiry / 1000 / 60 / 60) + ' hours',
+    refreshIn: Math.round(timeUntilRefresh / 1000 / 60 / 60) + ' hours',
+    refreshAt: refreshTime.toLocaleString()
+  });
+}
 
-    this.refreshInterval = setInterval(async () => {
-      logger.info('🔄 Proactive JWT refresh (24-hour timer)');
-      try {
-        await this._ensureValidJWT();
-      } catch (error) {
-        logger.error('Background JWT refresh failed', error);
-      }
-    }, REFRESH_INTERVAL);
+  /**
+   * Force JWT refresh (bypasses expiry check)
+   * Used when we want to refresh even if token isn't technically expired yet
+   * @private
+   */
+  async _forceRefreshJWT() {
+    logger.info('🔄 Force refreshing JWT...');
 
-    logger.debug('JWT refresh timer started (24-hour interval)');
+    const refreshResult = await this._testConnectionAndGetJWT();
+    if (refreshResult.success) {
+      this.currentJWT = refreshResult.jwtToken;
+      this.currentUser = refreshResult.user;
+      this._parseJWTExpiry();
+      this._saveJWTToStorage();
+      this._startRefreshTimer(); // Set new timer with fresh JWT
+      logger.success('✅ JWT force refresh successful');
+      return true;
+    } else {
+      logger.error('❌ JWT force refresh failed:', refreshResult.error);
+      this._handleJWTFailure();
+      return false;
+    }
   }
 
   /**
@@ -495,11 +546,11 @@ export class JWTServiceCore {
    */
   _stopRefreshTimer() {
     if (this.refreshInterval) {
-      clearInterval(this.refreshInterval);
+      clearTimeout(this.refreshInterval);
       this.refreshInterval = null;
       logger.debug('JWT refresh timer stopped');
     }
-  }
+  } 
 
   /**
    * Check if current JWT is expired or will expire soon
@@ -509,7 +560,7 @@ export class JWTServiceCore {
     if (!this.jwtExpiry) return true;
 
     const now = Date.now();
-    const bufferTime = 5 * 60 * 1000; // 5 minutes buffer
+    const bufferTime = 69 * 60 * 1000; // 60 minutes buffer
 
     return now >= (this.jwtExpiry - bufferTime);
   }
@@ -520,28 +571,75 @@ export class JWTServiceCore {
    * CRITICAL FIX: Triggers auto-logout on failure
    * @private
    */
-  async _ensureValidJWT() {
-    if (!this._isJWTExpired()) {
-      return true;
-    }
-
-    logger.info('🔄 JWT expired or expiring soon, refreshing...');
-
-    const refreshResult = await this._testConnectionAndGetJWT();
-    if (refreshResult.success) {
-      this.currentJWT = refreshResult.jwtToken;
-      this.currentUser = refreshResult.user;
-      this._parseJWTExpiry();
-      this._saveJWTToStorage();
-      this._startRefreshTimer(); // CRITICAL FIX: Restart timer with new JWT expiry
-      logger.success('✅ JWT refreshed successfully');
-      return true;
-    } else {
-      logger.error('❌ JWT refresh failed:', refreshResult.error);
-      this._handleJWTFailure(); // CRITICAL FIX: Auto-logout on failure
-      return false;
-    }
+ async _ensureValidJWT() {
+  if (!this._isJWTExpired()) {
+    return true;
   }
+
+  logger.info('🔄 JWT expired or expiring soon, refreshing...');
+
+  const refreshResult = await this._refreshJWT();
+  if (refreshResult.success) {
+    this.currentJWT = refreshResult.jwtToken;
+    this.currentUser = refreshResult.user;
+    this._parseJWTExpiry();
+    this._saveJWTToStorage();
+    this._startRefreshTimer();
+    logger.success('✅ JWT refreshed successfully');
+    return true;
+  } else {
+    logger.error('❌ JWT refresh failed:', refreshResult.error);
+    this._handleJWTFailure();
+    return false;
+  }
+}
+
+
+/**
+ * Refresh JWT using current JWT (no Google token required)
+ * @private
+ */
+async _refreshJWT() {
+  logger.info('🔄 Refreshing JWT using current JWT...');
+  
+  if (!this.currentJWT) {
+    logger.error('Cannot refresh JWT: no current JWT available');
+    return { success: false, error: 'No current JWT' };
+  }
+
+  try {
+    const requestBody = {
+      operation: 'refresh_jwt'
+    };
+
+    // Use current JWT in Authorization header
+    const headers = this._getSupabaseHeaders(true);
+
+    const response = await fetch(this.edgeFunctionUrl, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(requestBody)
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      if (result.success && result.jwtToken) {
+        return {
+          success: true,
+          jwtToken: result.jwtToken,
+          user: result.user
+        };
+      }
+    }
+
+    const errorText = await response.text();
+    return { success: false, error: `${response.status}: ${errorText}` };
+
+  } catch (error) {
+    logger.error('JWT refresh failed', error);
+    return { success: false, error: error.message };
+  }
+}
 
   /**
    * Get Google access token from auth system
