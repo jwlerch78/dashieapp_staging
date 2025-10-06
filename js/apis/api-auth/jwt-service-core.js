@@ -560,7 +560,7 @@ export class JWTServiceCore {
     if (!this.jwtExpiry) return true;
 
     const now = Date.now();
-    const bufferTime = 69 * 60 * 1000; // 60 minutes buffer
+    const bufferTime = 60 * 60 * 1000; // 60 minutes buffer
 
     return now >= (this.jwtExpiry - bufferTime);
   }
