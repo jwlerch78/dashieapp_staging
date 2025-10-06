@@ -1,5 +1,5 @@
 // js/apis/api-auth/providers/web-oauth.js
-// CHANGE SUMMARY: Fixed scope field - changed from 'scopes' array to 'scope' string to match edge function expectations
+// CHANGE SUMMARY: Added OAuth state clearing on errors and retry with account selection to fix cached session conflicts
 
 import { createLogger } from '../../../utils/logger.js';
 import { AUTH_CONFIG } from '../../../auth/auth-config.js';
@@ -65,22 +65,29 @@ export class WebOAuthProvider {
 
   /**
    * Start the OAuth sign-in flow
+   * @param {boolean} forceAccountSelection - Force Google account selection (used after errors)
    * @returns {Promise<void>} Redirects to Google OAuth
    */
-  async signIn() {
+  async signIn(forceAccountSelection = false) {
     if (!this.isInitialized) {
       await this.init();
     }
 
-    logger.auth('web', 'sign_in_start', 'pending');
+    logger.auth('web', 'sign_in_start', 'pending', {
+      forceAccountSelection
+    });
 
     try {
-      const authUrl = this.buildAuthUrl();
+      // Clear any stale OAuth state before starting
+      this._clearOAuthState();
+      
+      const authUrl = this.buildAuthUrl(forceAccountSelection);
       
       logger.debug('Redirecting to Google OAuth', {
         url: authUrl.substring(0, 100) + '...',
         responseType: this.config.response_type,
-        accessType: this.config.access_type
+        accessType: this.config.access_type,
+        forceAccountSelection
       });
 
       // Store that we initiated OAuth for security
@@ -97,16 +104,20 @@ export class WebOAuthProvider {
 
   /**
    * Build the OAuth authorization URL
+   * @param {boolean} forceAccountSelection - Force account selection screen
    * @returns {string} Complete OAuth URL
    */
-  buildAuthUrl() {
+  buildAuthUrl(forceAccountSelection = false) {
+    // Determine prompt parameter based on context
+    const promptValue = forceAccountSelection ? 'select_account consent' : this.config.prompt;
+    
     const params = new URLSearchParams({
       client_id: this.config.client_id,
       redirect_uri: this.config.redirect_uri,
       response_type: this.config.response_type,
       scope: this.config.scope,
       access_type: this.config.access_type,
-      prompt: this.config.prompt,
+      prompt: promptValue,
       state: Date.now().toString() // Simple state for CSRF protection
     });
 
@@ -143,8 +154,30 @@ export class WebOAuthProvider {
         description: errorDescription
       });
       
-      // Clean up URL
+      // Clean up URL and OAuth state
       window.history.replaceState({}, document.title, window.location.pathname);
+      this._clearOAuthState();
+      
+      // Check if this might be a cached session conflict
+      const isCachedSessionError = error === 'access_denied' || 
+                                    error === 'invalid_request' ||
+                                    errorDescription?.toLowerCase().includes('session');
+      
+      if (isCachedSessionError) {
+        logger.warn('Possible cached OAuth session conflict detected');
+        
+        // Show user-friendly error and offer to retry with account selection
+        const retryMessage = 'Authentication failed. This may be due to a cached session. Click OK to retry with account selection.';
+        
+        if (confirm(retryMessage)) {
+          logger.info('User confirmed retry with account selection');
+          // Retry with forced account selection to bypass cached session
+          await this.signIn(true);
+          return null; // Will redirect, so return null
+        } else {
+          throw new Error('Authentication cancelled by user');
+        }
+      }
       
       throw new Error(`OAuth error: ${error}${errorDescription ? ' - ' + errorDescription : ''}`);
     }
@@ -163,7 +196,7 @@ export class WebOAuthProvider {
         // Store tokens in provider
         this.currentTokens = tokens;
         
-        // **NEW: Queue refresh tokens for deferred storage during startup**
+        // Queue refresh tokens for deferred storage during startup
         this._queueRefreshTokensForStorage(userInfo, tokens);
         
         const authResult = {
@@ -185,22 +218,38 @@ export class WebOAuthProvider {
           refreshTokenQueued: !!tokens.refresh_token
         });
         
-        // Clean up URL
+        // Clean up URL and OAuth state
         window.history.replaceState({}, document.title, window.location.pathname);
+        this._clearOAuthState();
         
         return authResult;
         
       } catch (error) {
         logger.auth('web', 'callback_complete', 'error', error.message);
         
-        // Clean up URL even on error
+        // Clean up URL and OAuth state even on error
         window.history.replaceState({}, document.title, window.location.pathname);
+        this._clearOAuthState();
         
         throw new Error(`OAuth callback processing failed: ${error.message}`);
       }
     }
 
     return null;
+  }
+
+  /**
+   * Clear OAuth state from sessionStorage
+   * This helps prevent conflicts when switching between different OAuth flows
+   * @private
+   */
+  _clearOAuthState() {
+    try {
+      sessionStorage.removeItem('dashie_oauth_state');
+      logger.debug('OAuth state cleared from sessionStorage');
+    } catch (error) {
+      logger.warn('Failed to clear OAuth state', error);
+    }
   }
 
   /**
@@ -218,12 +267,11 @@ export class WebOAuthProvider {
       }
 
       // Prepare token data for storage
-      // FIXED: Changed 'scopes' array to 'scope' string to match edge function expectations
       const tokenData = {
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
         expires_in: tokens.expires_in || 3600,
-        scope: this.config.scope, // FIXED: Send as string, not array
+        scope: this.config.scope,
         display_name: `${userInfo.name} (Personal)`,
         email: userInfo.email,
         user_id: userInfo.id,
@@ -319,17 +367,19 @@ export class WebOAuthProvider {
   /**
    * Fetch user information from Google
    * @param {string} accessToken - Google access token
-   * @returns {Promise<Object>} User information
+   * @returns {Promise<Object>} User info object
    */
   async fetchUserInfo(accessToken) {
-    logger.debug('Fetching user information from Google');
+    logger.debug('Fetching user info from Google');
     
-    const timer = logger.startTimer('Fetch User Info');
+    const timer = logger.startTimer('User Info Fetch');
     
     try {
-      const response = await fetch(
-        `https://www.googleapis.com/oauth2/v2/userinfo?access_token=${accessToken}`
-      );
+      const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
 
       const duration = timer();
 
@@ -338,6 +388,11 @@ export class WebOAuthProvider {
       }
 
       const userInfo = await response.json();
+      
+      logger.success('User info fetched successfully', {
+        userEmail: userInfo.email,
+        duration
+      });
 
       return userInfo;
       
@@ -349,9 +404,9 @@ export class WebOAuthProvider {
   }
 
   /**
-   * Refresh access token using refresh token
+   * Refresh an access token using a refresh token
    * @param {string} refreshToken - Refresh token
-   * @returns {Promise<Object>} New tokens
+   * @returns {Promise<Object>} New token data
    */
   async refreshAccessToken(refreshToken) {
     logger.debug('Refreshing access token');
@@ -381,7 +436,7 @@ export class WebOAuthProvider {
 
       const tokens = await response.json();
       
-      logger.success('Token refreshed successfully', {
+      logger.success('Access token refreshed successfully', {
         hasAccessToken: !!tokens.access_token,
         expiresIn: tokens.expires_in,
         duration
@@ -405,8 +460,8 @@ export class WebOAuthProvider {
     try {
       this.currentTokens = null;
       
-      // Clear any stored OAuth state
-      sessionStorage.removeItem('dashie_oauth_state');
+      // Clear OAuth state
+      this._clearOAuthState();
       
       logger.auth('web', 'sign_out', 'success');
       
