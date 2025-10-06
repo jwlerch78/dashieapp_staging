@@ -473,7 +473,13 @@ export class SimplifiedSettings {
       console.warn('⚙️ Controller not ready, cannot save setting');
       return;
     }
-    window.dispatchEvent(new CustomEvent('settingsUpdated', {
+
+    this.controller.setSetting(path, value);
+    this.controller.saveSettings();
+
+    this.showSaveToast();
+
+   window.dispatchEvent(new CustomEvent('settingsUpdated', {
       detail: { 
         settings: this.controller.getSettings(),
         changedPath: path,
@@ -481,10 +487,8 @@ export class SimplifiedSettings {
       }
     }));
 
-    this.controller.setSetting(path, value);
-    this.controller.saveSettings();
-    
-    this.showSaveToast();
+
+
   }
 
   showSaveToast() {

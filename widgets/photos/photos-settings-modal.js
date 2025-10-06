@@ -332,40 +332,38 @@ export class PhotosSettingsModal {
   }
 
   saveSettingToParent(path, value) {
-    const keys = path.split('.');
-    let obj = this.currentSettings;
-    for (let i = 0; i < keys.length - 1; i++) {
-      if (!obj[keys[i]]) obj[keys[i]] = {};
-      obj = obj[keys[i]];
-    }
-    obj[keys[keys.length - 1]] = value;
-
-    logger.info('Saving setting to parent', { path, value });
-
-    if (window.parent !== window) {
-      const settingsInstance = window.parent.settingsInstance;
-      if (settingsInstance && settingsInstance.controller) {
-        try {
-          const controller = settingsInstance.controller;
-          if (typeof controller.setSetting === 'function') {
-            controller.setSetting(path, value);
-            controller.saveSettings();
-            logger.success('Setting saved via settingsInstance.controller.setSetting');
-            return;
-          }
-        } catch (error) {
-          logger.warn('settingsInstance.controller.setSetting failed', error);
-        }
-      }
-      
-      window.parent.postMessage({
-        type: 'update-setting',
-        path: path,
-        value: value
-      }, '*');
-      logger.info('Setting sent via postMessage fallback');
-    }
+  const keys = path.split('.');
+  let obj = this.currentSettings;
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (!obj[keys[i]]) obj[keys[i]] = {};
+    obj = obj[keys[i]];
   }
+  obj[keys[keys.length - 1]] = value;
+
+  logger.info('Saving setting to parent', { path, value });
+
+  if (window.parent !== window) {
+    const settingsInstance = window.parent.settingsInstance;
+    if (settingsInstance && typeof settingsInstance.handleSettingChange === 'function') {
+      try {
+        // Call through the settings manager so events get fired
+        settingsInstance.handleSettingChange(path, value);
+        logger.success('Setting saved via settingsInstance.handleSettingChange');
+        return;
+      } catch (error) {
+        logger.warn('settingsInstance.handleSettingChange failed', error);
+      }
+    }
+    
+    // Fallback to postMessage
+    window.parent.postMessage({
+      type: 'update-setting',
+      path: path,
+      value: value
+    }, '*');
+    logger.info('Setting sent via postMessage fallback');
+  }
+}
 
   async initialize(userId, theme, settings = {}) {
     this.userId = userId;

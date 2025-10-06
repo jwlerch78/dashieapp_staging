@@ -132,11 +132,15 @@ export class PhotosWidget {
         this.applyTheme(data.theme);
         break;
 
-      case 'update-settings':
-        if (data.photoTransitionTime) {
-          this.updateTransitionTime(data.photoTransitionTime);
-        }
-        break;
+        case 'update-settings':
+          console.log('📸 Widget received update-settings message:', data);
+          if (data.photoTransitionTime) {
+            console.log('📸 Calling updateTransitionTime with:', data.photoTransitionTime);
+            this.updateTransitionTime(data.photoTransitionTime);
+          } else {
+            console.warn('📸 No photoTransitionTime in message');
+          }
+          break;
 
       case 'photos-uploaded':
         // Photos were uploaded - parent will send updated data via widget-update
