@@ -20,7 +20,7 @@ export function enterSleepMode() {
   
   document.body.appendChild(sleepOverlay);
   
-console.log('ading sleep layer')
+console.log('adding sleep layer')
 
   // Fade in
   setTimeout(() => {

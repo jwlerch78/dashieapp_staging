@@ -1,4 +1,5 @@
 // js/ui/settings.js - Complete Settings Modal & Sleep Timer Management with Supabase Integration
+// CHANGE SUMMARY: Added isSleepTimerEnabled() check to prevent sleep/wake when timer is disabled
 
 import { state, setConfirmDialog } from '../core/state.js';
 import { getCurrentTheme, getAvailableThemes, switchTheme } from '../core/theme.js';
@@ -42,8 +43,6 @@ export function initializeSupabaseSettings() {
     // Fixed: Pass email and use correct class
     supabaseStorage = new SimpleSupabaseStorage(user.id, user.email);
     
-    // Removed: ensureUserDocument() - not needed with our simplified approach
-    
     loadSettings();
     setupRealTimeSync();
   } else {
@@ -54,7 +53,6 @@ export function initializeSupabaseSettings() {
 
 function setupRealTimeSync() {
   if (supabaseStorage && !realTimeUnsubscribe) {
-    // Fixed: Use correct method name
     realTimeUnsubscribe = supabaseStorage.subscribeToChanges((newSettings) => {
       console.log('🔄 Settings updated from another device');
       Object.assign(settings, newSettings);
@@ -71,6 +69,7 @@ function setupRealTimeSync() {
     });
   }
 }
+
 // ---------------------
 // SETTINGS PERSISTENCE
 // ---------------------
@@ -175,6 +174,33 @@ function isTimeInSleepPeriod() {
   }
 }
 
+/**
+ * Check if sleep timer is enabled in settings
+ * @returns {boolean} True if sleep timer is enabled
+ */
+function isSleepTimerEnabled() {
+  // Check modern settings system first
+  if (window.settingsInstance?.controller) {
+    const enabled = window.settingsInstance.controller.getSetting('display.sleepTimerEnabled');
+    // Default to true if not set (backwards compatibility)
+    return enabled !== false;
+  }
+  
+  // Fallback to localStorage
+  try {
+    const saved = localStorage.getItem('dashie-settings');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return parsed?.display?.sleepTimerEnabled !== false;
+    }
+  } catch (error) {
+    console.warn('Failed to check sleep timer enabled status:', error);
+  }
+  
+  // Default to enabled
+  return true;
+}
+
 // ---------------------
 // SLEEP TIMER LOGIC
 // ---------------------
@@ -184,6 +210,12 @@ export function initializeSleepTimer() {
   
   // Check every minute if we should auto-sleep/wake
   checkInterval = setInterval(() => {
+    // Check if sleep timer is enabled before proceeding
+    if (!isSleepTimerEnabled()) {
+      console.log('Sleep timer is disabled, skipping check');
+      return;
+    }
+    
     if (isTimeInSleepPeriod() && !state.isAsleep) {
       console.log('Auto-sleep activated');
       import('./modals.js').then(({ enterSleepMode }) => enterSleepMode());
@@ -195,13 +227,20 @@ export function initializeSleepTimer() {
 }
 
 export function startResleepTimer() {
+  // Check if sleep timer is enabled
+  if (!isSleepTimerEnabled()) {
+    console.log('Sleep timer is disabled, not starting resleep timer');
+    return;
+  }
+  
   if (resleepTimer) {
     clearTimeout(resleepTimer);
   }
   
   console.log(`Will re-sleep in ${settings.resleepDelay} minutes`);
   resleepTimer = setTimeout(() => {
-    if (isTimeInSleepPeriod() && !state.isAsleep) {
+    // Double-check timer is still enabled when timer fires
+    if (isSleepTimerEnabled() && isTimeInSleepPeriod() && !state.isAsleep) {
       console.log('Re-sleep timer activated');
       import('./modals.js').then(({ enterSleepMode }) => enterSleepMode());
     }

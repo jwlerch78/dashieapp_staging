@@ -236,6 +236,18 @@ export class SimplifiedNavigation {
     console.log(`⚙️ Activating: ${this.getElementDescription(current)}`);
 
     if (current.classList.contains('settings-cell')) {
+      
+      // NEW: Check if this is a toggle cell first
+      if (current.classList.contains('toggle-cell')) {
+        const toggle = current.querySelector('input[type="checkbox"]');
+        if (toggle) {
+          toggle.checked = !toggle.checked;
+          toggle.dispatchEvent(new Event('change', { bubbles: true }));
+          console.log(`⚙️ Toggled checkbox in cell to: ${toggle.checked}`);
+          return;
+        }
+      }
+      
       // CRITICAL FIX: Check if it's a time selection cell FIRST, before navigation
       if (this.timeHandler.isTimeSelectionCell(current)) {
         this.handleSelectionCell(current);
