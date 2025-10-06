@@ -1,5 +1,5 @@
 // js/apis/api-auth/jwt-service-core.js
-// CHANGE SUMMARY: Added getSupabaseUserId() method and automatic user update in _saveJWTToStorage() to populate supabaseAuthId in localStorage
+// CHANGE SUMMARY: Fixed JWT refresh timer bug + added auto-logout failsafe. Changed from 24h JWT/12h timer to 72h JWT/24h timer. Timer now restarts after refresh. Added _handleJWTFailure() for auto-logout on JWT refresh failure.
 
 import { createLogger } from '../../utils/logger.js';
 
@@ -34,6 +34,47 @@ export class JWTServiceCore {
   }
 
   /**
+   * Handle JWT failure by triggering auto-logout
+   * This ensures the user knows they need to log back in
+   * @private
+   */
+  _handleJWTFailure() {
+    logger.error('🚨 JWT refresh failed completely - triggering auto-logout');
+    
+    // Stop the refresh timer
+    this._stopRefreshTimer();
+    
+    // Clear JWT data
+    this.currentJWT = null;
+    this.currentUser = null;
+    this.jwtExpiry = null;
+    localStorage.removeItem('dashie_supabase_jwt');
+    
+    // Trigger logout through auth system
+    try {
+      if (window.dashieAuth?.signOut) {
+        logger.info('Signing out via dashieAuth');
+        window.dashieAuth.signOut();
+      } else if (window.authManager?.clearAllData) {
+        logger.info('Clearing auth data via authManager');
+        window.authManager.clearAllData();
+        // Reload page to show login screen
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
+      } else {
+        // Fallback: just reload the page
+        logger.warn('No auth system found, reloading page');
+        window.location.reload();
+      }
+    } catch (error) {
+      logger.error('Error during auto-logout', error);
+      // Force reload as last resort
+      window.location.reload();
+    }
+  }
+
+  /**
    * Initialize JWT service (called from main.js before settings)
    * @returns {Promise<boolean>} True if JWT is available and ready
    */
@@ -63,22 +104,24 @@ export class JWTServiceCore {
       // Step 3: Check if we have everything needed
       const hasRequirements = await this._checkRequirements();
 
-      if (hasRequirements) {
-        this.isEnabled = true;
-        this.isReady = true;
-        logger.success('✅ JWT Service ready');
-        return true;
-      } else {
-        this.isEnabled = false;
+      if (!hasRequirements) {
+        logger.warn('⚠️ JWT requirements not met - service will not be available');
         this.isReady = false;
-        logger.warn('⚠️ JWT Service requirements not met');
+        this.isEnabled = false;
         return false;
       }
 
+      // Mark as ready
+      this.isReady = true;
+      this.isEnabled = true;
+
+      logger.success('✅ JWT Service initialized successfully');
+      return true;
+
     } catch (error) {
-      this.isEnabled = false;
+      logger.error('❌ JWT Service initialization failed', error);
       this.isReady = false;
-      logger.error('JWT Service initialization failed', error);
+      this.isEnabled = false;
       return false;
     }
   }
@@ -88,33 +131,93 @@ export class JWTServiceCore {
    * @private
    */
   async _waitForAuthSystem() {
-    logger.debug('⏳ Waiting for auth system...');
+    const MAX_WAIT = 30000; // 30 seconds
+    const CHECK_INTERVAL = 100; // Check every 100ms
+    const startTime = Date.now();
 
-    const authSystem = window.dashieAuth || window.authManager;
-    if (!authSystem) {
-      logger.warn('No auth system available');
-      throw new Error('No auth system available');
+    logger.debug('Waiting for auth system...');
+
+    while (Date.now() - startTime < MAX_WAIT) {
+      const authSystem = window.dashieAuth || window.authManager;
+      
+      if (authSystem && authSystem.isAuthenticated && authSystem.isAuthenticated()) {
+        logger.debug('✅ Auth system ready');
+        return;
+      }
+
+      await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL));
     }
 
-    logger.success('✅ Auth system ready');
-    return true;
+    throw new Error('Auth system not ready after timeout');
   }
 
   /**
-   * Configure edge function URL from Supabase config
+   * Configure edge function URL
    * @private
    */
   _configureEdgeFunction() {
-    const supabaseConfig = window.currentDbConfig || {};
-    const supabaseUrl = supabaseConfig.supabaseUrl || supabaseConfig.url;
+    try {
+      const config = window.currentDbConfig || {};
+      const supabaseUrl = config.supabaseUrl;
+      
+      if (supabaseUrl) {
+        this.edgeFunctionUrl = `${supabaseUrl}/functions/v1/jwt-auth`;
+        logger.debug('Edge function URL configured', { url: this.edgeFunctionUrl });
+      } else {
+        logger.warn('No Supabase URL found in config');
+      }
+    } catch (error) {
+      logger.error('Failed to configure edge function URL', error);
+    }
+  }
 
-    if (!supabaseUrl) {
-      logger.warn('No Supabase URL configured');
-      return;
+  /**
+   * Get Supabase headers for API requests
+   * @param {boolean} useJWT - If true, use JWT for auth; if false, use anon key
+   * @private
+   */
+  _getSupabaseHeaders(useJWT = false) {
+    const config = window.currentDbConfig || {};
+    const supabaseAnonKey = config.supabaseKey;
+    
+    const headers = {
+      'Content-Type': 'application/json',
+      'apikey': supabaseAnonKey
+    };
+
+    if (useJWT && this.currentJWT) {
+      headers['Authorization'] = `Bearer ${this.currentJWT}`;
+    } else {
+      headers['Authorization'] = `Bearer ${supabaseAnonKey}`;
     }
 
-    this.edgeFunctionUrl = `${supabaseUrl}/functions/v1/jwt-auth`;
-    logger.debug('Edge function URL configured:', this.edgeFunctionUrl);
+    return headers;
+  }
+
+  /**
+   * Check if service is ready for operations
+   * @returns {boolean}
+   */
+  isServiceReady() {
+    return this.isReady && this.isEnabled;
+  }
+
+  /**
+   * Get service status for debugging
+   * @returns {Object}
+   */
+  getStatus() {
+    return {
+      isReady: this.isReady,
+      isEnabled: this.isEnabled,
+      hasEdgeFunction: !!this.edgeFunctionUrl,
+      hasJWT: !!this.currentJWT,
+      hasUser: !!this.currentUser,
+      jwtExpiry: this.jwtExpiry,
+      jwtExpiresIn: this.jwtExpiry ? Math.round((this.jwtExpiry - Date.now()) / 1000 / 60) + ' minutes' : null,
+      hasGoogleToken: !!this._getGoogleAccessToken(),
+      lastOperation: this.lastOperationTime
+    };
   }
 
   /**
@@ -127,14 +230,7 @@ export class JWTServiceCore {
       if (!stored) return null;
 
       const data = JSON.parse(stored);
-
-      // Validate structure
-      if (!data.jwt || !data.expiry || !data.userId) {
-        logger.warn('Invalid JWT data in localStorage, removing');
-        localStorage.removeItem('dashie_supabase_jwt');
-        return null;
-      }
-
+      
       // Check if expired
       if (Date.now() >= data.expiry) {
         logger.debug('Stored JWT is expired, removing');
@@ -166,12 +262,24 @@ export class JWTServiceCore {
         jwt: this.currentJWT,
         expiry: this.jwtExpiry,
         userId: this.currentUser.id,
-        userEmail: this.currentUser.email, // Store email for reliable comparison
+        userEmail: this.currentUser.email,
         savedAt: Date.now()
       };
 
       localStorage.setItem('dashie_supabase_jwt', JSON.stringify(data));
       logger.debug('JWT saved to localStorage');
+
+      // Also update user storage with Supabase auth ID
+      try {
+        const authStorage = window.authManager || window.dashieAuth;
+        if (authStorage && authStorage.currentUser) {
+          authStorage.currentUser.supabaseAuthId = this.currentUser.id;
+          authStorage.saveUser(authStorage.currentUser);
+          logger.debug('Updated user storage with Supabase auth ID');
+        }
+      } catch (error) {
+        logger.debug('Could not update user storage (non-critical)', error);
+      }
 
     } catch (error) {
       logger.error('Error saving JWT to localStorage', error);
@@ -180,7 +288,6 @@ export class JWTServiceCore {
 
   /**
    * Check if all requirements are met for JWT operations
-   * UPDATED: Try loading cached JWT first before calling edge function
    * @private
    */
   async _checkRequirements() {
@@ -196,35 +303,36 @@ export class JWTServiceCore {
     const cachedJWT = this._loadJWTFromStorage();
     if (cachedJWT) {
       // Validate the cached JWT is for the current user
-      // Use EMAIL for comparison since user IDs differ between Google and Supabase
       const authSystem = window.dashieAuth || window.authManager;
       const currentUser = authSystem?.getUser?.();
-      const currentEmail = currentUser?.email || currentUser?.userEmail;
-
-      if (currentEmail && cachedJWT.userEmail && currentEmail === cachedJWT.userEmail) {
+      
+      if (currentUser && currentUser.email === cachedJWT.userEmail) {
+        logger.info('✅ Using cached JWT token', {
+          expiresIn: Math.round((cachedJWT.expiry - Date.now()) / 1000 / 60) + ' minutes'
+        });
+        
         this.currentJWT = cachedJWT.jwt;
         this.jwtExpiry = cachedJWT.expiry;
-        this.currentUser = { id: cachedJWT.userId, email: cachedJWT.userEmail };
-        logger.success('✅ Using cached JWT from localStorage');
+        this.currentUser = {
+          id: cachedJWT.userId,
+          email: cachedJWT.userEmail
+        };
+        
+        this._startRefreshTimer();
         return true;
       } else {
-        logger.warn('Cached JWT is for different user, removing', {
-          currentEmail,
-          cachedEmail: cachedJWT.userEmail
-        });
-        localStorage.removeItem('dashie_supabase_jwt');
+        logger.debug('Cached JWT is for different user, obtaining new token');
       }
     }
 
-    // No valid cached JWT, need to get fresh one from edge function
-    const googleToken = this._getGoogleAccessToken();
-    if (!googleToken) {
+    // Must have Google access token
+    const googleAccessToken = this._getGoogleAccessToken();
+    if (!googleAccessToken) {
       logger.debug('❌ No Google access token available');
-
-      // Log more details about auth state for debugging
+      
       const authSystem = window.dashieAuth || window.authManager;
       if (authSystem) {
-        logger.debug('Auth system details:', {
+        logger.debug('Auth system state:', {
           isAuthenticated: authSystem.isAuthenticated?.(),
           hasUser: !!authSystem.getUser?.(),
           userEmail: authSystem.getUser?.()?.email,
@@ -256,8 +364,8 @@ export class JWTServiceCore {
       this.currentJWT = connectionTest.jwtToken;
       this.currentUser = connectionTest.user;
       this._parseJWTExpiry();
-      this._saveJWTToStorage(); // Save to localStorage (also updates user storage)
-      this._startRefreshTimer(); // Start proactive refresh
+      this._saveJWTToStorage();
+      this._startRefreshTimer();
       logger.debug('✅ JWT token obtained and stored');
     }
 
@@ -267,7 +375,6 @@ export class JWTServiceCore {
 
   /**
    * Test connection to edge function and get JWT token
-   * UPDATED: Use get_jwt_from_google operation
    * @private
    */
   async _testConnectionAndGetJWT() {
@@ -278,7 +385,6 @@ export class JWTServiceCore {
         return { success: false, error: 'No Google access token' };
       }
 
-      // Validate token is not empty string
       if (typeof googleAccessToken !== 'string' || googleAccessToken.trim().length === 0) {
         logger.error('Google access token is invalid (empty or non-string)');
         return { success: false, error: 'Invalid Google access token format' };
@@ -286,10 +392,9 @@ export class JWTServiceCore {
 
       const requestBody = {
         googleAccessToken,
-        operation: 'get_jwt_from_google'  // FIXED: Use dedicated JWT acquisition operation
+        operation: 'get_jwt_from_google'
       };
 
-      // Log for debugging (without exposing token)
       logger.debug('Sending connection test', {
         hasToken: !!googleAccessToken,
         tokenLength: googleAccessToken.length,
@@ -306,7 +411,6 @@ export class JWTServiceCore {
 
       if (response.ok) {
         const result = await response.json();
-        // Connection is successful if we get a proper response structure
         if (result.success !== undefined) {
           this.currentUser = result.user;
           return {
@@ -322,7 +426,6 @@ export class JWTServiceCore {
       } else {
         const errorText = await response.text();
 
-        // Log the full error for debugging
         logger.debug('Edge function error details:', {
           status: response.status,
           statusText: response.statusText,
@@ -347,9 +450,8 @@ export class JWTServiceCore {
     if (!this.currentJWT) return;
 
     try {
-      // Decode JWT payload (simple base64 decode, not verifying signature)
       const payload = JSON.parse(atob(this.currentJWT.split('.')[1]));
-      this.jwtExpiry = payload.exp ? payload.exp * 1000 : null; // Convert to milliseconds
+      this.jwtExpiry = payload.exp ? payload.exp * 1000 : null;
 
       if (this.jwtExpiry) {
         const expiresIn = this.jwtExpiry - Date.now();
@@ -361,8 +463,9 @@ export class JWTServiceCore {
   }
 
   /**
-   * Start proactive JWT refresh timer (every 12 hours)
+   * Start proactive JWT refresh timer (every 24 hours)
    * This ensures JWT is refreshed while still valid, avoiding expiry deadlock
+   * NOTE: JWT now has 72h expiry on server side, so 24h timer gives 3x safety margin
    * @private
    */
   _startRefreshTimer() {
@@ -371,11 +474,11 @@ export class JWTServiceCore {
       clearInterval(this.refreshInterval);
     }
 
-    // Refresh every 12 hours (JWT has 24h expiry, so this gives us safety margin)
-    const REFRESH_INTERVAL = 12 * 60 * 60 * 1000; // 12 hours in milliseconds
+    // Refresh every 24 hours (JWT has 72h expiry, so this gives us 3x safety margin)
+    const REFRESH_INTERVAL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
 
     this.refreshInterval = setInterval(async () => {
-      logger.info('🔄 Proactive JWT refresh (12-hour timer)');
+      logger.info('🔄 Proactive JWT refresh (24-hour timer)');
       try {
         await this._ensureValidJWT();
       } catch (error) {
@@ -383,7 +486,7 @@ export class JWTServiceCore {
       }
     }, REFRESH_INTERVAL);
 
-    logger.debug('JWT refresh timer started (12-hour interval)');
+    logger.debug('JWT refresh timer started (24-hour interval)');
   }
 
   /**
@@ -413,11 +516,13 @@ export class JWTServiceCore {
 
   /**
    * Refresh JWT token if needed
+   * CRITICAL FIX: Now restarts the refresh timer after successful refresh
+   * CRITICAL FIX: Triggers auto-logout on failure
    * @private
    */
   async _ensureValidJWT() {
     if (!this._isJWTExpired()) {
-      return true; // Current JWT is still valid
+      return true;
     }
 
     logger.info('🔄 JWT expired or expiring soon, refreshing...');
@@ -427,11 +532,13 @@ export class JWTServiceCore {
       this.currentJWT = refreshResult.jwtToken;
       this.currentUser = refreshResult.user;
       this._parseJWTExpiry();
-      this._saveJWTToStorage(); // Save refreshed JWT (also updates user storage)
+      this._saveJWTToStorage();
+      this._startRefreshTimer(); // CRITICAL FIX: Restart timer with new JWT expiry
       logger.success('✅ JWT refreshed successfully');
       return true;
     } else {
       logger.error('❌ JWT refresh failed:', refreshResult.error);
+      this._handleJWTFailure(); // CRITICAL FIX: Auto-logout on failure
       return false;
     }
   }
@@ -441,7 +548,6 @@ export class JWTServiceCore {
    * @private
    */
   _getGoogleAccessToken() {
-    // Try multiple sources for the token
     let token = null;
 
     // Method 1: From global auth manager
@@ -454,95 +560,6 @@ export class JWTServiceCore {
       token = window.authManager.getGoogleAccessToken();
     }
 
-    // Method 3: From current user object
-    if (!token) {
-      const user = window.dashieAuth?.getUser() || window.authManager?.getUser();
-      if (user?.googleAccessToken) {
-        token = user.googleAccessToken;
-      }
-    }
-
     return token;
-  }
-
-  /**
-   * Get Supabase authentication headers
-   * @param {boolean} useJWT - Whether to use Supabase JWT instead of anon key
-   * @private
-   */
-  _getSupabaseHeaders(useJWT = false) {
-    const supabaseConfig = window.currentDbConfig || {};
-    const supabaseAnonKey = supabaseConfig.supabaseAnonKey ||
-                           supabaseConfig.supabaseKey ||
-                           supabaseConfig.anonKey ||
-                           supabaseConfig.publicKey;
-
-    const headers = {
-      'Content-Type': 'application/json',
-    };
-
-    if (useJWT && this.currentJWT) {
-      // Use Supabase JWT for operations that need user authentication
-      headers['Authorization'] = `Bearer ${this.currentJWT}`;
-      if (supabaseAnonKey) {
-        headers['apikey'] = supabaseAnonKey;
-      }
-    } else if (supabaseAnonKey) {
-      // Use anon key for initial authentication
-      headers['Authorization'] = `Bearer ${supabaseAnonKey}`;
-      headers['apikey'] = supabaseAnonKey;
-    }
-
-    return headers;
-  }
-
-  /**
-   * Check if JWT service is ready for operations
-   * @returns {boolean}
-   */
-  isServiceReady() {
-    return this.isReady && this.isEnabled && !!this.edgeFunctionUrl;
-  }
-
-  /**
-   * Get service status information
-   * @returns {Object} Status information
-   */
-  getStatus() {
-    return {
-      isEnabled: this.isEnabled,
-      isReady: this.isReady,
-      hasEdgeFunction: !!this.edgeFunctionUrl,
-      edgeFunctionUrl: this.edgeFunctionUrl,
-      hasGoogleToken: !!this._getGoogleAccessToken(),
-      hasSupabaseJWT: !!this.currentJWT,
-      jwtExpiry: this.jwtExpiry,
-      jwtExpired: this._isJWTExpired(),
-      lastOperationTime: this.lastOperationTime,
-      currentUser: this.currentUser ? {
-        id: this.currentUser.id,
-        email: this.currentUser.email,
-        name: this.currentUser.name,
-        provider: this.currentUser.provider
-      } : null
-    };
-  }
-
-  /**
-   * Test JWT service connectivity and functionality
-   * @returns {Promise<Object>} Test results
-   */
-  async testConnection() {
-    logger.info('Testing JWT service connection');
-
-    if (!this.isServiceReady()) {
-      return {
-        success: false,
-        error: 'JWT service not ready',
-        ...this.getStatus()
-      };
-    }
-
-    return await this._testConnectionAndGetJWT();
   }
 }

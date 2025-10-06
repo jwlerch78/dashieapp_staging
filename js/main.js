@@ -13,7 +13,7 @@ import { WidgetRegistrationCoordinator } from './core/widget-registration-coordi
 import { getPlatformDetector } from './utils/platform-detector.js';
 
 // Settings and authentication
-import { autoInitialize, showSettings } from './settings/settings-main.js';
+import { autoInitialize, showSettings, initializeSleepTimer } from './settings/settings-main.js';
 import { initializeJWTService } from './apis/api-auth/jwt-token-operations.js';
 
 // UI helpers
@@ -114,7 +114,8 @@ function updateProgress(isMobile, percent, mobileMsg, desktopMsg) {
  */
 async function initializeApp() {
   console.log('🚀 Starting Dashie initialization sequence...');
-  
+  window.dashieStartTime = Date.now();
+
   // STEP 1: Check for hash fragment VERY EARLY (before auth)
   if (window.location.hash === '#photos') {
     console.log('📸 Photos hash detected - storing pending upload flag');
@@ -420,6 +421,15 @@ async function completeDesktopInit() {
     console.warn('⚠️ Photo upload functionality may not be available yet');
   }
   
+// Initialize sleep timer (checks every minute for auto-sleep/wake)
+  console.log('😴 Initializing sleep timer...');
+  try {
+    initializeSleepTimer();
+    console.log('✅ Sleep timer initialized successfully');
+  } catch (error) {
+    console.error('❌ Failed to initialize sleep timer:', error);
+  }
+
   // Complete initialization
   const loadingMessage = initState.tokens === 'ready' 
     ? 'Welcome to Dashie! (Long-term access enabled)'

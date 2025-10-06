@@ -1,5 +1,5 @@
 // js/settings/settings-main.js - STAGE 3: Accept JWT status from main.js
-// CHANGE SUMMARY: Exposed settingsInstance globally to enable real-time subscription debugging and access
+// CHANGE SUMMARY: Added initializeSleepTimer export for main.js sleep timer initialization
 
 import SimplifiedSettings from './settings-simple-manager.js';
 
@@ -106,6 +106,9 @@ export function getPhotosSettings() {
     transitionTime: getSettingValue('photos.transitionTime', 5)
   };
 }
+
+// Re-export sleep timer function from ui/settings.js for main.js initialization
+export { initializeSleepTimer } from '../ui/settings.js';
 
 // Export aliases for compatibility
 export {

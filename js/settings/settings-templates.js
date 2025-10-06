@@ -49,7 +49,7 @@ export const rootScreen = `
  * Display Screens (Level 1-4)
  */
 export const displayScreens = `
-  <!-- Display Screen (Level 1) -->
+    <!-- Display Screen (Level 1) -->
   <div class="settings-screen" data-level="1" data-screen="display" data-title="Display">
     <div class="settings-list">
       <div class="settings-section">
@@ -61,12 +61,19 @@ export const displayScreens = `
       </div>
       
       <div class="settings-section">
-        <div class="settings-cell" data-navigate="sleep-time">
+        <div class="settings-cell toggle-cell" id="sleep-timer-toggle-cell">
+          <span class="cell-label">Sleep/Wake Timer</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="sleep-timer-enabled" data-setting="display.sleepTimerEnabled" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="settings-cell sleep-time-cell" data-navigate="sleep-time">
           <span class="cell-label">Sleep Time</span>
           <span class="cell-value" id="mobile-sleep-time-value">10:00 PM</span>
           <span class="cell-chevron">›</span>
         </div>
-        <div class="settings-cell" data-navigate="wake-time">
+        <div class="settings-cell wake-time-cell" data-navigate="wake-time">
           <span class="cell-label">Wake Time</span>
           <span class="cell-value" id="mobile-wake-time-value">7:00 AM</span>
           <span class="cell-chevron">›</span>
@@ -444,7 +451,7 @@ export const systemScreens = `
     </div>
   </div>
 
-  <div class="settings-screen" data-level="2" data-screen="system-status" data-title="System Status">
+ <div class="settings-screen" data-level="2" data-screen="system-status" data-title="System Status">
     <div class="settings-list">
       <div class="settings-section">
         <div class="section-header">Platform</div>
@@ -474,6 +481,16 @@ export const systemScreens = `
           <div class="cell-value">
             <span class="status-dot" id="sync-status-dot"></span>
             <span id="sync-status-text">Not available yet</span>
+          </div>
+        </div>
+        
+        <div class="settings-cell info-row">
+          <div class="cell-content">
+            <span class="cell-label">JWT Token Status</span>
+          </div>
+          <div class="cell-value">
+            <span class="status-dot" id="jwt-status-dot"></span>
+            <span id="jwt-status-text">Not available yet</span>
           </div>
         </div>
       </div>

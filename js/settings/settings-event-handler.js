@@ -1,6 +1,5 @@
 // js/settings/settings-event-handler.js
-// CHANGE SUMMARY: Fixed event handling logic - only preventDefault when navigation HANDLES the key (returns true), not when it allows it through (returns false)
-// Event handling and global keyboard capture for settings
+// CHANGE SUMMARY: Added sleep timer toggle handler to update UI states and save setting
 
 export function setupEventHandlers(overlay, settingsManager) {
   console.log('⚙️ Setting up event handlers');
@@ -49,6 +48,26 @@ export function setupEventHandlers(overlay, settingsManager) {
       settingsManager.handleSettingChange(path, value);
     });
   });
+
+  // NEW: Sleep timer toggle handler
+  const sleepTimerToggle = overlay.querySelector('#sleep-timer-enabled');
+  if (sleepTimerToggle) {
+    sleepTimerToggle.addEventListener('change', async (e) => {
+      const enabled = e.target.checked;
+      console.log('⚙️ Sleep timer toggle changed:', enabled);
+      
+      // Update UI states - import the function dynamically
+      const { updateSleepTimerStates } = await import('./settings-ui-builder.js');
+      updateSleepTimerStates(overlay, enabled);
+      
+      // Save setting via settings manager
+      if (settingsManager && settingsManager.handleSettingChange) {
+        settingsManager.handleSettingChange('display.sleepTimerEnabled', enabled);
+      }
+    });
+    
+    console.log('⚙️ Sleep timer toggle handler attached');
+  }
 
   // Prevent clicks from bubbling to main dashboard - but allow interaction within modal
   overlay.addEventListener('click', (e) => {

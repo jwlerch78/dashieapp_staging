@@ -580,6 +580,42 @@ input:checked + .toggle-slider:before {
   box-shadow: 0 0 4px rgba(255, 152, 0, 0.5);
 }
 
+/* Disabled state for sleep/wake time cells when timer is off */
+.settings-cell.disabled {
+  opacity: 0.4;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.settings-cell.disabled .cell-label,
+.settings-cell.disabled .cell-value,
+.settings-cell.disabled .cell-chevron {
+  color: #C7C7CC;
+}
+
+/* Toggle cell styling */
+.settings-cell.toggle-cell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 16px;
+}
+
+.settings-cell.toggle-cell .cell-label {
+  flex: 1;
+}
+
+.settings-cell.toggle-cell .toggle-switch {
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+/* Ensure toggle switch is clickable even in focused cell */
+.settings-cell.toggle-cell.focused .toggle-switch {
+  pointer-events: auto;
+}
+
+
 /* ========================================
    MOBILE-SPECIFIC OVERRIDES
    ======================================== */
