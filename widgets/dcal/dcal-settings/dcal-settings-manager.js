@@ -1,5 +1,5 @@
 // widgets/dcal/dcal-settings/dcal-settings-manager.js
-// CHANGE SUMMARY: CRITICAL FIX - Added missing filterUniqueAccounts method, removed auto-save on toggle to stop database egress spike, mark as needing save
+// CHANGE SUMMARY: Added calendar count to account headers, sort calendars with enabled first, dynamic count updates - preserving all existing functionality
 
 export class CalendarSettingsManager {
   constructor(parentOverlay, parentNavigation) {
@@ -286,12 +286,6 @@ export class CalendarSettingsManager {
 
   /**
    * Save calendar settings to both localStorage and database
-   */
-  // widgets/dcal/dcal-settings/dcal-settings-manager.js
-// CHANGE SUMMARY: CRITICAL FIX - Force calendar data refresh after saving settings to clear cache and reload events
-
-  /**
-   * Save calendar settings to both localStorage and database
    * FIXED: Now triggers calendar data refresh to update widgets immediately
    */
   async saveCalendarSettings() {
@@ -338,7 +332,7 @@ export class CalendarSettingsManager {
       console.error('📅 Error saving calendar settings', error);
     }
   }
-  
+
   /**
    * Setup event listeners for calendar items
    */
@@ -416,6 +410,9 @@ export class CalendarSettingsManager {
     localStorage.setItem('dashie_calendar_settings', JSON.stringify(this.calendarSettings));
     this.hasUnsavedChanges = true;
     
+    // Update the calendar count in the header
+    this.updateAccountHeaderCount(accountType);
+    
     // Log current state
     this.logCalendarState();
   }
@@ -450,20 +447,41 @@ export class CalendarSettingsManager {
 
   /**
    * Create an account section with calendars
+   * UPDATED: Added calendar count and sorting (enabled calendars first)
    */
   createAccountSection(accountType, account) {
     const section = document.createElement('div');
     section.className = 'settings-section calendar-account-section';
     section.dataset.account = accountType;
     
+    // Get all calendars and sort them (enabled first)
+    const calendars = Object.values(account.calendars || {});
+    const enabledCount = calendars.filter(cal => cal.enabled).length;
+    
+    // Sort: enabled calendars first, then by name
+    calendars.sort((a, b) => {
+      if (a.enabled && !b.enabled) return -1;
+      if (!a.enabled && b.enabled) return 1;
+      return a.name.localeCompare(b.name);
+    });
+    
+    // Create header with calendar count
     const header = document.createElement('div');
     header.className = 'settings-section-header calendar-account-header';
-    header.textContent = `${account.displayName}: ${account.email}`;
+    
+    const accountNameSpan = document.createElement('span');
+    accountNameSpan.textContent = `${account.displayName}: ${account.email}`;
+    
+    const countSpan = document.createElement('span');
+    countSpan.className = 'calendar-count';
+    countSpan.textContent = `- ${enabledCount} calendar${enabledCount !== 1 ? 's' : ''} selected`;
+    
+    header.appendChild(accountNameSpan);
+    header.appendChild(countSpan);
     section.appendChild(header);
     
-    const calendarIds = Object.keys(account.calendars || {});
-    calendarIds.forEach(calId => {
-      const calendar = account.calendars[calId];
+    // Add sorted calendar items
+    calendars.forEach(calendar => {
       const item = this.createCalendarItem(accountType, calendar);
       section.appendChild(item);
     });
@@ -498,6 +516,25 @@ export class CalendarSettingsManager {
     item.appendChild(checkmark);
     
     return item;
+  }
+
+  /**
+   * Update the calendar count in an account header
+   * NEW: Updates count dynamically when calendars are toggled
+   */
+  updateAccountHeaderCount(accountType) {
+    const section = this.parentOverlay.querySelector(`[data-account="${accountType}"]`);
+    if (!section) return;
+    
+    const header = section.querySelector('.calendar-account-header');
+    const countSpan = header?.querySelector('.calendar-count');
+    if (!countSpan) return;
+    
+    const account = this.calendarSettings.accounts[accountType];
+    const calendars = Object.values(account.calendars || {});
+    const enabledCount = calendars.filter(cal => cal.enabled).length;
+    
+    countSpan.textContent = `- ${enabledCount} calendar${enabledCount !== 1 ? 's' : ''} selected`;
   }
 
   /**

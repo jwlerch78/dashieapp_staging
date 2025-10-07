@@ -300,29 +300,54 @@ export const displayScreens = `
 /**
  * Calendar Screens (Level 1-2)
  */
-// CHANGE SUMMARY: Updated calendarScreens export to use new functional calendar settings screens with mock data
-
-// CALENDAR SETTINGS FIX: Remove mock data from manage-calendars screen
-// This is the section that needs to replace the calendar templates in settings-templates.js
-
-/**
- * Calendar Screens (Level 1-2)
- */
 export const calendarScreens = `
   <!-- Calendar Main Screen (Level 1) -->
   <div class="settings-screen" data-level="1" data-screen="calendar" data-title="Calendar">
     <div class="settings-list">
+      <!-- Calendars & Accounts Section -->
       <div class="settings-section">
+        <div class="settings-section-header">Calendars & Accounts</div>
+        
         <div class="settings-cell" data-navigate="manage-calendars" id="manage-calendars-btn">
-          <span class="cell-label">Manage Calendars</span>
+          <span class="cell-label">Select Calendars</span>
           <span class="cell-chevron">›</span>
         </div>
+        
         <div class="settings-cell" data-navigate="add-calendar" id="add-calendar-btn">
-          <span class="cell-label">Add Account</span>
+          <span class="cell-label">Add Calendar Accounts</span>
+          <span class="cell-chevron">›</span>
+        </div>
+        
+        <div class="settings-cell" data-navigate="remove-calendar" id="remove-calendar-btn">
+          <span class="cell-label">Remove Calendar Accounts</span>
           <span class="cell-chevron">›</span>
         </div>
       </div>
       
+      <!-- Display Options Section -->
+      <div class="settings-section">
+        <div class="settings-section-header">Display Options</div>
+        
+        <div class="settings-cell" data-navigate="start-week-on">
+          <span class="cell-label">Start Week On</span>
+          <span class="cell-value" id="start-week-value">Sun</span>
+          <span class="cell-chevron">›</span>
+        </div>
+        
+        <div class="settings-cell" data-navigate="scroll-time">
+          <span class="cell-label">Start Time to Scroll To</span>
+          <span class="cell-value" id="scroll-time-value">8 AM</span>
+          <span class="cell-chevron">›</span>
+        </div>
+        
+        <div class="settings-cell" data-navigate="calendar-zoom">
+          <span class="cell-label">Calendar Zoom</span>
+          <span class="cell-value" id="calendar-zoom-value">100%</span>
+          <span class="cell-chevron">›</span>
+        </div>
+      </div>
+      
+      <!-- Utilities Section -->
       <div class="settings-section">
         <div class="settings-cell" id="clear-calendar-data-btn">
           <span class="cell-label" style="color: #ff3b30;">Clear Calendar Data</span>
@@ -332,8 +357,8 @@ export const calendarScreens = `
     </div>
   </div>
 
-  <!-- Manage Calendars Screen (Level 2) - FIXED: Removed all mock data -->
-  <div class="settings-screen" data-level="2" data-screen="manage-calendars" data-title="Manage Calendars">
+  <!-- Select Calendars Screen (Level 2) - formerly Manage Calendars -->
+  <div class="settings-screen" data-level="2" data-screen="manage-calendars" data-title="Select Calendars">
     <div class="settings-list" id="calendar-accounts-container">
       <!-- Calendar accounts will be dynamically populated by dcal-settings-manager.js -->
       <div style="padding: 20px; text-align: center; color: #999;">
@@ -342,13 +367,128 @@ export const calendarScreens = `
     </div>
   </div>
 
-  <!-- Add Account Screen (Level 2) - Placeholder for Phase 3 -->
-  <div class="settings-screen" data-level="2" data-screen="add-calendar" data-title="Add Account">
+  <!-- Add Calendar Accounts Screen (Level 2) - Placeholder for Phase 3 -->
+  <div class="settings-screen" data-level="2" data-screen="add-calendar" data-title="Add Calendar Accounts">
     <div class="settings-list">
       <div class="coming-soon">
         <h3>Add Calendar Account</h3>
         <p>Connect a new Google account to access additional calendars.</p>
         <p style="margin-top: 20px; font-size: 14px; opacity: 0.7;">Coming in Phase 3</p>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Remove Calendar Accounts Screen (Level 2) - Placeholder for Phase 3 -->
+  <div class="settings-screen" data-level="2" data-screen="remove-calendar" data-title="Remove Calendar Accounts">
+    <div class="settings-list">
+      <div class="coming-soon">
+        <h3>Remove Calendar Account</h3>
+        <p>Disconnect a Google account and remove its calendars.</p>
+        <p style="margin-top: 20px; font-size: 14px; opacity: 0.7;">Coming in Phase 3</p>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Start Week On Screen (Level 2) - Placeholder -->
+  <div class="settings-screen" data-level="2" data-screen="start-week-on" data-title="Start Week On">
+    <div class="settings-list">
+      <div class="settings-section">
+        <div class="settings-cell selectable" data-setting="calendar.startWeekOn" data-value="sun">
+          <span class="cell-label">Sunday</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+        <div class="settings-cell selectable" data-setting="calendar.startWeekOn" data-value="mon">
+          <span class="cell-label">Monday</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Scroll Time Screen (Level 2) - Placeholder -->
+  <div class="settings-screen" data-level="2" data-screen="scroll-time" data-title="Start Time to Scroll To">
+    <div class="settings-list">
+      <div class="settings-section">
+        <div class="settings-cell selectable" data-setting="calendar.scrollTime" data-value="4">
+          <span class="cell-label">4 AM</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+        <div class="settings-cell selectable" data-setting="calendar.scrollTime" data-value="5">
+          <span class="cell-label">5 AM</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+        <div class="settings-cell selectable" data-setting="calendar.scrollTime" data-value="6">
+          <span class="cell-label">6 AM</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+        <div class="settings-cell selectable" data-setting="calendar.scrollTime" data-value="7">
+          <span class="cell-label">7 AM</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+        <div class="settings-cell selectable" data-setting="calendar.scrollTime" data-value="8">
+          <span class="cell-label">8 AM</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+        <div class="settings-cell selectable" data-setting="calendar.scrollTime" data-value="9">
+          <span class="cell-label">9 AM</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+        <div class="settings-cell selectable" data-setting="calendar.scrollTime" data-value="10">
+          <span class="cell-label">10 AM</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Calendar Zoom Screen (Level 2) - Placeholder -->
+  <div class="settings-screen" data-level="2" data-screen="calendar-zoom" data-title="Calendar Zoom">
+    <div class="settings-list">
+      <div class="settings-section">
+        <div class="settings-cell selectable" data-setting="calendar.zoom" data-value="50">
+          <span class="cell-label">50%</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+        <div class="settings-cell selectable" data-setting="calendar.zoom" data-value="60">
+          <span class="cell-label">60%</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+        <div class="settings-cell selectable" data-setting="calendar.zoom" data-value="70">
+          <span class="cell-label">70%</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+        <div class="settings-cell selectable" data-setting="calendar.zoom" data-value="80">
+          <span class="cell-label">80%</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+        <div class="settings-cell selectable" data-setting="calendar.zoom" data-value="90">
+          <span class="cell-label">90%</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+        <div class="settings-cell selectable" data-setting="calendar.zoom" data-value="100">
+          <span class="cell-label">100%</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+        <div class="settings-cell selectable" data-setting="calendar.zoom" data-value="110">
+          <span class="cell-label">110%</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+        <div class="settings-cell selectable" data-setting="calendar.zoom" data-value="120">
+          <span class="cell-label">120%</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+        <div class="settings-cell selectable" data-setting="calendar.zoom" data-value="130">
+          <span class="cell-label">130%</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+        <div class="settings-cell selectable" data-setting="calendar.zoom" data-value="140">
+          <span class="cell-label">140%</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
+        <div class="settings-cell selectable" data-setting="calendar.zoom" data-value="150">
+          <span class="cell-label">150%</span>
+          <span class="cell-checkmark">✓</span>
+        </div>
       </div>
     </div>
   </div>

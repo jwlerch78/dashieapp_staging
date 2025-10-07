@@ -159,8 +159,14 @@ async function initializeApp() {
   if (isMobile) {
     console.log('📱 Mobile device detected - showing landing page');
     showMobileLandingPage();
+    showMobileLoadingBar();
+    updateMobileLoadingProgress(5, 'Starting up...');
+
   } else {
     console.log('🖥️ Desktop/TV detected - rendering dashboard');
+    showLoadingOverlay();
+    updateLoadingProgress(5, 'Starting up...', 'Initializing Dashie...');
+
     showDesktopDashboard();
     renderGrid();
     renderSidebar();
@@ -181,15 +187,6 @@ async function initializeApp() {
   }
   
   initState.auth = 'ready';
-  
-  // Show loading AFTER authentication completes
-  if (isMobile) {
-    showMobileLoadingBar();
-    updateMobileLoadingProgress(10, 'Authentication complete');
-  } else {
-    showLoadingOverlay();
-    updateLoadingProgress(10, 'Authentication complete');
-  }
   
   // ============================================
   // JWT & SERVICES INITIALIZATION

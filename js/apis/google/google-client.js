@@ -326,80 +326,97 @@ export class GoogleAPIClient {
    * @param {Array} options.calendarIds - Optional specific calendar IDs to filter (NEW - from settings)
    * @returns {Promise<Array>} Combined array of events from all calendars
    */
-  async getAllCalendarEvents(options = {}) {
-    const { timeRange = {}, calendars: providedCalendars = null, calendarIds = null } = options;
-    
-    logger.info('Fetching events from all configured calendars');
-    const timer = logger.startTimer('All Calendar Events');
+ /**
+ * Get all events from configured calendars
+ * UPDATED: Now uses activeCalendarIds from calendar settings instead of hardcoded config
+ * @param {Object} options - Options object
+ * @param {Object} options.timeRange - Optional time range
+ * @param {Array} options.calendars - Optional pre-fetched calendar list
+ * @returns {Promise<Array>} Combined array of events from all calendars
+ */
+async getAllCalendarEvents(options = {}) {
+  const { timeRange = {}, calendars: providedCalendars = null } = options;
+  
+  logger.info('Fetching events from all configured calendars');
+  const timer = logger.startTimer('All Calendar Events');
 
-    try {
-      // Get calendar list if not provided
-      let calendars = providedCalendars;
-      if (!calendars) {
-        calendars = await this.getCalendarList();
-      }
-
-      let targetCalendars;
-      
-      // FIXED: Use calendarIds from settings if provided, otherwise fall back to config
-      if (calendarIds && calendarIds.length > 0) {
-        // Filter by specific calendar IDs from settings
-        targetCalendars = calendars.filter(cal => calendarIds.includes(cal.id));
-        
-        logger.debug('Fetching events from calendars (from settings)', {
-          totalCalendars: calendars.length,
-          targetCalendars: targetCalendars.length,
-          calendarIds: calendarIds,
-          calendarNames: targetCalendars.map(c => c.summary)
-        });
-      } else {
-        // Fall back to config-based filtering (for new users with no settings)
-        targetCalendars = calendars.filter(cal => 
-          this.config.calendar.includeCalendars.some(target => 
-            cal.summary?.includes(target) || cal.id?.includes(target)
-          )
-        );
-        
-        logger.debug('Fetching events from calendars (from config fallback)', {
-          totalCalendars: calendars.length,
-          targetCalendars: targetCalendars.length,
-          calendarNames: targetCalendars.map(c => c.summary)
-        });
-      }
-
-      // Fetch events from all target calendars in parallel
-      // FIXED: Add calendarId to each event
-      const eventPromises = targetCalendars.map(cal => 
-        this.getCalendarEvents(cal.id, timeRange)
-          .then(events => events.map(event => ({ 
-            ...event, 
-            calendarId: cal.id 
-          })))
-          .catch(error => {
-            logger.warn(`Failed to fetch events for calendar ${cal.summary}`, error);
-            return []; // Return empty array on error
-          })
-      );
-
-      const eventArrays = await Promise.all(eventPromises);
-      const allEvents = eventArrays.flat();
-
-      const duration = timer();
-
-      logger.success('All calendar events retrieved', {
-        calendarCount: targetCalendars.length,
-        totalEvents: allEvents.length,
-        duration
-      });
-
-      return allEvents;
-
-    } catch (error) {
-      timer();
-      logger.error('Failed to fetch all calendar events', error);
-      throw error;
+  try {
+    // Get calendar list if not provided
+    let calendars = providedCalendars;
+    if (!calendars) {
+      calendars = await this.getCalendarList();
     }
+
+    // UPDATED: Get active calendar IDs from settings instead of hardcoded config
+    const localStorage = window.parent?.localStorage || window.localStorage;
+    const calendarSettings = localStorage.getItem('dashie_calendar_settings');
+    
+    let activeCalendarIds = [];
+    if (calendarSettings) {
+      try {
+        const settings = JSON.parse(calendarSettings);
+        activeCalendarIds = settings.activeCalendarIds || [];
+        logger.debug('Loaded active calendar IDs from settings', { 
+          count: activeCalendarIds.length,
+          ids: activeCalendarIds 
+        });
+      } catch (error) {
+        logger.warn('Failed to parse calendar settings, no calendars will be loaded', error);
+      }
+    }
+
+    // Filter to active calendars selected by user
+    const targetCalendars = calendars.filter(cal => 
+      activeCalendarIds.includes(cal.id)
+    );
+
+    logger.debug('Fetching events from calendars', {
+      totalCalendars: calendars.length,
+      activeCalendarIds: activeCalendarIds.length,
+      targetCalendars: targetCalendars.length,
+      calendarNames: targetCalendars.map(c => c.summary)
+    });
+
+    // If no calendars are selected, return empty array
+    if (targetCalendars.length === 0) {
+      logger.info('No active calendars selected - returning empty event list');
+      const duration = timer();
+      return [];
+    }
+
+    // Fetch events from all target calendars in parallel
+    // FIXED: Add calendarId to each event
+    const eventPromises = targetCalendars.map(cal => 
+      this.getCalendarEvents(cal.id, timeRange)
+        .then(events => events.map(event => ({ 
+          ...event, 
+          calendarId: cal.id 
+        })))
+        .catch(error => {
+          logger.warn(`Failed to fetch events for calendar ${cal.summary}`, error);
+          return []; // Return empty array on error
+        })
+    );
+
+    const eventArrays = await Promise.all(eventPromises);
+    const allEvents = eventArrays.flat();
+
+    const duration = timer();
+
+    logger.success('All calendar events retrieved', {
+      calendarCount: targetCalendars.length,
+      totalEvents: allEvents.length,
+      duration
+    });
+
+    return allEvents;
+
+  } catch (error) {
+    timer();
+    logger.error('Failed to fetch all calendar events', error);
+    throw error;
   }
+}
 
   /**
    * Test API access and connectivity

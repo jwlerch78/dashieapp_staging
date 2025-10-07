@@ -1,10 +1,9 @@
 // js/settings/settings-d-pad-nav.js - Screen-based navigation
-// CHANGE SUMMARY: FIXED - Added overlay reference update for existing CalendarSettingsManager instances to prevent stale DOM references
+// CHANGE SUMMARY: Updated to use shared screen helpers (handleScreenEnter/handleScreenExit) - removed inline screen-specific logic
 
 import { TimeSelectionHandler } from './time-selection-handler.js';
 import { SettingsSelectionHandler } from './settings-selection-handler.js';
-import { populateSystemStatus } from './settings-ui-builder.js';
-import { CalendarSettingsManager } from '../../widgets/dcal/dcal-settings/dcal-settings-manager.js';
+import { handleScreenEnter, handleScreenExit } from './settings-screen-helpers.js';
 
 
 export class SimplifiedNavigation {
@@ -161,10 +160,11 @@ export class SimplifiedNavigation {
     const oldIndex = this.focusIndex;
     this.focusIndex += direction;
     
+    // Stop at boundaries instead of wrapping
     if (this.focusIndex < 0) {
-      this.focusIndex = this.focusableElements.length - 1;
+      this.focusIndex = 0; // Stay at top
     } else if (this.focusIndex >= this.focusableElements.length) {
-      this.focusIndex = 0;
+      this.focusIndex = this.focusableElements.length - 1; // Stay at bottom
     }
     
     this.updateFocus(); // Update focus classes first
@@ -180,6 +180,12 @@ export class SimplifiedNavigation {
     // Find the scrollable container (.settings-screen.active)
     const scrollContainer = current.closest('.settings-screen.active');
     if (!scrollContainer) return;
+    
+    // Special case: if focusing first item, always scroll to top
+    if (this.focusIndex === 0) {
+      scrollContainer.scrollTop = 0;
+      return;
+    }
     
     // Get positions
     const containerRect = scrollContainer.getBoundingClientRect();
@@ -357,10 +363,8 @@ export class SimplifiedNavigation {
     const currentScreen = this.overlay.querySelector('.settings-screen.active');
     const currentScreenId = currentScreen?.dataset?.screen;
     
-    // Save calendar changes when navigating away from manage-calendars
-    if (currentScreenId === 'manage-calendars' && window.calendarSettingsManager) {
-      window.calendarSettingsManager.saveCalendarSettings();
-    }
+    // Save state when navigating away from special screens (SHARED HELPER)
+    handleScreenExit(currentScreenId);
 
     const nextScreen = this.overlay.querySelector(`[data-screen="${screenId}"]`);
     
@@ -387,22 +391,8 @@ export class SimplifiedNavigation {
       this.updateFocus();
       this.selectionHandler.updateNavBar(this.overlay, this.getCurrentScreenId(), this.navigationStack);
 
-      if (screenId === 'system-status') {
-        populateSystemStatus(this.overlay);
-      }
-      
-      if (screenId === 'manage-calendars' || screenId === 'calendar') {
-        if (!window.calendarSettingsManager) {
-          // IMPORTANT: Use this.overlay, not just overlay
-          window.calendarSettingsManager = new CalendarSettingsManager(this.overlay, this);
-        } else {
-          // FIXED: Update overlay reference if instance already exists
-          console.log('📅 Updating CalendarSettingsManager overlay reference');
-          window.calendarSettingsManager.parentOverlay = this.overlay;
-          window.calendarSettingsManager.parentNavigation = this;
-        }
-        window.calendarSettingsManager.initialize();
-      }
+      // Handle screen-specific initialization (SHARED HELPER)
+      handleScreenEnter(screenId, this.overlay, this);
     }, 300);
   }
 
@@ -412,10 +402,8 @@ export class SimplifiedNavigation {
     const currentScreen = this.overlay.querySelector('.settings-screen.active');
     const currentScreenId = currentScreen?.dataset?.screen;
   
-    // Save calendar changes when navigating away from manage-calendars
-    if (currentScreenId === 'manage-calendars' && window.calendarSettingsManager) {
-      window.calendarSettingsManager.saveCalendarSettings();
-    }
+    // Save state when navigating away from special screens (SHARED HELPER)
+    handleScreenExit(currentScreenId);
     
     this.navigationStack.pop();
     

@@ -8,7 +8,7 @@ import { getPlatformDetector } from '../utils/platform-detector.js';
 import { TimeSelectionHandler } from './time-selection-handler.js';
 import { SettingsSelectionHandler } from './settings-selection-handler.js';
 import { buildSettingsUI, populateFormFields, populateSystemStatus } from './settings-ui-builder.js';
-import { CalendarSettingsManager } from '../../widgets/dcal/dcal-settings/dcal-settings-manager.js';
+import { handleScreenEnter, handleScreenExit, handleSettingsCleanup } from './settings-screen-helpers.js';
 
 export class SimplifiedSettings {
   constructor() {
@@ -358,10 +358,8 @@ export class SimplifiedSettings {
     const currentScreen = this.overlay.querySelector('.settings-screen.active');
     const currentScreenId = currentScreen?.dataset?.screen;
     
-    // Save calendar changes when navigating away from manage-calendars
-    if (currentScreenId === 'manage-calendars' && window.calendarSettingsManager) {
-      window.calendarSettingsManager.saveCalendarSettings();
-    }
+    // Save state when navigating away from special screens
+    handleScreenExit(currentScreenId);
 
     const nextScreen = this.overlay.querySelector(`[data-screen="${screenId}"]`);
     
@@ -382,24 +380,8 @@ export class SimplifiedSettings {
       currentScreen.classList.remove('sliding-out-left');
       nextScreen.classList.remove('sliding-in-right');
       
-      // ADDED: Initialize calendar settings manager when navigating to calendar screens
-      if (screenId === 'manage-calendars' || screenId === 'calendar') {
-        if (!window.calendarSettingsManager) {
-          console.log('📅 Creating CalendarSettingsManager from touch navigation');
-          window.calendarSettingsManager = new CalendarSettingsManager(this.overlay, this.navigation);
-        } else {
-          // FIXED: Update overlay reference if instance already exists
-          console.log('📅 Updating CalendarSettingsManager overlay reference');
-          window.calendarSettingsManager.parentOverlay = this.overlay;
-          window.calendarSettingsManager.parentNavigation = this.navigation;
-        }
-        window.calendarSettingsManager.initialize();
-      }
-      
-      // ADDED: Handle system-status screen special case
-      if (screenId === 'system-status') {
-        populateSystemStatus(this.overlay);
-      }
+      // Handle screen-specific initialization (SHARED HELPER)
+      handleScreenEnter(screenId, this.overlay, this.navigation);
     }, 300);
     
     this.selectionHandler.updateNavBar(this.overlay, this.getCurrentScreenId(), this.navigationStack);
@@ -411,10 +393,8 @@ export class SimplifiedSettings {
     const currentScreen = this.overlay.querySelector('.settings-screen.active');
     const currentScreenId = currentScreen?.dataset?.screen;
   
-    // Save calendar changes when navigating away from manage-calendars
-    if (currentScreenId === 'manage-calendars' && window.calendarSettingsManager) {
-      window.calendarSettingsManager.saveCalendarSettings();
-    }
+    // Save state when navigating away from special screens
+    handleScreenExit(currentScreenId);
 
     this.navigationStack.pop();
     

@@ -32,8 +32,6 @@ export const API_CONFIG = {
       monthsBack: 1,  // originally MONTHS_BACK_TO_PULL
       maxResults: 250, // adjust as needed for your API calls
       includeCalendars: [
-        'jwlerch@gmail.com',
-        'Veeva'
       ]
     },
   }
