@@ -47,365 +47,401 @@ export class GoogleAPIClient {
     throw new Error(`JWT service not ready after ${timeoutMs}ms timeout`);
   }
 
-  /**
-   * Get current Google access token - FAIL FAST approach
-   * No silent fallbacks - either return valid token or throw clear error
-   * @param {boolean} forceRefresh - Force token refresh, bypassing cache
-   * @returns {Promise<string>} Access token
-   * @throws {Error} If unable to obtain valid token
-   */
-  async getAccessToken(forceRefresh = false) {
-    // CRITICAL: Wait for JWT service to be ready
-    if (!window.jwtAuth || !window.jwtAuth.isServiceReady()) {
-      logger.warn('JWT service not immediately available, waiting...');
-      try {
-        await this._waitForJWTService(10000);
-      } catch (error) {
-        logger.error('JWT service failed to become ready', error);
-        throw new Error('JWT service not available - cannot obtain valid token. System may still be initializing.');
-      }
-    }
-
-    // Force refresh if requested
-    if (forceRefresh) {
-      logger.info('🔄 Force refresh requested - invalidating token cache');
-      if (window.jwtAuth.invalidateTokenCache) {
-        await window.jwtAuth.invalidateTokenCache('google', 'personal');
-      }
-    }
-    
-    // Get token from JWT service
-    logger.debug('Requesting token from JWT refresh token system');
-    
-    let result;
+/**
+ * Get current Google access token - FAIL FAST approach
+ * NOW SUPPORTS MULTI-ACCOUNT: Specify accountType to get tokens for different accounts
+ * @param {boolean} forceRefresh - Force token refresh, bypassing cache
+ * @param {string} accountType - Account type (e.g., 'personal', 'work', 'veeva')
+ * @returns {Promise<string>} Access token
+ * @throws {Error} If unable to obtain valid token
+ */
+async getAccessToken(forceRefresh = false, accountType = 'personal') {
+  // CRITICAL: Wait for JWT service to be ready
+  if (!window.jwtAuth || !window.jwtAuth.isServiceReady()) {
+    logger.warn('JWT service not immediately available, waiting...');
     try {
-      result = await window.jwtAuth.getValidToken('google', 'personal');
+      await this._waitForJWTService(10000);
     } catch (error) {
-      logger.error('JWT token retrieval failed', error);
-      throw new Error(`Failed to retrieve token from JWT service: ${error.message}`);
+      logger.error('JWT service failed to become ready', error);
+      throw new Error('JWT service not available - cannot obtain valid token. System may still be initializing.');
     }
-    
-    // Validate result
-    if (!result) {
-      throw new Error('JWT service returned null/undefined result');
-    }
-    
-    if (!result.success) {
-      throw new Error(`JWT service reported failure: ${result.error || 'Unknown error'}`);
-    }
-    
-    if (!result.access_token) {
-      throw new Error('JWT service returned success but no access_token provided');
-    }
-    
-    // Success!
-    if (result.refreshed || forceRefresh) {
-      logger.success('✅ Token auto-refreshed via JWT system');
-    } else {
-      logger.debug('Using existing valid token from JWT system');
-    }
-    
-    return result.access_token;
   }
 
-  /**
-   * Make authenticated API request with retry logic and rate limiting
-   * ENHANCED: Now detects 401 errors and triggers token refresh before general retry logic
-   * @param {string} endpoint - API endpoint (relative to baseUrl)
-   * @param {Object} options - Request options
-   * @param {boolean} isRetryAfter401 - Internal flag to prevent infinite 401 retry loops
-   * @returns {Promise<Object>} API response data
-   */
-  async makeRequest(endpoint, options = {}, isRetryAfter401 = false) {
-    const accessToken = await this.getAccessToken();
-    if (!accessToken) {
-      throw new Error('No access token available for API request');
+  // Force refresh if requested
+  if (forceRefresh) {
+    logger.info('🔄 Force refresh requested - invalidating token cache', { accountType });
+    if (window.jwtAuth.invalidateTokenCache) {
+      await window.jwtAuth.invalidateTokenCache('google', accountType);
     }
+  }
+  
+  // Get token from JWT service FOR SPECIFIC ACCOUNT
+  logger.debug('Requesting token from JWT refresh token system', { accountType });
+  
+  let result;
+  try {
+    result = await window.jwtAuth.getValidToken('google', accountType);
+  } catch (error) {
+    logger.error('JWT token retrieval failed', { accountType, error: error.message });
+    throw new Error(`Failed to retrieve token from JWT service for account '${accountType}': ${error.message}`);
+  }
+  
+  // Validate result
+  if (!result) {
+    throw new Error(`JWT service returned null/undefined result for account '${accountType}'`);
+  }
+  
+  if (!result.success) {
+    throw new Error(`JWT service reported failure for account '${accountType}': ${result.error || 'Unknown error'}`);
+  }
+  
+  if (!result.access_token) {
+    throw new Error(`JWT service returned success but no access_token provided for account '${accountType}'`);
+  }
+  
+  // Success!
+  if (result.refreshed || forceRefresh) {
+    logger.success('✅ Token auto-refreshed via JWT system', { accountType });
+  } else {
+    logger.debug('Using existing valid token from JWT system', { accountType });
+  }
+  
+  return result.access_token;
+}
 
-    const {
-      method = 'GET',
-      headers = {},
-      body = null,
-      timeout = 30000
-    } = options;
+ /**
+ * Make authenticated API request with retry logic and rate limiting
+ * NOW SUPPORTS MULTI-ACCOUNT: Pass accountType to use specific account's token
+ * @param {string} endpoint - API endpoint (relative to baseUrl)
+ * @param {Object} options - Request options
+ * @param {boolean} isRetryAfter401 - Internal flag to prevent infinite 401 retry loops
+ * @param {string} accountType - Account type for token retrieval
+ * @returns {Promise<Object>} API response data
+ */
+async makeRequest(endpoint, options = {}, isRetryAfter401 = false, accountType = 'personal') {
+  const accessToken = await this.getAccessToken(false, accountType);
+  if (!accessToken) {
+    throw new Error(`No access token available for API request (account: ${accountType})`);
+  }
 
-    const url = endpoint.startsWith('http') ? endpoint : `${this.config.baseUrl}${endpoint}`;
-    
-    let lastError;
-    const timer = logger.startTimer(`API ${method} ${endpoint}`);
+  const {
+    method = 'GET',
+    headers = {},
+    body = null,
+    timeout = 30000
+  } = options;
 
-    // Rate limiting
-    if (this.lastRequestTime) {
-      const timeSinceLastRequest = Date.now() - this.lastRequestTime;
-      if (timeSinceLastRequest < this.config.rateLimitInterval) {
-        const delay = this.config.rateLimitInterval - timeSinceLastRequest;
-        logger.debug('Rate limiting: waiting ' + delay + 'ms');
-        await new Promise(resolve => setTimeout(resolve, delay));
+  const url = endpoint.startsWith('http') ? endpoint : `${this.config.baseUrl}${endpoint}`;
+  
+  let lastError;
+  const timer = logger.startTimer(`API ${method} ${endpoint}`);
+
+  // Rate limiting
+  if (this.lastRequestTime) {
+    const timeSinceLastRequest = Date.now() - this.lastRequestTime;
+    if (timeSinceLastRequest < this.config.rateLimitInterval) {
+      const delay = this.config.rateLimitInterval - timeSinceLastRequest;
+      logger.debug('Rate limiting: waiting ' + delay + 'ms');
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+  this.lastRequestTime = Date.now();
+
+  // Retry logic
+  for (let attempt = 1; attempt <= this.config.retryConfig.maxRetries; attempt++) {
+    try {
+      logger.debug(`Making API request (attempt ${attempt})`, {
+        method,
+        url: url.length > 100 ? url.substring(0, 100) + '...' : url,
+        accountType
+      });
+
+      const requestHeaders = {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+        ...headers
+      };
+
+      const fetchOptions = {
+        method,
+        headers: requestHeaders,
+        signal: AbortSignal.timeout(timeout)
+      };
+
+      if (body) {
+        fetchOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
       }
-    }
-    this.lastRequestTime = Date.now();
 
-    // Retry logic
-    for (let attempt = 1; attempt <= this.config.retryConfig.maxRetries; attempt++) {
-      try {
-        logger.debug(`Making API request (attempt ${attempt})`, {
-          method,
-          url: url.length > 100 ? url.substring(0, 100) + '...' : url
-        });
+      const response = await fetch(url, fetchOptions);
 
-        const requestHeaders = {
-          'Authorization': `Bearer ${accessToken}`,
-          'Content-Type': 'application/json',
-          ...headers
-        };
-
-        const fetchOptions = {
-          method,
-          headers: requestHeaders,
-          signal: AbortSignal.timeout(timeout)
-        };
-
-        if (body) {
-          fetchOptions.body = typeof body === 'string' ? body : JSON.stringify(body);
-        }
-
-        const response = await fetch(url, fetchOptions);
-
-        // NEW: Handle 401 Unauthorized specifically - token expired or revoked
-        if (response.status === 401 && !isRetryAfter401) {
-          logger.warn('⚠️ Received 401 Unauthorized - token expired or revoked');
-          timer(); // Stop the timer
-          
-          try {
-            logger.info('🔄 Attempting token refresh and retry');
-            // Force a token refresh, bypassing cache
-            const newToken = await this.getAccessToken(true);
-            
-            if (newToken) {
-              logger.info('✅ Token refreshed, retrying request');
-              // Retry the request once with the new token
-              return await this.makeRequest(endpoint, options, true);
-            } else {
-              throw new Error('Failed to obtain refreshed token after 401 error');
-            }
-          } catch (refreshError) {
-            logger.error('❌ Token refresh failed after 401', refreshError);
-            throw new Error(`Authentication failed: ${refreshError.message}`);
-          }
-        }
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`HTTP ${response.status}: ${errorText}`);
-        }
-
-        const data = await response.json();
-        const duration = timer();
-
-        logger.success(`API request completed`, {
-          method,
-          endpoint,
-          attempt,
-          duration
-        });
-
-        return data;
-
-      } catch (error) {
-        lastError = error;
+      // Handle 401 Unauthorized - token expired or revoked
+      if (response.status === 401 && !isRetryAfter401) {
+        logger.warn('⚠️ Received 401 Unauthorized - token expired or revoked', { accountType });
+        timer();
         
-        logger.warn(`API request attempt ${attempt} failed`, {
-          error: error.message,
-          endpoint
-        });
-
-        // Don't retry if it's the last attempt
-        if (attempt >= this.config.retryConfig.maxRetries) {
-          break;
+        try {
+          logger.info('🔄 Attempting token refresh and retry', { accountType });
+          // Force a token refresh for this specific account
+          const newToken = await this.getAccessToken(true, accountType);
+          
+          if (newToken) {
+            logger.info('✅ Token refreshed, retrying request', { accountType });
+            // Retry the request once with the new token
+            return await this.makeRequest(endpoint, options, true, accountType);
+          } else {
+            throw new Error(`Failed to obtain refreshed token after 401 error for account '${accountType}'`);
+          }
+        } catch (refreshError) {
+          logger.error('❌ Token refresh failed after 401', { accountType, error: refreshError.message });
+          throw new Error(`Authentication failed for account '${accountType}': ${refreshError.message}`);
         }
-
-        // Calculate exponential backoff delay
-        const delay = Math.min(
-          this.config.retryConfig.baseDelay * Math.pow(2, attempt - 1),
-          this.config.retryConfig.maxDelay
-        );
-
-        logger.debug(`Retrying after ${delay}ms delay`);
-        await new Promise(resolve => setTimeout(resolve, delay));
       }
-    }
 
-    // All retries failed
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      const duration = timer();
+
+      logger.success(`API request completed`, {
+        method,
+        endpoint,
+        attempt,
+        accountType,
+        duration
+      });
+
+      return data;
+
+    } catch (error) {
+      lastError = error;
+      
+      logger.warn(`API request attempt ${attempt} failed`, {
+        error: error.message,
+        endpoint,
+        accountType
+      });
+
+      // Don't retry if it's the last attempt
+      if (attempt >= this.config.retryConfig.maxRetries) {
+        break;
+      }
+
+      // Calculate exponential backoff delay
+      const delay = Math.min(
+        this.config.retryConfig.baseDelay * Math.pow(2, attempt - 1),
+        this.config.retryConfig.maxDelay
+      );
+
+      logger.debug(`Retrying after ${delay}ms delay`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+
+  // All retries failed
+  const duration = timer();
+  logger.error(`All ${this.config.retryConfig.maxRetries} attempts failed`, {
+    endpoint,
+    accountType,
+    totalDuration: duration,
+    finalError: lastError.message
+  });
+
+  throw lastError;
+}
+
+ /**
+ * Get list of calendars
+ * NOW SUPPORTS MULTI-ACCOUNT: Specify accountType to get calendars for different accounts
+ * @param {string} accountType - Account type (e.g., 'personal', 'work', 'veeva')
+ * @returns {Promise<Array>} Array of calendar objects
+ */
+async getCalendarList(accountType = 'personal') {
+  logger.debug('Fetching calendar list', { accountType });
+  const timer = logger.startTimer('Calendar List');
+
+  try {
+    const data = await this.makeRequest('/calendar/v3/users/me/calendarList', {}, false, accountType);
     const duration = timer();
-    logger.error(`All ${this.config.retryConfig.maxRetries} attempts failed`, {
-      endpoint,
-      totalDuration: duration,
-      finalError: lastError.message
+
+    const calendars = data.items || [];
+    
+    logger.success('Calendar list retrieved', {
+      accountType,
+      totalCalendars: calendars.length,
+      duration
     });
 
-    throw lastError;
+    return calendars;
+
+  } catch (error) {
+    timer();
+    logger.error('Failed to fetch calendar list', { accountType, error: error.message });
+    throw error;
   }
+}
 
-  /**
-   * Get list of calendars
-   * @returns {Promise<Array>} Array of calendar objects
-   */
-  async getCalendarList() {
-    logger.debug('Fetching calendar list');
-    const timer = logger.startTimer('Calendar List');
+/**
+ * Get calendar events for a specific calendar
+ * NOW SUPPORTS MULTI-ACCOUNT: Specify accountType to use correct account's token
+ * @param {string} calendarId - Calendar ID
+ * @param {Object} timeRange - Time range for events
+ * @param {string} accountType - Account type (e.g., 'personal', 'work', 'veeva')
+ * @returns {Promise<Array>} Array of event objects
+ */
+async getCalendarEvents(calendarId, timeRange = {}, accountType = 'personal') {
+  logger.debug('Fetching calendar events', { calendarId, accountType });
+  const timer = logger.startTimer('Calendar Events');
 
-    try {
-      const data = await this.makeRequest('/calendar/v3/users/me/calendarList');
-      const duration = timer();
+  try {
+    const now = new Date();
+    const timeMin = timeRange.start || new Date(now.getFullYear(), now.getMonth() - this.config.calendar.monthsBack, 1);
+    const timeMax = timeRange.end || new Date(now.getFullYear(), now.getMonth() + this.config.calendar.monthsAhead + 1, 0);
 
-      const calendars = data.items || [];
-      
-      logger.success('Calendar list retrieved', {
-        totalCalendars: calendars.length,
-        duration
-      });
+    const params = new URLSearchParams({
+      timeMin: timeMin.toISOString(),
+      timeMax: timeMax.toISOString(),
+      maxResults: this.config.calendar.maxResults,
+      singleEvents: 'true',
+      orderBy: 'startTime'
+    });
 
-      return calendars;
+    const data = await this.makeRequest(`/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`, {}, false, accountType);
+    const duration = timer();
 
-    } catch (error) {
-      timer();
-      logger.error('Failed to fetch calendar list', error);
-      throw error;
-    }
+    const events = data.items || [];
+    
+    logger.success('Calendar events retrieved', {
+      calendarId,
+      accountType,
+      totalEvents: events.length,
+      duration
+    });
+
+    return events;
+
+  } catch (error) {
+    timer();
+    logger.error('Failed to fetch calendar events', { calendarId, accountType, error: error.message });
+    throw error;
   }
+}
 
-  /**
-   * Get calendar events for a specific calendar
-   * @param {string} calendarId - Calendar ID
-   * @param {Object} timeRange - Time range for events
-   * @returns {Promise<Array>} Array of event objects
-   */
-  async getCalendarEvents(calendarId, timeRange = {}) {
-    logger.debug('Fetching calendar events', { calendarId });
-    const timer = logger.startTimer('Calendar Events');
-
-    try {
-      const now = new Date();
-      const timeMin = timeRange.start || new Date(now.getFullYear(), now.getMonth() - this.config.calendar.monthsBack, 1);
-      const timeMax = timeRange.end || new Date(now.getFullYear(), now.getMonth() + this.config.calendar.monthsAhead + 1, 0);
-
-      const params = new URLSearchParams({
-        calendarId: calendarId,
-        timeMin: timeMin.toISOString(),
-        timeMax: timeMax.toISOString(),
-        maxResults: this.config.calendar.maxResults,
-        singleEvents: 'true',
-        orderBy: 'startTime'
-      });
-
-      const data = await this.makeRequest(`/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events?${params}`);
-      const duration = timer();
-
-      const events = data.items || [];
-      
-      logger.success('Calendar events retrieved', {
-        calendarId,
-        eventCount: events.length,
-        duration
-      });
-
-      return events;
-
-    } catch (error) {
-      timer();
-      logger.error('Failed to fetch calendar events', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get all events from configured calendars
-   * @param {Object} options - Options object
-   * @param {Object} options.timeRange - Optional time range
-   * @param {Array} options.calendars - Optional pre-fetched calendar list
-   * @param {Array} options.calendarIds - Optional specific calendar IDs to filter (NEW - from settings)
-   * @returns {Promise<Array>} Combined array of events from all calendars
-   */
  /**
  * Get all events from configured calendars
- * UPDATED: Now uses activeCalendarIds from calendar settings instead of hardcoded config
+ * UPDATED: Now uses calendarAccountMap to fetch events from multiple accounts with correct tokens
  * @param {Object} options - Options object
  * @param {Object} options.timeRange - Optional time range
- * @param {Array} options.calendars - Optional pre-fetched calendar list
+ * @param {Array} options.calendars - Optional pre-fetched calendar list (DEPRECATED - no longer used)
  * @returns {Promise<Array>} Combined array of events from all calendars
  */
 async getAllCalendarEvents(options = {}) {
-  const { timeRange = {}, calendars: providedCalendars = null } = options;
+  const { timeRange = {} } = options;
   
-  logger.info('Fetching events from all configured calendars');
+  logger.info('Fetching events from all configured calendars (multi-account)');
   const timer = logger.startTimer('All Calendar Events');
 
   try {
-    // Get calendar list if not provided
-    let calendars = providedCalendars;
-    if (!calendars) {
-      calendars = await this.getCalendarList();
-    }
-
-    // UPDATED: Get active calendar IDs from settings instead of hardcoded config
+    // Get calendar settings from localStorage
     const localStorage = window.parent?.localStorage || window.localStorage;
     const calendarSettings = localStorage.getItem('dashie_calendar_settings');
     
-    let activeCalendarIds = [];
-    if (calendarSettings) {
-      try {
-        const settings = JSON.parse(calendarSettings);
-        activeCalendarIds = settings.activeCalendarIds || [];
-        logger.debug('Loaded active calendar IDs from settings', { 
-          count: activeCalendarIds.length,
-          ids: activeCalendarIds 
-        });
-      } catch (error) {
-        logger.warn('Failed to parse calendar settings, no calendars will be loaded', error);
-      }
+    if (!calendarSettings) {
+      logger.warn('No calendar settings found');
+      const duration = timer();
+      return [];
     }
 
-    // Filter to active calendars selected by user
-    const targetCalendars = calendars.filter(cal => 
-      activeCalendarIds.includes(cal.id)
-    );
+    let settings;
+    try {
+      settings = JSON.parse(calendarSettings);
+    } catch (error) {
+      logger.error('Failed to parse calendar settings', error);
+      const duration = timer();
+      return [];
+    }
 
-    logger.debug('Fetching events from calendars', {
-      totalCalendars: calendars.length,
-      activeCalendarIds: activeCalendarIds.length,
-      targetCalendars: targetCalendars.length,
-      calendarNames: targetCalendars.map(c => c.summary)
+    const activeCalendarIds = settings.activeCalendarIds || [];
+    const calendarAccountMap = settings.calendarAccountMap || {};
+    
+    logger.debug('Loaded calendar configuration', { 
+      activeCalendarCount: activeCalendarIds.length,
+      accountMappings: Object.keys(calendarAccountMap).length,
+      activeCalendarIds: activeCalendarIds,
+      calendarAccountMap: calendarAccountMap
     });
 
     // If no calendars are selected, return empty array
-    if (targetCalendars.length === 0) {
+    if (activeCalendarIds.length === 0) {
       logger.info('No active calendars selected - returning empty event list');
       const duration = timer();
       return [];
     }
 
-    // Fetch events from all target calendars in parallel
-    // FIXED: Add calendarId to each event
-    const eventPromises = targetCalendars.map(cal => 
-      this.getCalendarEvents(cal.id, timeRange)
-        .then(events => events.map(event => ({ 
-          ...event, 
-          calendarId: cal.id 
-        })))
-        .catch(error => {
-          logger.warn(`Failed to fetch events for calendar ${cal.summary}`, error);
-          return []; // Return empty array on error
-        })
-    );
+    // Group calendars by account for efficient batch fetching
+    const calendarsByAccount = {};
+    
+    for (const calendarId of activeCalendarIds) {
+      const accountType = calendarAccountMap[calendarId] || 'personal';
+      
+      if (!calendarsByAccount[accountType]) {
+        calendarsByAccount[accountType] = [];
+      }
+      
+      calendarsByAccount[accountType].push(calendarId);
+    }
 
-    const eventArrays = await Promise.all(eventPromises);
-    const allEvents = eventArrays.flat();
+    logger.debug('Grouped calendars by account', {
+      accounts: Object.keys(calendarsByAccount),
+      distribution: Object.entries(calendarsByAccount).map(([account, cals]) => 
+        `${account}: ${cals.length} calendars`
+      )
+    });
+
+    // Fetch events from each account's calendars in parallel
+    const accountPromises = Object.entries(calendarsByAccount).map(async ([accountType, calendarIds]) => {
+      logger.debug(`Fetching events for ${calendarIds.length} calendars from account: ${accountType}`);
+      
+      // Fetch events for all calendars in this account in parallel
+      const eventPromises = calendarIds.map(calendarId => 
+        this.getCalendarEvents(calendarId, timeRange, accountType)
+          .then(events => events.map(event => ({ 
+            ...event, 
+            calendarId: calendarId,
+            accountType: accountType  // Tag events with their source account
+          })))
+          .catch(error => {
+            logger.warn(`Failed to fetch events for calendar ${calendarId} from account ${accountType}`, error);
+            return []; // Return empty array on error
+          })
+      );
+
+      return Promise.all(eventPromises);
+    });
+
+    // Wait for all accounts to complete
+    const accountResults = await Promise.all(accountPromises);
+    
+    // Flatten: accountResults is array of arrays of arrays
+    // [[account1 events], [account2 events], ...] -> [all events]
+    const allEvents = accountResults.flat(2);
 
     const duration = timer();
 
-    logger.success('All calendar events retrieved', {
-      calendarCount: targetCalendars.length,
+    // Log summary by account
+    const eventsByAccount = {};
+    for (const event of allEvents) {
+      const account = event.accountType || 'unknown';
+      eventsByAccount[account] = (eventsByAccount[account] || 0) + 1;
+    }
+
+    logger.success('All calendar events retrieved (multi-account)', {
+      totalCalendars: activeCalendarIds.length,
+      totalAccounts: Object.keys(calendarsByAccount).length,
       totalEvents: allEvents.length,
+      eventsByAccount: eventsByAccount,
       duration
     });
 

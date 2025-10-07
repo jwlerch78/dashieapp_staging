@@ -241,87 +241,181 @@ export class CalendarService {
     return false;
   }
 
-  /**
-   * Refresh calendar data from Google APIs
-   * @param {Object} options - Refresh options
-   * @param {Array} options.calendars - Cached calendars to reuse
-   * @returns {Promise<Object>} Calendar data with events and calendars
-   */
-  async refreshCalendarData(options = {}) {
-    logger.data('refresh', 'calendar', 'pending');
-    
-    const timer = logger.startTimer('Calendar Data Refresh');
-    
-    try {
-      // FIXED: Load active calendar IDs from settings
-      const activeCalendarIds = this.loadActiveCalendarIds();
-      
-      if (activeCalendarIds) {
-        logger.info('Using active calendar IDs from settings', {
-          count: activeCalendarIds.length,
-          calendarIds: activeCalendarIds
-        });
-      } else {
-        logger.info('No calendar settings found, using config defaults');
-      }
-      
-      let calendarsPromise;
-      let eventsPromise;
-      
-      // OPTIMIZED: Reuse calendar metadata if provided
-      if (options.calendars && options.calendars.length > 0) {
-        calendarsPromise = Promise.resolve(options.calendars);
-        eventsPromise = this.googleAPI.getAllCalendarEvents({ 
-          calendars: options.calendars,
-          calendarIds: activeCalendarIds  // FIXED: Pass active IDs from settings
-        });
-        logger.debug('Reusing provided calendar metadata to avoid redundant API call');
-      } else {
-        // Need fresh calendar metadata
-        calendarsPromise = this.googleAPI.getCalendarList();
-        eventsPromise = calendarsPromise.then(calendars => 
-          this.googleAPI.getAllCalendarEvents({ 
-            calendars,
-            calendarIds: activeCalendarIds  // FIXED: Pass active IDs from settings
-          })
-        );
-        logger.debug('Fetching fresh calendar metadata');
-      }
-      
-      const [rawEvents, calendars] = await Promise.all([eventsPromise, calendarsPromise]);
-      
-      // FIXED: Call transformEvents (which calls cleanEventData) to normalize events before returning
-      logger.info('Processing raw events through transformEvents', {
-        rawEventsCount: rawEvents.length
-      });
+  // CHANGE SUMMARY: Fixed calendar metadata loading to include calendars from all accounts, not just 'personal'
 
-      const transformedEvents = this.transformEvents(rawEvents);
-
-      logger.info('Events transformed and normalized', {
-        originalCount: rawEvents.length,
-        transformedCount: transformedEvents.length
+/**
+ * Refresh calendar data from Google APIs
+ * FIXED: Now fetches calendar metadata from ALL accounts to get correct colors
+ * @param {Object} options - Refresh options
+ * @param {Array} options.calendars - Cached calendars to reuse
+ * @returns {Promise<Object>} Calendar data with events and calendars
+ */
+async refreshCalendarData(options = {}) {
+  logger.data('refresh', 'calendar', 'pending');
+  
+  const timer = logger.startTimer('Calendar Data Refresh');
+  
+  try {
+    // Load active calendar IDs and account mapping from settings
+    const activeCalendarIds = this.loadActiveCalendarIds();
+    
+    if (activeCalendarIds) {
+      logger.info('Using active calendar IDs from settings', {
+        count: activeCalendarIds.length,
+        calendarIds: activeCalendarIds
       });
-      
-      const duration = timer();
-      
-      logger.data('refresh', 'calendar', 'success', {
-        eventsCount: transformedEvents.length,
-        calendarsCount: calendars.length,
-        duration
-      });
-      
-      return {
-        events: transformedEvents, // Return transformed events instead of raw events
-        calendars,
-        lastUpdated: Date.now()
-      };
-      
-    } catch (error) {
-      timer();
-      logger.data('refresh', 'calendar', 'error', error.message);
-      throw error;
+    } else {
+      logger.info('No calendar settings found, using config defaults');
     }
+    
+    let calendarsPromise;
+    let eventsPromise;
+    
+    // FIXED: Always fetch fresh calendar metadata from ALL accounts
+    // We can't reuse cached calendars because they might be missing accounts
+    calendarsPromise = this.fetchAllCalendarsMetadata();
+    eventsPromise = this.googleAPI.getAllCalendarEvents({
+      calendarIds: activeCalendarIds
+    });
+    
+    logger.debug('Fetching calendars metadata from all accounts and events');
+    
+    const [rawEvents, calendars] = await Promise.all([eventsPromise, calendarsPromise]);
+    
+    // Call transformEvents to normalize events before returning
+    logger.info('Processing raw events through transformEvents', {
+      rawEventsCount: rawEvents.length
+    });
+
+    const transformedEvents = this.transformEvents(rawEvents);
+
+    logger.info('Events transformed and normalized', {
+      originalCount: rawEvents.length,
+      transformedCount: transformedEvents.length
+    });
+    
+    const duration = timer();
+    
+    logger.data('refresh', 'calendar', 'success', {
+      eventsCount: transformedEvents.length,
+      calendarsCount: calendars.length,
+      duration
+    });
+    
+    return {
+      events: transformedEvents,
+      calendars,
+      lastUpdated: Date.now()
+    };
+    
+  } catch (error) {
+    timer();
+    logger.data('refresh', 'calendar', 'error', error.message);
+    throw error;
   }
+}
+
+// CHANGE SUMMARY: Fixed calendar color conflicts by tracking which account each calendar is fetched from, ensuring correct colors for shared calendars
+
+/**
+ * Fetch calendar metadata from all accounts
+ * UPDATED: Now tracks which account each calendar comes from and only includes calendars that are actually enabled
+ * This ensures correct colors for shared calendars (same calendar ID, different colors in different accounts)
+ * @returns {Promise<Array>} Array of calendar objects with account-specific colors
+ */
+async fetchAllCalendarsMetadata() {
+  try {
+    // Get calendar settings to know which accounts exist
+    const localStorage = window.parent?.localStorage || window.localStorage;
+    const calendarSettings = localStorage.getItem('dashie_calendar_settings');
+    
+    if (!calendarSettings) {
+      logger.warn('No calendar settings found, fetching from personal account only');
+      return await this.googleAPI.getCalendarList('personal');
+    }
+
+    const settings = JSON.parse(calendarSettings);
+    const accounts = Object.keys(settings.accounts || {});
+    const calendarAccountMap = settings.calendarAccountMap || {};
+    const activeCalendarIds = settings.activeCalendarIds || [];
+    
+    if (accounts.length === 0) {
+      logger.warn('No accounts in settings, fetching from personal account only');
+      return await this.googleAPI.getCalendarList('personal');
+    }
+
+    logger.debug('Fetching calendar metadata from all accounts', {
+      accountCount: accounts.length,
+      accounts: accounts,
+      activeCalendars: activeCalendarIds.length
+    });
+
+    // Fetch calendars from each account in parallel
+    const calendarPromises = accounts.map(async accountType => {
+      try {
+        const calendars = await this.googleAPI.getCalendarList(accountType);
+        // Tag each calendar with its source account
+        return calendars.map(cal => ({
+          ...cal,
+          sourceAccount: accountType
+        }));
+      } catch (error) {
+        logger.warn(`Failed to fetch calendars for account ${accountType}`, error);
+        return [];
+      }
+    });
+
+    const calendarArrays = await Promise.all(calendarPromises);
+    const allCalendars = calendarArrays.flat();
+
+    // CRITICAL: For each active calendar, only include the version from the account that's actually using it
+    // This ensures we get the right color for shared calendars
+    const calendarsByActiveAccount = [];
+    
+    for (const calendarId of activeCalendarIds) {
+      const accountType = calendarAccountMap[calendarId] || 'personal';
+      
+      // Find the calendar metadata from the specific account that's using it
+      const calendar = allCalendars.find(cal => 
+        cal.id === calendarId && cal.sourceAccount === accountType
+      );
+      
+      if (calendar) {
+        calendarsByActiveAccount.push(calendar);
+        logger.debug(`Using calendar ${calendar.summary} from account ${accountType}`, {
+          calendarId: calendar.id,
+          color: calendar.backgroundColor,
+          account: accountType
+        });
+      } else {
+        // Fallback: if we can't find it in the specific account, use any version
+        const fallbackCalendar = allCalendars.find(cal => cal.id === calendarId);
+        if (fallbackCalendar) {
+          calendarsByActiveAccount.push(fallbackCalendar);
+          logger.warn(`Calendar ${calendarId} not found in account ${accountType}, using fallback`, {
+            calendarId,
+            fallbackAccount: fallbackCalendar.sourceAccount
+          });
+        } else {
+          logger.warn(`Calendar ${calendarId} not found in any account`);
+        }
+      }
+    }
+
+    logger.success('Fetched calendar metadata from all accounts (account-specific)', {
+      totalCalendars: calendarsByActiveAccount.length,
+      accountCount: accounts.length,
+      activeCalendars: activeCalendarIds.length
+    });
+
+    return calendarsByActiveAccount;
+
+  } catch (error) {
+    logger.error('Failed to fetch calendars from all accounts', error);
+    // Fallback to personal account only
+    return await this.googleAPI.getCalendarList('personal');
+  }
+}
 
   /**
    * Handle calendar-specific widget requests

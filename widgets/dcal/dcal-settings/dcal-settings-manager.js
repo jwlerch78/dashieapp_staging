@@ -230,63 +230,66 @@ export class CalendarSettingsManager {
     return uniqueAccounts;
   }
 
-  /**
-   * Load calendars for a specific account
-   */
-  async loadCalendarsForAccount(accountName, googleAPI, jwtAuth) {
-    try {
-      console.log(`📅 Loading calendars for account: ${accountName}`);
-      
-      // Get account email from listTokenAccounts (getValidToken doesn't include email)
-      const accountsResult = await jwtAuth.listTokenAccounts();
-      const accountData = accountsResult?.accounts?.find(acc => acc.account_type === accountName);
-      
-      const email = accountData?.email || `${accountName}@gmail.com`;
-      const displayName = accountData?.display_name || this.formatAccountName(accountName);
-      
-      console.log(`📅 Account info:`, { accountName, email, displayName });
-      
-      // Fetch calendar list from Google
-      const googleCalendars = await googleAPI.getCalendarList();
-      console.log(`📅 Retrieved ${googleCalendars.length} calendars from Google for ${accountName}`);
-      
-      // Initialize account structure if it doesn't exist
-      if (!this.calendarSettings.accounts[accountName]) {
-        this.calendarSettings.accounts[accountName] = {
-          displayName: displayName,
-          email: email,
-          calendars: {}
-        };
-      }
-      
-      const account = this.calendarSettings.accounts[accountName];
-      
-      // Process each calendar from Google
-      for (const googleCal of googleCalendars) {
-        const calId = googleCal.id;
-        
-        // If calendar already exists in settings, update metadata but preserve enabled state
-        if (account.calendars[calId]) {
-          account.calendars[calId].name = googleCal.summary;
-          account.calendars[calId].color = googleCal.backgroundColor || '#4285f4';
-          account.calendars[calId].lastSeen = new Date().toISOString();
-        } else {
-          // New calendar - add it as disabled by default
-          account.calendars[calId] = {
-            id: calId,
-            name: googleCal.summary,
-            color: googleCal.backgroundColor || '#4285f4',
-            enabled: false,  // New calendars start disabled
-            lastSeen: new Date().toISOString()
-          };
-          console.log(`📅 Added new calendar: ${googleCal.summary} (disabled by default)`);
-        }
-      }
-      
-    } catch (error) {
-      console.error(`📅 Error loading calendars for account ${accountName}`, error);
+ // CHANGE SUMMARY: Fixed calendar loading to pass accountName to GoogleAPIClient for multi-account support
+
+/**
+ * Load calendars for a specific account
+ * FIXED: Now passes accountName to getCalendarList() to fetch calendars from correct account
+ */
+async loadCalendarsForAccount(accountName, googleAPI, jwtAuth) {
+  try {
+    console.log(`📅 Loading calendars for account: ${accountName}`);
+    
+    // Get account email from listTokenAccounts (getValidToken doesn't include email)
+    const accountsResult = await jwtAuth.listTokenAccounts();
+    const accountData = accountsResult?.accounts?.find(acc => acc.account_type === accountName);
+    
+    const email = accountData?.email || `${accountName}@gmail.com`;
+    const displayName = accountData?.display_name || this.formatAccountName(accountName);
+    
+    console.log(`📅 Account info:`, { accountName, email, displayName });
+    
+    // FIXED: Pass accountName to getCalendarList() so it uses the correct account's token
+    const googleCalendars = await googleAPI.getCalendarList(accountName);
+    console.log(`📅 Retrieved ${googleCalendars.length} calendars from Google for ${accountName} (${email})`);
+    
+    // Initialize account structure if it doesn't exist
+    if (!this.calendarSettings.accounts[accountName]) {
+      this.calendarSettings.accounts[accountName] = {
+        displayName: displayName,
+        email: email,
+        calendars: {}
+      };
     }
+    
+    const account = this.calendarSettings.accounts[accountName];
+    
+    // Process each calendar from Google
+    for (const googleCal of googleCalendars) {
+      const calId = googleCal.id;
+      
+      // If calendar already exists in settings, update metadata but preserve enabled state
+      if (account.calendars[calId]) {
+        account.calendars[calId].name = googleCal.summary;
+        account.calendars[calId].color = googleCal.backgroundColor || '#4285f4';
+        account.calendars[calId].lastSeen = new Date().toISOString();
+      } else {
+        // New calendar - add it as disabled by default
+        account.calendars[calId] = {
+          id: calId,
+          name: googleCal.summary,
+          color: googleCal.backgroundColor || '#4285f4',
+          enabled: false,  // New calendars start disabled
+          lastSeen: new Date().toISOString()
+        };
+        console.log(`📅 Added new calendar: ${googleCal.summary} (disabled by default)`);
+      }
+    }
+    
+  } catch (error) {
+    console.error(`📅 Error loading calendars for account ${accountName}`, error);
   }
+}
 
   /**
    * Format account name for display
@@ -295,54 +298,83 @@ export class CalendarSettingsManager {
     return accountName.charAt(0).toUpperCase() + accountName.slice(1);
   }
 
-  /**
-   * Save calendar settings to both localStorage and database
-   * FIXED: Now triggers calendar data refresh to update widgets immediately
-   */
-  async saveCalendarSettings() {
-    console.log('📅 Saving calendar settings to localStorage and database');
+ // CHANGE SUMMARY: Complete saveCalendarSettings with calendarAccountMap generation and calendar data refresh
+
+/**
+ * Save calendar settings to both localStorage and database
+ * COMPLETE VERSION: Builds calendarAccountMap, saves settings, and triggers calendar refresh
+ */
+async saveCalendarSettings() {
+  console.log('📅 Saving calendar settings to localStorage and database');
+  
+  try {
+    this.calendarSettings.lastSync = new Date().toISOString();
     
-    try {
-      this.calendarSettings.lastSync = new Date().toISOString();
-      
-      // 1. Save to localStorage (immediate)
-      const localStorage = window.parent?.localStorage || window.localStorage;
-      localStorage.setItem('dashie_calendar_settings', JSON.stringify(this.calendarSettings));
-      console.log('📅 ✅ Saved to localStorage');
-      
-      // 2. Save to database (persistent, cross-device)
-      const settingsInstance = window.parent?.settingsInstance;
-      if (settingsInstance && typeof settingsInstance.handleSettingChange === 'function') {
-        await settingsInstance.handleSettingChange('calendar', this.calendarSettings);
-        console.log('📅 ✅ Saved to database');
-      } else {
-        console.warn('📅 Settings instance not available, only saved to localStorage');
-      }
-      
-      // 3. CRITICAL FIX: Force refresh calendar data to update widgets with new calendar selection
-      console.log('📅 🔄 Triggering calendar data refresh with new selection...');
-      
-      // Access the parent window's dataManager to force a refresh
-      const dataManager = window.parent?.dataManager;
-      if (dataManager && typeof dataManager.refreshCalendarData === 'function') {
-        try {
-          // Force refresh (bypass cache) to load events from newly selected calendars
-          await dataManager.refreshCalendarData(true);
-          console.log('📅 ✅ Calendar data refreshed - widgets will update automatically');
-        } catch (error) {
-          console.error('📅 ❌ Failed to refresh calendar data', error);
+    // STEP 1: Build calendar-to-account mapping for event loading
+    // This tells GoogleAPIClient which account token to use for each calendar
+    const calendarAccountMap = {};
+    
+    for (const [accountType, account] of Object.entries(this.calendarSettings.accounts)) {
+      for (const [calendarId, calendar] of Object.entries(account.calendars || {})) {
+        if (calendar.enabled) {
+          calendarAccountMap[calendarId] = accountType;
         }
-      } else {
-        console.warn('📅 DataManager not available - calendar widgets may not update until next refresh');
       }
-      
-      // Reset unsaved changes flag
-      this.hasUnsavedChanges = false;
-      
-    } catch (error) {
-      console.error('📅 Error saving calendar settings', error);
     }
+    
+    // Store the mapping in settings
+    this.calendarSettings.calendarAccountMap = calendarAccountMap;
+    
+    console.log('📅 Built calendar-to-account mapping:', calendarAccountMap);
+    
+    // STEP 2: Save to localStorage (immediate)
+    const localStorage = window.parent?.localStorage || window.localStorage;
+    localStorage.setItem('dashie_calendar_settings', JSON.stringify(this.calendarSettings));
+    console.log('📅 ✅ Saved to localStorage');
+    
+    // STEP 3: Save to database (persistent, cross-device)
+    const settingsInstance = window.parent?.settingsInstance;
+    if (settingsInstance && typeof settingsInstance.handleSettingChange === 'function') {
+      await settingsInstance.handleSettingChange('calendar', this.calendarSettings);
+      console.log('📅 ✅ Saved to database');
+    } else {
+      console.warn('📅 Settings instance not available, only saved to localStorage');
+    }
+    
+    // STEP 4: Trigger calendar data refresh to load events with new selection
+    console.log('📅 🔄 Triggering calendar data refresh with new selection...');
+    const dataManager = window.parent?.dataManager || window.dataManager;
+    
+    // Try both possible refresh methods for compatibility
+    if (dataManager) {
+      try {
+        // Primary method: via calendarService
+        if (dataManager.calendarService && typeof dataManager.calendarService.refreshCalendarData === 'function') {
+          await dataManager.calendarService.refreshCalendarData();
+          console.log('📅 ✅ Calendar data refreshed via calendarService');
+        }
+        // Fallback method: directly on dataManager
+        else if (typeof dataManager.refreshCalendarData === 'function') {
+          await dataManager.refreshCalendarData(true);
+          console.log('📅 ✅ Calendar data refreshed via dataManager');
+        } else {
+          console.warn('📅 No refresh method available on dataManager');
+        }
+      } catch (error) {
+        console.error('📅 ❌ Failed to refresh calendar data:', error);
+      }
+    } else {
+      console.warn('📅 DataManager not available, calendar data not refreshed');
+    }
+    
+    // Reset unsaved changes flag
+    this.hasUnsavedChanges = false;
+    
+  } catch (error) {
+    console.error('📅 Error saving calendar settings', error);
+    throw error;
   }
+}
 
   /**
    * Setup event listeners for calendar items

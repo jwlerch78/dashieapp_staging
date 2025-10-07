@@ -10,7 +10,7 @@
   --bg-button: #666;
   --bg-active: rgba(255, 255, 255, 0.2);
   --bg-primary-transparent: rgba(34, 34, 34, 0);
-  --bg-primary-semi-transparent: rgba(34, 34, 34, 0.8);
+  --bg-primary-semi-transparent: rgba(34, 34, 34, 0.9);
   --bg-tertiary: #444;
   --bg-widget-iframe: var(--bg-secondary);
   --bg-fallback-widget: var(--bg-tertiary);
@@ -101,7 +101,7 @@ body.theme-dark {
   --bg-button: #666;
   --bg-active: rgba(255, 255, 255, 0.2);
   --bg-primary-transparent: rgba(34, 34, 34, 0);
-  --bg-primary-semi-transparent: rgba(34, 34, 34, 0.8);
+  --bg-primary-semi-transparent: rgba(34, 34, 34, 0.9);
   --bg-tertiary: #444;
   --bg-widget-iframe: var(--bg-secondary);
   --bg-fallback-widget: var(--bg-tertiary);
@@ -129,7 +129,7 @@ body:not([class*="theme-"]) {
   --bg-button: #90a4ae;       /* Light gray buttons */
   --bg-active: rgba(33, 150, 243, 0.2); /* Light blue active state */
   --bg-primary-transparent: rgba(227, 242, 253, 0);
-  --bg-primary-semi-transparent: rgba(227, 242, 253, 0.8);
+  --bg-primary-semi-transparent: rgba(227, 242, 253, 0.9);
   --bg-tertiary: #eeeeee;     /* Light gray tertiary */
   --bg-widget-iframe: var(--bg-secondary);
   --bg-fallback-widget: var(--bg-tertiary);
