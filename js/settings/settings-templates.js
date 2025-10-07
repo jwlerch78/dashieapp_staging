@@ -1,6 +1,8 @@
 // js/settings/settings-templates.js
 // CHANGE SUMMARY: Created - All HTML templates extracted from settings-ui-builder.js for better organization
 
+import { getFeaturesMenuItem, getFeaturesScreen } from './settings-templates-features.js';
+
 /**
  * Navigation Bar Template
  */
@@ -539,6 +541,8 @@ export const systemScreens = `
         </div>
         <span class="cell-chevron">›</span>
       </div>
+
+       ${getFeaturesMenuItem()}
       
       <div class="settings-cell" data-navigate="restore-defaults">
         <div class="cell-content">
@@ -557,6 +561,10 @@ export const systemScreens = `
   </div>
 
   <!-- System Placeholders (Level 2) -->
+
+  ${getFeaturesScreen()}
+
+
   <div class="settings-screen" data-level="2" data-screen="restore-defaults" data-title="Restore Defaults">
     <div class="settings-list">
       <div class="coming-soon">

@@ -1,4 +1,5 @@
 /* css/core/variables.css - Theme Foundation with Dark/Light Support */
+/* CHANGE SUMMARY: Added silver/grey selection color and made selection border 3x thicker (6px) */
 
 /* Base theme variables - will be overridden by theme-specific classes */
 :root {
@@ -10,7 +11,7 @@
   --bg-button: #666;
   --bg-active: rgba(255, 255, 255, 0.2);
   --bg-primary-transparent: rgba(34, 34, 34, 0);
-  --bg-primary-semi-transparent: rgba(34, 34, 34, 0.8);
+  --bg-primary-semi-transparent: rgba(34, 34, 34, 1);
   --bg-tertiary: #444;
   --bg-widget-iframe: var(--bg-secondary);
   --bg-fallback-widget: var(--bg-tertiary);
@@ -34,17 +35,18 @@
   /* Accent Colors */
   --accent-orange: #ffaa00;
   --accent-blue: #00aaff;
+  --accent-silver: #a8b0b8;  /* NEW: Silver/grey for selection state */
 
   /* Interactive States */
-  --outline-selected: var(--accent-orange);
+  --outline-selected: var(--accent-silver);  /* CHANGED: From orange to silver */
   --outline-focused: var(--accent-blue);
-  --outline-width-selected: 2px;
+  --outline-width-selected: 6px;  /* CHANGED: From 2px to 6px (3x thicker) */
   --outline-width-focused: 3px;
   --outline-offset: 0px;
   --outline-offset-widget: 0px;
   
   /* Enhanced Glow Effects */
-  --glow-selected: 0 0 20px rgba(255, 170, 0, 0.8), 0 0 45px rgba(255, 170, 0, 0.4);
+  --glow-selected: 0 0 20px rgba(168, 176, 184, 0.6), 0 0 45px rgba(168, 176, 184, 0.3);  /* CHANGED: Updated for silver color */
   --glow-focused: 0 0 25px rgba(0, 170, 255, 0.9), 0 0 55px rgba(0, 170, 255, 0.5);
   
   /* Layout & Spacing */
@@ -72,6 +74,7 @@
   --z-sidebar: 10;
   --z-widget-selected: 100;
   --z-widget-focused: 200;
+  --z-focus-overlay: 150;  /* NEW: Between selected and focused */
   --z-sidebar-expanded: 300;
   --z-modal: 999;
   --z-sleep: 1000;
@@ -91,7 +94,7 @@ body.theme-dark {
   --bg-button: #666;
   --bg-active: rgba(255, 255, 255, 0.2);
   --bg-primary-transparent: rgba(34, 34, 34, 0);
-  --bg-primary-semi-transparent: rgba(34, 34, 34, 0.8);
+  --bg-primary-semi-transparent: rgba(34, 34, 34, 1);
   --bg-tertiary: #444;
   --bg-widget-iframe: var(--bg-secondary);
   --bg-fallback-widget: var(--bg-tertiary);
@@ -119,7 +122,7 @@ body:not([class*="theme-"]) {
   --bg-button: #90a4ae;       /* Light gray buttons */
   --bg-active: rgba(33, 150, 243, 0.2); /* Light blue active state */
   --bg-primary-transparent: rgba(227, 242, 253, 0);
-  --bg-primary-semi-transparent: rgba(227, 242, 253, 0.8);
+  --bg-primary-semi-transparent: rgba(227, 242, 253, 1);
   --bg-tertiary: #eeeeee;     /* Light gray tertiary */
   --bg-widget-iframe: var(--bg-secondary);
   --bg-fallback-widget: var(--bg-tertiary);
@@ -135,13 +138,14 @@ body:not([class*="theme-"]) {
   /* Accent Colors - Keep the same for consistency */
   --accent-orange: #ff9800;   /* Slightly darker orange for light theme */
   --accent-blue: #2196f3;     /* Slightly darker blue for light theme */
+  --accent-silver: #6b7280;   /* Darker silver/grey for light theme */
 
   /* Interactive States - Adjusted for light theme */
-  --outline-selected: var(--accent-orange);
+  --outline-selected: var(--accent-silver);
   --outline-focused: var(--accent-blue);
   
   /* Glow Effects - Adjusted for light theme */
-  --glow-selected: 0 0 15px rgba(255, 152, 0, 0.6), 0 0 30px rgba(255, 152, 0, 0.3);
+  --glow-selected: 0 0 15px rgba(107, 114, 128, 0.5), 0 0 30px rgba(107, 114, 128, 0.25);
   --glow-focused: 0 0 15px rgba(33, 150, 243, 0.6), 0 0 30px rgba(33, 150, 243, 0.3);
 
   /* Theme-specific */

@@ -9,6 +9,8 @@ import { TimeSelectionHandler } from './time-selection-handler.js';
 import { SettingsSelectionHandler } from './settings-selection-handler.js';
 import { buildSettingsUI, populateFormFields, populateSystemStatus } from './settings-ui-builder.js';
 import { handleScreenEnter, handleScreenExit, handleSettingsCleanup } from './settings-screen-helpers.js';
+import { setupFeatureToggles } from './settings-features-controller.js';
+
 
 export class SimplifiedSettings {
   constructor() {
@@ -235,6 +237,8 @@ export class SimplifiedSettings {
       });
     }
     
+    setupFeatureToggles(this.overlay);
+
     this.showOverlay();
     console.log('⚙️ Settings displayed');
   }

@@ -1,7 +1,19 @@
 // js/core/navigation.js - Navigation Logic & Focus Management with Timeout System
-// CHANGE SUMMARY: Added escape command to widget on timeout to ensure clean widget defocus
+// CHANGE SUMMARY: Added feature flag support for enhanced focus mode with overlay control
 
 import { state, elements, findWidget, setFocus, setSelectedCell, setCurrentMain } from './state.js';
+import { isFeatureEnabled } from './feature-flags.js';
+
+// Check if enhanced focus mode is enabled
+const ENHANCED_FOCUS_MODE = isFeatureEnabled('ENHANCED_FOCUS_MODE');
+
+// Apply appropriate CSS class to body based on feature flag
+if (!ENHANCED_FOCUS_MODE) {
+  document.body.classList.add('legacy-focus');
+  console.log('📊 Using LEGACY focus mode (2px orange border, 102% scale, no overlay)');
+} else {
+  console.log('🚀 Using ENHANCED focus mode (6px silver border, 105% scale, overlay enabled)');
+}
 
 // ---------------------
 // TIMEOUT MANAGEMENT
@@ -50,6 +62,7 @@ function hideHighlights() {
     // Small delay to let widget process the escape, then defocus (same pattern as handleBack)
     setTimeout(() => {
       setSelectedCell(null);
+      hideFocusOverlay();  // NEW: Hide overlay when timeout clears selection
       console.log(`Focused widget timed out - cleared selection after escape command`);
     }, 10);
   }
@@ -75,6 +88,29 @@ function resetHighlightTimer() {
     showHighlights();
   } else {
     startHighlightTimer();
+  }
+}
+
+// ---------------------
+// FOCUS OVERLAY MANAGEMENT
+// ---------------------
+
+function showFocusOverlay() {
+  // Only show overlay if enhanced focus mode is enabled
+  if (!ENHANCED_FOCUS_MODE) return;
+  
+  const overlay = document.getElementById('focus-overlay');
+  if (overlay) {
+    overlay.classList.add('visible');
+    console.log('✓ Focus overlay shown');
+  }
+}
+
+function hideFocusOverlay() {
+  const overlay = document.getElementById('focus-overlay');
+  if (overlay) {
+    overlay.classList.remove('visible');
+    console.log('✓ Focus overlay hidden');
   }
 }
 
@@ -111,6 +147,9 @@ export function updateFocus() {
   // focused widget - check if selectedCell exists before trying to use it
   if (state.selectedCell && state.selectedCell.classList) {
     state.selectedCell.classList.add("focused");
+    showFocusOverlay();  // NEW: Show overlay when widget is focused
+  } else {
+    hideFocusOverlay();  // NEW: Hide overlay when no widget is focused
   }
 
   // Reset highlight timer when focus changes
@@ -133,6 +172,7 @@ export function sendToWidget(action) {
     console.error("selectedCell is not a DOM element:", state.selectedCell);
     // Clear the invalid selectedCell
     setSelectedCell(null);
+    hideFocusOverlay();  // NEW: Hide overlay when clearing invalid selection
     return;
   }
   
@@ -262,10 +302,6 @@ export function moveFocus(dir) {
 }
 
 // Handle Enter key for selection
-// js/core/navigation.js
-// CHANGE SUMMARY: Added focus message to widget iframe when Enter is pressed to select it
-
-// Handle Enter key for selection
 export function handleEnter() {
   // Reset timer on Enter
   resetHighlightTimer();
@@ -345,6 +381,7 @@ export function handleBack() {
     // Small delay to let widget process the escape, then defocus
     setTimeout(() => {
       setSelectedCell(null);
+      hideFocusOverlay();  // NEW: Hide overlay when exiting focus mode
       hideHighlights();
       updateFocus();
     }, 10);
