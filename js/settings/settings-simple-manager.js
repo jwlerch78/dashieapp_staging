@@ -8,6 +8,7 @@ import { getPlatformDetector } from '../utils/platform-detector.js';
 import { TimeSelectionHandler } from './time-selection-handler.js';
 import { SettingsSelectionHandler } from './settings-selection-handler.js';
 import { buildSettingsUI, populateFormFields, populateSystemStatus } from './settings-ui-builder.js';
+import { CalendarSettingsManager } from '../../widgets/dcal/dcal-settings/dcal-settings-manager.js';
 
 export class SimplifiedSettings {
   constructor() {
@@ -355,6 +356,13 @@ export class SimplifiedSettings {
 
   navigateToScreen(screenId) {
     const currentScreen = this.overlay.querySelector('.settings-screen.active');
+  const currentScreenId = currentScreen?.dataset?.screen;
+  
+  // Save calendar changes when navigating away from manage-calendars
+  if (currentScreenId === 'manage-calendars' && window.calendarSettingsManager) {
+    window.calendarSettingsManager.onNavigateAway();
+  }
+
     const nextScreen = this.overlay.querySelector(`[data-screen="${screenId}"]`);
     
     if (!nextScreen) {
@@ -368,11 +376,26 @@ export class SimplifiedSettings {
     currentScreen.classList.add('sliding-out-left');
     
     nextScreen.classList.add('sliding-in-right', 'active');
+
     
     setTimeout(() => {
-      currentScreen.classList.remove('sliding-out-left');
-      nextScreen.classList.remove('sliding-in-right');
-    }, 300);
+    currentScreen.classList.remove('sliding-out-left');
+    nextScreen.classList.remove('sliding-in-right');
+    
+    // ADDED: Initialize calendar settings manager when navigating to calendar screens
+    if (screenId === 'manage-calendars' || screenId === 'calendar') {
+      if (!window.calendarSettingsManager) {
+        console.log('📅 Creating CalendarSettingsManager from touch navigation');
+        window.calendarSettingsManager = new CalendarSettingsManager(this.overlay, this.navigation);
+      }
+      window.calendarSettingsManager.initialize();
+    }
+    
+    // ADDED: Handle system-status screen special case
+    if (screenId === 'system-status') {
+      populateSystemStatus(this.overlay);
+    }
+  }, 300);
     
     this.selectionHandler.updateNavBar(this.overlay, this.getCurrentScreenId(), this.navigationStack);
   }
@@ -381,6 +404,15 @@ export class SimplifiedSettings {
     if (this.navigationStack.length <= 1) return;
     
     const currentScreen = this.overlay.querySelector('.settings-screen.active');
+    const currentScreenId = currentScreen?.dataset?.screen;
+  
+    // Save calendar changes when navigating away from manage-calendars
+    if (currentScreenId === 'manage-calendars' && window.calendarSettingsManager) {
+      window.calendarSettingsManager.saveCalendarSettings();
+    }
+
+
+
     this.navigationStack.pop();
     
     const previousScreenId = this.navigationStack[this.navigationStack.length - 1];

@@ -1,5 +1,5 @@
 // widgets/dcal/dcal-settings/dcal-settings-manager.js
-// CHANGE SUMMARY: Phase 2 - Load real calendar data from Google API and persist to localStorage + database
+// CHANGE SUMMARY: CRITICAL FIX - Added missing filterUniqueAccounts method, removed auto-save on toggle to stop database egress spike, mark as needing save
 
 export class CalendarSettingsManager {
   constructor(parentOverlay, parentNavigation) {
@@ -7,6 +7,7 @@ export class CalendarSettingsManager {
     this.parentNavigation = parentNavigation;
     this.calendarSettings = null;
     this.isLoading = false;
+    this.hasUnsavedChanges = false;
     
     console.log('📅 CalendarSettingsManager created');
   }
@@ -25,6 +26,12 @@ export class CalendarSettingsManager {
     this.isLoading = true;
     
     try {
+      // Check if we're on the main calendar screen - add clear button listener
+      const clearBtn = this.parentOverlay.querySelector('#clear-calendar-data-btn');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', () => this.handleClearCalendarData());
+      }
+      
       // Load settings (from localStorage first, then database)
       await this.loadCalendarSettings();
       
@@ -140,7 +147,10 @@ export class CalendarSettingsManager {
         }
       }).filter(Boolean);
       
-      console.log('📅 Found accounts:', accounts);
+      // Remove duplicate accounts by email - CRITICAL FIX
+      const uniqueAccounts = await this.filterUniqueAccounts(accounts, jwtAuth);
+      
+      console.log('📅 Unique accounts after filtering:', uniqueAccounts);
       
       // Get Google API client
       const googleAPI = window.parent?.dataManager?.calendarService?.googleAPI || 
@@ -152,7 +162,7 @@ export class CalendarSettingsManager {
       }
       
       // Fetch calendars from Google for each account
-      for (const accountName of accounts) {
+      for (const accountName of uniqueAccounts) {
         await this.loadCalendarsForAccount(accountName, googleAPI, jwtAuth);
       }
       
@@ -169,15 +179,61 @@ export class CalendarSettingsManager {
   }
 
   /**
+   * Filter out duplicate accounts by email address
+   * FIXED: Get email from listTokenAccounts result, not getValidToken
+   */
+  async filterUniqueAccounts(accounts, jwtAuth) {
+    const seenEmails = new Set();
+    const uniqueAccounts = [];
+    
+    // Get full account list with emails
+    const accountsResult = await jwtAuth.listTokenAccounts();
+    const fullAccountList = accountsResult?.accounts || [];
+    
+    // Create a map of account_type -> email
+    const accountEmailMap = {};
+    for (const acc of fullAccountList) {
+      if (acc.account_type && acc.email) {
+        accountEmailMap[acc.account_type] = acc.email;
+      }
+    }
+    
+    for (const accountName of accounts) {
+      try {
+        const email = accountEmailMap[accountName];
+        
+        if (email && !seenEmails.has(email)) {
+          seenEmails.add(email);
+          uniqueAccounts.push(accountName);
+          console.log(`📅 Keeping account: ${accountName} (${email})`);
+        } else if (email) {
+          console.log(`📅 Skipping duplicate account: ${accountName} (${email} already seen)`);
+        } else {
+          console.warn(`📅 Skipping account with no email: ${accountName}`);
+        }
+      } catch (error) {
+        console.error(`📅 Error checking account ${accountName}:`, error);
+      }
+    }
+    
+    return uniqueAccounts;
+  }
+
+  /**
    * Load calendars for a specific account
    */
   async loadCalendarsForAccount(accountName, googleAPI, jwtAuth) {
     try {
       console.log(`📅 Loading calendars for account: ${accountName}`);
       
-      // Get account email
-      const tokenInfo = await jwtAuth.getValidToken('google', accountName);
-      const email = tokenInfo?.email || `${accountName}@gmail.com`;
+      // Get account email from listTokenAccounts (getValidToken doesn't include email)
+      const accountsResult = await jwtAuth.listTokenAccounts();
+      const accountData = accountsResult?.accounts?.find(acc => acc.account_type === accountName);
+      
+      const email = accountData?.email || `${accountName}@gmail.com`;
+      const displayName = accountData?.display_name || this.formatAccountName(accountName);
+      
+      console.log(`📅 Account info:`, { accountName, email, displayName });
       
       // Fetch calendar list from Google
       const googleCalendars = await googleAPI.getCalendarList();
@@ -186,14 +242,13 @@ export class CalendarSettingsManager {
       // Initialize account structure if it doesn't exist
       if (!this.calendarSettings.accounts[accountName]) {
         this.calendarSettings.accounts[accountName] = {
-          displayName: this.formatAccountName(accountName),
+          displayName: displayName,
           email: email,
           calendars: {}
         };
       }
       
       const account = this.calendarSettings.accounts[accountName];
-      const existingCalendarIds = Object.keys(account.calendars);
       
       // Process each calendar from Google
       for (const googleCal of googleCalendars) {
@@ -216,8 +271,6 @@ export class CalendarSettingsManager {
           console.log(`📅 Added new calendar: ${googleCal.summary} (disabled by default)`);
         }
       }
-      
-      // Note: Reconciliation of deleted calendars will be added in Phase 4
       
     } catch (error) {
       console.error(`📅 Error loading calendars for account ${accountName}`, error);
@@ -254,6 +307,8 @@ export class CalendarSettingsManager {
         console.warn('📅 Settings instance not available, only saved to localStorage');
       }
       
+      this.hasUnsavedChanges = false;
+      
     } catch (error) {
       console.error('📅 Error saving calendar settings', error);
     }
@@ -289,8 +344,9 @@ export class CalendarSettingsManager {
 
   /**
    * Toggle calendar enabled/disabled state
+   * CRITICAL FIX: Removed auto-save to prevent database egress spike!
    */
-  async toggleCalendar(calendarItem) {
+  toggleCalendar(calendarItem) {
     const calendarId = calendarItem.dataset.calendarId;
     const accountType = calendarItem.dataset.account;
     
@@ -329,8 +385,11 @@ export class CalendarSettingsManager {
     
     console.log(`📅 Calendar ${calendar.name} ${calendar.enabled ? 'enabled' : 'disabled'}`);
     
-    // Save to storage
-    await this.saveCalendarSettings();
+    // CRITICAL FIX: Only save to localStorage (fast), mark as needing save
+    // Database save will happen when user navigates away or explicitly saves
+    const localStorage = window.parent?.localStorage || window.localStorage;
+    localStorage.setItem('dashie_calendar_settings', JSON.stringify(this.calendarSettings));
+    this.hasUnsavedChanges = true;
     
     // Log current state
     this.logCalendarState();
@@ -374,7 +433,7 @@ export class CalendarSettingsManager {
     
     const header = document.createElement('div');
     header.className = 'settings-section-header calendar-account-header';
-    header.textContent = `${account.displayName} (${account.email})`;
+    header.textContent = `${account.displayName}: ${account.email}`;
     section.appendChild(header);
     
     const calendarIds = Object.keys(account.calendars || {});
@@ -439,9 +498,63 @@ export class CalendarSettingsManager {
   }
 
   /**
-   * Cleanup when leaving calendar settings
+   * Handle clearing all calendar data
    */
-  destroy() {
+  async handleClearCalendarData() {
+    const confirmed = confirm('⚠️ This will clear ALL calendar settings and require you to reconfigure your calendars.\n\nAre you sure?');
+    
+    if (!confirmed) {
+      console.log('📅 Clear cancelled by user');
+      return;
+    }
+    
+    console.log('📅 Clearing all calendar data...');
+    
+    try {
+      // Clear localStorage
+      const localStorage = window.parent?.localStorage || window.localStorage;
+      localStorage.removeItem('dashie_calendar_settings');
+      console.log('📅 ✅ Cleared localStorage');
+      
+      // Clear database
+      const emptySettings = {
+        accounts: {},
+        activeCalendarIds: [],
+        lastSync: new Date().toISOString()
+      };
+      
+      const settingsInstance = window.parent?.settingsInstance;
+      if (settingsInstance && typeof settingsInstance.handleSettingChange === 'function') {
+        await settingsInstance.handleSettingChange('calendar', emptySettings);
+        console.log('📅 ✅ Cleared database');
+      }
+      
+      // Reset local state
+      this.calendarSettings = emptySettings;
+      this.hasUnsavedChanges = false;
+      
+      // Refresh UI
+      this.updateCalendarList();
+      
+      console.log('📅 ✅ Calendar data cleared successfully');
+      alert('✅ Calendar data cleared! Reload the page to fetch fresh calendars.');
+      
+    } catch (error) {
+      console.error('📅 Error clearing calendar data', error);
+      alert('❌ Error clearing calendar data. Check console for details.');
+    }
+  }
+
+  /**
+   * Cleanup when leaving calendar settings - save any pending changes
+   */
+  async destroy() {
     console.log('📅 CalendarSettingsManager destroyed');
+    
+    // Save any pending changes to database when leaving settings
+    if (this.hasUnsavedChanges) {
+      console.log('📅 Saving pending changes before destroy...');
+      await this.saveCalendarSettings();
+    }
   }
 }

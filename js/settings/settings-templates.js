@@ -302,9 +302,11 @@ export const displayScreens = `
  */
 // CHANGE SUMMARY: Updated calendarScreens export to use new functional calendar settings screens with mock data
 
+// CALENDAR SETTINGS FIX: Remove mock data from manage-calendars screen
+// This is the section that needs to replace the calendar templates in settings-templates.js
+
 /**
  * Calendar Screens (Level 1-2)
- * NOTE: This replaces the placeholder "coming soon" screens with functional calendar management
  */
 export const calendarScreens = `
   <!-- Calendar Main Screen (Level 1) -->
@@ -320,74 +322,22 @@ export const calendarScreens = `
           <span class="cell-chevron">›</span>
         </div>
       </div>
+      
+      <div class="settings-section">
+        <div class="settings-cell" id="clear-calendar-data-btn">
+          <span class="cell-label" style="color: #ff3b30;">Clear Calendar Data</span>
+          <span class="cell-chevron">›</span>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Manage Calendars Screen (Level 2) -->
+  <!-- Manage Calendars Screen (Level 2) - FIXED: Removed all mock data -->
   <div class="settings-screen" data-level="2" data-screen="manage-calendars" data-title="Manage Calendars">
     <div class="settings-list" id="calendar-accounts-container">
-      <!-- Accounts will be dynamically populated here by JavaScript -->
-      
-      <!-- Personal Account Section (Mock Data) -->
-      <div class="settings-section calendar-account-section" data-account="personal">
-        <div class="settings-section-header calendar-account-header">
-          Personal (user@gmail.com)
-        </div>
-        <div class="settings-cell selectable calendar-item enabled" 
-             data-calendar-id="cal_personal_primary" 
-             data-account="personal"
-             tabindex="0">
-          <span class="calendar-color-dot" style="background-color: #4285f4;"></span>
-          <span class="cell-label">My Calendar</span>
-          <span class="cell-checkmark">✓</span>
-        </div>
-        <div class="settings-cell selectable calendar-item enabled" 
-             data-calendar-id="cal_personal_birthdays" 
-             data-account="personal"
-             tabindex="0">
-          <span class="calendar-color-dot" style="background-color: #0b8043;"></span>
-          <span class="cell-label">Birthdays</span>
-          <span class="cell-checkmark">✓</span>
-        </div>
-        <div class="settings-cell selectable calendar-item" 
-             data-calendar-id="cal_personal_holidays" 
-             data-account="personal"
-             tabindex="0">
-          <span class="calendar-color-dot" style="background-color: #f4511e;"></span>
-          <span class="cell-label">US Holidays</span>
-          <span class="cell-checkmark">✓</span>
-        </div>
-      </div>
-
-      <!-- Work Account Section (Mock Data) -->
-      <div class="settings-section calendar-account-section" data-account="work">
-        <div class="settings-section-header calendar-account-header">
-          Work (user@company.com)
-        </div>
-        <div class="settings-cell selectable calendar-item enabled" 
-             data-calendar-id="cal_work_team" 
-             data-account="work"
-             tabindex="0">
-          <span class="calendar-color-dot" style="background-color: #7986cb;"></span>
-          <span class="cell-label">Team Calendar</span>
-          <span class="cell-checkmark">✓</span>
-        </div>
-        <div class="settings-cell selectable calendar-item" 
-             data-calendar-id="cal_work_company" 
-             data-account="work"
-             tabindex="0">
-          <span class="calendar-color-dot" style="background-color: #ad1457;"></span>
-          <span class="cell-label">Company Events</span>
-          <span class="cell-checkmark">✓</span>
-        </div>
-        <div class="settings-cell selectable calendar-item enabled" 
-             data-calendar-id="cal_work_meetings" 
-             data-account="work"
-             tabindex="0">
-          <span class="calendar-color-dot" style="background-color: #e67c73;"></span>
-          <span class="cell-label">Meeting Room Calendar</span>
-          <span class="cell-checkmark">✓</span>
-        </div>
+      <!-- Calendar accounts will be dynamically populated by dcal-settings-manager.js -->
+      <div style="padding: 20px; text-align: center; color: #999;">
+        Loading calendars...
       </div>
     </div>
   </div>

@@ -362,6 +362,13 @@ activateCurrentElement() {
 
 navigateToScreen(screenId) {
   const currentScreen = this.overlay.querySelector('.settings-screen.active');
+  const currentScreenId = currentScreen?.dataset?.screen;
+  
+  // Save calendar changes when navigating away from manage-calendars
+  if (currentScreenId === 'manage-calendars' && window.calendarSettingsManager) {
+    window.calendarSettingsManager.onNavigateAway();
+  }
+
   const nextScreen = this.overlay.querySelector(`[data-screen="${screenId}"]`);
   
   if (!nextScreen) {
@@ -405,6 +412,13 @@ navigateToScreen(screenId) {
     if (this.navigationStack.length <= 1) return;
     
     const currentScreen = this.overlay.querySelector('.settings-screen.active');
+    const currentScreenId = currentScreen?.dataset?.screen;
+  
+    // Save calendar changes when navigating away from manage-calendars
+    if (currentScreenId === 'manage-calendars' && window.calendarSettingsManager) {
+      window.calendarSettingsManager.saveCalendarSettings();
+    }
+    
     this.navigationStack.pop();
     
     const previousScreenId = this.navigationStack[this.navigationStack.length - 1];
