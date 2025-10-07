@@ -1,22 +1,53 @@
 // js/settings/settings-features-controller.js
-// CHANGE SUMMARY: New file - Handle feature flag toggle interactions and apply changes
+// CHANGE SUMMARY: Handle feature flag toggle interactions and apply changes
 
-import { setFeature, resetFeaturesToDefaults, getFeatureDefinitions } from '../core/feature-flags.js';
+import { setFeature, resetFeaturesToDefaults, getFeatureDefinitions, isFeatureEnabled } from '../core/feature-flags.js';
+
+/**
+ * Sync toggle UI with actual localStorage values
+ * @param {HTMLElement} overlay - Settings overlay element
+ */
+function syncTogglesWithStorage(overlay) {
+  const features = getFeatureDefinitions();
+  
+  features.forEach(feature => {
+    const toggle = overlay.querySelector(`#feature-${feature.name}`);
+    if (toggle) {
+      const actualValue = isFeatureEnabled(feature.name);
+      if (toggle.checked !== actualValue) {
+        console.log(`🔄 Syncing toggle ${feature.name}: ${toggle.checked} → ${actualValue}`);
+        toggle.checked = actualValue;
+      }
+    }
+  });
+}
 
 /**
  * Setup feature toggle event listeners
  * @param {HTMLElement} overlay - Settings overlay element
  */
+/**
+ * Setup feature toggle event listeners
+ * @param {HTMLElement} overlay - Settings overlay element
+ */
 export function setupFeatureToggles(overlay) {
+  console.log('🎛️ setupFeatureToggles called with overlay:', overlay);
+  
   // Find all feature toggle checkboxes
   const featureToggles = overlay.querySelectorAll('input[data-feature]');
+  console.log(`🎛️ Found ${featureToggles.length} feature toggles:`, featureToggles);
+  
+  // Sync toggles with current state from localStorage
+  syncTogglesWithStorage(overlay);
   
   featureToggles.forEach(toggle => {
+    console.log(`🎛️ Attaching listener to toggle:`, toggle.dataset.feature, 'checked:', toggle.checked);
+    
     toggle.addEventListener('change', (e) => {
       const featureName = e.target.dataset.feature;
       const enabled = e.target.checked;
       
-      console.log(`🎛️ Toggling feature ${featureName} to:`, enabled);
+      console.log(`🎛️ ⚡ CHANGE EVENT FIRED for ${featureName}, new value:`, enabled);
       
       // Save the feature state
       setFeature(featureName, enabled, true);

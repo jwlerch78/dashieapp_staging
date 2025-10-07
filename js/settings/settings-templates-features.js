@@ -1,7 +1,7 @@
 // js/settings/settings-templates-features.js
-// CHANGE SUMMARY: New file - Dynamic feature flags settings UI template
+// CHANGE SUMMARY: Fixed toggle initialization to read from loaded FEATURES object
 
-import { getFeatureDefinitions } from '../core/feature-flags.js';
+import { getFeatureDefinitions, isFeatureEnabled } from '../core/feature-flags.js';
 
 /**
  * Generate Features (Beta) menu item for System screen
@@ -24,7 +24,11 @@ export function getFeaturesMenuItem() {
 export function getFeaturesScreen() {
   const features = getFeatureDefinitions();
   
-  const featureToggles = features.map(feature => `
+  const featureToggles = features.map(feature => {
+    // Use isFeatureEnabled to get the actual current state from loaded FEATURES
+    const isEnabled = isFeatureEnabled(feature.name);
+    
+    return `
     <div class="settings-cell toggle-cell">
       <div class="cell-content">
         <span class="cell-label">${feature.label}</span>
@@ -34,11 +38,12 @@ export function getFeaturesScreen() {
         <input type="checkbox" 
                id="feature-${feature.name}" 
                data-feature="${feature.name}"
-               ${feature.enabled ? 'checked' : ''}>
+               ${isEnabled ? 'checked' : ''}>
         <span class="toggle-slider"></span>
       </label>
     </div>
-  `).join('');
+  `;
+  }).join('');
   
   return `
     <div class="settings-screen" data-level="2" data-screen="features" data-title="Features (Beta)">

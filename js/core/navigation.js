@@ -1,18 +1,16 @@
 // js/core/navigation.js - Navigation Logic & Focus Management with Timeout System
-// CHANGE SUMMARY: Added feature flag support for enhanced focus mode with overlay control
+// CHANGE SUMMARY: Added feature flag support for enhanced focus mode with dynamic checking
 
 import { state, elements, findWidget, setFocus, setSelectedCell, setCurrentMain } from './state.js';
 import { isFeatureEnabled } from './feature-flags.js';
 
-// Check if enhanced focus mode is enabled
-const ENHANCED_FOCUS_MODE = isFeatureEnabled('ENHANCED_FOCUS_MODE');
-
-// Apply appropriate CSS class to body based on feature flag
-if (!ENHANCED_FOCUS_MODE) {
+// Initialize body class based on feature flag
+const initialMode = isFeatureEnabled('ENHANCED_FOCUS_MODE');
+if (!initialMode) {
   document.body.classList.add('legacy-focus');
-  console.log('📊 Using LEGACY focus mode (2px orange border, 102% scale, no overlay)');
+  console.log('📊 Initialized with LEGACY focus mode');
 } else {
-  console.log('🚀 Using ENHANCED focus mode (6px silver border, 105% scale, overlay enabled)');
+  console.log('🚀 Initialized with ENHANCED focus mode');
 }
 
 // ---------------------
@@ -97,12 +95,15 @@ function resetHighlightTimer() {
 
 function showFocusOverlay() {
   // Only show overlay if enhanced focus mode is enabled
-  if (!ENHANCED_FOCUS_MODE) return;
+  if (!ENHANCED_FOCUS_MODE) {
+    console.log('⏭️ Skipping overlay show - legacy mode active');
+    return;
+  }
   
   const overlay = document.getElementById('focus-overlay');
   if (overlay) {
     overlay.classList.add('visible');
-    console.log('✓ Focus overlay shown');
+    console.log('✓ Focus overlay shown (enhanced mode)');
   }
 }
 

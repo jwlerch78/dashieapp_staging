@@ -1,24 +1,38 @@
 /* css/components/navigation.css - Focus & Selection States */
+/* CHANGE SUMMARY: Fixed legacy and enhanced modes to use correct colors */
 
-/* Enhanced Widget selection and focus states */
+/* ENHANCED MODE (default) - Silver/grey for both selected and focused */
 .widget.selected {
   outline: var(--outline-width-selected) solid var(--outline-selected);
   outline-offset: var(--outline-offset-widget);
   box-shadow: var(--glow-selected);
-  transform: scale(1.02);
+  transform: scale(1.05);  /* ENHANCED: 105% scale */
   transition: all var(--transition-fast);
   position: relative;
   z-index: var(--z-widget-selected);
 }
 
 .widget.focused {
-  outline: var(--outline-width-focused) solid var(--outline-focused);
+  outline: var(--outline-width-selected) solid var(--outline-selected);
   outline-offset: var(--outline-offset-widget);
-  box-shadow: var(--glow-focused);
-  transform: scale(1.04);
+  box-shadow: var(--glow-selected);
+  transform: scale(1.05);  /* ENHANCED: 105% scale */
   transition: all var(--transition-fast);
   position: relative;
   z-index: var(--z-widget-focused);
+}
+
+/* LEGACY MODE - Orange for selected, Blue for focused */
+body.legacy-focus .widget.selected {
+  outline: var(--outline-width-selected-legacy) solid var(--outline-selected-legacy);
+  box-shadow: var(--glow-selected-legacy);
+  transform: scale(1.02);  /* LEGACY: 102% scale */
+}
+
+body.legacy-focus .widget.focused {
+  outline: var(--outline-width-focused) solid var(--outline-focused);
+  box-shadow: var(--glow-focused);
+  transform: scale(1.04);  /* LEGACY: 104% scale when focused */
 }
 
 /* Menu item selection and focus states */
@@ -36,6 +50,15 @@
   outline-offset: 2px;
 }
 
+/* Legacy mode - restore orange for menu items */
+body.legacy-focus .menu-item.selected {
+  outline: 3px solid var(--outline-selected-legacy);
+}
+
+body.legacy-focus .menu-item.focused {
+  outline: 4px solid var(--outline-focused);
+}
+
 /* Hide highlights when timed out or manually hidden */
 .highlights-hidden .widget.selected,
 .highlights-hidden .widget.focused {
@@ -48,4 +71,22 @@
 .highlights-hidden .menu-item.focused {
   outline: none;
   background-color: transparent;
+}
+
+/* NEW: Focus mode overlay - semi-transparent backdrop */
+.focus-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.2);  /* 20% opacity black overlay */
+  z-index: var(--z-focus-overlay);
+  pointer-events: none;  /* Don't block interactions */
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.focus-overlay.visible {
+  opacity: 1;
 }
