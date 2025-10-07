@@ -124,5 +124,5 @@
 /* Ensure overlay appears above everything */
 .loading-overlay {
   position: fixed !important;
-  z-index: 999999 !important;
+  z-index: 9500 !important;
 }

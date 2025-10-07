@@ -281,7 +281,9 @@ export class AuthCoordinator {
     });
 
     try {
-      this.ui.hideSignInPrompt();
+      if (selectedProvider !== 'web_oauth') {
+          this.ui.hideSignInPrompt();
+        }
       
       // Handle native Android provider (callback-based, like old code)
       if (selectedProvider === 'native_android') {

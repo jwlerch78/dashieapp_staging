@@ -1,5 +1,5 @@
 // js/settings/settings-controller-core.js
-// CHANGE SUMMARY: Replaced multi-source user detection with single source of truth from dashie_supabase_jwt localStorage. This fixes real-time sync by ensuring userId is properly set from JWT data.
+// CHANGE SUMMARY: Added calendar settings sync to localStorage after loading from database to ensure CalendarService can access active calendar IDs immediately
 
 export class SettingsControllerCore {
   constructor() {
@@ -168,6 +168,25 @@ export class SettingsControllerCore {
   }
 
   /**
+   * Sync calendar settings to separate localStorage key for fast widget access
+   * Called after loading settings from database
+   * @private
+   */
+  _syncCalendarSettingsToLocalStorage() {
+    try {
+      if (this.currentSettings.calendar) {
+        localStorage.setItem('dashie_calendar_settings', JSON.stringify(this.currentSettings.calendar));
+        console.log('⚙️ 📅 Synced calendar settings to localStorage', {
+          activeCalendars: this.currentSettings.calendar.activeCalendarIds?.length || 0,
+          accounts: Object.keys(this.currentSettings.calendar.accounts || {}).length
+        });
+      }
+    } catch (error) {
+      console.error('⚙️ Failed to sync calendar settings to localStorage:', error);
+    }
+  }
+
+  /**
    * Initialize with JWT-based user detection
    */
   async init() {
@@ -219,6 +238,10 @@ export class SettingsControllerCore {
       // Load settings from database/local storage
       const loadedSettings = await this.storage.loadSettings();
       this.currentSettings = loadedSettings || this.getDefaultSettings(currentUser.email);
+      
+      // CRITICAL FIX: Sync calendar settings to localStorage immediately after loading from database
+      // This ensures CalendarService can access active calendar IDs before data loading starts
+      this._syncCalendarSettingsToLocalStorage();
       
       this.mergeLocalOnlySettings();
       await this.applyLoadedSettings();
@@ -293,66 +316,68 @@ export class SettingsControllerCore {
     return current;
   }
 
-  // js/settings/settings-controller-core.js
-// CHANGE SUMMARY: Added validation for undefined/null path in setSetting method to prevent split() error
+  // Set setting with immediate application
+  setSetting(path, value) {
+    // ADDED: Validate path parameter
+    if (!path || typeof path !== 'string') {
+      console.error('⚙️ Invalid setting path:', path);
+      return false;
+    }
 
-// Set setting with immediate application
-setSetting(path, value) {
-  // ADDED: Validate path parameter
-  if (!path || typeof path !== 'string') {
-    console.error('⚙️ Invalid setting path:', path);
-    return false;
-  }
+    if (!this.isInitialized) {
+      console.warn('⚙️ Settings not initialized, cannot set:', path);
+      return false;
+    }
 
-  if (!this.isInitialized) {
-    console.warn('⚙️ Settings not initialized, cannot set:', path);
-    return false;
+    const keys = path.split('.');
+    let current = this.currentSettings;
+    
+    // Navigate to the parent object, creating nested objects as needed
+    for (let i = 0; i < keys.length - 1; i++) {
+      const key = keys[i];
+      if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
+        current[key] = {};
+      }
+      current = current[key];
+    }
+    
+    // Set the final value
+    const finalKey = keys[keys.length - 1];
+    const oldValue = current[finalKey];
+    current[finalKey] = value;
+    
+    // Mark as dirty if value changed
+    if (oldValue !== value) {
+      this.isDirty = true;
+      this.currentSettings.lastModified = Date.now();
+      
+      // Apply immediate changes for specific settings
+      if (path === 'display.theme') {
+        this.applyThemeImmediate(value);
+      }
+      
+      if (path === 'family.familyName') {
+        this.applyFamilyNameImmediate(value);
+      }
+      
+      if (path === 'system.activeSite') {
+        this.handleSiteChange(value);
+      }
+      
+      // ADDED: If calendar settings change, sync to localStorage immediately
+      if (path.startsWith('calendar.')) {
+        this._syncCalendarSettingsToLocalStorage();
+      }
+      
+      // Auto-save after a short delay (debounced)
+      this.scheduleAutoSave();
+      this.saveToLocalStorage();
+      return true;
+    } else {
+      this.saveToLocalStorage();
+      return true;
+    }
   }
-
-  const keys = path.split('.');
-  let current = this.currentSettings;
-  
-  // Navigate to the parent object, creating nested objects as needed
-  for (let i = 0; i < keys.length - 1; i++) {
-    const key = keys[i];
-    if (!(key in current) || typeof current[key] !== 'object' || current[key] === null) {
-      current[key] = {};
-    }
-    current = current[key];
-  }
-  
-  // Set the final value
-  const finalKey = keys[keys.length - 1];
-  const oldValue = current[finalKey];
-  current[finalKey] = value;
-  
-  // Mark as dirty if value changed
-  if (oldValue !== value) {
-    this.isDirty = true;
-    this.currentSettings.lastModified = Date.now();
-    
-    // Apply immediate changes for specific settings
-    if (path === 'display.theme') {
-      this.applyThemeImmediate(value);
-    }
-    
-    if (path === 'family.familyName') {
-      this.applyFamilyNameImmediate(value);
-    }
-    
-    if (path === 'system.activeSite') {
-      this.handleSiteChange(value);
-    }
-    
-    // Auto-save after a short delay (debounced)
-    this.scheduleAutoSave();
-    this.saveToLocalStorage();
-    return true;
-  } else {
-    this.saveToLocalStorage();
-    return true;
-  }
-}
 
   // Get all settings for a category
   getCategorySettings(categoryId) {
@@ -370,6 +395,11 @@ setSetting(path, value) {
 
     this.isDirty = true;
     this.currentSettings.lastModified = Date.now();
+    
+    // ADDED: If calendar category changes, sync to localStorage immediately
+    if (categoryId === 'calendar') {
+      this._syncCalendarSettingsToLocalStorage();
+    }
     
     this.scheduleAutoSave();
     
@@ -411,6 +441,9 @@ setSetting(path, value) {
       console.log('⚙️ 🔄 Applying remote settings update');
       this.currentSettings = newSettings;
       this.isDirty = false;
+      
+      // ADDED: Sync calendar settings when remote update received
+      this._syncCalendarSettingsToLocalStorage();
       
       this.applyLoadedSettings();
       this.notifyUIUpdate();

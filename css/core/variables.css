@@ -39,7 +39,7 @@
   /* Interactive States - ENHANCED FOCUS MODE (default when feature enabled) */
   --outline-selected: var(--accent-silver);
   --outline-focused: var(--accent-blue);
-  --outline-width-selected: 6px;
+  --outline-width-selected: 10px;
   --outline-width-focused: 3px;
   
   /* Legacy mode variables (original behavior) */
