@@ -347,13 +347,6 @@ export const calendarScreens = `
         </div>
       </div>
       
-      <!-- Utilities Section -->
-      <div class="settings-section">
-        <div class="settings-cell" id="clear-calendar-data-btn">
-          <span class="cell-label" style="color: #ff3b30;">Clear Calendar Data</span>
-          <span class="cell-chevron">›</span>
-        </div>
-      </div>
     </div>
   </div>
 
@@ -411,13 +404,29 @@ export const calendarScreens = `
     </div>
   </div>
 
-  <!-- Remove Calendar Accounts Screen (Level 2) - Placeholder for Phase 3 -->
+  <!-- Remove Calendar Accounts Screen (Level 2) -->
   <div class="settings-screen" data-level="2" data-screen="remove-calendar" data-title="Remove Calendar Accounts">
-    <div class="settings-list">
-      <div class="coming-soon">
-        <h3>Remove Calendar Account</h3>
-        <p>Disconnect a Google account and remove its calendars.</p>
-        <p style="margin-top: 20px; font-size: 14px; opacity: 0.7;">Coming in Phase 3</p>
+    <div class="settings-list" id="remove-calendar-accounts-container">
+      <!-- Calendar accounts will be dynamically populated by dcal-settings-manager.js -->
+      <div style="padding: 20px; text-align: center; color: #999;">
+        Loading accounts...
+      </div>
+    </div>
+  </div>
+
+  <!-- Remove Account Modal -->
+  <div id="remove-account-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <h3>Remove Calendar Account?</h3>
+      <p id="remove-account-message">
+        This will remove <strong id="remove-account-name"></strong> and all its calendars from Dashie.
+      </p>
+      <p style="margin-top: 12px; font-size: 14px; color: var(--text-secondary);">
+        This will not delete your actual account or calendars.
+      </p>
+      <div class="modal-actions">
+        <button id="cancel-remove-account" class="modal-btn modal-btn-secondary">Cancel</button>
+        <button id="confirm-remove-account" class="modal-btn modal-btn-danger">Remove Account</button>
       </div>
     </div>
   </div>

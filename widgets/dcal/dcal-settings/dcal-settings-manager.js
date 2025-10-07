@@ -15,57 +15,68 @@ export class CalendarSettingsManager {
   /**
    * Initialize calendar settings - called when navigating to calendar screens
    */
-  async initialize() {
-    console.log('📅 Initializing calendar settings');
-    
-    if (this.isLoading) {
-      console.log('📅 Already loading, skipping...');
-      return;
-    }
-    
-    this.isLoading = true;
-    
-    try {
-      // Check if we're on the main calendar screen - add clear button listener
-      const clearBtn = this.parentOverlay.querySelector('#clear-calendar-data-btn');
-      if (clearBtn) {
-        clearBtn.addEventListener('click', () => this.handleClearCalendarData());
-      }
-
-       // Check if we're on the add-calendar screen - add account type listeners
-        const addGoogleBtn = this.parentOverlay.querySelector('#add-google-account-btn');
-      if (addGoogleBtn) {
-        // D-pad nav will trigger click() on Enter, so just add a simple click listener
-        addGoogleBtn.addEventListener('click', () => {
-          this.handleAddGoogleAccount();
-        });
-        
-        console.log('📅 Add Google Account button listener attached');
-      }
-      
-      // Load settings (from localStorage first, then database)
-      await this.loadCalendarSettings();
-      
-      // Load real calendar data from Google API
-      await this.loadRealCalendarData();
-      
-      // Update the UI
-      this.updateCalendarList();
-      this.setupEventListeners();
-      
-      // Refresh parent navigation focus
-      if (this.parentNavigation && typeof this.parentNavigation.updateFocusableElements === 'function') {
-        this.parentNavigation.updateFocusableElements();
-        this.parentNavigation.updateFocus();
-        console.log('📅 Refreshed parent navigation focus');
-      }
-      
-    } catch (error) {
-      console.error('📅 Failed to initialize calendar settings', error);
-    } finally {
-      this.isLoading = false;
-    }
+async initialize() {
+  console.log('📅 Initializing calendar settings');
+  
+  if (this.isLoading) {
+    console.log('📅 Already loading, skipping...');
+    return;
   }
+  
+  this.isLoading = true;
+  
+  try {
+    // Check if we're on the add-calendar screen - add account type listeners
+    const addGoogleBtn = this.parentOverlay.querySelector('#add-google-account-btn');
+    if (addGoogleBtn) {
+      // D-pad nav will trigger click() on Enter, so just add a simple click listener
+      addGoogleBtn.addEventListener('click', () => {
+        this.handleAddGoogleAccount();
+      });
+      
+      console.log('📅 Add Google Account button listener attached');
+    }
+
+    // Setup remove account modal listeners (can be done early)
+    const cancelRemoveBtn = this.parentOverlay.querySelector('#cancel-remove-account');
+    const confirmRemoveBtn = this.parentOverlay.querySelector('#confirm-remove-account');
+
+    if (cancelRemoveBtn) {
+      cancelRemoveBtn.addEventListener('click', () => this.hideRemoveAccountModal());
+    }
+
+    if (confirmRemoveBtn) {
+      confirmRemoveBtn.addEventListener('click', () => this.handleRemoveAccountConfirm());
+    }
+          
+    // Load settings (from localStorage first, then database)
+    await this.loadCalendarSettings();
+    
+    // Load real calendar data from Google API
+    await this.loadRealCalendarData();
+    
+    // Update the UI
+    this.updateCalendarList();
+    this.setupEventListeners();
+    
+    // NOW populate remove accounts list (AFTER data is loaded)
+    if (this.parentOverlay.querySelector('#remove-calendar-accounts-container')) {
+      this.updateRemoveAccountsList();
+    }
+    
+    // Refresh parent navigation focus
+    if (this.parentNavigation && typeof this.parentNavigation.updateFocusableElements === 'function') {
+      this.parentNavigation.updateFocusableElements();
+      this.parentNavigation.updateFocus();
+      console.log('📅 Refreshed parent navigation focus');
+    }
+    
+  } catch (error) {
+    console.error('📅 Failed to initialize calendar settings', error);
+  } finally {
+    this.isLoading = false;
+  }
+}
 
   /**
    * Load calendar settings from storage (localStorage first, then database)
@@ -344,27 +355,17 @@ async saveCalendarSettings() {
     // STEP 4: Trigger calendar data refresh to load events with new selection
     console.log('📅 🔄 Triggering calendar data refresh with new selection...');
     const dataManager = window.parent?.dataManager || window.dataManager;
-    
-    // Try both possible refresh methods for compatibility
-    if (dataManager) {
+
+    if (dataManager && typeof dataManager.refreshCalendarData === 'function') {
       try {
-        // Primary method: via calendarService
-        if (dataManager.calendarService && typeof dataManager.calendarService.refreshCalendarData === 'function') {
-          await dataManager.calendarService.refreshCalendarData();
-          console.log('📅 ✅ Calendar data refreshed via calendarService');
-        }
-        // Fallback method: directly on dataManager
-        else if (typeof dataManager.refreshCalendarData === 'function') {
-          await dataManager.refreshCalendarData(true);
-          console.log('📅 ✅ Calendar data refreshed via dataManager');
-        } else {
-          console.warn('📅 No refresh method available on dataManager');
-        }
+        // CRITICAL FIX: Use dataManager.refreshCalendarData(true) to force bypass cache
+        await dataManager.refreshCalendarData(true);
+        console.log('📅 ✅ Calendar data refreshed - widgets will update automatically');
       } catch (error) {
         console.error('📅 ❌ Failed to refresh calendar data:', error);
       }
     } else {
-      console.warn('📅 DataManager not available, calendar data not refreshed');
+      console.warn('📅 DataManager not available - calendar widgets may not update until next refresh');
     }
     
     // Reset unsaved changes flag
@@ -479,7 +480,10 @@ async saveCalendarSettings() {
       return;
     }
     
-    accountNames.forEach(accountType => {
+    // Reverse the order so primary account appears first
+    const reversedAccountNames = [...accountNames].reverse();
+
+    reversedAccountNames.forEach(accountType => {
       const account = this.calendarSettings.accounts[accountType];
       const section = this.createAccountSection(accountType, account);
       container.appendChild(section);
@@ -500,11 +504,24 @@ async saveCalendarSettings() {
     // Get all calendars and sort them (enabled first)
     const calendars = Object.values(account.calendars || {});
     const enabledCount = calendars.filter(cal => cal.enabled).length;
+    const totalCount = calendars.length;
+    const hiddenCount = totalCount - enabledCount;
     
-    // Sort: enabled calendars first, then by name
+
+   // Sort: enabled first, then primary within each group, then by name
     calendars.sort((a, b) => {
+      // First by enabled status
       if (a.enabled && !b.enabled) return -1;
       if (!a.enabled && b.enabled) return 1;
+      
+      // Within same enabled status, primary calendars first
+      const aIsPrimary = a.id === account.email;
+      const bIsPrimary = b.id === account.email;
+      
+      if (aIsPrimary && !bIsPrimary) return -1;
+      if (!aIsPrimary && bIsPrimary) return 1;
+      
+      // Finally by name
       return a.name.localeCompare(b.name);
     });
     
@@ -517,8 +534,16 @@ async saveCalendarSettings() {
     
     const countSpan = document.createElement('span');
     countSpan.className = 'calendar-count';
-    countSpan.textContent = `- ${enabledCount} calendar${enabledCount !== 1 ? 's' : ''} selected`;
-    
+
+    // Set display text based on counts
+    if (enabledCount === 0) {
+      countSpan.textContent = `- ${totalCount} calendar${totalCount !== 1 ? 's' : ''} hidden`;
+    } else if (hiddenCount === 0) {
+      countSpan.textContent = `- ${enabledCount} active calendar${enabledCount !== 1 ? 's' : ''}`;
+    } else {
+      countSpan.textContent = `- ${enabledCount} active, ${hiddenCount} hidden`;
+    }
+
     header.appendChild(accountNameSpan);
     header.appendChild(countSpan);
     section.appendChild(header);
@@ -576,8 +601,17 @@ async saveCalendarSettings() {
     const account = this.calendarSettings.accounts[accountType];
     const calendars = Object.values(account.calendars || {});
     const enabledCount = calendars.filter(cal => cal.enabled).length;
-    
-    countSpan.textContent = `- ${enabledCount} calendar${enabledCount !== 1 ? 's' : ''} selected`;
+    const totalCount = calendars.length;
+    const hiddenCount = totalCount - enabledCount;
+
+    // Set display text based on counts
+    if (enabledCount === 0) {
+      countSpan.textContent = `- ${totalCount} calendar${totalCount !== 1 ? 's' : ''} hidden`;
+    } else if (hiddenCount === 0) {
+      countSpan.textContent = `- ${enabledCount} active calendar${enabledCount !== 1 ? 's' : ''}`;
+    } else {
+      countSpan.textContent = `- ${enabledCount} active, ${hiddenCount} hidden`;
+    }
   }
 
   /**
@@ -602,53 +636,6 @@ async saveCalendarSettings() {
     console.log('📅 Active calendar IDs:', this.calendarSettings.activeCalendarIds);
   }
 
-  /**
-   * Handle clearing all calendar data
-   */
-  async handleClearCalendarData() {
-    const confirmed = confirm('⚠️ This will clear ALL calendar settings and require you to reconfigure your calendars.\n\nAre you sure?');
-    
-    if (!confirmed) {
-      console.log('📅 Clear cancelled by user');
-      return;
-    }
-    
-    console.log('📅 Clearing all calendar data...');
-    
-    try {
-      // Clear localStorage
-      const localStorage = window.parent?.localStorage || window.localStorage;
-      localStorage.removeItem('dashie_calendar_settings');
-      console.log('📅 ✅ Cleared localStorage');
-      
-      // Clear database
-      const emptySettings = {
-        accounts: {},
-        activeCalendarIds: [],
-        lastSync: new Date().toISOString()
-      };
-      
-      const settingsInstance = window.parent?.settingsInstance;
-      if (settingsInstance && typeof settingsInstance.handleSettingChange === 'function') {
-        await settingsInstance.handleSettingChange('calendar', emptySettings);
-        console.log('📅 ✅ Cleared database');
-      }
-      
-      // Reset local state
-      this.calendarSettings = emptySettings;
-      this.hasUnsavedChanges = false;
-      
-      // Refresh UI
-      this.updateCalendarList();
-      
-      console.log('📅 ✅ Calendar data cleared successfully');
-      alert('✅ Calendar data cleared! Reload the page to fetch fresh calendars.');
-      
-    } catch (error) {
-      console.error('📅 Error clearing calendar data', error);
-      alert('❌ Error clearing calendar data. Check console for details.');
-    }
-  }
 
  /**
    * Handle adding a Google account
@@ -784,6 +771,173 @@ async saveCalendarSettings() {
       progressDiv.parentNode.removeChild(progressDiv);
     }
   }
+
+/**
+ * Update the remove accounts list
+ * Creates a simple list of accounts with click handlers
+ */
+updateRemoveAccountsList() {
+  const container = this.parentOverlay.querySelector('#remove-calendar-accounts-container');
+  if (!container) {
+    console.warn('📅 Remove accounts container not found');
+    return;
+  }
+  
+  container.innerHTML = '';
+  
+  const accountNames = Object.keys(this.calendarSettings.accounts);
+  
+  if (accountNames.length === 0) {
+    container.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">No calendar accounts found.<br/>Please authenticate with Google.</div>';
+    return;
+  }
+  
+  // Reverse order so primary account appears first
+  const reversedAccountNames = [...accountNames].reverse();
+  
+  reversedAccountNames.forEach(accountType => {
+    const account = this.calendarSettings.accounts[accountType];
+    const accountItem = this.createRemovableAccountItem(accountType, account);
+    container.appendChild(accountItem);
+  });
+  
+  console.log('📅 Remove accounts list updated');
+}
+
+/**
+ * Create a clickable account item for removal
+ */
+createRemovableAccountItem(accountType, account) {
+  const item = document.createElement('div');
+  item.className = 'settings-cell selectable';
+  item.setAttribute('tabindex', '0');
+  
+  const label = document.createElement('span');
+  label.className = 'cell-label';
+  label.textContent = `${account.displayName} (${account.email})`;
+  
+  const chevron = document.createElement('span');
+  chevron.className = 'cell-chevron';
+  chevron.textContent = '›';
+  
+  item.appendChild(label);
+  item.appendChild(chevron);
+  
+  // Click handler to show modal
+  item.addEventListener('click', () => {
+    this.showRemoveAccountModal(accountType, account);
+  });
+  
+  item.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      this.showRemoveAccountModal(accountType, account);
+    }
+  });
+  
+  return item;
+}
+
+/**
+ * Show remove account confirmation modal
+ */
+showRemoveAccountModal(accountType, account) {
+  const modal = document.getElementById('remove-account-modal');
+  const accountNameEl = document.getElementById('remove-account-name');
+  
+  if (!modal || !accountNameEl) {
+    console.error('📅 Remove account modal elements not found');
+    return;
+  }
+  
+  accountNameEl.textContent = `${account.displayName} (${account.email})`;
+  modal.style.display = 'flex';
+  
+  // Store for confirmation handler
+  this.pendingRemoveAccount = { accountType, account };
+  
+  console.log('📅 Showing remove account modal', { accountType });
+}
+
+/**
+ * Hide remove account modal
+ */
+hideRemoveAccountModal() {
+  const modal = document.getElementById('remove-account-modal');
+  if (modal) {
+    modal.style.display = 'none';
+  }
+  this.pendingRemoveAccount = null;
+  
+  console.log('📅 Remove account modal closed');
+}
+
+/**
+ * Handle account removal confirmation
+ */
+async handleRemoveAccountConfirm() {
+  if (!this.pendingRemoveAccount) {
+    console.warn('📅 No pending account removal');
+    return;
+  }
+  
+  const { accountType, account } = this.pendingRemoveAccount;
+  
+  try {
+    console.log(`📅 Removing account: ${accountType}`);
+    
+    // 1. Remove tokens via JWT service
+    const jwtAuth = window.parent?.jwtAuth || window.jwtAuth;
+    if (jwtAuth && jwtAuth.isServiceReady()) {
+      try {
+        await jwtAuth.removeTokenAccount('google', accountType);
+        console.log(`📅 ✅ Removed tokens for account: ${accountType}`);
+      } catch (error) {
+        console.error(`📅 ❌ Failed to remove tokens for ${accountType}:`, error);
+        // Continue with removal even if token deletion fails
+      }
+    } else {
+      console.warn('📅 JWT Auth not available, skipping token removal');
+    }
+    
+    // 2. Remove from calendar settings
+    const calendarsToRemove = Object.keys(account.calendars || {});
+    delete this.calendarSettings.accounts[accountType];
+    
+    // 3. Remove any active calendars from this account
+    this.calendarSettings.activeCalendarIds = this.calendarSettings.activeCalendarIds.filter(
+      id => !calendarsToRemove.includes(id)
+    );
+    
+    // 4. Update calendar account map
+    if (this.calendarSettings.calendarAccountMap) {
+      for (const calId of calendarsToRemove) {
+        delete this.calendarSettings.calendarAccountMap[calId];
+      }
+    }
+    
+    // 5. Save settings
+    await this.saveCalendarSettings();
+    
+    // 6. Refresh UI on remove-calendar screen
+    this.updateRemoveAccountsList();
+    
+    // 7. Refresh navigation after list update
+    if (this.parentNavigation && typeof this.parentNavigation.updateFocusableElements === 'function') {
+      this.parentNavigation.updateFocusableElements();
+      this.parentNavigation.updateFocus();
+    }
+    
+    console.log(`📅 ✅ Account removed successfully: ${accountType}`);
+    
+  } catch (error) {
+    console.error(`📅 ❌ Failed to remove account: ${accountType}`, error);
+    alert(`Failed to remove account: ${error.message}`);
+  } finally {
+    this.hideRemoveAccountModal();
+  }
+}
+
 
 
   /**
