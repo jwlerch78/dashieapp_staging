@@ -272,7 +272,7 @@ export class WebOAuthProvider {
         refresh_token: tokens.refresh_token,
         expires_in: tokens.expires_in || 3600,
         scope: this.config.scope,
-        display_name: `${userInfo.name} (Personal)`,
+        display_name: displayName,
         email: userInfo.email,
         user_id: userInfo.id,
         issued_at: Date.now(),
@@ -282,8 +282,28 @@ export class WebOAuthProvider {
         }
       };
 
-      // Determine account type (for now, assume 'personal' - can be enhanced later)
-      const accountType = 'personal';
+      // Check for pending account from account manager (multi-account flow)
+      let accountType = 'personal'; // Default fallback
+      let displayName = `${userInfo.name} (Personal)`;
+      
+      try {
+        const pendingAccount = sessionStorage.getItem('dashie_pending_account');
+        if (pendingAccount) {
+          const accountInfo = JSON.parse(pendingAccount);
+          accountType = accountInfo.accountType || 'personal';
+          displayName = accountInfo.displayName || `${userInfo.name} (${accountType})`;
+          
+          // Clear the pending account info after using it
+          sessionStorage.removeItem('dashie_pending_account');
+          
+          logger.info('Using pending account info from multi-account flow', {
+            accountType,
+            displayName
+          });
+        }
+      } catch (error) {
+        logger.warn('Failed to read pending account info, using defaults', error);
+      }
 
       // Queue for processing during startup sequence
       const queuedToken = {

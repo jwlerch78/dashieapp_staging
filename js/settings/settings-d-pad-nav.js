@@ -247,6 +247,13 @@ export class SimplifiedNavigation {
         current.click();
         return;
       }
+
+      // NEW: Check if this is an account type option - trigger click directly
+      if (current.classList.contains('account-type-option')) {
+        console.log(`⚙️ Triggering account type option`);
+        current.click();
+        return;
+      }
       
       // Check if this is a toggle cell
       if (current.classList.contains('toggle-cell')) {

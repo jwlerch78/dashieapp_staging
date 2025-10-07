@@ -297,8 +297,6 @@ export const displayScreens = `
   </div>
 `;
 
-// Photos screens moved to widgets/photos/settings-photos.js
-
 /**
  * Calendar Screens (Level 1-2)
  */
@@ -369,17 +367,50 @@ export const calendarScreens = `
     </div>
   </div>
 
-  <!-- Add Calendar Accounts Screen (Level 2) - Placeholder for Phase 3 -->
+  <!-- Add Calendar Accounts Screen (Level 2) -->
   <div class="settings-screen" data-level="2" data-screen="add-calendar" data-title="Add Calendar Accounts">
     <div class="settings-list">
-      <div class="coming-soon">
-        <h3>Add Calendar Account</h3>
-        <p>Connect a new Google account to access additional calendars.</p>
-        <p style="margin-top: 20px; font-size: 14px; opacity: 0.7;">Coming in Phase 3</p>
+      <div class="settings-section">
+        <div class="settings-section-header">Select Account Type</div>
+        
+        <!-- Google Account (Active) -->
+        <div class="settings-cell selectable account-type-option" data-account-type="google" id="add-google-account-btn">
+          <span class="account-type-icon">G</span>
+          <span class="cell-label">Google</span>
+          <span class="cell-chevron">›</span>
+        </div>
+        
+        <!-- Microsoft Exchange (Coming Soon) -->
+        <div class="settings-cell account-type-option disabled" data-account-type="microsoft">
+          <span class="account-type-icon">M</span>
+          <span class="cell-label">Microsoft Exchange</span>
+          <span class="cell-status">Coming Soon</span>
+        </div>
+        
+        <!-- Apple iCloud (Coming Soon) -->
+        <div class="settings-cell account-type-option disabled" data-account-type="apple">
+          <span class="account-type-icon">A</span>
+          <span class="cell-label">Apple iCloud</span>
+          <span class="cell-status">Coming Soon</span>
+        </div>
+        
+        <!-- Other (Coming Soon) -->
+        <div class="settings-cell account-type-option disabled" data-account-type="other">
+          <span class="account-type-icon">•••</span>
+          <span class="cell-label">Other (CalDAV)</span>
+          <span class="cell-status">Coming Soon</span>
+        </div>
+      </div>
+      
+      <div class="settings-section">
+        <div class="settings-info-text">
+          <p>Connect additional calendar accounts to view all your events in one place.</p>
+          <p style="margin-top: 12px;">Each account can have multiple calendars that you can enable or disable individually.</p>
+        </div>
       </div>
     </div>
   </div>
-  
+
   <!-- Remove Calendar Accounts Screen (Level 2) - Placeholder for Phase 3 -->
   <div class="settings-screen" data-level="2" data-screen="remove-calendar" data-title="Remove Calendar Accounts">
     <div class="settings-list">

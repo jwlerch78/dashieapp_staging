@@ -15,6 +15,8 @@ import { getPlatformDetector } from './utils/platform-detector.js';
 // Settings and authentication
 import { autoInitialize, showSettings, initializeSleepTimer } from './settings/settings-main.js';
 import { initializeJWTService } from './apis/api-auth/jwt-token-operations.js';
+import { initializeAccountManager } from './apis/api-auth/account-manager.js';
+
 
 // UI helpers
 import { showLoadingOverlay, updateLoadingProgress, hideLoadingOverlay } from './ui/loading-overlay.js';
@@ -203,6 +205,17 @@ async function initializeApp() {
       initState.jwt = 'ready';
       updateProgress(isMobile, 40, 'Connected', 'Secure connection established');
       
+      // Initialize Account Manager
+      console.log('🔐 Initializing Account Manager...');
+      try {
+        await initializeAccountManager(window.dashieAuth, window.jwtAuth);
+        console.log('✅ Account Manager initialized and available as window.accountManager');
+      } catch (error) {
+        console.error('❌ Account Manager initialization failed:', error);
+        // Non-critical - continue without account manager
+      }
+
+
       // Initialize SimpleAuth services now that JWT is ready
       if (window.dashieAuth && window.dashieAuth.authenticated) {
         console.log('🔧 Initializing services now that JWT is ready...');

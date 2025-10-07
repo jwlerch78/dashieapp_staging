@@ -21,7 +21,7 @@ export function handleScreenEnter(screenId, overlay, navigation) {
   }
   
   // Calendar screens - initialize calendar settings manager
-  if (screenId === 'manage-calendars' || screenId === 'calendar') {
+  if (screenId === 'manage-calendars' || screenId === 'calendar' || screenId === 'add-calendar') {
     if (!window.calendarSettingsManager) {
       console.log('📅 Creating new CalendarSettingsManager');
       window.calendarSettingsManager = new CalendarSettingsManager(overlay, navigation);
