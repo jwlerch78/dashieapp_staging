@@ -286,17 +286,16 @@ export class DCalWidget {
     
   }
 
-    updateCalendarConfigurations() {
-    // Merge Google's actual colors if provided by the centralized service
-    const updatedCalendars = this.GOOGLE_CALENDARS.map((cal) => {
-        const remoteCal = this.calendarData.calendars.find(rc => rc.id === cal.id || rc.summary === cal.summary);
-        return {
+     updateCalendarConfigurations() {
+    // FIXED: Use the actual calendars from the data instead of hardcoded list
+    const updatedCalendars = this.calendarData.calendars.map((cal) => {
+      return {
         id: cal.id,
         name: cal.summary,
-        backgroundColor: remoteCal?.backgroundColor || cal.color,
-        borderColor: remoteCal?.backgroundColor || cal.color,
-        color: remoteCal?.foregroundColor || cal.textColor
-        };
+        backgroundColor: cal.backgroundColor || '#1976d2',
+        borderColor: cal.backgroundColor || '#1976d2',
+        color: cal.foregroundColor || '#ffffff'
+      };
     });
 
     // Update configurations in helper modules
@@ -305,9 +304,10 @@ export class DCalWidget {
     this.weekly.updateCalendars(updatedCalendars);
     
     logger.debug('Calendar configurations updated with Google colors', {
-        calendars: updatedCalendars
+      calendars: updatedCalendars.length,
+      calendarNames: updatedCalendars.map(c => c.name)
     });
-    }
+  }
 
 
   updateConnectionStatus(status) {

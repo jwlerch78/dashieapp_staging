@@ -1,5 +1,5 @@
 // js/settings/settings-simple-manager.js - Auto-save implementation
-// CHANGE SUMMARY: Added debug logging to customHandler and null check for this.navigation to diagnose escape key issue
+// CHANGE SUMMARY: FIXED - Added CalendarSettingsManager cleanup in hide() method and overlay reference update in navigateToScreen()
 
 import { SimplifiedNavigation } from './settings-d-pad-nav.js';
 import { setupEventHandlers } from './settings-event-handler.js';
@@ -162,7 +162,7 @@ export class SimplifiedSettings {
     // Load calendar settings CSS
     const calendarCSS = document.createElement('link');
     calendarCSS.rel = 'stylesheet';
-    calendarCSS.href = 'widgets/dcal/dcal-settings/dcal-settings.css'; // CORRECTED PATH
+    calendarCSS.href = 'widgets/dcal/dcal-settings/dcal-settings.css';
     document.head.appendChild(calendarCSS);
     console.log('⚙️ Calendar settings CSS loaded');
 
@@ -356,12 +356,12 @@ export class SimplifiedSettings {
 
   navigateToScreen(screenId) {
     const currentScreen = this.overlay.querySelector('.settings-screen.active');
-  const currentScreenId = currentScreen?.dataset?.screen;
-  
-  // Save calendar changes when navigating away from manage-calendars
-  if (currentScreenId === 'manage-calendars' && window.calendarSettingsManager) {
-    window.calendarSettingsManager.onNavigateAway();
-  }
+    const currentScreenId = currentScreen?.dataset?.screen;
+    
+    // Save calendar changes when navigating away from manage-calendars
+    if (currentScreenId === 'manage-calendars' && window.calendarSettingsManager) {
+      window.calendarSettingsManager.saveCalendarSettings();
+    }
 
     const nextScreen = this.overlay.querySelector(`[data-screen="${screenId}"]`);
     
@@ -379,23 +379,28 @@ export class SimplifiedSettings {
 
     
     setTimeout(() => {
-    currentScreen.classList.remove('sliding-out-left');
-    nextScreen.classList.remove('sliding-in-right');
-    
-    // ADDED: Initialize calendar settings manager when navigating to calendar screens
-    if (screenId === 'manage-calendars' || screenId === 'calendar') {
-      if (!window.calendarSettingsManager) {
-        console.log('📅 Creating CalendarSettingsManager from touch navigation');
-        window.calendarSettingsManager = new CalendarSettingsManager(this.overlay, this.navigation);
+      currentScreen.classList.remove('sliding-out-left');
+      nextScreen.classList.remove('sliding-in-right');
+      
+      // ADDED: Initialize calendar settings manager when navigating to calendar screens
+      if (screenId === 'manage-calendars' || screenId === 'calendar') {
+        if (!window.calendarSettingsManager) {
+          console.log('📅 Creating CalendarSettingsManager from touch navigation');
+          window.calendarSettingsManager = new CalendarSettingsManager(this.overlay, this.navigation);
+        } else {
+          // FIXED: Update overlay reference if instance already exists
+          console.log('📅 Updating CalendarSettingsManager overlay reference');
+          window.calendarSettingsManager.parentOverlay = this.overlay;
+          window.calendarSettingsManager.parentNavigation = this.navigation;
+        }
+        window.calendarSettingsManager.initialize();
       }
-      window.calendarSettingsManager.initialize();
-    }
-    
-    // ADDED: Handle system-status screen special case
-    if (screenId === 'system-status') {
-      populateSystemStatus(this.overlay);
-    }
-  }, 300);
+      
+      // ADDED: Handle system-status screen special case
+      if (screenId === 'system-status') {
+        populateSystemStatus(this.overlay);
+      }
+    }, 300);
     
     this.selectionHandler.updateNavBar(this.overlay, this.getCurrentScreenId(), this.navigationStack);
   }
@@ -410,8 +415,6 @@ export class SimplifiedSettings {
     if (currentScreenId === 'manage-calendars' && window.calendarSettingsManager) {
       window.calendarSettingsManager.saveCalendarSettings();
     }
-
-
 
     this.navigationStack.pop();
     
@@ -519,16 +522,13 @@ export class SimplifiedSettings {
 
     this.showSaveToast();
 
-   window.dispatchEvent(new CustomEvent('settingsUpdated', {
+    window.dispatchEvent(new CustomEvent('settingsUpdated', {
       detail: { 
         settings: this.controller.getSettings(),
         changedPath: path,
         changedValue: value
       }
     }));
-
-
-
   }
 
   showSaveToast() {
@@ -568,6 +568,13 @@ export class SimplifiedSettings {
     this.overlay.classList.remove('active');
     
     setTimeout(() => {
+      // FIXED: Cleanup calendar settings manager
+      if (window.calendarSettingsManager) {
+        console.log('📅 Cleaning up CalendarSettingsManager');
+        window.calendarSettingsManager.destroy();
+        window.calendarSettingsManager = null;
+      }
+      
       if (this.modalNavigation) {
         this.modalNavigation.destroy();
         this.modalNavigation = null;

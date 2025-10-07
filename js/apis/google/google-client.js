@@ -1,5 +1,5 @@
 // js/apis/google/google-client.js
-// CHANGE SUMMARY: Replaced silent token fallback with explicit dependency check and fail-fast error handling
+// CHANGE SUMMARY: FIXED - Added support for dynamic calendar IDs from settings instead of hardcoded config
 
 import { createLogger } from '../../utils/logger.js';
 import { AUTH_CONFIG, API_CONFIG } from '../../auth/auth-config.js';
@@ -323,10 +323,11 @@ export class GoogleAPIClient {
    * @param {Object} options - Options object
    * @param {Object} options.timeRange - Optional time range
    * @param {Array} options.calendars - Optional pre-fetched calendar list
+   * @param {Array} options.calendarIds - Optional specific calendar IDs to filter (NEW - from settings)
    * @returns {Promise<Array>} Combined array of events from all calendars
    */
   async getAllCalendarEvents(options = {}) {
-    const { timeRange = {}, calendars: providedCalendars = null } = options;
+    const { timeRange = {}, calendars: providedCalendars = null, calendarIds = null } = options;
     
     logger.info('Fetching events from all configured calendars');
     const timer = logger.startTimer('All Calendar Events');
@@ -338,18 +339,33 @@ export class GoogleAPIClient {
         calendars = await this.getCalendarList();
       }
 
-      // Filter to configured calendars
-      const targetCalendars = calendars.filter(cal => 
-        this.config.calendar.includeCalendars.some(target => 
-          cal.summary?.includes(target) || cal.id?.includes(target)
-        )
-      );
-
-      logger.debug('Fetching events from calendars', {
-        totalCalendars: calendars.length,
-        targetCalendars: targetCalendars.length,
-        calendarNames: targetCalendars.map(c => c.summary)
-      });
+      let targetCalendars;
+      
+      // FIXED: Use calendarIds from settings if provided, otherwise fall back to config
+      if (calendarIds && calendarIds.length > 0) {
+        // Filter by specific calendar IDs from settings
+        targetCalendars = calendars.filter(cal => calendarIds.includes(cal.id));
+        
+        logger.debug('Fetching events from calendars (from settings)', {
+          totalCalendars: calendars.length,
+          targetCalendars: targetCalendars.length,
+          calendarIds: calendarIds,
+          calendarNames: targetCalendars.map(c => c.summary)
+        });
+      } else {
+        // Fall back to config-based filtering (for new users with no settings)
+        targetCalendars = calendars.filter(cal => 
+          this.config.calendar.includeCalendars.some(target => 
+            cal.summary?.includes(target) || cal.id?.includes(target)
+          )
+        );
+        
+        logger.debug('Fetching events from calendars (from config fallback)', {
+          totalCalendars: calendars.length,
+          targetCalendars: targetCalendars.length,
+          calendarNames: targetCalendars.map(c => c.summary)
+        });
+      }
 
       // Fetch events from all target calendars in parallel
       // FIXED: Add calendarId to each event

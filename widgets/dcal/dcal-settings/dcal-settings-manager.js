@@ -287,6 +287,13 @@ export class CalendarSettingsManager {
   /**
    * Save calendar settings to both localStorage and database
    */
+  // widgets/dcal/dcal-settings/dcal-settings-manager.js
+// CHANGE SUMMARY: CRITICAL FIX - Force calendar data refresh after saving settings to clear cache and reload events
+
+  /**
+   * Save calendar settings to both localStorage and database
+   * FIXED: Now triggers calendar data refresh to update widgets immediately
+   */
   async saveCalendarSettings() {
     console.log('📅 Saving calendar settings to localStorage and database');
     
@@ -307,13 +314,31 @@ export class CalendarSettingsManager {
         console.warn('📅 Settings instance not available, only saved to localStorage');
       }
       
+      // 3. CRITICAL FIX: Force refresh calendar data to update widgets with new calendar selection
+      console.log('📅 🔄 Triggering calendar data refresh with new selection...');
+      
+      // Access the parent window's dataManager to force a refresh
+      const dataManager = window.parent?.dataManager;
+      if (dataManager && typeof dataManager.refreshCalendarData === 'function') {
+        try {
+          // Force refresh (bypass cache) to load events from newly selected calendars
+          await dataManager.refreshCalendarData(true);
+          console.log('📅 ✅ Calendar data refreshed - widgets will update automatically');
+        } catch (error) {
+          console.error('📅 ❌ Failed to refresh calendar data', error);
+        }
+      } else {
+        console.warn('📅 DataManager not available - calendar widgets may not update until next refresh');
+      }
+      
+      // Reset unsaved changes flag
       this.hasUnsavedChanges = false;
       
     } catch (error) {
       console.error('📅 Error saving calendar settings', error);
     }
   }
-
+  
   /**
    * Setup event listeners for calendar items
    */
