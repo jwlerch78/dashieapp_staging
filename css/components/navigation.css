@@ -62,9 +62,9 @@ body.legacy-focus .menu-item.focused {
 /* Hide highlights when timed out or manually hidden */
 .highlights-hidden .widget.selected,
 .highlights-hidden .widget.focused {
-  outline: none;
-  box-shadow: none;
-  transform: scale(1);
+  outline: none !important;
+  box-shadow: none !important;
+  transform: scale(1) !important;
 }
 
 .highlights-hidden .menu-item.selected,

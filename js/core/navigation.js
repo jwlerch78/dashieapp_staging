@@ -94,8 +94,13 @@ function resetHighlightTimer() {
 // ---------------------
 
 function showFocusOverlay() {
-  // Only show overlay if enhanced focus mode is enabled
-  if (!ENHANCED_FOCUS_MODE) {
+  // Check current state dynamically (in case it was toggled in settings)
+  const hasLegacyClass = document.body.classList.contains('legacy-focus');
+  const isEnhancedMode = !hasLegacyClass;
+  
+  console.log(`🔍 Overlay check: hasLegacyClass=${hasLegacyClass}, isEnhancedMode=${isEnhancedMode}`);
+  
+  if (!isEnhancedMode) {
     console.log('⏭️ Skipping overlay show - legacy mode active');
     return;
   }
@@ -104,6 +109,8 @@ function showFocusOverlay() {
   if (overlay) {
     overlay.classList.add('visible');
     console.log('✓ Focus overlay shown (enhanced mode)');
+  } else {
+    console.error('❌ Focus overlay element not found!');
   }
 }
 
@@ -365,29 +372,45 @@ export function handleEnter() {
 
 // Handle Escape/Back key
 export function handleBack() {
+  console.log('🔙 handleBack called');
+  console.log('  state.selectedCell:', state.selectedCell);
+  console.log('  state.isAsleep:', state.isAsleep);
+  console.log('  state.confirmDialog:', state.confirmDialog);
+  
   if (state.isAsleep || state.confirmDialog) return;
 
   if (state.selectedCell) {
+    console.log('  ✓ Widget is focused, defocusing...');
+    
     // Send escape to widget before defocusing so it can clean up
     const iframe = state.selectedCell.querySelector("iframe");
     if (iframe && iframe.contentWindow) {
       try {
         iframe.contentWindow.postMessage({ action: "escape" }, "*");
-        console.log("✓ Sent 'escape' to widget before defocusing");
+        console.log("  ✓ Sent 'escape' to widget");
       } catch (error) {
-        console.warn("Failed to send escape to widget:", error);
+        console.warn("  ⚠️ Failed to send escape to widget:", error);
       }
     }
     
     // Small delay to let widget process the escape, then defocus
     setTimeout(() => {
+      console.log('  🔄 Clearing selection...');
       setSelectedCell(null);
-      hideFocusOverlay();  // NEW: Hide overlay when exiting focus mode
-      hideHighlights();
+      console.log('    selectedCell is now:', state.selectedCell);
+      
+      hideFocusOverlay();
+      
+      console.log('  🔄 Calling showHighlights...');
+      showHighlights();
+      
+      console.log('  🔄 Calling updateFocus...');
       updateFocus();
+      
+      console.log('  ✅ handleBack complete');
     }, 10);
   } else if (state.focus.type === "grid" || state.focus.type === "menu") {
-    // Just hide highlights if we're in selection mode
+    console.log('  ℹ️ Not focused, hiding highlights');
     hideHighlights();
   }
 }
