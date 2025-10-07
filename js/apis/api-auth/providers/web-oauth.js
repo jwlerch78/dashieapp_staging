@@ -252,6 +252,9 @@ export class WebOAuthProvider {
     }
   }
 
+// js/apis/api-auth/providers/web-oauth.js
+// CHANGE SUMMARY: Fixed variable declaration order - accountType and displayName now declared BEFORE tokenData object
+
   /**
    * Queue refresh tokens for storage during the startup sequence
    * @private
@@ -266,26 +269,11 @@ export class WebOAuthProvider {
         return;
       }
 
-      // Prepare token data for storage
-      const tokenData = {
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        expires_in: tokens.expires_in || 3600,
-        scope: this.config.scope,
-        display_name: displayName,
-        email: userInfo.email,
-        user_id: userInfo.id,
-        issued_at: Date.now(),
-        provider_info: {
-          type: 'web_oauth',
-          client_id: this.config.client_id
-        }
-      };
-
-      // Check for pending account from account manager (multi-account flow)
+      // CRITICAL: Declare accountType and displayName FIRST before using them in tokenData
       let accountType = 'personal'; // Default fallback
       let displayName = `${userInfo.name} (Personal)`;
       
+      // Check for pending account from account manager (multi-account flow)
       try {
         const pendingAccount = sessionStorage.getItem('dashie_pending_account');
         if (pendingAccount) {
@@ -304,6 +292,25 @@ export class WebOAuthProvider {
       } catch (error) {
         logger.warn('Failed to read pending account info, using defaults', error);
       }
+
+      // Now prepare token data with correctly scoped variables
+      const tokenData = {
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_at: tokens.expires_in 
+          ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+          : new Date(Date.now() + 3600 * 1000).toISOString(),
+        expires_in: tokens.expires_in || 3600,
+        scope: this.config.scope,
+        display_name: displayName,  // Now properly declared above
+        email: userInfo.email,
+        user_id: userInfo.id,
+        issued_at: Date.now(),
+        provider_info: {
+          type: 'web_oauth',
+          client_id: this.config.client_id
+        }
+      };
 
       // Queue for processing during startup sequence
       const queuedToken = {
@@ -333,7 +340,7 @@ export class WebOAuthProvider {
       // Don't throw - auth should still succeed even if token queuing fails
     }
   }
-
+  
   /**
    * Exchange authorization code for access and refresh tokens
    * @param {string} authCode - Authorization code from Google

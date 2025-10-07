@@ -190,22 +190,21 @@ async function initializeApp() {
   
   initState.auth = 'ready';
   
-  // ============================================
-  // JWT & SERVICES INITIALIZATION
+ // ============================================
+  // JWT & ACCOUNT MANAGER INITIALIZATION
   // ============================================
   
   console.log('🔐 Initializing JWT service after authentication...');
   updateProgress(isMobile, 25, 'Connecting...', 'Establishing secure connection...');
   
   try {
-    const jwtReady = await initializeJWTService();
+    const jwtReady = await initializeJWTService(window.dashieAuth);
     
     if (jwtReady) {
       console.log('✅ JWT service ready - RLS mode available');
       initState.jwt = 'ready';
       updateProgress(isMobile, 40, 'Connected', 'Secure connection established');
-      
-      // Initialize Account Manager
+
       console.log('🔐 Initializing Account Manager...');
       try {
         await initializeAccountManager(window.dashieAuth, window.jwtAuth);
@@ -215,10 +214,36 @@ async function initializeApp() {
         // Non-critical - continue without account manager
       }
 
+      // ============================================
+      // TOKEN PROCESSING - MOVED HERE BEFORE SERVICE INIT
+      // ============================================
+      
+      console.log('🔄 Processing queued refresh tokens...');
+      updateProgress(isMobile, 42, 'Processing tokens...', 'Processing refresh tokens...');
+      
+      const tokenResult = await processQueuedRefreshTokens();
+      
+      if (tokenResult.success) {
+        initState.tokens = 'ready';
+        console.log(`✅ Processed ${tokenResult.tokensProcessed} refresh token(s) successfully`);
+        updateProgress(isMobile, 44, 'Tokens stored', 'Refresh tokens stored successfully');
+      } else if (tokenResult.skipped) {
+        initState.tokens = 'skipped';
+        console.log('⏭️ No refresh tokens to process');
+        updateProgress(isMobile, 44, 'No new tokens', 'No refresh tokens to process');
+      } else {
+        initState.tokens = 'failed';
+        console.warn('⚠️ Token processing failed, continuing anyway');
+        updateProgress(isMobile, 44, 'Token processing failed', 'Refresh token processing failed');
+      }
 
-      // Initialize SimpleAuth services now that JWT is ready
+      // ============================================
+      // SERVICE INITIALIZATION - NOW AFTER TOKENS
+      // ============================================
+
+      // Initialize SimpleAuth services now that JWT AND TOKENS are ready
       if (window.dashieAuth && window.dashieAuth.authenticated) {
-        console.log('🔧 Initializing services now that JWT is ready...');
+        console.log('🔧 Initializing services now that JWT and tokens are ready...');
         updateProgress(isMobile, 45, 'Initializing...', 'Initializing services...');
         
         try {
@@ -253,33 +278,7 @@ async function initializeApp() {
   }
   
   // ============================================
-  // TOKEN PROCESSING
-  // ============================================
-  
-  updateProgress(isMobile, 52, 'Processing...', 'Processing tokens...');
-  
-  if (initState.jwt === 'ready') {
-    updateProgress(isMobile, 55, 'Processing tokens...', 'Processing refresh tokens...');
-    const tokenResult = await processQueuedRefreshTokens();
-    
-    if (tokenResult.success) {
-      initState.tokens = 'ready';
-      updateProgress(isMobile, 60, 'Tokens stored', 'Refresh tokens stored successfully');
-    } else if (tokenResult.skipped) {
-      initState.tokens = 'skipped';
-      updateProgress(isMobile, 60, 'No tokens', 'No refresh tokens to process');
-    } else {
-      initState.tokens = 'failed';
-      updateProgress(isMobile, 60, 'Token processing failed', 'Refresh token processing failed');
-    }
-  } else {
-    console.log('⏭️ Skipping refresh token processing (JWT not ready)');
-    initState.tokens = 'skipped';
-    updateProgress(isMobile, 60, 'Skipping tokens', 'Skipping token processing');
-  }
-  
-  // ============================================
-  // SETTINGS & THEME
+  // SETTINGS & THEME (Token processing section removed from here)
   // ============================================
   
   console.log(`⚙️ Initializing settings system with JWT status: ${initState.jwt}`);

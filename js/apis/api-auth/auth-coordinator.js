@@ -82,6 +82,12 @@ export class AuthCoordinator {
     });
   }
 
+  // js/apis/api-auth/auth-coordinator.js
+// CHANGE SUMMARY: Fixed multi-account OAuth callback processing by always initializing web_oauth provider, even when already authenticated
+
+// js/apis/api-auth/providers/web-oauth.js  
+// CHANGE SUMMARY: Fixed variable declaration order in _queueRefreshTokensForStorage - accountType and displayName now declared before tokenData object
+
   /**
    * Initialize the auth system
    * @returns {Promise<Object>} Initialization result
@@ -97,7 +103,15 @@ export class AuthCoordinator {
         return { success: true, redirected: true, message: 'Redirecting to target site...' };
       }
 
-      // Check for existing authentication first
+      // CRITICAL: Always initialize web_oauth provider FIRST to check for OAuth callbacks
+      // This handles multi-account additions when user is already authenticated
+      const recommendedProvider = this.getRecommendedProvider();
+      if (recommendedProvider === 'web_oauth') {
+        logger.debug('Initializing web_oauth provider to check for OAuth callback');
+        await this.initializeProvider('web_oauth');
+      }
+
+      // Check for existing authentication
       await this.checkExistingAuth();
       
       if (this.isAuthenticated) {
@@ -114,9 +128,8 @@ export class AuthCoordinator {
         return { success: true, authenticated: true, user: this.currentUser };
       }
 
-      // Initialize the recommended provider
-      const recommendedProvider = this.getRecommendedProvider();
-      if (recommendedProvider) {
+      // Initialize provider for first-time authentication
+      if (recommendedProvider && recommendedProvider !== 'web_oauth') {
         await this.initializeProvider(recommendedProvider);
       }
 
@@ -194,6 +207,9 @@ export class AuthCoordinator {
     logger.debug('No existing authentication found');
   }
 
+ // js/apis/api-auth/auth-coordinator.js
+// CHANGE SUMMARY: Detect multi-account OAuth callbacks and skip setAuthenticatedUser to preserve original session
+
   /**
    * Initialize a specific auth provider
    * @param {string} providerName - Name of provider to initialize
@@ -215,6 +231,22 @@ export class AuthCoordinator {
         if (result && result.success && result.user) {
           logger.success(`Provider ${providerName} completed authentication during init`);
           
+          // CRITICAL: Check if this is a multi-account addition
+          // If user is already authenticated, this is adding an additional account
+          // We should NOT overwrite the current session
+          if (this.isAuthenticated && this.currentUser) {
+            logger.info('Multi-account OAuth callback detected - preserving current session', {
+              currentUser: this.currentUser.email,
+              newAccountUser: result.user.email
+            });
+            
+            // Don't call setAuthenticatedUser or saveUser
+            // The token has been queued and will be processed by main.js
+            // The current session must remain intact
+            return;
+          }
+          
+          // First-time authentication - set the authenticated user normally
           this.setAuthenticatedUser(result.user, provider);
           
           // Save the user data when auth completes during init
