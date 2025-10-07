@@ -82,7 +82,7 @@ export class AuthCoordinator {
     });
   }
 
-  // js/apis/api-auth/auth-coordinator.js
+// js/apis/api-auth/auth-coordinator.js
 // CHANGE SUMMARY: Fixed multi-account OAuth callback processing by always initializing web_oauth provider, even when already authenticated
 
 // js/apis/api-auth/providers/web-oauth.js  
@@ -103,16 +103,18 @@ export class AuthCoordinator {
         return { success: true, redirected: true, message: 'Redirecting to target site...' };
       }
 
-      // CRITICAL: Always initialize web_oauth provider FIRST to check for OAuth callbacks
-      // This handles multi-account additions when user is already authenticated
+      // CRITICAL: Check for existing authentication FIRST
+      // This sets this.isAuthenticated and this.currentUser
+      // MUST happen before initializeProvider so multi-account check works
+      await this.checkExistingAuth();
+
+      // CRITICAL: Always initialize web_oauth provider to check for OAuth callbacks
+      // This handles both first-time auth AND multi-account additions
       const recommendedProvider = this.getRecommendedProvider();
       if (recommendedProvider === 'web_oauth') {
         logger.debug('Initializing web_oauth provider to check for OAuth callback');
         await this.initializeProvider('web_oauth');
       }
-
-      // Check for existing authentication
-      await this.checkExistingAuth();
       
       if (this.isAuthenticated) {
         logger.success('Found existing authentication', {

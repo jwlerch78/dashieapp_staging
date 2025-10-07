@@ -340,7 +340,6 @@ export class WebOAuthProvider {
       // Don't throw - auth should still succeed even if token queuing fails
     }
   }
-  
   /**
    * Exchange authorization code for access and refresh tokens
    * @param {string} authCode - Authorization code from Google
