@@ -1,76 +1,129 @@
 /* css/components/navigation.css - Focus & Selection States */
-/* CHANGE SUMMARY: Added gradient border for enhanced focus mode widgets, added background fill to menu items to match settings pattern */
+/* CHANGE SUMMARY: Fixed widget gradient border to use border-image properly, menu highlighting now uses theme colors (gray for dark, blue for light) */
 
-/* ENHANCED MODE (default) - Silver/grey for both selected and focused */
+/* ENHANCED MODE (default) - Silver/grey border with gradient and rounded corners */
 .widget.selected {
-  outline: var(--outline-width-selected) solid transparent;
-  outline-offset: var(--outline-offset-widget);
-  border: var(--outline-width-selected) solid;
-  border-image: var(--widget-border-gradient) 1;
-  box-shadow: var(--glow-selected);
+  outline: none;
+  border: none;
+  border-radius: var(--border-radius);
+  box-shadow: 
+    var(--glow-selected),
+    inset 0 0 0 var(--outline-width-selected) var(--widget-border-gradient);
   transform: scale(1.05);
   transition: all var(--transition-fast);
   position: relative;
   z-index: var(--z-widget-selected);
+  /* Use pseudo-element for gradient border with rounded corners */
+}
+
+.widget.selected::before {
+  content: '';
+  position: absolute;
+  top: calc(-1 * var(--outline-width-selected));
+  left: calc(-1 * var(--outline-width-selected));
+  right: calc(-1 * var(--outline-width-selected));
+  bottom: calc(-1 * var(--outline-width-selected));
+  border-radius: var(--border-radius);
+  background: var(--widget-border-gradient);
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: var(--outline-width-selected);
+  pointer-events: none;
+  z-index: -1;
 }
 
 .widget.focused {
-  outline: var(--outline-width-selected) solid transparent;
-  outline-offset: var(--outline-offset-widget);
-  border: var(--outline-width-selected) solid;
-  border-image: var(--widget-border-gradient) 1;
-  box-shadow: var(--glow-selected);
+  outline: none;
+  border: none;
+  border-radius: var(--border-radius);
+  box-shadow: 
+    var(--glow-selected),
+    inset 0 0 0 var(--outline-width-selected) var(--widget-border-gradient);
   transform: scale(1.05);
   transition: all var(--transition-fast);
   position: relative;
   z-index: var(--z-widget-focused);
 }
 
+.widget.focused::before {
+  content: '';
+  position: absolute;
+  top: calc(-1 * var(--outline-width-selected));
+  left: calc(-1 * var(--outline-width-selected));
+  right: calc(-1 * var(--outline-width-selected));
+  bottom: calc(-1 * var(--outline-width-selected));
+  border-radius: var(--border-radius);
+  background: var(--widget-border-gradient);
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: var(--outline-width-selected);
+  pointer-events: none;
+  z-index: -1;
+}
+
 /* LEGACY MODE - Orange for selected, Blue for focused */
 body.legacy-focus .widget.selected {
-  outline: var(--outline-width-selected-legacy) solid var(--outline-selected-legacy);
   border: none;
   border-image: none;
+  outline: var(--outline-width-selected-legacy) solid var(--outline-selected-legacy);
   box-shadow: var(--glow-selected-legacy);
   transform: scale(1.02);
 }
 
+body.legacy-focus .widget.selected::before {
+  display: none;
+}
+
 body.legacy-focus .widget.focused {
-  outline: var(--outline-width-focused) solid var(--outline-focused);
   border: none;
   border-image: none;
+  outline: var(--outline-width-focused) solid var(--outline-focused);
   box-shadow: var(--glow-focused);
   transform: scale(1.04);
 }
 
-/* Menu item selection and focus states - UPDATED with background fill */
+body.legacy-focus .widget.focused::before {
+  display: none;
+}
+
+/* Menu item selection and focus states - theme-aware (gray for dark, blue for light) */
 .menu-item.active {
   background-color: var(--bg-active);
 }
 
 .menu-item.selected {
-  background-color: var(--bg-selection-gray);
-  outline: var(--outline-width-menu) solid var(--outline-selected);
-  outline-offset: 2px;
+  background: var(--bg-selected-fill);
+  outline: 2px solid var(--outline-color-nav);
+  outline-offset: -2px;
   border-radius: var(--border-radius-small);
 }
 
 .menu-item.focused {
-  background-color: var(--bg-selection-blue);
-  outline: var(--outline-width-menu) solid var(--outline-focused);
-  outline-offset: 2px;
+  background: var(--bg-selected-fill);
+  outline: 2px solid var(--outline-color-nav);
+  outline-offset: -2px;
   border-radius: var(--border-radius-small);
 }
 
-/* Legacy mode - restore orange for menu items */
+/* Legacy mode - SAME styling for menu items (no change between modes) */
 body.legacy-focus .menu-item.selected {
-  background-color: rgba(255, 170, 0, 0.15);
-  outline: var(--outline-width-menu) solid var(--outline-selected-legacy);
+  background: var(--bg-selected-fill);
+  outline: 2px solid var(--outline-color-nav);
+  outline-offset: -2px;
+  border-radius: var(--border-radius-small);
 }
 
 body.legacy-focus .menu-item.focused {
-  background-color: var(--bg-selection-blue);
-  outline: var(--outline-width-menu) solid var(--outline-focused);
+  background: var(--bg-selected-fill);
+  outline: 2px solid var(--outline-color-nav);
+  outline-offset: -2px;
+  border-radius: var(--border-radius-small);
 }
 
 /* Hide highlights when timed out or manually hidden */
@@ -83,13 +136,18 @@ body.legacy-focus .menu-item.focused {
   transform: scale(1) !important;
 }
 
+.highlights-hidden .widget.selected::before,
+.highlights-hidden .widget.focused::before {
+  display: none !important;
+}
+
 .highlights-hidden .menu-item.selected,
 .highlights-hidden .menu-item.focused {
   outline: none;
   background-color: transparent;
 }
 
-/* Focus mode overlay - semi-transparent backdrop */
+/* NEW: Focus mode overlay - semi-transparent backdrop */
 .focus-overlay {
   position: fixed;
   top: 0;
@@ -105,4 +163,4 @@ body.legacy-focus .menu-item.focused {
 
 .focus-overlay.visible {
   opacity: 1;
-}
+} 

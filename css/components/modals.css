@@ -1,5 +1,5 @@
 /* css/components/modals.css - Modal Styling with Theme-Aware Navigation Highlighting */
-/* CHANGE SUMMARY: Updated exit modal buttons to use theme-aware background fill + outline navigation pattern */
+/* CHANGE SUMMARY: Fixed exit modal highlighting to use theme-aware colors (gray for dark theme, blue for light theme) */
 
 /* Existing modal styles from the original file */
 .sleep-overlay {
@@ -71,17 +71,17 @@
   transform: scale(1.02);
 }
 
-/* UPDATED: New theme-aware navigation pattern for exit buttons */
+/* UPDATED: Orange highlighting like settings menu (not themed) */
 .exit-button.selected {
-  background: var(--bg-selected-fill);
-  outline: 2px solid var(--outline-color-nav);
+  background: rgba(238, 152, 40, 0.15);
+  outline: 2px solid #EE9828;
   outline-offset: -2px;
   transform: scale(1.05);
 }
 
 .exit-button.focused {
-  background: var(--bg-selected-fill);
-  outline: 2px solid var(--outline-color-nav);
+  background: rgba(238, 152, 40, 0.15);
+  outline: 2px solid #EE9828;
   outline-offset: -2px;
   transform: scale(1.05);
 }
@@ -132,16 +132,16 @@
   background: #f8f9fa;
 }
 
-/* UPDATED: New theme-aware navigation pattern for modal options */
+/* UPDATED: Orange highlighting like settings menu (not themed) */
 .modal-option.selected {
-  background: var(--bg-selected-fill);
-  outline: 2px solid var(--outline-color-nav);
+  background: rgba(238, 152, 40, 0.15);
+  outline: 2px solid #EE9828;
   outline-offset: -2px;
 }
 
 .modal-option.focused {
-  background: var(--bg-selected-fill);
-  outline: 2px solid var(--outline-color-nav);
+  background: rgba(238, 152, 40, 0.15);
+  outline: 2px solid #EE9828;
   outline-offset: -2px;
 }
 
