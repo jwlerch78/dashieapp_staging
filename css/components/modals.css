@@ -1,4 +1,5 @@
-/* Enhanced Modal CSS for Auth Support - Add to css/components/modals.css */
+/* css/components/modals.css - Modal Styling with Theme-Aware Navigation Highlighting */
+/* CHANGE SUMMARY: Updated exit modal buttons to use theme-aware background fill + outline navigation pattern */
 
 /* Existing modal styles from the original file */
 .sleep-overlay {
@@ -63,7 +64,6 @@
   border-radius: var(--border-radius-small);
   cursor: pointer;
   font-size: var(--font-size-base);
-  outline: 3px solid transparent;
   transition: all var(--transition-fast);
 }
 
@@ -71,13 +71,18 @@
   transform: scale(1.02);
 }
 
+/* UPDATED: New theme-aware navigation pattern for exit buttons */
 .exit-button.selected {
-  outline: var(--outline-width-selected) solid var(--outline-selected);
+  background: var(--bg-selected-fill);
+  outline: 2px solid var(--outline-color-nav);
+  outline-offset: -2px;
   transform: scale(1.05);
 }
 
 .exit-button.focused {
-  outline: var(--outline-width-focused) solid var(--outline-focused);
+  background: var(--bg-selected-fill);
+  outline: 2px solid var(--outline-color-nav);
+  outline-offset: -2px;
   transform: scale(1.05);
 }
 
@@ -127,14 +132,17 @@
   background: #f8f9fa;
 }
 
+/* UPDATED: New theme-aware navigation pattern for modal options */
 .modal-option.selected {
-  outline: var(--outline-width-selected) solid var(--outline-selected);
-  outline-offset: 2px;
+  background: var(--bg-selected-fill);
+  outline: 2px solid var(--outline-color-nav);
+  outline-offset: -2px;
 }
 
 .modal-option.focused {
-  outline: var(--outline-width-focused) solid var(--outline-focused);
-  outline-offset: 2px;
+  background: var(--bg-selected-fill);
+  outline: 2px solid var(--outline-color-nav);
+  outline-offset: -2px;
 }
 
 .user-photo-modal {

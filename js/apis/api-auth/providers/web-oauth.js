@@ -18,7 +18,7 @@ export class WebOAuthProvider {
   constructor() {
     this.config = {
       client_id: '221142210647-58t8hr48rk7nlgl56j969himso1qjjoo.apps.googleusercontent.com',
-      scope: 'profile email https://www.googleapis.com/auth/photoslibrary.readonly https://www.googleapis.com/auth/calendar.readonly',
+      scope: 'profile email https://www.googleapis.com/auth/calendar.readonly',
       redirect_uri: window.location.origin + window.location.pathname,
       response_type: 'code', // Using code flow for refresh tokens
       access_type: 'offline', // Required for refresh tokens

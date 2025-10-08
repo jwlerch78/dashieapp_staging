@@ -638,140 +638,90 @@ async saveCalendarSettings() {
 
 
  /**
-   * Handle adding a Google account
-   * NEW: Called when user clicks "Add Google Account" button
-   */
-  async handleAddGoogleAccount() {
-    console.log('📅 Starting Google account addition flow');
-    
-    try {
-      // Check if account manager is available
-      if (!window.accountManager || !window.accountManager.isServiceReady()) {
-        console.error('📅 Account manager not available');
-        alert('Account manager not ready. Please try again in a moment.');
-        return;
-      }
-      
-      // Prompt user for account name/type
-      const accountName = await this.promptForAccountName();
-      if (!accountName) {
-        console.log('📅 Account addition cancelled by user');
-        return;
-      }
-      
-      // Show loading state
-      this.showAddAccountProgress('Connecting to Google...');
-      
-      // Trigger account addition via account manager
-      const result = await window.accountManager.addGoogleAccount({
-        accountType: accountName,
-        displayName: accountName,
-        onProgress: (message) => {
-          console.log(`📅 Progress: ${message}`);
-          this.showAddAccountProgress(message);
-        }
-      });
-      
-      // Hide progress
-      this.hideAddAccountProgress();
-      
-      if (result.success) {
-        console.log('📅 ✅ Google account added successfully', result);
-        
-        alert(`✅ Account "${result.displayName}" added successfully!\n\nYou can now select which calendars to display.`);
-        
-        // Reload calendar data to include new account
-        await this.loadRealCalendarData();
-        
-        // Navigate to calendar selection screen
-        if (this.parentNavigation && typeof this.parentNavigation.navigateTo === 'function') {
-          this.parentNavigation.navigateTo('manage-calendars');
-        }
-        
-      } else {
-        console.error('📅 ❌ Failed to add Google account', result.error);
-        alert(`Failed to add account: ${result.error}`);
-      }
-      
-    } catch (error) {
-      this.hideAddAccountProgress();
-      console.error('📅 ❌ Error adding Google account', error);
-      alert(`Error adding account: ${error.message}`);
-    }
-  }
+ * Handle adding a Google account
+ * Auto-generates account names like 'account2', 'account3', etc.
+ */
+async handleAddGoogleAccount() {
+  console.log('📅 Starting Google account addition flow');
   
-  /**
-   * Prompt user for account name/type
-   * NEW: Helper for account addition
-   */
-  async promptForAccountName() {
-    const accountName = prompt(
-      'Enter a name for this account:\n\n' +
-      'Examples: "Personal", "Work", "Family", "School"\n\n' +
-      'This helps you identify which calendars belong to which account.'
-    );
-    
-    if (!accountName || accountName.trim() === '') {
-      return null;
+  try {
+    // Check if account manager is available
+    if (!window.accountManager || !window.accountManager.isServiceReady()) {
+      console.error('📅 Account manager not available');
+      alert('Account manager not ready. Please try again in a moment.');
+      return;
     }
     
-    // Sanitize account name
-    const sanitized = accountName.trim().toLowerCase().replace(/[^a-z0-9]/g, '_');
+    // Auto-generate account name
+    const accountName = await this.generateAccountName();
     
-    // Check if account already exists
-    const existingAccounts = await window.accountManager.listAccounts();
-    const exists = existingAccounts.some(acc => 
-      acc.provider === 'google' && acc.account_type === sanitized
-    );
-    
-    if (exists) {
-      alert(`An account with the name "${accountName}" already exists. Please choose a different name.`);
-      return this.promptForAccountName(); // Recursively ask again
+    if (!accountName) {
+      console.log('📅 Account addition cancelled - could not generate name');
+      return;
     }
     
-    return sanitized;
-  }
-  
-  /**
-   * Show progress message during account addition
-   * NEW: Helper for account addition UI feedback
-   */
-  showAddAccountProgress(message) {
-    // Remove existing progress if any
+    console.log(`📅 Generated account name: ${accountName}`);
+    this.showAddAccountProgress('Connecting to Google...');
+    
+    // Trigger OAuth flow via account manager
+    const result = await window.accountManager.addAccount('google', accountName);
+    
     this.hideAddAccountProgress();
     
-    const progressDiv = document.createElement('div');
-    progressDiv.id = 'add-account-progress';
-    progressDiv.style.cssText = `
-      position: fixed;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0, 0, 0, 0.9);
-      color: white;
-      padding: 24px 32px;
-      border-radius: 8px;
-      z-index: 10000;
-      text-align: center;
-      font-size: 16px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-    `;
-    progressDiv.textContent = message;
+    if (result.success) {
+      console.log('📅 ✅ Account added successfully', result);
+      alert(`✅ Account added successfully!\n\nAccount: ${result.displayName || accountName}\nEmail: ${result.email || 'Unknown'}`);
+      
+      // Reload calendar data to include new account
+      await this.loadRealCalendarData();
+      this.updateCalendarList();
+      
+      // Navigate back to main calendar screen
+      if (this.parentNavigation && typeof this.parentNavigation.navigateBack === 'function') {
+        this.parentNavigation.navigateBack();
+      }
+    } else {
+      console.error('📅 ❌ Account addition failed', result);
+      alert(`Failed to add account: ${result.error || 'Unknown error'}`);
+    }
     
-    document.body.appendChild(progressDiv);
+  } catch (error) {
+    this.hideAddAccountProgress();
+    console.error('📅 ❌ Error during account addition', error);
+    alert(`Error adding account: ${error.message}`);
+  }
+}
+
+/**
+ * Generate a unique account name automatically
+ * Returns names like: personal, account2, account3, etc.
+ */
+async generateAccountName() {
+  const existingAccounts = await window.accountManager.listAccounts();
+  const googleAccounts = existingAccounts.filter(acc => acc.provider === 'google');
+  
+  // If no accounts, use 'personal'
+  if (googleAccounts.length === 0) {
+    return 'personal';
   }
   
-  /**
-   * Hide progress message
-   * NEW: Helper for account addition UI feedback
-   */
-  hideAddAccountProgress() {
-    const progressDiv = document.getElementById('add-account-progress');
-    if (progressDiv && progressDiv.parentNode) {
-      progressDiv.parentNode.removeChild(progressDiv);
+  // Find next available number
+  let counter = 2;
+  while (counter < 100) { // Safety limit
+    const candidateName = `account${counter}`;
+    const exists = googleAccounts.some(acc => acc.account_type === candidateName);
+    
+    if (!exists) {
+      return candidateName;
     }
+    
+    counter++;
   }
-
+  
+  // Fallback to timestamp-based name
+  return `account_${Date.now()}`;
+}
+  
 /**
  * Update the remove accounts list
  * Creates a simple list of accounts with click handlers
@@ -806,37 +756,58 @@ updateRemoveAccountsList() {
 
 /**
  * Create a clickable account item for removal
+ * Primary account (first account) is disabled and grayed out
  */
 createRemovableAccountItem(accountType, account) {
   const item = document.createElement('div');
-  item.className = 'settings-cell selectable';
-  item.setAttribute('tabindex', '0');
+  
+  // Check if this is the primary account (first one added)
+  const accountNames = Object.keys(this.calendarSettings.accounts);
+  const isPrimary = accountNames.length > 0 && accountNames[0] === accountType;
+  
+  if (isPrimary) {
+    // Primary account - disabled
+    item.className = 'settings-cell';
+    item.style.opacity = '0.4';
+    item.style.cursor = 'not-allowed';
+  } else {
+    // Secondary account - selectable
+    item.className = 'settings-cell selectable';
+    item.setAttribute('tabindex', '0');
+  }
   
   const label = document.createElement('span');
   label.className = 'cell-label';
   label.textContent = `${account.displayName} (${account.email})`;
   
+  if (isPrimary) {
+    label.textContent += ' — Primary Account';
+  }
+  
   const chevron = document.createElement('span');
   chevron.className = 'cell-chevron';
-  chevron.textContent = '›';
+  chevron.textContent = isPrimary ? '' : '›';
   
   item.appendChild(label);
   item.appendChild(chevron);
   
-  // Click handler to show modal
-  item.addEventListener('click', () => {
-    this.showRemoveAccountModal(accountType, account);
-  });
-  
-  item.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
+  // Only add click handlers for non-primary accounts
+  if (!isPrimary) {
+    item.addEventListener('click', () => {
       this.showRemoveAccountModal(accountType, account);
-    }
-  });
+    });
+    
+    item.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        this.showRemoveAccountModal(accountType, account);
+      }
+    });
+  }
   
   return item;
 }
+
 
 /**
  * Show remove account confirmation modal
