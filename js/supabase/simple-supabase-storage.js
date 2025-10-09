@@ -1,7 +1,11 @@
 // js/supabase/simple-supabase-storage.js
+// v1.2 - 10/9/25 8:45pm - Converted all console.log/error/warn to logger methods for cleaner logging
 // CHANGE SUMMARY: Fixed localStorage key to always use 'dashie-settings' without userId suffix; ensures settings with tokens are saved after database load
 
 import { supabase } from './supabase-config.js';
+import { createLogger } from '../utils/logger.js';
+
+const logger = createLogger('SimpleSupabaseStorage');
 
 export class SimpleSupabaseStorage {
   constructor(userId, userEmail = null) {
@@ -14,8 +18,7 @@ export class SimpleSupabaseStorage {
     this.jwtMode = null; // null = not determined yet, true = JWT mode, false = direct mode
     this.jwtService = null;
     
-    console.log('📦 SimpleSupabaseStorage initialized for user:', userId);
-    console.log('📦 Using localStorage key:', this.localStorageKey);
+    logger.debug('Storage initialized', { userId, localStorageKey: this.localStorageKey });
     
     // Listen for online/offline status
     window.addEventListener('online', () => {
@@ -38,7 +41,7 @@ export class SimpleSupabaseStorage {
       return this.jwtMode; // Already determined
     }
 
-    console.log('🔍 Determining optimal storage mode...');
+    logger.debug('Determining optimal storage mode');
 
     try {
       // Check if JWT service is available
@@ -48,16 +51,16 @@ export class SimpleSupabaseStorage {
         // JWT is ready - use edge function mode
         this.jwtMode = true;
         this.jwtService = window.jwtAuth;
-        console.log('✅ JWT mode selected (JWT service ready)');
+        logger.info('JWT mode selected');
         
         return this.jwtMode;
       }
 
       // JWT not available - check if RLS is enabled
-      console.log('⚡ JWT service not available, checking RLS status...');
+      logger.debug('JWT service not available, checking RLS status');
       const rlsEnabled = await this.checkRLSStatus();
 
-      console.log('📊 Mode determination results:', {
+      logger.debug('Mode determination results', {
         rlsEnabled,
         jwtAvailable: false,
         userId: this.userId
@@ -66,17 +69,15 @@ export class SimpleSupabaseStorage {
       this.jwtMode = false;
 
       if (rlsEnabled) {
-        console.warn('⚠️ RLS is enabled but JWT service unavailable!');
-        console.warn('⚠️ This will likely cause database access errors.');
-        console.warn('💡 Consider disabling RLS or ensuring JWT service is properly configured.');
+        logger.warn('RLS enabled but JWT service unavailable - database access may fail');
       } else {
-        console.log('⚡ Direct database mode selected (RLS disabled)');
+        logger.debug('Direct database mode selected (RLS disabled)');
       }
 
       return this.jwtMode;
 
     } catch (error) {
-      console.error('❌ Mode determination failed:', error);
+      logger.error('Mode determination failed', error);
       this.jwtMode = false;
       return false;
     }
@@ -87,17 +88,17 @@ export class SimpleSupabaseStorage {
    */
   checkJWTAvailabilitySync() {
     if (!window.jwtAuth) {
-      console.log('❌ window.jwtAuth not found');
+      logger.debug('window.jwtAuth not found');
       return false;
     }
 
     if (typeof window.jwtAuth.isServiceReady !== 'function') {
-      console.log('❌ window.jwtAuth.isServiceReady is not a function');
+      logger.debug('window.jwtAuth.isServiceReady is not a function');
       return false;
     }
 
     const isReady = window.jwtAuth.isServiceReady();
-    console.log('✅ JWT service is available and ready');
+    logger.debug('JWT service availability checked', { isReady });
     return isReady;
   }
 
@@ -119,10 +120,10 @@ export class SimpleSupabaseStorage {
 
       if (error) {
         if (error.code === '42501' || error.message?.includes('row-level security')) {
-          console.log('🔒 RLS is ENABLED (INSERT blocked by RLS)');
+          logger.debug('RLS is enabled (INSERT blocked by RLS)');
           return true;
         } else {
-          console.log('❌ INSERT failed for other reason:', error.message);
+          logger.debug('INSERT failed for other reason', { message: error.message });
           return false;
         }
       } else {
@@ -133,12 +134,12 @@ export class SimpleSupabaseStorage {
             .delete()
             .eq('auth_user_id', testUserId);
         }
-        console.log('🔓 RLS is DISABLED (INSERT succeeded)');
+        logger.debug('RLS is disabled (INSERT succeeded)');
         return false;
       }
 
     } catch (error) {
-      console.warn('⚠️ RLS check failed:', error.message);
+      logger.warn('RLS check failed, defaulting to enabled for safety', { message: error.message });
       // Default to enabled for safety
       return true;
     }
@@ -150,10 +151,10 @@ export class SimpleSupabaseStorage {
    * Save settings with automatic mode selection
    */
   async saveSettings(settings) {
-    console.log('💾 Saving settings for user:', this.userId);
+    logger.debug('Saving settings', { userId: this.userId });
     
     if (!this.isOnline) {
-      console.log('📱 Offline - saving to local storage only');
+      logger.debug('Offline - saving to local storage only');
       return this.saveToLocalStorage(settings);
     }
 
@@ -161,15 +162,15 @@ export class SimpleSupabaseStorage {
       await this.determineAuthMode();
 
       if (this.jwtMode) {
-        console.log('🔐 Using JWT mode for save');
+        logger.debug('Using JWT mode for save');
         return await this.saveViaJWT(settings);
       } else {
-        console.log('⚡ Using direct mode for save');
+        logger.debug('Using direct mode for save');
         return await this.saveDirect(settings);
       }
 
     } catch (error) {
-      console.error('❌ Cloud save failed, falling back to localStorage:', error);
+      logger.error('Cloud save failed, falling back to localStorage', error);
       return this.saveToLocalStorage(settings);
     }
   }
@@ -178,21 +179,21 @@ export class SimpleSupabaseStorage {
    * Load settings with automatic mode selection
    */
   async loadSettings() {
-    console.log('📖 Loading settings for user:', this.userId);
+    logger.debug('Loading settings', { userId: this.userId });
     
     try {
       await this.determineAuthMode();
 
       if (this.jwtMode) {
-        console.log('🔐 Using JWT mode for load');
+        logger.debug('Using JWT mode for load');
         return await this.loadViaJWT();
       } else {
-        console.log('⚡ Using direct mode for load');
+        logger.debug('Using direct mode for load');
         return await this.loadDirect();
       }
 
     } catch (error) {
-      console.error('❌ Cloud load failed, falling back to localStorage:', error);
+      logger.error('Cloud load failed, falling back to localStorage', error);
       return this.loadFromLocalStorage();
     }
   }
@@ -200,13 +201,13 @@ export class SimpleSupabaseStorage {
   // ====== JWT MODE METHODS (using edge functions) ======
 
   async saveViaJWT(settings) {
-    console.log('🔐 Saving settings via JWT-verified edge function');
+    logger.debug('Saving settings via JWT-verified edge function');
     
     try {
       const result = await this.jwtService.saveSettings(settings);
       
       if (result.success) {
-        console.log('✅ JWT save successful');
+        logger.info('JWT save successful');
         // Also save to localStorage as backup
         this.saveToLocalStorage(settings);
         await this.broadcastChange();
@@ -216,29 +217,29 @@ export class SimpleSupabaseStorage {
       }
 
     } catch (error) {
-      console.error('❌ JWT save failed:', error);
+      logger.error('JWT save failed', error);
       throw error;
     }
   }
 
   async loadViaJWT() {
-    console.log('🔐 Loading settings via JWT-verified edge function');
+    logger.debug('Loading settings via JWT-verified edge function');
     
     try {
       const result = await this.jwtService.loadSettings(this.userEmail);
       
       if (result.success && result.settings) {
-        console.log('✅ JWT load successful');
+        logger.info('JWT load successful');
         // CRITICAL: Save to localStorage immediately with correct key
         this.saveToLocalStorage(result.settings);
         return result.settings;
       } else {
-        console.log('📝 No settings found in JWT mode, checking localStorage');
+        logger.debug('No settings found in JWT mode, checking localStorage');
         return this.loadFromLocalStorage();
       }
 
     } catch (error) {
-      console.error('❌ JWT load failed:', error);
+      logger.error('JWT load failed', error);
       throw error;
     }
   }
@@ -246,7 +247,7 @@ export class SimpleSupabaseStorage {
   // ====== DIRECT MODE METHODS (direct database access) ======
 
   async saveDirect(settings) {
-    console.log('⚡ Saving settings via direct database access');
+    logger.debug('Saving settings via direct database access');
     
     const settingsData = {
       auth_user_id: this.userId,
@@ -262,11 +263,11 @@ export class SimpleSupabaseStorage {
       });
 
     if (error) {
-      console.error('❌ Direct save failed:', error);
+      logger.error('Direct save failed', error);
       throw error;
     }
 
-    console.log('✅ Direct save successful');
+    logger.info('Direct save successful');
     // Also save to localStorage as backup
     this.saveToLocalStorage(settings);
     await this.broadcastChange();
@@ -274,7 +275,7 @@ export class SimpleSupabaseStorage {
   }
 
   async loadDirect() {
-    console.log('⚡ Loading settings via direct database access');
+    logger.debug('Loading settings via direct database access');
     
     const { data, error } = await supabase
       .from('user_settings')
@@ -284,21 +285,21 @@ export class SimpleSupabaseStorage {
 
     if (error) {
       if (error.code === 'PGRST116') {
-        console.log('📝 No settings found in database, checking localStorage');
+        logger.debug('No settings found in database, checking localStorage');
         return this.loadFromLocalStorage();
       }
-      console.error('❌ Direct load failed:', error);
+      logger.error('Direct load failed', error);
       throw error;
     }
 
     if (data && data.settings) {
-      console.log('✅ Direct load successful');
+      logger.info('Direct load successful');
       // Save to localStorage for offline access
       this.saveToLocalStorage(data.settings);
       return data.settings;
     }
 
-    console.log('📝 No settings in database, checking localStorage');
+    logger.debug('No settings in database, checking localStorage');
     return this.loadFromLocalStorage();
   }
 
@@ -309,28 +310,25 @@ export class SimpleSupabaseStorage {
       // FIXED: Save directly to the settings object without wrapper
       // This matches what SettingsController expects
       
-      // DEBUG: Log what we're about to save
-      console.log('💾 [DEBUG] Saving to localStorage:', {
+      logger.debug('Saving to localStorage', {
         key: this.localStorageKey,
         hasTokenAccounts: !!settings?.tokenAccounts,
-        tokenAccountKeys: settings?.tokenAccounts ? Object.keys(settings.tokenAccounts) : [],
-        googlePersonalToken: settings?.tokenAccounts?.google?.personal?.access_token?.slice(-10) || 'none'
+        tokenAccountKeys: settings?.tokenAccounts ? Object.keys(settings.tokenAccounts) : []
       });
       
       localStorage.setItem(this.localStorageKey, JSON.stringify(settings));
       
-      // DEBUG: Verify what was actually saved
+      // Verify what was actually saved
       const verification = localStorage.getItem(this.localStorageKey);
       const parsed = JSON.parse(verification);
-      console.log('💾 [DEBUG] Verified saved data:', {
-        hasTokenAccounts: !!parsed?.tokenAccounts,
-        googlePersonalToken: parsed?.tokenAccounts?.google?.personal?.access_token?.slice(-10) || 'none'
+      logger.debug('Verified saved data', {
+        hasTokenAccounts: !!parsed?.tokenAccounts
       });
       
-      console.log('💾 Settings saved to localStorage key:', this.localStorageKey);
+      logger.debug('Settings saved to localStorage', { key: this.localStorageKey });
       return true;
     } catch (error) {
-      console.error('❌ localStorage save failed:', error);
+      logger.error('localStorage save failed', error);
       return false;
     }
   }
@@ -339,16 +337,16 @@ export class SimpleSupabaseStorage {
     try {
       const stored = localStorage.getItem(this.localStorageKey);
       if (!stored) {
-        console.log('📝 No settings in localStorage');
+        logger.debug('No settings in localStorage');
         return null;
       }
 
       const settings = JSON.parse(stored);
-      console.log('💾 Settings loaded from localStorage');
+      logger.debug('Settings loaded from localStorage');
       return settings;
       
     } catch (error) {
-      console.error('❌ localStorage load failed:', error);
+      logger.error('localStorage load failed', error);
       return null;
     }
   }
@@ -368,14 +366,14 @@ export class SimpleSupabaseStorage {
   }
 
   async testConfiguration() {
-    console.log('🧪 Testing current storage configuration...');
+    logger.debug('Testing current storage configuration');
     
     const status = this.getStatus();
     console.table(status);
     
     try {
       const mode = await this.determineAuthMode();
-      console.log('✅ Mode determination successful:', mode ? 'JWT' : 'Direct');
+      logger.info('Mode determination successful', { mode: mode ? 'JWT' : 'Direct' });
       
       return {
         success: true,
@@ -383,7 +381,7 @@ export class SimpleSupabaseStorage {
         status
       };
     } catch (error) {
-      console.error('❌ Configuration test failed:', error);
+      logger.error('Configuration test failed', error);
       return {
         success: false,
         error: error.message,
@@ -395,52 +393,50 @@ export class SimpleSupabaseStorage {
   // ====== REAL-TIME SYNC METHODS ======
 
   subscribeToChanges(callback) {
-  if (!this.userId) return null;
+    if (!this.userId) return null;
 
-  console.log('🔄 Setting up broadcast subscription for user:', this.userId);
+    logger.debug('Setting up broadcast subscription', { userId: this.userId });
 
-  const channelName = `user_settings_${this.userId}`;
-  
-  const subscription = window.supabase
-    .channel(channelName)
-    .on('broadcast', { event: 'settings-changed' }, (payload) => {
-      console.log('🔄 Broadcast received:', payload);
-      
-      // Reload settings from database when broadcast received
-      this.loadSettings().then(settings => {
-        if (settings) {
-          this.saveToLocalStorage(settings);
-          callback(settings);
-        }
-      });
-    })
-    .subscribe();
+    const channelName = `user_settings_${this.userId}`;
+    
+    const subscription = window.supabase
+      .channel(channelName)
+      .on('broadcast', { event: 'settings-changed' }, (payload) => {
+        logger.debug('Broadcast received', payload);
+        
+        // Reload settings from database when broadcast received
+        this.loadSettings().then(settings => {
+          if (settings) {
+            this.saveToLocalStorage(settings);
+            callback(settings);
+          }
+        });
+      })
+      .subscribe();
 
-  return () => {
-    subscription.unsubscribe();
-    console.log('🔄 Broadcast subscription cleaned up');
-  };
-}
+    return () => {
+      subscription.unsubscribe();
+      logger.debug('Broadcast subscription cleaned up');
+    };
+  }
 
+  async broadcastChange() {
+    if (!this.userId) return;
 
-async broadcastChange() {
-  if (!this.userId) return;
-
-  const channelName = `user_settings_${this.userId}`;
-  const channel = window.supabase.channel(channelName);
-  
-  await channel.send({
-    type: 'broadcast',
-    event: 'settings-changed',
-    payload: { 
-      userId: this.userId,
-      timestamp: Date.now()
-    }
-  });
-  
-  console.log('📡 Broadcast sent: settings-changed');
-}
-
+    const channelName = `user_settings_${this.userId}`;
+    const channel = window.supabase.channel(channelName);
+    
+    await channel.send({
+      type: 'broadcast',
+      event: 'settings-changed',
+      payload: { 
+        userId: this.userId,
+        timestamp: Date.now()
+      }
+    });
+    
+    logger.debug('Broadcast sent: settings-changed');
+  }
 
   markForRetry(settings) {
     try {
@@ -451,7 +447,7 @@ async broadcastChange() {
       };
       localStorage.setItem(this.localStorageKey + '-pending', JSON.stringify(pending));
     } catch (error) {
-      console.warn('Failed to mark settings for retry:', error);
+      logger.warn('Failed to mark settings for retry', error);
     }
   }
 
@@ -463,12 +459,12 @@ async broadcastChange() {
       const pending = JSON.parse(pendingData);
       
       if (pending.auth_user_id === this.userId) {
-        console.log('🔄 Syncing pending changes from localStorage');
+        logger.debug('Syncing pending changes from localStorage');
         await this.saveSettings(pending.settings);
         localStorage.removeItem(this.localStorageKey + '-pending');
       }
     } catch (error) {
-      console.warn('Failed to sync pending changes:', error);
+      logger.warn('Failed to sync pending changes', error);
     }
   }
 }

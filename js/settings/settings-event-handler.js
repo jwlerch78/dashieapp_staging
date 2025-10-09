@@ -1,9 +1,13 @@
 // js/settings/settings-event-handler.js
+// v1.1 - 1/9/25 8:20pm - Converted console.log to logger.debug
 // CHANGE SUMMARY: Added sleep timer toggle handler to update UI states and save setting
 
+import { createLogger } from '../utils/logger.js';
+
+const logger = createLogger('SettingsEventHandler');
 
 export function setupEventHandlers(overlay, settingsManager) {
-  console.log('⚙️ Setting up event handlers');
+  logger.debug('Setting up event handlers');
   
   // CRITICAL: Add global keyboard event capture with high priority
   settingsManager.keydownHandler = (event) => {
@@ -14,12 +18,12 @@ export function setupEventHandlers(overlay, settingsManager) {
 
     // CRITICAL: Check if a confirmation modal is on top of settings
     if (window.dashieModalManager && window.dashieModalManager.modalStack.length > 1) {
-      console.log('⚙️ ⚠️ Settings event handler: Modal is active (stack:', window.dashieModalManager.modalStack.length, '), not capturing key');
+      logger.debug('Modal is active, not capturing key', { stackLength: window.dashieModalManager.modalStack.length });
       // Don't capture - let the modal handle it
       return;
     }
 
-    console.log('⚙️ Settings captured key:', event.key);
+    logger.debug('Settings captured key', { key: event.key });
     
     // Let the navigation handle it
     // IMPORTANT: Only preventDefault if the navigation HANDLED the key (returned true)

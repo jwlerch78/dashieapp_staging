@@ -1,5 +1,10 @@
 // js/settings/settings-controller-core.js
+// v1.1 - 1/9/25 8:20pm - Converted console.log to logger.debug
 // CHANGE SUMMARY: Added calendar settings sync to localStorage after loading from database to ensure CalendarService can access active calendar IDs immediately
+
+import { createLogger } from '../utils/logger.js';
+
+const logger = createLogger('SettingsController');
 
 export class SettingsControllerCore {
   constructor() {

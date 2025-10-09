@@ -1,10 +1,13 @@
 // js/utils/logger.js - Structured Logging System for Dashie
+// v1.1 - 1/9/25 8:10pm - Added debug mode toggle via logger-config
 // CHANGE SUMMARY: Added log buffer with localStorage persistence and file save capability
 
 /**
  * Centralized logging system for Dashie Dashboard
  * Replaces scattered console.log statements with structured, configurable logging
  */
+
+import { LoggerConfig } from './logger-config.js';
 
 // LocalStorage key for persisting log configuration
 const LOG_CONFIG_STORAGE_KEY = 'dashie-log-config';
@@ -360,10 +363,16 @@ export class Logger {
 
   /**
    * Debug level logging - for detailed development information
+   * Only shows if debug mode is enabled via dashieDebug.enable()
    * @param {string} message - Log message
    * @param {any} data - Optional additional data
    */
   debug(message, data = null) {
+    // Check if debug logs are enabled globally
+    if (!LoggerConfig.enableDebugLogs) {
+      return; // Silently skip debug logs in production mode
+    }
+    
     if (!this.shouldLog(LOG_LEVELS.DEBUG)) return;
     
     const args = this.formatMessage(LOG_LEVELS.DEBUG, `🔍 ${message}`, data);

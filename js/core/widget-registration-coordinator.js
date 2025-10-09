@@ -1,4 +1,5 @@
 // js/core/widget-registration-coordinator.js
+// v1.1 - 10/9/25 8:30pm - Converted INFO logs to DEBUG for cleaner console output
 // CHANGE SUMMARY: New file - Event-based widget registration system to replace fixed 2s timeout
 
 import { createLogger } from '../utils/logger.js';
@@ -21,7 +22,7 @@ export class WidgetRegistrationCoordinator {
     // WidgetMessenger is created later, so we must listen ourselves
     this.setupDirectMessageListener();
     
-    logger.info('Widget registration coordinator initialized', {
+    logger.debug('Widget registration coordinator initialized', {
       requiredWidgets: this.requiredWidgets
     });
   }
@@ -49,7 +50,7 @@ export class WidgetRegistrationCoordinator {
         return;
       }
       
-      logger.info('Widget ready message received', { widgetName });
+      logger.debug('Widget ready message received', { widgetName });
       
       // Handle the widget ready notification
       this.handleWidgetReady({
@@ -75,7 +76,7 @@ export class WidgetRegistrationCoordinator {
     }
     
     this.registeredWidgets.add(widgetName);
-    logger.info('Widget registered', {
+    logger.debug('Widget registered', {
       widgetName,
       totalRegistered: this.registeredWidgets.size,
       required: this.requiredWidgets.length
@@ -118,7 +119,7 @@ export class WidgetRegistrationCoordinator {
             
             if (widgetName && this.requiredWidgets.includes(widgetName)) {
               loadedWidgets.push(widgetName);
-              logger.info('Detected already-loaded widget', {
+              logger.debug('Detected already-loaded widget', {
                 widgetName,
                 hasContent,
                 src: src.substring(0, 50)
@@ -152,7 +153,7 @@ export class WidgetRegistrationCoordinator {
     const widgetsToWaitFor = widgetNames || this.requiredWidgets;
     const startTime = Date.now();
     
-    logger.info('Waiting for widgets to register', {
+    logger.debug('Waiting for widgets to register', {
       widgets: widgetsToWaitFor,
       timeout,
       minWaitTime
@@ -162,7 +163,7 @@ export class WidgetRegistrationCoordinator {
     const alreadyLoaded = this.checkForAlreadyLoadedWidgets();
     alreadyLoaded.forEach(widgetName => {
       if (!this.registeredWidgets.has(widgetName)) {
-        logger.info('Registering already-loaded widget', { widgetName });
+        logger.debug('Registering already-loaded widget', { widgetName });
         this.registeredWidgets.add(widgetName);
       }
     });
@@ -183,7 +184,7 @@ export class WidgetRegistrationCoordinator {
     }
     
     if (stillWaiting.length === 0) {
-      logger.info('All widgets already registered, applying minimum wait time');
+      logger.debug('All widgets already registered, applying minimum wait time');
       await new Promise(resolve => setTimeout(resolve, minWaitTime));
       
       return {
@@ -238,6 +239,7 @@ export class WidgetRegistrationCoordinator {
     
     const finalDuration = Date.now() - startTime;
     
+    // Keep this as INFO - it's the important milestone
     logger.info('Widget registration complete', {
       registered: finalRegistered,
       timedOut,

@@ -12,6 +12,9 @@ import { buildSettingsUI, populateFormFields, populateSystemStatus } from './set
 import { handleScreenEnter, handleScreenExit, handleSettingsCleanup } from './settings-screen-helpers.js';
 import { setupFeatureToggles } from './settings-features-controller.js';
 import { AccountDeletionService } from '../services/account-deletion-service.js';
+import { createLogger } from '../utils/logger.js';
+
+const logger = createLogger('SimplifiedSettings');
 
 
 export class SimplifiedSettings {
@@ -39,12 +42,12 @@ export class SimplifiedSettings {
 
     window.addEventListener('message', (event) => {
       if (event.data && event.data.type === 'request-family-name') {
-        console.log('👨‍👩‍👧‍👦 Widget requesting family name:', event.data.widget);
+        logger.debug('Widget requesting family name', { widget: event.data.widget });
         
         if (this.controllerReady && this.controller) {
           this.sendFamilyNameToWidget(event.source);
         } else {
-          console.log('👨‍👩‍👧‍👦 ⏳ Controller not ready, queuing family name request');
+          logger.debug('Controller not ready, queuing family name request');
           this.pendingWidgetRequests.push({
             type: 'family-name-request',
             source: event.source,
@@ -56,7 +59,7 @@ export class SimplifiedSettings {
       
       if (event.data?.type === 'update-setting') {
         const { setting, value } = event.data;
-        console.log('⚙️ Received setting update from photos modal', { setting, value });
+        logger.debug('Received setting update from photos modal', { setting, value });
         this.handleSettingChange(setting, value);
       }
     });
@@ -65,10 +68,10 @@ export class SimplifiedSettings {
   async initializeController() {
     try {
       this.initializationAttempts++;
-      console.log(`⚙️ Settings initialization attempt ${this.initializationAttempts}/${this.maxInitAttempts}`);
+      logger.debug('Settings initialization attempt', { attempt: this.initializationAttempts, max: this.maxInitAttempts });
       
       const authStatus = this.checkAuthStatus();
-      console.log('⚙️ Auth status check:', authStatus);
+      logger.debug('Auth status check', authStatus);
       
       const { SettingsController } = await import('./settings-controller.js');
       this.controller = new SettingsController();
@@ -76,22 +79,22 @@ export class SimplifiedSettings {
       const initSuccess = await this.controller.init();
       
       if (initSuccess) {
-        console.log('⚙️ ✅ Settings controller initialized successfully');
+        logger.info('Settings controller ready');
         this.controllerReady = true;
         this.processPendingWidgetRequests();
       } else {
-        console.warn('⚙️ ⚠️ Settings controller initialization returned false');
+        logger.warn('Settings controller initialization returned false');
         
         if (this.initializationAttempts < this.maxInitAttempts) {
           const delay = Math.min(1000 * this.initializationAttempts, 5000);
-          console.log(`⚙️ ⏳ Retrying in ${delay}ms...`);
+          logger.debug('Retrying settings initialization', { delayMs: delay });
           setTimeout(() => this.initializeController(), delay);
         } else {
-          console.error('⚙️ ❌ Max initialization attempts reached');
+          logger.error('Max initialization attempts reached');
         }
       }
     } catch (error) {
-      console.error('⚙️ ❌ Settings initialization error:', error);
+      logger.error('Settings initialization error', error);
       
       if (this.initializationAttempts < this.maxInitAttempts) {
         const delay = Math.min(1000 * this.initializationAttempts, 5000);
@@ -116,7 +119,7 @@ export class SimplifiedSettings {
   processPendingWidgetRequests() {
     if (this.pendingWidgetRequests.length === 0) return;
     
-    console.log(`👨‍👩‍👧‍👦 Processing ${this.pendingWidgetRequests.length} pending widget requests`);
+    logger.debug('Processing pending widget requests', { count: this.pendingWidgetRequests.length });
     
     this.pendingWidgetRequests.forEach(request => {
       if (request.type === 'family-name-request') {
@@ -129,12 +132,12 @@ export class SimplifiedSettings {
 
   sendFamilyNameToWidget(targetWindow) {
     if (!this.controller) {
-      console.warn('👨‍👩‍👧‍👦 Cannot send family name - controller not ready');
+      logger.warn('Cannot send family name - controller not ready');
       return;
     }
     
     const familyName = this.controller.getSetting('family.familyName') || 'Dashie';
-    console.log('👨‍👩‍👧‍👦 Sending family name to widget:', familyName);
+    logger.debug('Sending family name to widget', { familyName });
     
     try {
       targetWindow.postMessage({
@@ -142,7 +145,7 @@ export class SimplifiedSettings {
         familyName: familyName
       }, '*');
     } catch (error) {
-      console.error('👨‍👩‍👧‍👦 Failed to send family name to widget:', error);
+      logger.error('Failed to send family name to widget', error);
     }
   }
 
