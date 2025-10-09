@@ -24,14 +24,29 @@ export async function syncCalendarMetadata() {
 
     // Get list of token accounts
     const accountsResult = await jwtAuth.listTokenAccounts();
-    const accountNames = accountsResult?.accounts || accountsResult || [];
+    const accountObjects = accountsResult?.accounts || accountsResult || [];
     
-    if (accountNames.length === 0) {
+    if (accountObjects.length === 0) {
       logger.debug('No accounts found, skipping calendar sync');
       return false;
     }
 
-    logger.debug('Found accounts to sync', { count: accountNames.length });
+    // Extract account_type strings from account objects
+    const accountNames = accountObjects.map(acc => {
+      if (typeof acc === 'string') {
+        return acc;
+      } else if (acc && acc.account_type) {
+        return acc.account_type;
+      } else {
+        logger.warn('Unknown account format, skipping', acc);
+        return null;
+      }
+    }).filter(Boolean);
+
+    logger.debug('Found accounts to sync', { 
+      count: accountNames.length,
+      accounts: accountNames 
+    });
 
     // Load existing calendar settings
     const localStorage = window.parent?.localStorage || window.localStorage;
@@ -68,7 +83,10 @@ export async function syncCalendarMetadata() {
     // Process each account
     let newAccountsAdded = 0;
     
-    for (const accountName of accountNames) {
+    for (let i = 0; i < accountNames.length; i++) {
+      const accountName = accountNames[i];
+      const accountObj = accountObjects[i]; // Get corresponding account object
+      
       // Skip if account already has calendar data
       if (calendarSettings.accounts[accountName]?.calendars) {
         logger.debug(`Account ${accountName} already has calendar data, skipping`);
@@ -86,21 +104,36 @@ export async function syncCalendarMetadata() {
           continue;
         }
 
-        // Get account email (from first calendar or token info)
-        const accountEmail = calendars.find(cal => cal.primary)?.id || calendars[0]?.id;
+        // CRITICAL FIX: Get account email from the account object FIRST (most reliable)
+        // Fall back to primary calendar or first calendar if not available
+        const accountEmail = accountObj?.email || 
+                            calendars.find(cal => cal.primary)?.id || 
+                            calendars[0]?.id;
         
-        // Initialize account structure
+        // Get display name from account object
+        const displayName = accountObj?.display_name || `Account (${accountName})`;
+        
+        logger.debug('Account details', { 
+          accountName, 
+          email: accountEmail, 
+          displayName 
+        });
+        
+        // Initialize account structure with data from account object
         if (!calendarSettings.accounts[accountName]) {
           calendarSettings.accounts[accountName] = {
             email: accountEmail,
-            displayName: `Account (${accountName})`, // Will be updated with real name later
+            displayName: displayName,
             calendars: {},
             lastSync: new Date().toISOString()
           };
+        } else {
+          // Update email and displayName if account already exists
+          calendarSettings.accounts[accountName].email = accountEmail;
+          calendarSettings.accounts[accountName].displayName = displayName;
         }
 
         const account = calendarSettings.accounts[accountName];
-        account.email = accountEmail;
 
         // Add all calendars (disabled by default)
         for (const googleCal of calendars) {
@@ -150,6 +183,27 @@ export async function syncCalendarMetadata() {
 
     // Always save settings at the end (even if no new accounts were added)
     calendarSettings.lastSync = new Date().toISOString();
+    
+    // Ensure calendarAccountMap exists and is up to date
+    if (!calendarSettings.calendarAccountMap) {
+      calendarSettings.calendarAccountMap = {};
+    }
+    
+    // Rebuild activeCalendarIds to ensure consistency
+    calendarSettings.activeCalendarIds = [];
+    for (const [accountType, account] of Object.entries(calendarSettings.accounts)) {
+      for (const [calendarId, calendar] of Object.entries(account.calendars || {})) {
+        if (calendar.enabled) {
+          calendarSettings.activeCalendarIds.push(calendarId);
+          calendarSettings.calendarAccountMap[calendarId] = accountType;
+        }
+      }
+    }
+    
+    logger.debug('Updated calendar mappings', {
+      activeCalendars: calendarSettings.activeCalendarIds.length,
+      mappedCalendars: Object.keys(calendarSettings.calendarAccountMap).length
+    });
     
     // Save to localStorage
     localStorage.setItem('dashie_calendar_settings', JSON.stringify(calendarSettings));
