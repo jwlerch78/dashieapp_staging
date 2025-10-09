@@ -1,5 +1,6 @@
 // js/settings/settings-simple-manager.js - Auto-save implementation
-// CHANGE SUMMARY: FIXED - Added CalendarSettingsManager cleanup in hide() method and overlay reference update in navigateToScreen()
+// Version: 1.1 | Last Updated: 2025-01-09 20:45 EST
+// CHANGE SUMMARY: Added account deletion handlers and modal management
 
 import { SimplifiedNavigation } from './settings-d-pad-nav.js';
 import { setupEventHandlers } from './settings-event-handler.js';
@@ -10,6 +11,7 @@ import { SettingsSelectionHandler } from './settings-selection-handler.js';
 import { buildSettingsUI, populateFormFields, populateSystemStatus } from './settings-ui-builder.js';
 import { handleScreenEnter, handleScreenExit, handleSettingsCleanup } from './settings-screen-helpers.js';
 import { setupFeatureToggles } from './settings-features-controller.js';
+import { AccountDeletionService } from '../services/account-deletion-service.js';
 
 
 export class SimplifiedSettings {
@@ -28,8 +30,12 @@ export class SimplifiedSettings {
     
     this.pendingWidgetRequests = [];
     this.controllerReady = false;
+    this.accountDeletionService = new AccountDeletionService();
     
     setTimeout(() => this.initializeController(), 200);
+    
+    // Initialize account deletion handlers
+    this.initializeAccountDeletionHandlers();
 
     window.addEventListener('message', (event) => {
       if (event.data && event.data.type === 'request-family-name') {
@@ -282,6 +288,18 @@ export class SimplifiedSettings {
       const selectableCell = e.target.closest('.settings-cell.selectable');
       if (!selectableCell) return;
 
+      // Handle Delete Account screen actions
+      const action = selectableCell.dataset.action;
+      if (action === 'cancel') {
+        console.log('🗑️ Cancel delete account - navigating back');
+        this.navigateBack();
+        return;
+      } else if (action === 'confirm') {
+        console.log('🗑️ Confirm delete account - showing modal');
+        this.showDeleteAccountModal();
+        return;
+      }
+
       if (this.timeHandler.isTimeSelectionCell(selectableCell)) {
         const action = this.timeHandler.handleSelection(selectableCell);
         
@@ -356,6 +374,115 @@ export class SimplifiedSettings {
 
     this.navigationStack = ['root'];
     this.selectionHandler.updateNavBar(this.overlay, this.getCurrentScreenId(), this.navigationStack);
+  }
+
+  /**
+   * Initialize account deletion handlers
+   * Note: Selectable cells are handled by setupTouchHandlers()
+   * This only handles modal button clicks
+   */
+  initializeAccountDeletionHandlers() {
+    // Use event delegation on document for modal buttons
+    document.addEventListener('click', (e) => {
+      // Cancel deletion in modal
+      if (e.target.closest('#cancel-delete-account')) {
+        console.log('🗑️ Delete account cancelled in modal');
+        this.hideDeleteAccountModal();
+        return;
+      }
+      
+      // Confirm deletion in modal
+      if (e.target.closest('#confirm-delete-account')) {
+        console.log('🗑️ Delete account confirmed in modal');
+        this.handleDeleteAccountConfirm();
+        return;
+      }
+    });
+  }
+
+  /**
+   * Show delete account confirmation modal
+   */
+  showDeleteAccountModal() {
+    const modal = document.getElementById('delete-account-modal');
+    if (modal) {
+      modal.style.display = 'flex';
+      console.log('🗑️ Delete account modal displayed');
+      
+      // Add escape key handler
+      this._modalEscapeHandler = (e) => {
+        if (e.key === 'Escape') {
+          this.hideDeleteAccountModal();
+        }
+      };
+      document.addEventListener('keydown', this._modalEscapeHandler);
+    }
+  }
+
+  /**
+   * Hide delete account confirmation modal
+   */
+  hideDeleteAccountModal() {
+    const modal = document.getElementById('delete-account-modal');
+    if (modal) {
+      modal.style.display = 'none';
+      console.log('🗑️ Delete account modal hidden');
+      
+      // Remove escape key handler
+      if (this._modalEscapeHandler) {
+        document.removeEventListener('keydown', this._modalEscapeHandler);
+        this._modalEscapeHandler = null;
+      }
+    }
+  }
+
+  /**
+   * Handle account deletion confirmation
+   */
+  async handleDeleteAccountConfirm() {
+    console.log('🗑️ Starting account deletion process...');
+    
+    const confirmBtn = document.getElementById('confirm-delete-account');
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = 'Deleting...';
+    }
+    
+    try {
+      // Delete account via service
+      const result = await this.accountDeletionService.deleteAccount();
+      
+      console.log('🗑️ Account deletion completed:', result);
+      
+      // Hide modal
+      this.hideDeleteAccountModal();
+      
+      // Close settings
+      this.hide();
+      
+      // Sign out user
+      console.log('🗑️ Signing out user...');
+      if (window.dashieAuth) {
+        await window.dashieAuth.signOut();
+      } else {
+        // Fallback: reload page to clear session
+        window.location.reload();
+      }
+      
+      console.log('🗑️ ✅ Account deletion process complete');
+      
+    } catch (error) {
+      console.error('🗑️ ❌ Account deletion failed:', error);
+      
+      // Re-enable button
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.textContent = 'Delete Account';
+      }
+      
+      // Show error to user
+      alert(`Failed to delete account: ${error.message}\n\nPlease try again or contact support if the problem persists.`);
+    }
   }
 
   navigateToScreen(screenId) {

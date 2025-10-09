@@ -1,9 +1,11 @@
 // js/settings/settings-d-pad-nav.js - Screen-based navigation
-// CHANGE SUMMARY: Updated to use shared screen helpers (handleScreenEnter/handleScreenExit) - removed inline screen-specific logic
+// Version: 1.1 | Last Updated: 2025-01-09 20:50 EST
+// CHANGE SUMMARY: Added account deletion service import for consistency with settings-simple-manager
 
 import { TimeSelectionHandler } from './time-selection-handler.js';
 import { SettingsSelectionHandler } from './settings-selection-handler.js';
 import { handleScreenEnter, handleScreenExit } from './settings-screen-helpers.js';
+import { AccountDeletionService } from '../services/account-deletion-service.js';
 
 
 export class SimplifiedNavigation {
@@ -17,6 +19,8 @@ export class SimplifiedNavigation {
     // Use shared handlers if provided, otherwise create new ones
     this.timeHandler = timeHandler || new TimeSelectionHandler();
     this.selectionHandler = selectionHandler || new SettingsSelectionHandler(this.timeHandler);
+    // Account deletion service (handlers managed by settings-simple-manager.js)
+    this.accountDeletionService = new AccountDeletionService();
     
     this.init();
   }
@@ -240,6 +244,14 @@ export class SimplifiedNavigation {
     console.log(`⚙️ Activating: ${this.getElementDescription(current)}`);
 
     if (current.classList.contains('settings-cell')) {
+      
+      // Check if this has a data-action attribute (like Cancel or Delete Account)
+      const action = current.dataset.action;
+      if (action) {
+        console.log(`⚙️ Triggering action: ${action}`);
+        current.click();
+        return;
+      }
       
       // NEW: Check if this is a calendar item - trigger click directly
       if (current.classList.contains('calendar-item')) {

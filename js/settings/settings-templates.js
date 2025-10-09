@@ -1,5 +1,6 @@
 // js/settings/settings-templates.js
-// CHANGE SUMMARY: Created - All HTML templates extracted from settings-ui-builder.js for better organization
+// Version: 1.1 | Last Updated: 2025-01-09 20:40 EST
+// CHANGE SUMMARY: Added Delete Account screen and confirmation modal
 
 import { getFeaturesMenuItem, getFeaturesScreen } from './settings-templates-features.js';
 
@@ -42,6 +43,32 @@ export const rootScreen = `
           <span class="cell-label">System</span>
           <span class="cell-chevron">›</span>
         </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Delete Account Confirmation Modal -->
+  <div id="delete-account-modal" class="modal-overlay" style="display: none;">
+    <div class="modal-content">
+      <h3 style="color: var(--danger-color, #ff4444);">⚠️ Confirm Account Deletion</h3>
+      <p style="margin-top: 16px;">
+        Are you absolutely sure you want to delete your account?
+      </p>
+      <p style="margin-top: 12px; font-weight: 600;">
+        This will permanently delete:
+      </p>
+      <ul style="margin: 8px 0 12px 20px; text-align: left;">
+        <li>All your photos and files</li>
+        <li>Calendar connections</li>
+        <li>All settings and preferences</li>
+        <li>Your user profile</li>
+      </ul>
+      <p style="margin-top: 12px; font-size: 14px; color: var(--text-secondary);">
+        <strong>This action cannot be undone.</strong> You will be signed out immediately.
+      </p>
+      <div class="modal-actions">
+        <button id="cancel-delete-account" class="modal-btn modal-btn-secondary">Cancel</button>
+        <button id="confirm-delete-account" class="modal-btn modal-btn-danger">Delete Account</button>
       </div>
     </div>
   </div>
@@ -597,6 +624,13 @@ export const systemScreens = `
         </div>
         <span class="cell-chevron">›</span>
       </div>
+      
+      <div class="settings-cell" data-navigate="delete-account">
+        <div class="cell-content">
+          <span class="cell-label" style="color: var(--danger-color, #ff4444);">Delete Account</span>
+        </div>
+        <span class="cell-chevron">›</span>
+      </div>
     </div>
   </div>
 
@@ -639,6 +673,41 @@ export const systemScreens = `
       <div class="coming-soon">
         <h3>About Dashie</h3>
         <p>Version information and credits coming soon.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Account Screen (Level 2) -->
+  <div class="settings-screen" data-level="2" data-screen="delete-account" data-title="Delete Account">
+    <div class="settings-list">
+      <div class="settings-section">
+        <div class="settings-info-text">
+          <h3 style="margin-bottom: 16px; color: var(--danger-color, #ff4444);">⚠️ Delete Your Account</h3>
+          <p style="margin-bottom: 12px;">
+            This will <strong>permanently delete</strong> your Dashie account and all associated data:
+          </p>
+          <ul style="margin: 12px 0; padding-left: 20px;">
+            <li>All photos and uploaded files</li>
+            <li>Calendar connections and settings</li>
+            <li>All preferences and configurations</li>
+            <li>User profile and authentication data</li>
+          </ul>
+          <p style="margin-top: 12px;">
+            <strong>This action cannot be undone.</strong>
+          </p>
+        </div>
+      </div>
+      
+      <div class="settings-section">
+        <div class="settings-cell selectable" data-action="cancel">
+          <span class="cell-label">Cancel</span>
+          <span class="cell-checkmark"></span>
+        </div>
+        
+        <div class="settings-cell selectable danger-cell" id="delete-account-btn" data-action="confirm">
+          <span class="cell-label">Delete My Account</span>
+          <span class="cell-checkmark"></span>
+        </div>
       </div>
     </div>
   </div>

@@ -274,6 +274,27 @@ body.theme-light {
   width: 100%;
 }
 
+/* Danger cells (like Delete Account) */
+.settings-cell.danger-cell {
+  background: #FCFCFF;
+  border-bottom: 1px solid rgba(60, 60, 67, 0.29);
+}
+
+.settings-cell.danger-cell .cell-label {
+  color: #FF3B30;
+  font-weight: 500;
+}
+
+.settings-cell.danger-cell:active {
+  background: rgba(255, 59, 48, 0.1);
+}
+
+.settings-cell.danger-cell.focused {
+  background: rgba(255, 59, 48, 0.15);
+  outline: 2px solid #FF3B30;
+  outline-offset: -2px;
+}
+
 /* Setting Rows (for inline controls) */
 .setting-row {
   background: #FCFCFF;
