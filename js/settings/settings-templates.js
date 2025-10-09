@@ -1,4 +1,6 @@
 // js/settings/settings-templates.js
+// v1.3 - 10/9/25 - Added location display element below zip code input
+// v1.2 - 10/9/25 - Added zip code input to Family settings & moved Family to top of menu
 // Version: 1.1 | Last Updated: 2025-01-09 20:40 EST
 // CHANGE SUMMARY: Added Delete Account screen and confirmation modal
 
@@ -23,6 +25,10 @@ export const rootScreen = `
   <div class="settings-screen active" data-level="0" data-screen="root" data-title="Settings">
     <div class="settings-list">
       <div class="settings-section">
+        <div class="settings-cell" data-navigate="family">
+          <span class="cell-label">Family</span>
+          <span class="cell-chevron">›</span>
+        </div>
         <div class="settings-cell" data-navigate="display">
           <span class="cell-label">Display</span>
           <span class="cell-chevron">›</span>
@@ -33,10 +39,6 @@ export const rootScreen = `
         </div>
         <div class="settings-cell" data-navigate="calendar">
           <span class="cell-label">Calendar</span>
-          <span class="cell-chevron">›</span>
-        </div>
-        <div class="settings-cell" data-navigate="family">
-          <span class="cell-label">Family</span>
           <span class="cell-chevron">›</span>
         </div>
         <div class="settings-cell" data-navigate="system">
@@ -575,6 +577,16 @@ export const familyScreen = `
           <input type="text" class="form-control mobile-text-input" 
                  id="mobile-family-name" data-setting="family.familyName" 
                  placeholder="Enter family name">
+        </div>
+        <div class="setting-row">
+          <label class="setting-label">Zip Code</label>
+          <input type="text" class="form-control mobile-text-input" 
+                 id="mobile-family-zipcode" data-setting="family.zipCode" 
+                 placeholder="Enter zip code" maxlength="10" 
+                 pattern="[0-9]{5}(-[0-9]{4})?">
+          <div class="setting-helper-text" id="zipcode-location-display" style="margin-top: 6px; font-size: 12px; color: var(--text-secondary, #999);">
+            <!-- Location will be displayed here -->
+          </div>
         </div>
       </div>
     </div>

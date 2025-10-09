@@ -1,4 +1,5 @@
 // js/settings/settings-event-handler.js
+// v1.2 - 10/9/25 - Added zip code input handler with debounced location display
 // v1.1 - 1/9/25 8:20pm - Converted console.log to logger.debug
 // CHANGE SUMMARY: Added sleep timer toggle handler to update UI states and save setting
 
@@ -79,6 +80,43 @@ export function setupEventHandlers(overlay, settingsManager) {
     });
     
     console.log('⚙️ Sleep timer toggle handler attached');
+  }
+  
+  // NEW: Zip code input handler for location display
+  const zipCodeInput = overlay.querySelector('#mobile-family-zipcode');
+  if (zipCodeInput) {
+    // Debounce timer for location lookup
+    let zipCodeDebounceTimer = null;
+    
+    zipCodeInput.addEventListener('input', async (e) => {
+      const zipCode = e.target.value;
+      
+      // Clear previous debounce timer
+      if (zipCodeDebounceTimer) {
+        clearTimeout(zipCodeDebounceTimer);
+      }
+      
+      // Debounce location lookup (wait 500ms after user stops typing)
+      zipCodeDebounceTimer = setTimeout(async () => {
+        const { updateZipCodeLocationDisplay } = await import('./settings-ui-builder.js');
+        await updateZipCodeLocationDisplay(overlay, zipCode);
+      }, 500);
+    });
+    
+    // Listen for auto-detected zip code from geolocation
+    window.addEventListener('family-zipcode-updated', async (e) => {
+      const detectedZip = e.detail?.zipCode;
+      if (detectedZip && zipCodeInput) {
+        console.log('⚙️ 🔄 Updating zip code UI with auto-detected value:', detectedZip);
+        zipCodeInput.value = detectedZip;
+        
+        // Update location display
+        const { updateZipCodeLocationDisplay } = await import('./settings-ui-builder.js');
+        await updateZipCodeLocationDisplay(overlay, detectedZip);
+      }
+    });
+    
+    console.log('⚙️ Zip code input handler attached');
   }
 
   // Prevent clicks from bubbling to main dashboard - but allow interaction within modal

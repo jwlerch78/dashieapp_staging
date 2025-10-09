@@ -674,6 +674,7 @@ export class SimplifiedSettings {
     try {
       const settings = this.controller.getSettings();
       console.log('⚙️ Loading current settings into UI:', settings);
+      console.log('⚙️ Family settings:', settings.family); // DEBUG
       
       populateFormFields(this.overlay, settings);
       

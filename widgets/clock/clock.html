@@ -1,4 +1,6 @@
 <!-- widgets/clock.html -->
+<!-- v1.3 - 10/9/25 - Weather now waits for location from settings (no default Belleair display) -->
+<!-- v1.2 - 10/9/25 - Integrated with settings system for automatic zip code-based weather location -->
 <!-- CHANGE SUMMARY: Fixed theme change detection in applyTheme() to prevent redundant applications, simplified logging to reduce noise - only logs relevant updates -->
 
 <!DOCTYPE html>
@@ -78,15 +80,20 @@
   <script type="module">
     // Import logger for structured logging
     import { createLogger } from '../../js/utils/logger.js';
+    import { geocodeZipCodeCached } from '../../js/utils/geocoding-helper.js';
     const logger = createLogger('ClockWidget');
 
     class ClockWidget {
       constructor() {
         this.currentTheme = null;
         
-        // Belleair, FL coordinates
+        // Default coordinates (Belleair, FL) - will be updated from settings zip code
         this.latitude = 27.9186;
         this.longitude = -82.8053;
+        this.isLocationSet = false;
+        
+        // Weather update interval (starts when location is set)
+        this.weatherInterval = null;
         
         // Weather icon mapping
         this.weatherIcons = {
@@ -100,16 +107,22 @@
         this.init();
       }
 
-      init() {
+      async init() {
         // Apply early theme detection
         this.detectAndApplyInitialTheme();
         
         // Set up event listeners
         this.setupEventListeners();
         
-        // Start clock and weather updates
-        this.startUpdates();
+        // Note: Location will be set from settings via postMessage
+        // Don't load weather until we have a location
+        // (Default Belleair coords are just fallback, not for initial display)
         
+        // Start clock updates only (no weather yet)
+        this.updateTime();
+        setInterval(() => this.updateTime(), 1000);
+        
+        // Weather will update when location is received via postMessage
       }
 
       // Detect initial theme from DOM or localStorage
@@ -148,6 +161,10 @@
           // Handle message objects with type
           if (event.data && event.data.type) {
             this.handleDataServiceMessage(event.data);
+          }
+          // Handle location updates from parent
+          if (event.data && event.data.type === 'location-update' && event.data.payload) {
+            this.handleLocationUpdate(event.data.payload);
           }
         });
 
@@ -204,10 +221,85 @@
           case 'theme-change':
             this.applyTheme(data.theme);
             break;
+          
+          case 'location-update':
+            this.handleLocationUpdate(data.payload);
+            break;
             
           default:
             logger.debug('Unhandled message type', { type: data.type });
             break;
+        }
+      }
+      
+      /**
+       * Initialize location from zip code (for testing)
+       * @param {string} zipCode - US zip code
+       */
+      async initializeLocationFromZip(zipCode) {
+        if (!zipCode) {
+          logger.warn('No zip code provided, using default location');
+          return;
+        }
+        
+        logger.info('Initializing location from zip code', { zipCode });
+        
+        try {
+          const coords = await geocodeZipCodeCached(zipCode);
+          
+          if (coords) {
+            this.latitude = coords.latitude;
+            this.longitude = coords.longitude;
+            this.isLocationSet = true;
+            
+            logger.info('Location set from zip code', { 
+              zipCode, 
+              latitude: this.latitude, 
+              longitude: this.longitude 
+            });
+          } else {
+            logger.warn('Failed to geocode zip code, using default location', { zipCode });
+          }
+        } catch (error) {
+          logger.error('Error initializing location from zip code', { 
+            zipCode, 
+            error: error.message 
+          });
+        }
+      }
+      
+      /**
+       * Handle location updates from parent (for future settings integration)
+       * @param {Object} payload - { zipCode: string } or { latitude: number, longitude: number }
+       */
+      async handleLocationUpdate(payload) {
+        logger.debug('Received location update', payload);
+        
+        // Support both zip code and direct coordinates
+        if (payload.zipCode) {
+          await this.initializeLocationFromZip(payload.zipCode);
+          // Immediately update weather with new location
+          this.updateWeather();
+          // Start periodic weather updates (every 10 minutes)
+          if (!this.weatherInterval) {
+            this.weatherInterval = setInterval(() => this.updateWeather(), 600000);
+          }
+        } else if (payload.latitude && payload.longitude) {
+          this.latitude = payload.latitude;
+          this.longitude = payload.longitude;
+          this.isLocationSet = true;
+          
+          logger.info('Location updated from coordinates', { 
+            latitude: this.latitude, 
+            longitude: this.longitude 
+          });
+          
+          // Immediately update weather with new location
+          this.updateWeather();
+          // Start periodic weather updates (every 10 minutes)
+          if (!this.weatherInterval) {
+            this.weatherInterval = setInterval(() => this.updateWeather(), 600000);
+          }
         }
       }
 

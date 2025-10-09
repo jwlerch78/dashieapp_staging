@@ -1,4 +1,5 @@
 // js/settings/settings-ui-builder.js
+// v1.1 - 10/9/25 - Added zip code population and location display functionality
 // CHANGE SUMMARY: Completed populateSystemStatus to display calendar data and uptime from window.dataManager
 
 import { getPlatformDetector } from '../utils/platform-detector.js';
@@ -53,6 +54,17 @@ export function populateFormFields(overlay, settings) {
   const mobileFamilyName = overlay.querySelector('#mobile-family-name');
   if (mobileFamilyName) {
     mobileFamilyName.value = settings.family?.familyName || 'Dashie';
+  }
+  
+  // Family zip code
+  const mobileFamilyZipcode = overlay.querySelector('#mobile-family-zipcode');
+  if (mobileFamilyZipcode) {
+    const zipCode = settings.family?.zipCode || '';
+    mobileFamilyZipcode.value = zipCode;
+    
+    // Always update location display (will show nothing if empty)
+    // This ensures it shows even if zip was auto-detected before modal opened
+    updateZipCodeLocationDisplay(overlay, zipCode);
   }
   
   // Theme value display
@@ -279,5 +291,46 @@ export function populateSystemStatus(overlay) {
     } else {
       uptimeEl.textContent = 'Not tracking';
     }
+  }
+}
+
+/**
+ * Update the location display below zip code input
+ * @param {HTMLElement} overlay - Settings overlay element
+ * @param {string} zipCode - Zip code to look up
+ */
+export async function updateZipCodeLocationDisplay(overlay, zipCode) {
+  const locationDisplay = overlay.querySelector('#zipcode-location-display');
+  
+  if (!locationDisplay) {
+    return;
+  }
+  
+  if (!zipCode || zipCode.trim() === '') {
+    locationDisplay.textContent = '';
+    return;
+  }
+  
+  // Show loading state
+  locationDisplay.textContent = 'Looking up location...';
+  locationDisplay.style.color = 'var(--text-secondary, #999)';
+  
+  try {
+    // Import getLocationName from geocoding helper
+    const { getLocationName } = await import('../utils/geocoding-helper.js');
+    
+    const locationName = await getLocationName(zipCode);
+    
+    if (locationName) {
+      locationDisplay.textContent = locationName;
+      locationDisplay.style.color = 'var(--text-secondary, #999)';
+    } else {
+      locationDisplay.textContent = 'Location not found';
+      locationDisplay.style.color = 'var(--danger-color, #ff4444)';
+    }
+  } catch (error) {
+    console.error('⚙️ Failed to update location display:', error);
+    locationDisplay.textContent = 'Error looking up location';
+    locationDisplay.style.color = 'var(--danger-color, #ff4444)';
   }
 }

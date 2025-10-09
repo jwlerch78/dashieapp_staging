@@ -1,4 +1,5 @@
-// js/settings/settings-controller-features.js - Feature methods for settings
+// js/settings/settings-controller-features.js
+// v1.1 - 10/9/25 - Added zip code broadcasting to clock widget for weather location
 // Local-only settings, site redirect, theme/family name application
 
 export class SettingsControllerFeatures {
@@ -214,6 +215,16 @@ async saveSettings() {
         console.warn('Failed to apply family name:', error);
       }
     }
+    
+    // Apply zip code to clock widget for weather location
+    const zipCode = this.currentSettings.family?.zipCode;
+    if (zipCode) {
+      try {
+        await this.applyZipCodeToClockWidget(zipCode);
+      } catch (error) {
+        console.warn('Failed to apply zip code:', error);
+      }
+    }
   }
 
 
@@ -234,6 +245,15 @@ async saveSettings() {
       await this.applyFamilyNameToWidgets(familyName);
     } catch (error) {
       console.warn('Failed to apply family name immediately:', error);
+    }
+  }
+  
+  // Apply zip code immediately when setting changes
+  async applyZipCodeImmediate(zipCode) {
+    try {
+      await this.applyZipCodeToClockWidget(zipCode);
+    } catch (error) {
+      console.warn('Failed to apply zip code immediately:', error);
     }
   }
 
@@ -259,6 +279,40 @@ async saveSettings() {
       window.dispatchEvent(new CustomEvent('dashie-family-name-loaded', {
         detail: { familyName }
       }));
+      
+    }, 1000); // Wait 1 second for widgets to load
+  }
+  
+  // Apply zip code to clock widget for weather location
+  async applyZipCodeToClockWidget(zipCode) {
+    if (!zipCode || zipCode.trim() === '') {
+      console.log('⚙️ No zip code to apply');
+      return;
+    }
+    
+    console.log('⚙️ 📍 Broadcasting zip code to clock widget:', zipCode);
+    
+    setTimeout(() => {
+      const clockWidgets = document.querySelectorAll('iframe[src*="clock.html"]');
+      
+      if (clockWidgets.length === 0) {
+        console.warn('⚙️ No clock widgets found to update with zip code');
+        return;
+      }
+      
+      clockWidgets.forEach((iframe, index) => {
+        if (iframe.contentWindow) {
+          try {
+            iframe.contentWindow.postMessage({
+              type: 'location-update',
+              payload: { zipCode: zipCode }
+            }, '*');
+            console.log(`⚙️ ✅ Sent zip code to clock widget ${index + 1}`);
+          } catch (error) {
+            console.warn(`⚙️ Failed to send zip code to clock widget ${index + 1}:`, error);
+          }
+        }
+      });
       
     }, 1000); // Wait 1 second for widgets to load
   }

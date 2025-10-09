@@ -1,4 +1,6 @@
 // js/settings/settings-controller-core.js
+// v1.3 - 10/9/25 - Added automatic location detection via browser geolocation on first login
+// v1.2 - 10/9/25 - Added zipCode field to family settings for weather location
 // v1.1 - 1/9/25 8:20pm - Converted console.log to logger.debug
 // CHANGE SUMMARY: Added calendar settings sync to localStorage after loading from database to ensure CalendarService can access active calendar IDs immediately
 
@@ -265,6 +267,13 @@ export class SettingsControllerCore {
       this.isInitialized = true;
       console.log('⚙️ ✅ Settings Controller initialized successfully');
       
+      // AUTO-DETECT LOCATION: Must happen AFTER isInitialized = true
+      // This provides seamless onboarding - weather "just works" on first login
+      // Run async without blocking (fire and forget)
+      this._initializeLocationFromBrowser().catch(err => {
+        console.error('⚙️ ❌ Location detection failed:', err);
+      });
+      
       return true;
       
     } catch (error) {
@@ -299,7 +308,8 @@ export class SettingsControllerCore {
       },
       family: {
         familyName: 'Dashie',
-        members: []
+        members: [],
+        zipCode: ''
       },
       system: {
         refreshInterval: 30,
@@ -368,6 +378,10 @@ export class SettingsControllerCore {
       
       if (path === 'family.familyName') {
         this.applyFamilyNameImmediate(value);
+      }
+      
+      if (path === 'family.zipCode') {
+        this.applyZipCodeImmediate(value);
       }
       
       if (path === 'system.activeSite') {
@@ -514,6 +528,60 @@ export class SettingsControllerCore {
 
   getSettings() {
     return { ...this.currentSettings };
+  }
+  
+  /**
+   * Initialize location from browser geolocation if zip code is empty
+   * Called automatically on first login to provide seamless weather location
+   * @private
+   */
+  async _initializeLocationFromBrowser() {
+    // Only attempt if zip code is empty (new account or never set)
+    const currentZip = this.currentSettings.family?.zipCode;
+    
+    if (currentZip && currentZip.trim() !== '') {
+      console.log('⚙️ Zip code already set, skipping auto-location detection');
+      return;
+    }
+    
+    console.log('⚙️ 📍 Zip code is empty - attempting automatic location detection');
+    
+    try {
+      // Import geolocation helper
+      const { getZipFromBrowserLocation } = await import('../utils/geocoding-helper.js');
+      
+      // Get zip code from browser geolocation (handles permissions gracefully)
+      const result = await getZipFromBrowserLocation();
+      
+      if (result && result.zipCode) {
+        console.log('⚙️ ✅ Auto-detected location:', result);
+        
+        // Save to settings
+        this.setSetting('family.zipCode', result.zipCode);
+        
+        // Force immediate save (don't wait for debounce)
+        await this.saveSettings();
+        
+        // Notify UI to update if settings modal is already open
+        this.notifyUIUpdate();
+        
+        // Also dispatch custom event for immediate UI update
+        // Include the location name so UI doesn't need to look it up
+        window.dispatchEvent(new CustomEvent('family-zipcode-updated', {
+          detail: { 
+            zipCode: result.zipCode,
+            locationName: result.locationName
+          }
+        }));
+        
+        console.log('⚙️ 🎉 Seamless onboarding complete - weather location set automatically!');
+      } else {
+        console.log('⚙️ ⚠️ Auto-location detection failed or denied - user can set manually in settings');
+      }
+    } catch (error) {
+      console.error('⚙️ ❌ Error during auto-location detection:', error);
+      // Fail silently - user can set manually if needed
+    }
   }
 
   // Cleanup
