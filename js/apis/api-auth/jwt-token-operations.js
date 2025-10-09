@@ -65,9 +65,9 @@ export class JWTTokenOperations extends JWTServiceCore {
    * NEW: Invalidate cached token for a specific provider/account
    * Called by GoogleAPIClient when it receives a 401 error
    * @param {string} provider - Provider name (e.g., 'google')
-   * @param {string} accountType - Account type (e.g., 'personal')
+   * @param {string} accountType - Account type (e.g., 'primary')
    */
-  async invalidateTokenCache(provider = 'google', accountType = 'personal') {
+  async invalidateTokenCache(provider = 'google', accountType = 'primary') {
     const key = this._getTokenCacheKey(provider, accountType);
     const hadCache = this.tokenCache.has(key);
     
@@ -113,7 +113,7 @@ export class JWTTokenOperations extends JWTServiceCore {
    * Store OAuth tokens for multi-account support
    * FIXED: Now uses JWT authentication instead of Google token
    */
-  async storeTokens(provider = 'google', accountType = 'personal', tokenData) {
+  async storeTokens(provider = 'google', accountType = 'primary', tokenData) {
     if (!this.isServiceReady()) {
       throw new Error('JWT service not ready for store tokens operation');
     }
@@ -372,7 +372,7 @@ async listTokenAccounts() {
  * Remove a token account
  * UPDATED: Now uses Supabase JWT authentication (like list_accounts) instead of Google token
  */
-async removeTokenAccount(provider = 'google', accountType = 'personal') {
+async removeTokenAccount(provider = 'google', accountType = 'primary') {
   if (!this.isServiceReady()) {
     throw new Error('JWT service not ready for remove account operation');
   }

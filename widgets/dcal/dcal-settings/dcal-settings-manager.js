@@ -956,6 +956,12 @@ async handleRemoveAccountConfirm() {
   
   try {
     console.log(`📅 Removing account: ${accountType}`);
+    console.log(`📅 Account details:`, {
+      accountType,
+      email: account.email,
+      calendars: Object.keys(account.calendars || {}),
+      activeCalendarIdsBefore: [...this.calendarSettings.activeCalendarIds]
+    });
     
     // 1. Remove tokens via JWT service
     const jwtAuth = window.parent?.jwtAuth || window.jwtAuth;
@@ -976,9 +982,15 @@ async handleRemoveAccountConfirm() {
     delete this.calendarSettings.accounts[accountType];
     
     // 3. Remove any active calendars from this account
+    // Keep only calendars that are NOT in the account being removed
     this.calendarSettings.activeCalendarIds = this.calendarSettings.activeCalendarIds.filter(
-      id => !calendarsToRemove.includes(id)
+      calId => !calendarsToRemove.includes(calId)
     );
+    
+    console.log(`📅 Removed ${calendarsToRemove.length} calendars from activeCalendarIds`, {
+      calendarsRemoved: calendarsToRemove,
+      activeCalendarsRemaining: this.calendarSettings.activeCalendarIds
+    });
     
     // 4. Update calendar account map
     if (this.calendarSettings.calendarAccountMap) {

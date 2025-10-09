@@ -330,8 +330,8 @@ async fetchAllCalendarsMetadata() {
     const calendarSettings = localStorage.getItem('dashie_calendar_settings');
     
     if (!calendarSettings) {
-      logger.warn('No calendar settings found, fetching from personal account only');
-      return await this.googleAPI.getCalendarList('personal');
+      logger.warn('No calendar settings found, fetching from primary account only');
+      return await this.googleAPI.getCalendarList('primary');
     }
 
     const settings = JSON.parse(calendarSettings);
@@ -340,8 +340,8 @@ async fetchAllCalendarsMetadata() {
     const activeCalendarIds = settings.activeCalendarIds || [];
     
     if (accounts.length === 0) {
-      logger.warn('No accounts in settings, fetching from personal account only');
-      return await this.googleAPI.getCalendarList('personal');
+      logger.warn('No accounts in settings, fetching from primary account only');
+      return await this.googleAPI.getCalendarList('primary');
     }
 
     logger.debug('Fetching calendar metadata from all accounts', {
@@ -373,7 +373,7 @@ async fetchAllCalendarsMetadata() {
     const calendarsByActiveAccount = [];
     
     for (const calendarId of activeCalendarIds) {
-      const accountType = calendarAccountMap[calendarId] || 'personal';
+      const accountType = calendarAccountMap[calendarId] || 'primary';
       
       // Find the calendar metadata from the specific account that's using it
       const calendar = allCalendars.find(cal => 
@@ -412,8 +412,8 @@ async fetchAllCalendarsMetadata() {
 
   } catch (error) {
     logger.error('Failed to fetch calendars from all accounts', error);
-    // Fallback to personal account only
-    return await this.googleAPI.getCalendarList('personal');
+    // Fallback to primary account only
+    return await this.googleAPI.getCalendarList('primary');
   }
 }
 

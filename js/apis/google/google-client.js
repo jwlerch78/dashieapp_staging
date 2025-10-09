@@ -51,11 +51,11 @@ export class GoogleAPIClient {
  * Get current Google access token - FAIL FAST approach
  * NOW SUPPORTS MULTI-ACCOUNT: Specify accountType to get tokens for different accounts
  * @param {boolean} forceRefresh - Force token refresh, bypassing cache
- * @param {string} accountType - Account type (e.g., 'personal', 'work', 'veeva')
+ * @param {string} accountType - Account type (e.g., 'primary', 'account2', 'account3')
  * @returns {Promise<string>} Access token
  * @throws {Error} If unable to obtain valid token
  */
-async getAccessToken(forceRefresh = false, accountType = 'personal') {
+async getAccessToken(forceRefresh = false, accountType = 'primary') {
   // CRITICAL: Wait for JWT service to be ready
   if (!window.jwtAuth || !window.jwtAuth.isServiceReady()) {
     logger.warn('JWT service not immediately available, waiting...');
@@ -118,7 +118,7 @@ async getAccessToken(forceRefresh = false, accountType = 'personal') {
  * @param {string} accountType - Account type for token retrieval
  * @returns {Promise<Object>} API response data
  */
-async makeRequest(endpoint, options = {}, isRetryAfter401 = false, accountType = 'personal') {
+async makeRequest(endpoint, options = {}, isRetryAfter401 = false, accountType = 'primary') {
   const accessToken = await this.getAccessToken(false, accountType);
   if (!accessToken) {
     throw new Error(`No access token available for API request (account: ${accountType})`);
@@ -255,10 +255,10 @@ async makeRequest(endpoint, options = {}, isRetryAfter401 = false, accountType =
  /**
  * Get list of calendars
  * NOW SUPPORTS MULTI-ACCOUNT: Specify accountType to get calendars for different accounts
- * @param {string} accountType - Account type (e.g., 'personal', 'work', 'veeva')
+ * @param {string} accountType - Account type (e.g., 'primary', 'account2', 'account3')
  * @returns {Promise<Array>} Array of calendar objects
  */
-async getCalendarList(accountType = 'personal') {
+async getCalendarList(accountType = 'primary') {
   logger.debug('Fetching calendar list', { accountType });
   const timer = logger.startTimer('Calendar List');
 
@@ -288,10 +288,10 @@ async getCalendarList(accountType = 'personal') {
  * NOW SUPPORTS MULTI-ACCOUNT: Specify accountType to use correct account's token
  * @param {string} calendarId - Calendar ID
  * @param {Object} timeRange - Time range for events
- * @param {string} accountType - Account type (e.g., 'personal', 'work', 'veeva')
+ * @param {string} accountType - Account type (e.g., 'primary', 'account2', 'account3')
  * @returns {Promise<Array>} Array of event objects
  */
-async getCalendarEvents(calendarId, timeRange = {}, accountType = 'personal') {
+async getCalendarEvents(calendarId, timeRange = {}, accountType = 'primary') {
   logger.debug('Fetching calendar events', { calendarId, accountType });
   const timer = logger.startTimer('Calendar Events');
 
@@ -384,7 +384,7 @@ async getAllCalendarEvents(options = {}) {
     const calendarsByAccount = {};
     
     for (const calendarId of activeCalendarIds) {
-      const accountType = calendarAccountMap[calendarId] || 'personal';
+      const accountType = calendarAccountMap[calendarId] || 'primary';
       
       if (!calendarsByAccount[accountType]) {
         calendarsByAccount[accountType] = [];

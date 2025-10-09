@@ -154,7 +154,7 @@ async initializeServices() {
     
     let tokenResult;
     try {
-      tokenResult = await window.jwtAuth.getValidToken('google', 'personal');
+      tokenResult = await window.jwtAuth.getValidToken('google', 'primary');
     } catch (error) {
       logger.error('JWT token retrieval failed', error);
       throw new Error(`Cannot initialize services: Failed to retrieve valid token - ${error.message}`);

@@ -5,6 +5,7 @@ import { createLogger } from '../utils/logger.js';
 import { processPendingRefreshTokens } from '../apis/api-auth/providers/web-oauth.js';
 import { PhotosSettingsManager } from '../../widgets/photos/photos-settings-manager.js';
 import { updateLoadingProgress } from '../ui/loading-overlay.js';
+import { syncCalendarMetadataForNewAccounts } from '../utils/calendar-sync-helper.js';
 
 const logger = createLogger('InitHelpers');
 
@@ -98,7 +99,7 @@ export async function ensureServicesReady() {
     // Check 3: Valid token available
     logger.debug('Validating token availability...');
     try {
-      const tokenResult = await window.jwtAuth.getValidToken('google', 'personal');
+      const tokenResult = await window.jwtAuth.getValidToken('google', 'primary');
       
       if (!tokenResult) {
         throw new Error('JWT service returned null/undefined');
@@ -172,6 +173,38 @@ export async function processQueuedRefreshTokens() {
   } catch (error) {
     logger.error('Refresh token processing error:', error);
     return { success: false, tokensProcessed: 0 };
+  }
+}
+
+/**
+ * Sync calendar metadata for newly added accounts
+ * Should be called AFTER services are initialized (when GoogleAPI exists)
+ * @returns {Promise<boolean>} True if sync was successful or not needed
+ */
+export async function syncCalendarMetadataIfNeeded() {
+  logger.info('Checking if calendar metadata sync is needed...');
+  
+  try {
+    // Check if there were any new tokens processed
+    if (!window.pendingRefreshTokens || window.pendingRefreshTokens.length === 0) {
+      logger.debug('No new tokens were processed, skipping calendar sync');
+      return true;
+    }
+    
+    // NEW: Sync calendar metadata for newly added accounts
+    logger.info('New account detected, syncing calendar metadata...');
+    await syncCalendarMetadataForNewAccounts();
+    logger.success('Calendar metadata synced for new accounts');
+    
+    // Clear the pending tokens now that they've been processed
+    window.pendingRefreshTokens = [];
+    
+    return true;
+    
+  } catch (error) {
+    logger.error('Failed to sync calendar metadata', error);
+    // Don't throw - app should continue even if calendar sync fails
+    return false;
   }
 }
 
