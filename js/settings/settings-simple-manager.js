@@ -198,6 +198,12 @@ export class SimplifiedSettings {
       this.modalNavigation = createModalNavigation(this.overlay, [], {
         onEscape: () => this.handleCancel(),
         customHandler: (action) => {
+          // CRITICAL: Check if another modal is on top of settings
+          if (window.dashieModalManager.modalStack.length > 1) {
+            console.log('⚙️ 🔧 Another modal is active on top of settings, letting it handle');
+            return undefined; // Let the top modal handle via default navigation
+          }
+          
           console.log('⚙️ 🔧 CustomHandler called with action:', action);
           console.log('⚙️ 🔧 this.navigation exists?', !!this.navigation);
           
@@ -409,13 +415,20 @@ export class SimplifiedSettings {
       modal.style.display = 'flex';
       console.log('🗑️ Delete account modal displayed');
       
-      // Add escape key handler
-      this._modalEscapeHandler = (e) => {
-        if (e.key === 'Escape') {
-          this.hideDeleteAccountModal();
-        }
-      };
-      document.addEventListener('keydown', this._modalEscapeHandler);
+      // Register modal with navigation system for d-pad support
+      const buttons = ['cancel-delete-account', 'confirm-delete-account'];
+      this._deleteAccountModalNav = createModalNavigation(modal, buttons, {
+        initialFocus: 0, // Focus "Cancel" button first
+        onEscape: () => this.hideDeleteAccountModal()
+      });
+      
+      console.log('🗑️ Delete account modal navigation registered');
+      
+      // Auto-focus first button after render
+      setTimeout(() => {
+        document.getElementById('cancel-delete-account')?.focus();
+        console.log('🗑️ Auto-focused cancel button');
+      }, 100);
     }
   }
 
@@ -428,10 +441,11 @@ export class SimplifiedSettings {
       modal.style.display = 'none';
       console.log('🗑️ Delete account modal hidden');
       
-      // Remove escape key handler
-      if (this._modalEscapeHandler) {
-        document.removeEventListener('keydown', this._modalEscapeHandler);
-        this._modalEscapeHandler = null;
+      // Cleanup modal navigation
+      if (this._deleteAccountModalNav) {
+        this._deleteAccountModalNav.destroy();
+        this._deleteAccountModalNav = null;
+        console.log('🗑️ Delete account modal navigation destroyed');
       }
     }
   }
