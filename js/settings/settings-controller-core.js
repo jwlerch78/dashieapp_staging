@@ -285,7 +285,7 @@ export class SettingsControllerCore {
         sleepTime: '22:00',
         wakeTime: '07:00', 
         reSleepDelay: 30,
-        theme: 'dark'
+        theme: 'light'  // CHANGED: Default theme is now light
       },
       accounts: {
         dashieAccount: userEmail,

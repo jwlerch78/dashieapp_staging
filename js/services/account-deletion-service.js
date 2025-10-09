@@ -171,7 +171,12 @@ export class AccountDeletionService {
    * @private
    */
   async _deleteFromStorage(storageItems) {
-    if (!storageItems || storageItems.length === 0) return;
+    if (!storageItems || storageItems.length === 0) {
+      logger.debug('No storage items to delete');
+      return;
+    }
+
+    logger.info(`🗃️ Attempting to delete ${storageItems.length} storage items`, { items: storageItems });
 
     try {
       // Group storage items by bucket
@@ -183,6 +188,8 @@ export class AccountDeletionService {
         }
         bucketGroups[bucket].push(item.path);
       });
+
+      logger.debug('Grouped storage items by bucket', { bucketGroups });
 
       // FIXED: Import createClient properly like photo-storage-service.js does
       const { createClient } = await import('https://cdn.skypack.dev/@supabase/supabase-js@2');
@@ -197,6 +204,8 @@ export class AccountDeletionService {
       
       const anonKey = config.supabaseAnonKey || config.supabaseKey;
 
+      logger.debug('Creating authenticated Supabase client for storage deletion');
+
       const authClient = createClient(config.supabaseUrl, anonKey, {
         global: {
           headers: {
@@ -206,23 +215,36 @@ export class AccountDeletionService {
       });
 
       // Delete from each bucket
+      let totalDeleted = 0;
+      let totalFailed = 0;
+      
       for (const [bucket, paths] of Object.entries(bucketGroups)) {
-        logger.debug(`Deleting ${paths.length} files from ${bucket} bucket`);
+        logger.info(`🗃️ Deleting ${paths.length} files from '${bucket}' bucket`, { paths });
         
-        const { error } = await authClient.storage
+        const { data, error } = await authClient.storage
           .from(bucket)
           .remove(paths);
 
         if (error) {
-          logger.warn(`Storage deletion had errors for bucket ${bucket}`, error);
+          logger.error(`❌ Storage deletion failed for bucket '${bucket}'`, { error, paths });
+          totalFailed += paths.length;
           // Continue with other buckets even if one fails
         } else {
-          logger.debug(`✅ Deleted ${paths.length} items from ${bucket} bucket`);
+          logger.success(`✅ Deleted ${paths.length} items from '${bucket}' bucket`, { data });
+          totalDeleted += paths.length;
         }
       }
+      
+      logger.success(`🗃️ Storage deletion complete`, { totalDeleted, totalFailed });
+      
+      // Return results so caller knows what happened
+      return { totalDeleted, totalFailed };
+      
     } catch (error) {
-      logger.warn('Storage deletion encountered errors (continuing anyway)', error);
+      logger.error('❌ Storage deletion encountered critical error (continuing with account deletion anyway)', error);
       // Non-critical - user data is already deleted from database
+      // We don't want to block account deletion if storage cleanup fails
+      return { totalDeleted: 0, totalFailed: storageItems.length };
     }
   }
 

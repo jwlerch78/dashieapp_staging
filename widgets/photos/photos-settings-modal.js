@@ -153,6 +153,13 @@ export class PhotosSettingsModal {
     const action = keyMap[e.key];
     if (!action) return;
 
+    // Check if confirmation modal is active IN PARENT DOCUMENT
+    const confirmModal = window.parent?.document.getElementById('delete-confirmation-overlay');
+    if (confirmModal) {
+      logger.debug('Confirmation modal active in parent, not handling keys');
+      return; // Let modal navigation handle it
+    }
+
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
@@ -385,7 +392,15 @@ export class PhotosSettingsModal {
         this.applyTheme(theme);
       }
 
-      // Load stats asynchronously (don't wait for it)
+      // FIXED: Start with delete button disabled while loading
+      const deletePhotosBtn = document.getElementById('delete-photos-menu');
+      if (deletePhotosBtn) {
+        deletePhotosBtn.style.opacity = '0.4';
+        deletePhotosBtn.style.pointerEvents = 'none';
+        deletePhotosBtn.style.cursor = 'not-allowed';
+      }
+
+      // Load stats asynchronously (will enable button if photos exist)
       this.loadPhotoStats();
       
       this.populateCurrentSettings();

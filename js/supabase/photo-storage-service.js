@@ -571,20 +571,22 @@ export class PhotoStorageService {
     try {
       logger.debug('Deleting photo', { photoId });
 
-      // Delete from database via edge function (gets storage_path back)
+      // Delete from database via edge function (gets storage_paths array back)
       const result = await this._callEdgeFunction('delete_photo', { 
         photo_id: photoId 
       });
 
-      // Delete from storage bucket if we got the path
-      if (result.storage_path) {
+      // FIXED: Edge function now returns storage_paths array (photo + thumbnail)
+      if (result.storage_paths && result.storage_paths.length > 0) {
         const authClient = await this._getAuthenticatedClient();
         const { error: storageError } = await authClient.storage
           .from(this.bucketName)
-          .remove([result.storage_path]);
+          .remove(result.storage_paths);  // Already an array
 
         if (storageError) {
           logger.warn('Storage deletion warning', storageError);
+        } else {
+          logger.debug(`Deleted ${result.storage_paths.length} files from storage (photo + thumbnail)`);
         }
       }
 

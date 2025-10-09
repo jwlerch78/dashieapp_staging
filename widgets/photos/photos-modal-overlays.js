@@ -94,8 +94,12 @@ export function hideUploadOverlay() {
  * @param {Function} onConfirm - Callback when user confirms
  */
 export function showConfirmationModal(photoCount, onConfirm) {
-  // Create confirmation overlay
-  const overlay = document.createElement('div');
+  // CRITICAL: Create modal in PARENT document, not iframe
+  const parentDoc = window.parent.document;
+  const isDark = document.body.classList.contains('theme-dark');
+  
+  // Create confirmation overlay in parent
+  const overlay = parentDoc.createElement('div');
   overlay.id = 'delete-confirmation-overlay';
   overlay.style.cssText = `
     position: fixed;
@@ -112,9 +116,9 @@ export function showConfirmationModal(photoCount, onConfirm) {
   `;
   
   // Create confirmation modal
-  const modal = document.createElement('div');
+  const modal = parentDoc.createElement('div');
   modal.style.cssText = `
-    background: ${document.body.classList.contains('theme-dark') ? '#1c1c1e' : '#ffffff'};
+    background: ${isDark ? '#1c1c1e' : '#ffffff'};
     border-radius: 14px;
     padding: 24px;
     max-width: 320px;
@@ -123,14 +127,14 @@ export function showConfirmationModal(photoCount, onConfirm) {
   `;
   
   modal.innerHTML = `
-    <h3 style="margin: 0 0 12px 0; font-size: 17px; font-weight: 600; color: ${document.body.classList.contains('theme-dark') ? '#ffffff' : '#000000'}; text-align: center;">
+    <h3 style="margin: 0 0 12px 0; font-size: 17px; font-weight: 600; color: ${isDark ? '#ffffff' : '#000000'}; text-align: center;">
       Delete All Photos?
     </h3>
     <p style="margin: 0 0 24px 0; font-size: 14px; color: #8e8e93; text-align: center; line-height: 1.4;">
       This will permanently delete all ${photoCount} photos from your library and reset your storage quota. This action cannot be undone.
     </p>
     <div style="display: flex; gap: 12px;">
-      <button id="confirm-delete-cancel" style="
+      <button id="confirm-delete-cancel" tabindex="0" style="
         flex: 1;
         padding: 12px;
         border: none;
@@ -138,10 +142,11 @@ export function showConfirmationModal(photoCount, onConfirm) {
         font-size: 16px;
         font-weight: 500;
         cursor: pointer;
-        background: ${document.body.classList.contains('theme-dark') ? '#2c2c2e' : '#f0f0f0'};
-        color: ${document.body.classList.contains('theme-dark') ? '#ffffff' : '#000000'};
+        background: ${isDark ? '#2c2c2e' : '#f0f0f0'};
+        color: ${isDark ? '#ffffff' : '#000000'};
+        transition: all 0.2s;
       ">Cancel</button>
-      <button id="confirm-delete-yes" style="
+      <button id="confirm-delete-yes" tabindex="1" style="
         flex: 1;
         padding: 12px;
         border: none;
@@ -149,31 +154,116 @@ export function showConfirmationModal(photoCount, onConfirm) {
         font-size: 16px;
         font-weight: 600;
         cursor: pointer;
-        background: #ff3b30;
-        color: #ffffff;
+        background: ${isDark ? '#2c2c2e' : '#f0f0f0'};
+        color: ${isDark ? '#ffffff' : '#000000'};
+        transition: all 0.2s;
       ">Delete All</button>
     </div>
   `;
   
   overlay.appendChild(modal);
-  document.body.appendChild(overlay);
+  parentDoc.body.appendChild(overlay);
   
-  // Add event listeners
-  document.getElementById('confirm-delete-cancel').addEventListener('click', () => {
-    overlay.remove();
-  });
+  // Add focus styles to parent document
+  if (!parentDoc.getElementById('photo-delete-modal-focus-styles')) {
+    const style = parentDoc.createElement('style');
+    style.id = 'photo-delete-modal-focus-styles';
+    style.textContent = `
+      #confirm-delete-cancel:focus,
+      #confirm-delete-yes:focus {
+        outline: 3px solid #ffaa00 !important;
+        outline-offset: 2px !important;
+        transform: scale(1.05) !important;
+        box-shadow: 0 0 15px rgba(255, 170, 0, 0.5) !important;
+        background: rgba(255, 170, 0, 0.2) !important;
+      }
+    `;
+    parentDoc.head.appendChild(style);
+  }
   
-  document.getElementById('confirm-delete-yes').addEventListener('click', () => {
+  // Store navigation instance
+  let modalNavigation = null;
+  
+  // Cleanup function
+  const cleanup = () => {
+    if (modalNavigation) {
+      modalNavigation.destroy();
+      modalNavigation = null;
+    }
     overlay.remove();
+  };
+  
+  // Add event listeners using parent document
+  parentDoc.getElementById('confirm-delete-cancel').addEventListener('click', cleanup);
+  
+  parentDoc.getElementById('confirm-delete-yes').addEventListener('click', () => {
+    cleanup();
     onConfirm();
   });
   
   // Close on overlay click
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) {
-      overlay.remove();
+      cleanup();
     }
   });
+  
+  // FIXED: Register with PARENT's modal manager
+  const parentModalManager = window.parent.dashieModalManager;
+  
+  if (parentModalManager) {
+    const buttons = ['confirm-delete-cancel', 'confirm-delete-yes'];
+    const modalConfig = {
+      buttons: buttons.map(id => ({ id })),
+      horizontalNavigation: true,
+      initialFocus: 0,
+      onEscape: cleanup
+    };
+    
+    // DEBUG: Log before registration
+    console.log('🔴 Photos delete modal - before registration:', {
+      modal,
+      modalHTML: modal.innerHTML.substring(0, 200),
+      buttons,
+      cancelExists: !!modal.querySelector('#confirm-delete-cancel'),
+      yesExists: !!modal.querySelector('#confirm-delete-yes')
+    });
+    
+    parentModalManager.registerModal(modal, modalConfig);
+    
+    // DEBUG: Log after registration
+    console.log('🔴 Photos delete modal - after registration:', {
+      stackDepth: parentModalManager.modalStack.length,
+      focusableCount: parentModalManager.focusableElements?.length,
+      debug: parentModalManager.getDebugInfo(),
+      topModal: parentModalManager.activeModal?.id,
+      topModalButtons: parentModalManager.focusableElements?.map(el => el?.id),
+      allStackModals: parentModalManager.modalStack.map((entry, idx) => ({
+        index: idx,
+        modalId: entry.modal?.id,
+        focusableCount: entry.focusableElements?.length,
+        focusableIds: entry.focusableElements?.map(el => el?.id)
+      }))
+    });
+    
+    modalNavigation = {
+      destroy: () => {
+        if (parentModalManager.hasActiveModal()) {
+          parentModalManager.unregisterModal();
+        }
+      }
+    };
+    
+    // Auto-focus cancel button after a delay
+    setTimeout(() => {
+      const cancelBtn = parentDoc.getElementById('confirm-delete-cancel');
+      console.log('🔴 Attempting to focus cancel button:', {
+        exists: !!cancelBtn,
+        canFocus: typeof cancelBtn?.focus === 'function'
+      });
+      cancelBtn?.focus();
+    }, 100);
+  }
 }
 
 /**

@@ -71,21 +71,9 @@ export class PhotosSettingsManager {
     // Create modal container and iframe
     this.createModal();
 
-    // Register with modal navigation manager
-    try {
-      if (window.dashieModalManager) {
-        window.dashieModalManager.registerModal(this.modalContainer, {
-          buttons: [],
-          horizontalNavigation: false,
-          onEscape: () => this.close()
-        });
-        logger.debug('Registered with modal navigation manager');
-      } else {
-        logger.warn('Modal navigation manager not found');
-      }
-    } catch (error) {
-      logger.warn('Failed to register with modal navigation, continuing anyway', error);
-    }
+    // DO NOT register iframe container with modal manager
+    // The iframe handles its own navigation internally
+    // Only confirmation modals created in parent need registration
   }
 
   /**

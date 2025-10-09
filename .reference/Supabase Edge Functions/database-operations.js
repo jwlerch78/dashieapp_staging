@@ -1,6 +1,6 @@
 // supabase/functions/database-operations/index.ts
-// Version: 1.1 | Last Updated: 2025-01-09 20:35 EST
-// CHANGE SUMMARY: Added delete_account operation with configurable table deletion and discovery mode
+// Version: 1.2 | Last Updated: 2025-10-09 15:22 EST
+// CHANGE SUMMARY: Added support for multiple storage path columns (e.g., storage_path + thumbnail_path)
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { verify } from 'https://deno.land/x/djwt@v2.8/mod.ts';
@@ -44,15 +44,16 @@ const DELETION_CONFIG = {
   
   // Tables with storage bucket files that need cleanup
   // Add table + storage info for any table that references uploaded files
+  // UPDATED: Now supports multiple columns via storagePathColumns array
   tablesWithStorage: [
     { 
       table: 'user_photos', 
-      storagePathColumn: 'storage_path',
+      storagePathColumns: ['storage_path', 'thumbnail_path'],  // FIXED: Array for multiple columns
       bucket: 'photos'
     }
     // Add more as needed:
-    // { table: 'user_documents', storagePathColumn: 'file_path', bucket: 'documents' },
-    // { table: 'user_avatars', storagePathColumn: 'avatar_url', bucket: 'avatars' },
+    // { table: 'user_documents', storagePathColumns: ['file_path'], bucket: 'documents' },
+    // { table: 'user_avatars', storagePathColumns: ['avatar_url', 'thumbnail_url'], bucket: 'avatars' },
   ],
   
   // Enable discovery mode to list all tables with auth_user_id
@@ -332,10 +333,16 @@ async function handleDeletePhoto(supabase, userId, data) {
   if (!photo_id) {
     throw new Error('Missing photo_id');
   }
-  // Get photo details before deletion
-  const { data: photo, error: fetchError } = await supabase.from('user_photos').select('storage_path, file_size').eq('id', photo_id).eq('auth_user_id', userId).single();
+  // Get photo details before deletion (including thumbnail_path)
+  const { data: photo, error: fetchError } = await supabase.from('user_photos').select('storage_path, thumbnail_path, file_size').eq('id', photo_id).eq('auth_user_id', userId).single();
   if (fetchError) throw fetchError;
   if (!photo) throw new Error('Photo not found');
+  
+  // FIXED: Collect both storage_path AND thumbnail_path
+  const pathsToDelete = [];
+  if (photo.storage_path) pathsToDelete.push(photo.storage_path);
+  if (photo.thumbnail_path) pathsToDelete.push(photo.thumbnail_path);
+  
   // Delete from database
   const { error: deleteError } = await supabase.from('user_photos').delete().eq('id', photo_id).eq('auth_user_id', userId);
   if (deleteError) throw deleteError;
@@ -349,13 +356,13 @@ async function handleDeletePhoto(supabase, userId, data) {
   console.log(`📸 ✅ Photo deleted`);
   return {
     deleted: true,
-    storage_path: photo.storage_path
+    storage_paths: pathsToDelete  // FIXED: Return array of paths to delete
   };
 }
 async function handleDeleteAllPhotos(supabase, userId) {
   console.log(`🗑️ Deleting all photos for user: ${userId}`);
-  // Get all photo records with storage paths
-  const { data: photos, error: fetchError } = await supabase.from('user_photos').select('id, storage_path, file_size').eq('auth_user_id', userId);
+  // Get all photo records with storage paths AND thumbnail paths
+  const { data: photos, error: fetchError } = await supabase.from('user_photos').select('id, storage_path, thumbnail_path, file_size').eq('auth_user_id', userId);
   if (fetchError) throw fetchError;
   if (!photos || photos.length === 0) {
     console.log(`🗑️ No photos to delete for user: ${userId}`);
@@ -366,7 +373,16 @@ async function handleDeleteAllPhotos(supabase, userId) {
     };
   }
   const photoCount = photos.length;
-  const storagePaths = photos.map((p)=>p.storage_path);
+  
+  // FIXED: Collect both storage_path AND thumbnail_path
+  const storagePaths = [];
+  photos.forEach(p => {
+    if (p.storage_path) storagePaths.push(p.storage_path);
+    if (p.thumbnail_path) storagePaths.push(p.thumbnail_path);
+  });
+  
+  console.log(`💾 Collected ${storagePaths.length} paths (${photoCount} photos + thumbnails)`);
+  
   // Delete all photo records
   const { error: deleteError } = await supabase.from('user_photos').delete().eq('auth_user_id', userId);
   if (deleteError) throw deleteError;
@@ -426,17 +442,29 @@ async function handleDeleteAccount(supabase, userId, data) {
     }
     
     // 1. Collect storage paths from all relevant tables BEFORE deleting
+    // UPDATED: Now supports multiple columns via storagePathColumns array
     for (const tableConfig of DELETION_CONFIG.tablesWithStorage) {
       try {
+        // Support both single column (backwards compat) and multiple columns (new)
+        const columns = Array.isArray(tableConfig.storagePathColumns) 
+          ? tableConfig.storagePathColumns 
+          : [tableConfig.storagePathColumn];  // Fallback for old config format
+        
         const { data: rows } = await supabase
           .from(tableConfig.table)
-          .select(tableConfig.storagePathColumn)
+          .select(columns.join(', '))  // Select all specified columns
           .eq('auth_user_id', userId);
         
         if (rows && rows.length > 0) {
-          const paths = rows
-            .map(r => r[tableConfig.storagePathColumn])
-            .filter(p => p); // Remove nulls
+          // Collect paths from all specified columns
+          const paths = [];
+          rows.forEach(row => {
+            columns.forEach(col => {
+              if (row[col]) {  // Only add non-null paths
+                paths.push(row[col]);
+              }
+            });
+          });
           
           deletionResults.storage_paths.push(...paths.map(path => ({
             path,
@@ -444,7 +472,7 @@ async function handleDeleteAccount(supabase, userId, data) {
             table: tableConfig.table
           })));
           
-          console.log(`📦 Collected ${paths.length} storage paths from ${tableConfig.table}`);
+          console.log(`📦 Collected ${paths.length} storage paths from ${tableConfig.table} (${columns.length} columns)`);
         }
       } catch (error) {
         console.warn(`⚠️ Failed to collect storage paths from ${tableConfig.table}:`, error);
