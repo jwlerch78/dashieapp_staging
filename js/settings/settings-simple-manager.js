@@ -411,22 +411,35 @@ export class SimplifiedSettings {
    * This only handles modal button clicks
    */
   initializeAccountDeletionHandlers() {
+    console.log('🗑️ 🔍 Initializing account deletion handlers on document');
+    
     // Use event delegation on document for modal buttons
     document.addEventListener('click', (e) => {
+      console.log('🗑️ 🔍 Document click detected:', {
+        target: e.target?.id || e.target?.className,
+        tagName: e.target?.tagName
+      });
+      
       // Cancel deletion in modal
-      if (e.target.closest('#cancel-delete-account')) {
-        console.log('🗑️ Delete account cancelled in modal');
+      const cancelTarget = e.target.closest('#cancel-delete-account');
+      if (cancelTarget) {
+        console.log('🗑️ ✅ CANCEL BUTTON CLICKED - Handler fired!');
+        console.log('🗑️ 🔍 Cancel element:', cancelTarget);
         this.hideDeleteAccountModal();
         return;
       }
       
       // Confirm deletion in modal
-      if (e.target.closest('#confirm-delete-account')) {
-        console.log('🗑️ Delete account confirmed in modal');
+      const confirmTarget = e.target.closest('#confirm-delete-account');
+      if (confirmTarget) {
+        console.log('🗑️ ✅ CONFIRM BUTTON CLICKED - Handler fired!');
+        console.log('🗑️ 🔍 Confirm element:', confirmTarget);
         this.handleDeleteAccountConfirm();
         return;
       }
-    });
+    }, true); // Use capture phase to ensure we catch it first
+    
+    console.log('🗑️ 🔍 Account deletion click handlers registered on document');
   }
 
   /**
@@ -438,8 +451,29 @@ export class SimplifiedSettings {
       modal.style.display = 'flex';
       console.log('🗑️ Delete account modal displayed');
       
+      // DEBUG: Verify buttons exist in DOM
+      const cancelBtn = document.getElementById('cancel-delete-account');
+      const confirmBtn = document.getElementById('confirm-delete-account');
+      console.log('🗑️ 🔍 Button verification:', {
+        cancelExists: !!cancelBtn,
+        confirmExists: !!confirmBtn,
+        cancelId: cancelBtn?.id,
+        confirmId: confirmBtn?.id,
+        cancelClickable: cancelBtn?.onclick !== undefined || cancelBtn?.click !== undefined,
+        confirmClickable: confirmBtn?.onclick !== undefined || confirmBtn?.click !== undefined
+      });
+      
+      // DEBUG: Test manual click
+      console.log('🗑️ 🔍 Testing manual click on confirm button...');
+      if (confirmBtn) {
+        console.log('🗑️ 🔍 Confirm button element:', confirmBtn);
+        console.log('🗑️ 🔍 Confirm button parent:', confirmBtn.parentElement?.className);
+      }
+      
       // Register modal with navigation system for d-pad support
       const buttons = ['cancel-delete-account', 'confirm-delete-account'];
+      console.log('🗑️ 🔍 Registering modal with buttons:', buttons);
+      
       this._deleteAccountModalNav = createModalNavigation(modal, buttons, {
         initialFocus: 0, // Focus "Cancel" button first
         horizontalNavigation: true, // Buttons are side-by-side, use left/right
@@ -447,12 +481,21 @@ export class SimplifiedSettings {
       });
       
       console.log('🗑️ Delete account modal navigation registered');
+      console.log('🗑️ 🔍 Modal manager state:', window.dashieModalManager?.getDebugInfo());
       
       // Auto-focus first button after render
       setTimeout(() => {
-        document.getElementById('cancel-delete-account')?.focus();
-        console.log('🗑️ Auto-focused cancel button');
+        const btn = document.getElementById('cancel-delete-account');
+        if (btn) {
+          btn.focus();
+          console.log('🗑️ Auto-focused cancel button');
+          console.log('🗑️ 🔍 Focused element:', document.activeElement?.id);
+        } else {
+          console.error('🗑️ ❌ Cancel button not found for auto-focus!');
+        }
       }, 100);
+    } else {
+      console.error('🗑️ ❌ Modal element not found!');
     }
   }
 

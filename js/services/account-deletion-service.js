@@ -25,14 +25,27 @@ export class AccountDeletionService {
    */
   configureEdgeFunction() {
     try {
-      const config = window.dashiePlatformConfig || {};
+      // CRITICAL: Try parent window first (for iframes), like photo-storage-service.js does
+      const config = window.parent?.currentDbConfig || window.currentDbConfig || window.dashiePlatformConfig || {};
       const supabaseUrl = config.supabaseUrl;
+      
+      logger.debug('Configuring edge function', { 
+        hasConfig: !!config, 
+        hasParentConfig: !!window.parent?.currentDbConfig,
+        hasWindowConfig: !!window.currentDbConfig,
+        hasDashiePlatform: !!window.dashiePlatformConfig,
+        supabaseUrl 
+      });
       
       if (supabaseUrl) {
         this.edgeFunctionUrl = `${supabaseUrl}/functions/v1/database-operations`;
         logger.debug('Edge function URL configured', { url: this.edgeFunctionUrl });
       } else {
-        logger.warn('No Supabase URL found in config');
+        logger.warn('No Supabase URL found in config', { 
+          triedParent: !!window.parent?.currentDbConfig,
+          triedWindow: !!window.currentDbConfig,
+          triedPlatform: !!window.dashiePlatformConfig
+        });
       }
     } catch (error) {
       logger.error('Failed to configure edge function URL', error);
@@ -109,8 +122,17 @@ export class AccountDeletionService {
       throw new Error('Edge function URL not configured');
     }
 
-    const config = window.dashiePlatformConfig;
-    const anonKey = config.supabaseAnonKey || config.supabaseKey;
+    // CRITICAL: Match photo-storage-service.js pattern - check parent first
+    const config = window.parent?.currentDbConfig || window.currentDbConfig || window.dashiePlatformConfig || {};
+    const anonKey = config.supabaseKey || config.supabaseAnonKey || config.key;
+
+    logger.debug('Calling edge function', { 
+      url: this.edgeFunctionUrl,
+      hasConfig: !!config,
+      hasAnonKey: !!anonKey,
+      checkedParent: !!window.parent?.currentDbConfig,
+      checkedWindow: !!window.currentDbConfig
+    });
 
     if (!anonKey) {
       throw new Error('Supabase anon key not available');
@@ -162,12 +184,20 @@ export class AccountDeletionService {
         bucketGroups[bucket].push(item.path);
       });
 
-      // Get authenticated Supabase client
-      const { createClient } = window.supabase;
-      const config = window.dashiePlatformConfig;
+      // FIXED: Import createClient properly like photo-storage-service.js does
+      const { createClient } = await import('https://cdn.skypack.dev/@supabase/supabase-js@2');
+      
+      // CRITICAL: Match photo-storage-service.js pattern - check parent first
+      const config = window.parent?.currentDbConfig || window.currentDbConfig || window.dashiePlatformConfig || {};
       const jwt = await window.jwtAuth.getSupabaseJWT();
+      
+      if (!config.supabaseUrl || !(config.supabaseAnonKey || config.supabaseKey)) {
+        throw new Error('Supabase config not available for storage deletion');
+      }
+      
+      const anonKey = config.supabaseAnonKey || config.supabaseKey;
 
-      const authClient = createClient(config.supabaseUrl, config.supabaseAnonKey, {
+      const authClient = createClient(config.supabaseUrl, anonKey, {
         global: {
           headers: {
             Authorization: `Bearer ${jwt}`
@@ -206,7 +236,8 @@ export class AccountDeletionService {
       const keysToRemove = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.startsWith('dashie-') || key.startsWith('user-'))) {
+        // Remove all dashie keys, including dashie_calendar_settings and dashie_supabase_jwt
+        if (key && (key.startsWith('dashie-') || key.startsWith('dashie_') || key.startsWith('user-'))) {
           keysToRemove.push(key);
         }
       }
@@ -216,7 +247,7 @@ export class AccountDeletionService {
         logger.debug(`Removed localStorage key: ${key}`);
       });
       
-      logger.debug('Local storage cleared', { keysRemoved: keysToRemove.length });
+      logger.debug('Local storage cleared', { keysRemoved: keysToRemove.length, keys: keysToRemove });
     } catch (error) {
       logger.warn('Failed to clear local storage', error);
       // Non-critical - user will be signed out anyway

@@ -175,7 +175,8 @@ export class SettingsControllerCore {
   _syncCalendarSettingsToLocalStorage() {
     try {
       if (this.currentSettings.calendar) {
-        localStorage.setItem('dashie_calendar_settings', JSON.stringify(this.currentSettings.calendar));
+        // FIXED: Use dash naming convention
+        localStorage.setItem('dashie-calendar-settings', JSON.stringify(this.currentSettings.calendar));
         console.log('⚙️ 📅 Synced calendar settings to localStorage', {
           activeCalendars: this.currentSettings.calendar.activeCalendarIds?.length || 0,
           accounts: Object.keys(this.currentSettings.calendar.accounts || {}).length

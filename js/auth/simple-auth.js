@@ -254,12 +254,17 @@ async initializeServices() {
    */
   cleanupServices() {
     if (this.dataManager) {
-      this.dataManager.clearCache();
+      // FIXED: DataManager has clearAll(), not clearCache()
+      if (typeof this.dataManager.clearAll === 'function') {
+        this.dataManager.clearAll();
+      }
       this.dataManager = null;
     }
 
     if (this.widgetMessenger) {
-      this.widgetMessenger.cleanup();
+      if (typeof this.widgetMessenger.cleanup === 'function') {
+        this.widgetMessenger.cleanup();
+      }
       this.widgetMessenger = null;
     }
 
