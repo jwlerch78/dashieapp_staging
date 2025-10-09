@@ -46,8 +46,11 @@ function hideHighlights() {
   
   // If a widget was focused and timed out, send escape command first then clear the selection
   if (state.selectedCell) {
+    // IMPORTANT: Save widget reference before it's cleared
+    const widgetToCleanup = state.selectedCell;
+    
     // Send escape to widget before defocusing so it can clean up (same as handleBack)
-    const iframe = state.selectedCell.querySelector("iframe");
+    const iframe = widgetToCleanup.querySelector("iframe");
     if (iframe && iframe.contentWindow) {
       try {
         iframe.contentWindow.postMessage({ action: "escape" }, "*");
@@ -56,6 +59,9 @@ function hideHighlights() {
         console.warn("Failed to send escape to widget on timeout:", error);
       }
     }
+    
+    // Clean up centering BEFORE clearing selectedCell
+    removeCenteringTransform(widgetToCleanup);
     
     // Small delay to let widget process the escape, then defocus (same pattern as handleBack)
     setTimeout(() => {
@@ -112,14 +118,134 @@ function showFocusOverlay() {
   } else {
     console.error('❌ Focus overlay element not found!');
   }
+  
+  // NEW: Center the focused widget
+  if (state.selectedCell) {
+    // Small delay to ensure overlay is visible before centering
+    setTimeout(() => {
+      centerFocusedWidget(state.selectedCell);
+    }, 50);
+  }
 }
 
 function hideFocusOverlay() {
+  // IMPORTANT: Save widget reference BEFORE it might be cleared
+  const widgetToCleanup = state.selectedCell;
+  
   const overlay = document.getElementById('focus-overlay');
   if (overlay) {
     overlay.classList.remove('visible');
     console.log('✓ Focus overlay hidden');
   }
+  
+  // NEW: Remove widget centering transform (using saved reference)
+  if (widgetToCleanup) {
+    removeCenteringTransform(widgetToCleanup);
+  }
+}
+
+// ---------------------
+// WIDGET CENTERING
+// ---------------------
+
+/**
+ * Center a focused widget on screen with smooth transform
+ * Calculates viewport center and applies translate transform
+ */
+function centerFocusedWidget(widgetElement) {
+  if (!widgetElement) {
+    console.error('🔴 centerFocusedWidget: No widget element provided');
+    return;
+  }
+  
+  console.log('🎯 === CENTER WIDGET DEBUG START ===');
+  console.log('Widget element:', widgetElement);
+  console.log('Widget classes:', widgetElement.className);
+  console.log('Widget data-row:', widgetElement.dataset.row);
+  console.log('Widget data-col:', widgetElement.dataset.col);
+  
+  // Get widget's current position and size
+  const widgetRect = widgetElement.getBoundingClientRect();
+  console.log('Widget rect:', {
+    top: widgetRect.top,
+    left: widgetRect.left,
+    right: widgetRect.right,
+    bottom: widgetRect.bottom,
+    width: widgetRect.width,
+    height: widgetRect.height
+  });
+  
+  // Get current transform before we change it
+  const currentTransform = window.getComputedStyle(widgetElement).transform;
+  console.log('Current transform:', currentTransform);
+  
+  // Get viewport dimensions
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  console.log('Viewport:', { width: viewportWidth, height: viewportHeight });
+  
+  // Calculate center of viewport
+  const viewportCenterX = viewportWidth / 2;
+  const viewportCenterY = viewportHeight / 2;
+  console.log('Viewport center:', { x: viewportCenterX, y: viewportCenterY });
+  
+  // Calculate widget's current center
+  const widgetCenterX = widgetRect.left + (widgetRect.width / 2);
+  const widgetCenterY = widgetRect.top + (widgetRect.height / 2);
+  console.log('Widget center:', { x: widgetCenterX, y: widgetCenterY });
+  
+  // Calculate how much to move widget to center it
+  const translateX = viewportCenterX - widgetCenterX;
+  const translateY = viewportCenterY - widgetCenterY;
+  console.log('Translation needed:', { x: translateX, y: translateY });
+  
+  // Apply centering transform
+  widgetElement.classList.add('centered');
+  const newTransform = `translate(${translateX}px, ${translateY}px) scale(1.05)`;
+  widgetElement.style.transform = newTransform;
+  console.log('Applied transform:', newTransform);
+  
+  // Verify it was applied
+  setTimeout(() => {
+    const verifyTransform = window.getComputedStyle(widgetElement).transform;
+    console.log('Verified transform:', verifyTransform);
+    console.log('Widget position after:', widgetElement.getBoundingClientRect());
+  }, 100);
+  
+  console.log('✓ Widget centered at viewport center');
+  console.log('🎯 === CENTER WIDGET DEBUG END ===');
+}
+
+/**
+ * Remove centering transform from widget
+ * Returns widget to its grid position
+ */
+function removeCenteringTransform(widgetElement) {
+  if (!widgetElement) {
+    console.error('🔴 removeCenteringTransform: No widget element provided');
+    return;
+  }
+  
+  console.log('🔙 === REMOVE CENTERING DEBUG START ===');
+  console.log('Widget element:', widgetElement);
+  console.log('Widget classes before:', widgetElement.className);
+  console.log('Current transform:', window.getComputedStyle(widgetElement).transform);
+  console.log('Widget position before:', widgetElement.getBoundingClientRect());
+  
+  widgetElement.classList.remove('centered');
+  widgetElement.style.transform = ''; // Remove inline style, let CSS take over
+  
+  console.log('Widget classes after:', widgetElement.className);
+  console.log('Inline transform removed, CSS will apply scale(1.05) from .focused class');
+  
+  // Verify it was applied
+  setTimeout(() => {
+    console.log('Verified transform:', window.getComputedStyle(widgetElement).transform);
+    console.log('Widget position after:', widgetElement.getBoundingClientRect());
+  }, 100);
+  
+  console.log('✓ Widget centering removed, returned to grid position');
+  console.log('🔙 === REMOVE CENTERING DEBUG END ===');
 }
 
 // ---------------------
@@ -128,6 +254,16 @@ function hideFocusOverlay() {
 
 export function updateFocus() {
   if (state.confirmDialog || state.isAsleep) return; // Don't update focus when modal is open or asleep
+  
+  // NEW: Clean up any centered widgets that are losing focus
+  document.querySelectorAll(".widget.centered").forEach(widget => {
+    // If this widget is NOT the currently selected cell, clean it up
+    if (widget !== state.selectedCell) {
+      console.log('🧼 Cleaning up stray centered widget:', widget.dataset.row, widget.dataset.col);
+      widget.classList.remove('centered');
+      widget.style.transform = ''; // Remove inline transform
+    }
+  });
   
   // clear all highlights
   document.querySelectorAll(".widget, .menu-item")
@@ -382,8 +518,11 @@ export function handleBack() {
   if (state.selectedCell) {
     console.log('  ✓ Widget is focused, defocusing...');
     
+    // IMPORTANT: Save widget reference before it's cleared
+    const widgetToCleanup = state.selectedCell;
+    
     // Send escape to widget before defocusing so it can clean up
-    const iframe = state.selectedCell.querySelector("iframe");
+    const iframe = widgetToCleanup.querySelector("iframe");
     if (iframe && iframe.contentWindow) {
       try {
         iframe.contentWindow.postMessage({ action: "escape" }, "*");
@@ -392,6 +531,10 @@ export function handleBack() {
         console.warn("  ⚠️ Failed to send escape to widget:", error);
       }
     }
+    
+    // Clean up centering BEFORE clearing selectedCell
+    console.log('  🔄 Removing widget centering...');
+    removeCenteringTransform(widgetToCleanup);
     
     // Small delay to let widget process the escape, then defocus
     setTimeout(() => {

@@ -163,4 +163,21 @@ body.legacy-focus .menu-item.focused {
 
 .focus-overlay.visible {
   opacity: 1;
+}
+
+/* Widget centering transform - only in enhanced mode */
+.widget.focused.centered {
+  /* Keep position: relative to stay in grid flow */
+  z-index: calc(var(--z-widget-focused) + 1) !important;
+  transition: all 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* Ensure smooth transition back to grid position */
+.widget.focused:not(.centered) {
+  transition: all 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+/* Prevent centering in legacy mode */
+body.legacy-focus .widget.focused.centered {
+  transform: scale(1.04) !important;
 } 

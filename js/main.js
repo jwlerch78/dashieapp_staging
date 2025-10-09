@@ -175,7 +175,7 @@ async function initializeApp() {
     showDesktopDashboard();
     renderGrid();
     renderSidebar();
-    updateFocus(0, 0);
+    // Don't call updateFocus() here - let initializeHighlightTimeout() keep highlights hidden until first user input
   }
   
   console.log('✅ UI rendered, waiting for authentication...');
