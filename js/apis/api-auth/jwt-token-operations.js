@@ -362,66 +362,69 @@ async listTokenAccounts() {
   }
 }
 
-  /**
-   * Remove a token account
-   */
-  async removeTokenAccount(provider = 'google', accountType = 'personal') {
-    if (!this.isServiceReady()) {
-      throw new Error('JWT service not ready for remove account operation');
-    }
+// js/apis/api-auth/jwt-token-operations.js
+// CHANGE SUMMARY: Fixed removeTokenAccount to use Supabase JWT in Authorization header instead of Google access token
 
-    const timer = logger.startTimer('JWT Remove Account');
-    
-    try {
-      await this._ensureValidJWT();
-      const googleAccessToken = this._getGoogleAccessToken();
-      if (!googleAccessToken) {
-        throw new Error('No Google access token available');
-      }
-
-      const requestBody = {
-        googleAccessToken,
-        operation: 'remove_account',
-        provider,
-        account_type: accountType
-      };
-
-      const response = await fetch(this.edgeFunctionUrl, {
-        method: 'POST',
-        headers: this._getSupabaseHeaders(),
-        body: JSON.stringify(requestBody)
-      });
-
-      const duration = timer();
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`JWT remove account failed: ${response.status} ${errorText}`);
-      }
-
-      const result = await response.json();
-      
-      logger.success('JWT account removed', {
-        success: result.removed,
-        provider,
-        accountType,
-        duration
-      });
-
-      this.lastOperationTime = Date.now();
-
-      // Clear cache for this account
-      const key = this._getTokenCacheKey(provider, accountType);
-      this.tokenCache.delete(key);
-
-      return result;
-
-    } catch (error) {
-      timer();
-      logger.error('JWT remove account failed', error);
-      throw error;
-    }
+/**
+ * Remove a token account
+ * UPDATED: Now uses Supabase JWT authentication (like list_accounts) instead of Google token
+ */
+async removeTokenAccount(provider = 'google', accountType = 'personal') {
+  if (!this.isServiceReady()) {
+    throw new Error('JWT service not ready for remove account operation');
   }
+
+  const timer = logger.startTimer('JWT Remove Account');
+  
+  try {
+    await this._ensureValidJWT();
+
+    const requestBody = {
+      operation: 'remove_account',
+      provider,
+      account_type: accountType
+    };
+
+    // Use Supabase JWT in Authorization header (not Google token)
+    // This matches the pattern used by list_accounts operation
+    const headers = this._getSupabaseHeaders(true);
+
+    const response = await fetch(this.edgeFunctionUrl, {
+      method: 'POST',
+      headers: headers,
+      body: JSON.stringify(requestBody)
+    });
+
+    const duration = timer();
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`JWT remove account failed: ${response.status} ${errorText}`);
+    }
+
+    const result = await response.json();
+    
+    logger.success('JWT account removed', {
+      success: result.removed,
+      provider,
+      accountType,
+      duration
+    });
+
+    this.lastOperationTime = Date.now();
+
+    // Clear cache for this account
+    const key = this._getTokenCacheKey(provider, accountType);
+    this.tokenCache.delete(key);
+
+    return result;
+
+  } catch (error) {
+    timer();
+    logger.error('JWT remove account failed', error);
+    throw error;
+  }
+}
 
   /**
    * Get current Supabase JWT token (refreshes if needed)

@@ -57,12 +57,13 @@ export class PlatformDetector {
     this.deviceType = this.detectDeviceType();
     this.capabilities = this.detectCapabilities();
     
-    logger.debug('Platform detection complete', {
-      platform: this.platform,
-      deviceType: this.deviceType,
-      userAgent: this.userAgent,
-      capabilities: this.capabilities
-    });
+    // DISABLED: Logging was causing 5MB localStorage issues
+    // logger.debug('Platform detection complete', {
+    //   platform: this.platform,
+    //   deviceType: this.deviceType,
+    //   userAgent: this.userAgent
+    //   // Removed capabilities - too large for logging
+    // });
   }
 
   /**
@@ -249,14 +250,14 @@ export class PlatformDetector {
    */
   detectFeatures() {
     return {
-      localStorage: this.hasLocalStorage(),
-      sessionStorage: this.hasSessionStorage(),
-      webGL: this.hasWebGL(),
-      geolocation: this.hasGeolocation(),
-      notifications: this.hasNotifications(),
-      serviceWorker: this.hasServiceWorker(),
-      fullscreen: this.hasFullscreen(),
-      pictureInPicture: this.hasPictureInPicture()
+      hasLocalStorage: this.hasLocalStorage(),
+      hasSessionStorage: this.hasSessionStorage(),
+      hasWebGL: this.hasWebGL(),
+      hasGeolocation: this.hasGeolocation(),
+      hasNotifications: this.hasNotifications(),
+      hasServiceWorker: this.hasServiceWorker(),
+      hasFullscreen: this.hasFullscreen(),
+      hasPictureInPicture: this.hasPictureInPicture()
     };
   }
 
@@ -305,7 +306,7 @@ export class PlatformDetector {
    */
   hasLocalStorage() {
     try {
-      return typeof Storage !== 'undefined' && window.localStorage;
+      return typeof Storage !== 'undefined' && !!window.localStorage;
     } catch (e) {
       return false;
     }

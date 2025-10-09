@@ -1,13 +1,29 @@
 // js/utils/logger.js - Structured Logging System for Dashie
-// CHANGE SUMMARY: New centralized logging system to replace console debugging throughout codebase
+// CHANGE SUMMARY: Added log buffer with localStorage persistence and file save capability
 
 /**
  * Centralized logging system for Dashie Dashboard
  * Replaces scattered console.log statements with structured, configurable logging
  */
 
+// LocalStorage key for persisting log configuration
+const LOG_CONFIG_STORAGE_KEY = 'dashie-log-config';
+
+// LocalStorage key for persisting log buffer
+const LOG_BUFFER_STORAGE_KEY = 'dashie-log-buffer';
+
+// Maximum number of log entries to keep in buffer
+const MAX_LOG_BUFFER_SIZE = 200; // Reduced further to 200 to avoid quota issues
+
+// In-memory log buffer
+let logBuffer = [];
+
+// Buffer save debouncing
+let bufferSaveTimeout = null;
+const BUFFER_SAVE_DELAY = 2000; // Save to localStorage every 2 seconds instead of immediately
+
 // Log levels in order of severity
-const LOG_LEVELS = {
+export const LOG_LEVELS = {
   DEBUG: 0,
   INFO: 1,
   WARN: 2,
@@ -24,8 +40,199 @@ let GLOBAL_LOG_CONFIG = {
   enableApiLogging: false,
   enableAuthLogging: true,
   enableDataLogging: true,
-  enableWidgetLogging: true
+  enableWidgetLogging: true,
+  enableBuffering: false  // DISABLED by default - enable manually if needed
 };
+
+/**
+ * Save log configuration to localStorage
+ * @private
+ */
+function saveLogConfig() {
+  try {
+    localStorage.setItem(LOG_CONFIG_STORAGE_KEY, JSON.stringify(GLOBAL_LOG_CONFIG));
+  } catch (error) {
+    console.warn('Failed to save log config to localStorage:', error);
+  }
+}
+
+/**
+ * Load log configuration from localStorage
+ * @private
+ */
+/**
+ * Add entry to log buffer and persist to localStorage
+ * @private
+ */
+function addToLogBuffer(entry) {
+  // Add to buffer
+  logBuffer.push(entry);
+  
+  // Trim buffer if exceeds max size (circular buffer)
+  if (logBuffer.length > MAX_LOG_BUFFER_SIZE) {
+    logBuffer = logBuffer.slice(-MAX_LOG_BUFFER_SIZE);
+  }
+  
+  // Debounce localStorage saves - only save every 2 seconds
+  if (bufferSaveTimeout) {
+    clearTimeout(bufferSaveTimeout);
+  }
+  bufferSaveTimeout = setTimeout(() => {
+    saveLogBuffer();
+    bufferSaveTimeout = null;
+  }, BUFFER_SAVE_DELAY);
+}
+
+/**
+ * Save log buffer to localStorage
+ * @private
+ */
+function saveLogBuffer() {
+  try {
+    localStorage.setItem(LOG_BUFFER_STORAGE_KEY, JSON.stringify(logBuffer));
+  } catch (error) {
+    // If localStorage is full, try more aggressive trimming
+    if (error.name === 'QuotaExceededError') {
+      // First attempt: keep only last 100 entries
+      logBuffer = logBuffer.slice(-100);
+      try {
+        localStorage.setItem(LOG_BUFFER_STORAGE_KEY, JSON.stringify(logBuffer));
+        return; // Success
+      } catch (e) {
+        // Second attempt: keep only last 50 entries
+        logBuffer = logBuffer.slice(-50);
+        try {
+          localStorage.setItem(LOG_BUFFER_STORAGE_KEY, JSON.stringify(logBuffer));
+          return; // Success
+        } catch (e2) {
+          // Last resort: disable buffer persistence
+          console.warn('Unable to save log buffer - localStorage quota exceeded. Buffer will only persist in memory.');
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Load log buffer from localStorage
+ * @private
+ */
+function loadLogBuffer() {
+  try {
+    const saved = localStorage.getItem(LOG_BUFFER_STORAGE_KEY);
+    if (saved) {
+      logBuffer = JSON.parse(saved);
+    }
+  } catch (error) {
+    console.warn('Failed to load log buffer from localStorage:', error);
+    logBuffer = [];
+  }
+}
+
+/**
+ * Get current log buffer
+ * @returns {Array} Array of log entries
+ */
+export function getLogBuffer() {
+  return [...logBuffer];
+}
+
+/**
+ * Clear log buffer
+ */
+export function clearLogBuffer() {
+  logBuffer = [];
+  try {
+    localStorage.removeItem(LOG_BUFFER_STORAGE_KEY);
+  } catch (error) {
+    console.warn('Failed to clear log buffer from localStorage:', error);
+  }
+}
+
+/**
+ * Force immediate save of log buffer to localStorage
+ * Useful before page unload or when you want to ensure logs are persisted
+ */
+export function flushLogBuffer() {
+  if (bufferSaveTimeout) {
+    clearTimeout(bufferSaveTimeout);
+    bufferSaveTimeout = null;
+  }
+  saveLogBuffer();
+}
+
+/**
+ * Save logs to file in the codebase
+ * When running in browser, downloads file. When running via MCP-enabled tool, could save directly.
+ * For now, always downloads - user can then move file to logs/ directory.
+ * @returns {Promise<{success: boolean, filename?: string, error?: string}>}
+ */
+export async function saveLogsToFile() {
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const filename = `dashie-logs-${timestamp}.txt`;
+    const content = formatLogsForFile();
+    
+    // Create blob and trigger download
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    return {
+      success: true,
+      filename,
+      message: `Log file downloaded: ${filename}\n\nTo share with Claude via MCP:\n1. Move file to: dashieapp_staging/logs/\n2. Claude can then read it`
+    };
+  } catch (error) {
+    console.error('Failed to save logs to file:', error);
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
+/**
+ * Format log buffer for file output
+ * @private
+ * @returns {string} Formatted log content
+ */
+function formatLogsForFile() {
+  const header = `Dashie Application Logs
+Generated: ${new Date().toISOString()}
+Total Entries: ${logBuffer.length}
+${'='.repeat(80)}
+
+`;
+  
+  const logs = logBuffer.map(entry => {
+    return `[${entry.timestamp}] [${entry.level}] [${entry.module}] ${entry.message}${entry.data ? '\n  Data: ' + JSON.stringify(entry.data) : ''}`;
+  }).join('\n');
+  
+  return header + logs;
+}
+
+/**
+ * Load log configuration from localStorage
+ * @private
+ */
+function loadLogConfig() {
+  try {
+    const saved = localStorage.getItem(LOG_CONFIG_STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      GLOBAL_LOG_CONFIG = { ...GLOBAL_LOG_CONFIG, ...parsed };
+    }
+  } catch (error) {
+    console.warn('Failed to load log config from localStorage:', error);
+  }
+}
 
 /**
  * Configure global logging settings
@@ -33,6 +240,7 @@ let GLOBAL_LOG_CONFIG = {
  */
 export function configureLogging(config) {
   GLOBAL_LOG_CONFIG = { ...GLOBAL_LOG_CONFIG, ...config };
+  saveLogConfig();
 }
 
 /**
@@ -97,9 +305,10 @@ export class Logger {
     const parts = [];
     
     // Add timestamp if enabled
+    const timestamp = new Date().toISOString();
     if (GLOBAL_LOG_CONFIG.enableTimestamps) {
-      const timestamp = new Date().toISOString().split('T')[1].split('.')[0]; // HH:MM:SS format
-      parts.push(`[${timestamp}]`);
+      const timeOnly = timestamp.split('T')[1].split('.')[0]; // HH:MM:SS format
+      parts.push(`[${timeOnly}]`);
     }
 
     // Add module name if enabled
@@ -109,6 +318,35 @@ export class Logger {
 
     // Add the message
     parts.push(message);
+
+    // Add to buffer (only if buffering is enabled)
+    if (GLOBAL_LOG_CONFIG.enableBuffering) {
+      const levelNames = ['DEBUG', 'INFO', 'WARN', 'ERROR', 'SILENT'];
+      const levelName = levelNames[level] || 'UNKNOWN';
+      
+      // Only store data if it's small enough (< 50 chars when stringified)
+      let dataToStore = undefined;
+      if (data !== null && data !== undefined) {
+        try {
+          const dataStr = JSON.stringify(data);
+          if (dataStr.length < 50) {  // Reduced from 100 to 50
+            dataToStore = data;
+          } else {
+            dataToStore = `[Large object: ${dataStr.length} chars]`;
+          }
+        } catch (e) {
+          dataToStore = '[Unstringifiable data]';
+        }
+      }
+      
+      addToLogBuffer({
+        timestamp,
+        level: levelName,
+        module: this.moduleName,
+        message: message,
+        data: dataToStore
+      });
+    }
 
     // Return formatted parts
     const formattedMessage = parts.join(' ');
@@ -330,6 +568,24 @@ export default {
   getLoggingConfig,
   setLogLevel,
   setLogCategories,
+  getLogBuffer,
+  clearLogBuffer,
+  flushLogBuffer,
+  saveLogsToFile,
   log,
   LOG_LEVELS
 };
+
+// Auto-load configuration and buffer from localStorage on module initialization
+loadLogConfig();
+// Only load buffer if buffering is enabled
+if (GLOBAL_LOG_CONFIG.enableBuffering) {
+  loadLogBuffer();
+}
+
+// Save buffer before page unload
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeunload', () => {
+    flushLogBuffer();
+  });
+}

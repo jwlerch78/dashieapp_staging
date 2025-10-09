@@ -151,7 +151,7 @@ export function updateFocus() {
   } else {
     elements.sidebar.classList.remove("expanded");
   }
-
+  
   // focused widget - check if selectedCell exists before trying to use it
   if (state.selectedCell && state.selectedCell.classList) {
     state.selectedCell.classList.add("focused");

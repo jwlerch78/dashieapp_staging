@@ -253,93 +253,92 @@ export class WebOAuthProvider {
   }
 
 // js/apis/api-auth/providers/web-oauth.js
-// CHANGE SUMMARY: Fixed variable declaration order - accountType and displayName now declared BEFORE tokenData object
+// CHANGE SUMMARY: Fixed displayName to store only person's name (not account type suffix) - account type is now shown separately in UI
 
-  /**
-   * Queue refresh tokens for storage during the startup sequence
-   * @private
-   * @param {Object} userInfo - User information from Google
-   * @param {Object} tokens - Token data from OAuth
-   */
-  _queueRefreshTokensForStorage(userInfo, tokens) {
-    try {
-      // Only proceed if we have a refresh token
-      if (!tokens.refresh_token) {
-        logger.warn('No refresh token received - user may need to reauthorize');
-        return;
-      }
-
-      // CRITICAL: Declare accountType and displayName FIRST before using them in tokenData
-      let accountType = 'personal'; // Default fallback
-      let displayName = `${userInfo.name} (Personal)`;
-      
-      // Check for pending account from account manager (multi-account flow)
-      try {
-        const pendingAccount = sessionStorage.getItem('dashie_pending_account');
-        if (pendingAccount) {
-          const accountInfo = JSON.parse(pendingAccount);
-          accountType = accountInfo.accountType || 'personal';
-          displayName = accountInfo.displayName || `${userInfo.name} (${accountType})`;
-          
-          // Clear the pending account info after using it
-          sessionStorage.removeItem('dashie_pending_account');
-          
-          logger.info('Using pending account info from multi-account flow', {
-            accountType,
-            displayName
-          });
-        }
-      } catch (error) {
-        logger.warn('Failed to read pending account info, using defaults', error);
-      }
-
-      // Now prepare token data with correctly scoped variables
-      const tokenData = {
-        access_token: tokens.access_token,
-        refresh_token: tokens.refresh_token,
-        expires_at: tokens.expires_in 
-          ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
-          : new Date(Date.now() + 3600 * 1000).toISOString(),
-        expires_in: tokens.expires_in || 3600,
-        scope: this.config.scope,
-        display_name: displayName,  // Now properly declared above
-        email: userInfo.email,
-        user_id: userInfo.id,
-        issued_at: Date.now(),
-        provider_info: {
-          type: 'web_oauth',
-          client_id: this.config.client_id
-        }
-      };
-
-      // Queue for processing during startup sequence
-      const queuedToken = {
-        provider: 'google',
-        accountType,
-        tokenData,
-        userInfo: {
-          email: userInfo.email,
-          name: userInfo.name,
-          id: userInfo.id
-        },
-        timestamp: Date.now()
-      };
-
-      window.pendingRefreshTokens.push(queuedToken);
-
-      logger.success('🔄 Refresh tokens queued for storage during startup', {
-        provider: 'google',
-        accountType,
-        userEmail: userInfo.email,
-        scopeCount: this.config.scope.split(' ').length,
-        queueSize: window.pendingRefreshTokens.length
-      });
-
-    } catch (error) {
-      logger.error('Failed to queue refresh tokens:', error);
-      // Don't throw - auth should still succeed even if token queuing fails
+/**
+ * Queue refresh tokens for storage during the startup sequence
+ * @private
+ * @param {Object} userInfo - User information from Google
+ * @param {Object} tokens - Token data from OAuth
+ */
+_queueRefreshTokensForStorage(userInfo, tokens) {
+  try {
+    // Only proceed if we have a refresh token
+    if (!tokens.refresh_token) {
+      logger.warn('No refresh token received - user may need to reauthorize');
+      return;
     }
+
+    // CRITICAL: Declare accountType and displayName FIRST before using them in tokenData
+    let accountType = 'primary'; // Default to 'primary' for first account
+    let displayName = userInfo.name; // UPDATED: Just use person's name, no suffix
+    
+    // Check for pending account from account manager (multi-account flow)
+    try {
+      const pendingAccount = sessionStorage.getItem('dashie_pending_account');
+      if (pendingAccount) {
+        const accountInfo = JSON.parse(pendingAccount);
+        accountType = accountInfo.accountType || 'primary';
+        // UPDATED: Still just use the person's name, UI will add account label
+        displayName = accountInfo.displayName || userInfo.name;
+        
+        // Clear the pending account info after using it
+        sessionStorage.removeItem('dashie_pending_account');
+        
+        logger.info('Using pending account info from multi-account flow', {
+          accountType,
+          displayName
+        });
+      }
+    } catch (error) {
+      logger.warn('Failed to read pending account info, using defaults', error);
+    }
+
+    // Now prepare token data with correctly scoped variables
+    const tokenData = {
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      expires_at: tokens.expires_in 
+        ? new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+        : new Date(Date.now() + 3600 * 1000).toISOString(),
+      scopes: tokens.scope?.split(' ') || ['profile', 'email', 'calendar', 'photos'],
+      display_name: displayName, // UPDATED: Clean name without suffix
+      email: userInfo.email,
+      user_id: userInfo.sub || userInfo.id,
+      issued_at: Date.now(),
+      provider_info: {
+        type: 'web_oauth',
+        client_id: this.clientId
+      }
+    };
+
+    logger.info('Queueing refresh tokens for storage', {
+      accountType,
+      displayName,
+      email: userInfo.email,
+      hasRefreshToken: true
+    });
+
+    // Queue for deferred storage
+    if (!window.pendingRefreshTokens) {
+      window.pendingRefreshTokens = [];
+    }
+
+    window.pendingRefreshTokens.push({
+      provider: 'google',
+      accountType: accountType,
+      tokenData: tokenData
+    });
+
+    logger.success('Refresh tokens queued successfully', {
+      queueLength: window.pendingRefreshTokens.length
+    });
+
+  } catch (error) {
+    logger.error('Failed to queue refresh tokens', error);
   }
+}
+
   /**
    * Exchange authorization code for access and refresh tokens
    * @param {string} authCode - Authorization code from Google

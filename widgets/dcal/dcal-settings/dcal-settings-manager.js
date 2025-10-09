@@ -297,6 +297,41 @@ async loadCalendarsForAccount(accountName, googleAPI, jwtAuth) {
       }
     }
     
+    // AUTO-ENABLE PRIMARY CALENDAR for new accounts
+    // Check if this is a new account (no calendars were previously enabled)
+    const existingEnabledCount = Object.values(account.calendars).filter(cal => cal.enabled).length;
+    
+    if (existingEnabledCount === 0) {
+      console.log(`📅 New account detected: ${accountName} - checking for primary calendar to auto-enable`);
+      
+      // Find the primary calendar (calendar ID matches account email)
+      const primaryCalendar = account.calendars[email];
+      
+      if (primaryCalendar) {
+        console.log(`📅 Found primary calendar: ${primaryCalendar.name} (${email})`);
+        
+        // Enable the primary calendar
+        primaryCalendar.enabled = true;
+        
+        // Add to activeCalendarIds array if not already present
+        if (!this.calendarSettings.activeCalendarIds.includes(email)) {
+          this.calendarSettings.activeCalendarIds.push(email);
+          console.log(`📅 ✅ Auto-enabled primary calendar: ${primaryCalendar.name}`);
+        }
+        
+        // Update the calendar account map
+        if (!this.calendarSettings.calendarAccountMap) {
+          this.calendarSettings.calendarAccountMap = {};
+        }
+        this.calendarSettings.calendarAccountMap[email] = accountName;
+        
+      } else {
+        console.log(`📅 ⚠️ Primary calendar not found for ${email} - user will need to manually enable calendars`);
+      }
+    } else {
+      console.log(`📅 Existing account ${accountName} has ${existingEnabledCount} enabled calendars - skipping auto-enable`);
+    }
+    
   } catch (error) {
     console.error(`📅 Error loading calendars for account ${accountName}`, error);
   }
@@ -465,97 +500,151 @@ async saveCalendarSettings() {
    * Update the calendar list display
    */
   updateCalendarList() {
-    const container = this.parentOverlay.querySelector('#calendar-accounts-container');
-    if (!container) {
-      console.warn('📅 Calendar accounts container not found');
-      return;
-    }
+  const container = this.parentOverlay.querySelector('#calendar-accounts-container');
+  if (!container) {
+    console.warn('📅 Calendar accounts container not found');
+    return;
+  }
+  
+  container.innerHTML = '';
+  
+  const accountNames = Object.keys(this.calendarSettings.accounts);
+  
+  if (accountNames.length === 0) {
+    container.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">No calendar accounts found.<br/>Please authenticate with Google.</div>';
+    return;
+  }
+  
+  // No longer reversing - display in natural order (primary first)
+  accountNames.forEach(accountType => {
+    const account = this.calendarSettings.accounts[accountType];
+    const section = this.createAccountSection(accountType, account);
+    container.appendChild(section);
+  });
+  
+  console.log('📅 Calendar list updated');
+}
+
+
+/**
+ * Extract person's name from displayName (remove account type suffix)
+ * Examples:
+ *   "John W. Lerch (Personal)" -> "John W. Lerch"
+ *   "John Lerch (account_12345)" -> "John Lerch"
+ *   "John Lerch" -> "John Lerch"
+ */
+extractPersonName(displayName) {
+  if (!displayName) return 'Unknown';
+  
+  // Remove anything in parentheses at the end
+  const match = displayName.match(/^(.+?)\s*\([^)]+\)\s*$/);
+  if (match) {
+    return match[1].trim();
+  }
+  
+  return displayName.trim();
+}
+
+
+
+/**
+ * Create an account section with calendars
+ * UPDATED: Improved display name formatting to show friendly names
+ */
+createAccountSection(accountType, account) {
+  const section = document.createElement('div');
+  section.className = 'settings-section calendar-account-section';
+  section.dataset.account = accountType;
+  
+  // Get all calendars and sort them (enabled first)
+  const calendars = Object.values(account.calendars || {});
+  const enabledCount = calendars.filter(cal => cal.enabled).length;
+  const totalCount = calendars.length;
+  const hiddenCount = totalCount - enabledCount;
+  
+  // Sort: enabled first, then primary within each group, then by name
+  calendars.sort((a, b) => {
+    // First by enabled status
+    if (a.enabled && !b.enabled) return -1;
+    if (!a.enabled && b.enabled) return 1;
     
-    container.innerHTML = '';
+    // Within same enabled status, primary calendars first
+    const aIsPrimary = a.id === account.email;
+    const bIsPrimary = b.id === account.email;
     
+    if (aIsPrimary && !bIsPrimary) return -1;
+    if (!aIsPrimary && bIsPrimary) return 1;
+    
+    // Finally by name
+    return a.name.localeCompare(b.name);
+  });
+  
+  // Create header with calendar count
+  const header = document.createElement('div');
+  header.className = 'settings-section-header calendar-account-header';
+  
+  const accountNameSpan = document.createElement('span');
+  // Format account display name nicely
+  const displayLabel = this.formatAccountDisplayLabel(accountType);
+  accountNameSpan.textContent = `${displayLabel}: ${account.email}`;
+  
+  const countSpan = document.createElement('span');
+  countSpan.className = 'calendar-count';
+
+  // Set display text based on counts
+  if (enabledCount === 0) {
+    countSpan.textContent = `- ${totalCount} calendar${totalCount !== 1 ? 's' : ''} hidden`;
+  } else if (hiddenCount === 0) {
+    countSpan.textContent = `- ${enabledCount} active calendar${enabledCount !== 1 ? 's' : ''}`;
+  } else {
+    countSpan.textContent = `- ${enabledCount} active, ${hiddenCount} hidden`;
+  }
+  
+  header.appendChild(accountNameSpan);
+  header.appendChild(countSpan);
+  section.appendChild(header);
+  
+  // Add calendar items
+  calendars.forEach(calendar => {
+    const item = this.createCalendarItem(accountType, calendar);
+    section.appendChild(item);
+  });
+  
+  return section;
+}
+
+
+/**
+ * Format account type for display in headers
+ * UPDATED: Shows "Primary" for primary account, "Account 2", "Account 3" for others
+ */
+formatAccountDisplayLabel(accountType) {
+  if (accountType === 'primary') {
+    return 'Primary';
+  }
+  
+  // Handle numbered accounts (account2, account3, etc.)
+  const match = accountType.match(/^account(\d+)$/);
+  if (match) {
+    return `Account ${match[1]}`;
+  }
+  
+  // Handle legacy timestamp-based names - extract just the display name
+  // Example: account_1759956298412_yy27ce -> Account 2 (or next available number)
+  if (accountType.startsWith('account_')) {
+    // For legacy accounts, try to determine a number based on position
     const accountNames = Object.keys(this.calendarSettings.accounts);
-    
-    if (accountNames.length === 0) {
-      container.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">No calendar accounts found. Please authenticate with Google.</div>';
-      return;
+    const index = accountNames.indexOf(accountType);
+    if (index > 0) {
+      return `Account ${index + 1}`;
     }
-    
-    // Reverse the order so primary account appears first
-    const reversedAccountNames = [...accountNames].reverse();
-
-    reversedAccountNames.forEach(accountType => {
-      const account = this.calendarSettings.accounts[accountType];
-      const section = this.createAccountSection(accountType, account);
-      container.appendChild(section);
-    });
-    
-    console.log('📅 Calendar list updated');
+    return 'Account';
   }
+  
+  // Fallback - capitalize first letter
+  return accountType.charAt(0).toUpperCase() + accountType.slice(1);
+}
 
-  /**
-   * Create an account section with calendars
-   * UPDATED: Added calendar count and sorting (enabled calendars first)
-   */
-  createAccountSection(accountType, account) {
-    const section = document.createElement('div');
-    section.className = 'settings-section calendar-account-section';
-    section.dataset.account = accountType;
-    
-    // Get all calendars and sort them (enabled first)
-    const calendars = Object.values(account.calendars || {});
-    const enabledCount = calendars.filter(cal => cal.enabled).length;
-    const totalCount = calendars.length;
-    const hiddenCount = totalCount - enabledCount;
-    
-
-   // Sort: enabled first, then primary within each group, then by name
-    calendars.sort((a, b) => {
-      // First by enabled status
-      if (a.enabled && !b.enabled) return -1;
-      if (!a.enabled && b.enabled) return 1;
-      
-      // Within same enabled status, primary calendars first
-      const aIsPrimary = a.id === account.email;
-      const bIsPrimary = b.id === account.email;
-      
-      if (aIsPrimary && !bIsPrimary) return -1;
-      if (!aIsPrimary && bIsPrimary) return 1;
-      
-      // Finally by name
-      return a.name.localeCompare(b.name);
-    });
-    
-    // Create header with calendar count
-    const header = document.createElement('div');
-    header.className = 'settings-section-header calendar-account-header';
-    
-    const accountNameSpan = document.createElement('span');
-    accountNameSpan.textContent = `${account.displayName}: ${account.email}`;
-    
-    const countSpan = document.createElement('span');
-    countSpan.className = 'calendar-count';
-
-    // Set display text based on counts
-    if (enabledCount === 0) {
-      countSpan.textContent = `- ${totalCount} calendar${totalCount !== 1 ? 's' : ''} hidden`;
-    } else if (hiddenCount === 0) {
-      countSpan.textContent = `- ${enabledCount} active calendar${enabledCount !== 1 ? 's' : ''}`;
-    } else {
-      countSpan.textContent = `- ${enabledCount} active, ${hiddenCount} hidden`;
-    }
-
-    header.appendChild(accountNameSpan);
-    header.appendChild(countSpan);
-    section.appendChild(header);
-    
-    // Add sorted calendar items
-    calendars.forEach(calendar => {
-      const item = this.createCalendarItem(accountType, calendar);
-      section.appendChild(item);
-    });
-    
-    return section;
-  }
 
   /**
    * Create a calendar item element
@@ -664,7 +753,7 @@ async handleAddGoogleAccount() {
     this.showAddAccountProgress('Connecting to Google...');
     
     // Trigger OAuth flow via account manager
-    const result = await window.accountManager.addAccount('google', accountName);
+    const result = await window.accountManager.addGoogleAccount('google', accountName);
     
     this.hideAddAccountProgress();
     
@@ -694,15 +783,15 @@ async handleAddGoogleAccount() {
 
 /**
  * Generate a unique account name automatically
- * Returns names like: personal, account2, account3, etc.
+ * UPDATED: First account is now 'primary', subsequent accounts are account2, account3, etc.
  */
 async generateAccountName() {
   const existingAccounts = await window.accountManager.listAccounts();
   const googleAccounts = existingAccounts.filter(acc => acc.provider === 'google');
   
-  // If no accounts, use 'personal'
+  // If no accounts, use 'primary' for the first one
   if (googleAccounts.length === 0) {
-    return 'personal';
+    return 'primary';
   }
   
   // Find next available number
@@ -721,6 +810,7 @@ async generateAccountName() {
   // Fallback to timestamp-based name
   return `account_${Date.now()}`;
 }
+
   
 /**
  * Update the remove accounts list
@@ -742,10 +832,8 @@ updateRemoveAccountsList() {
     return;
   }
   
-  // Reverse order so primary account appears first
-  const reversedAccountNames = [...accountNames].reverse();
-  
-  reversedAccountNames.forEach(accountType => {
+  // No longer reversing - display in natural order (primary first)
+  accountNames.forEach(accountType => {
     const account = this.calendarSettings.accounts[accountType];
     const accountItem = this.createRemovableAccountItem(accountType, account);
     container.appendChild(accountItem);
@@ -756,14 +844,13 @@ updateRemoveAccountsList() {
 
 /**
  * Create a clickable account item for removal
- * Primary account (first account) is disabled and grayed out
+ * Primary account (first account with type='primary') is disabled and grayed out
  */
 createRemovableAccountItem(accountType, account) {
   const item = document.createElement('div');
   
-  // Check if this is the primary account (first one added)
-  const accountNames = Object.keys(this.calendarSettings.accounts);
-  const isPrimary = accountNames.length > 0 && accountNames[0] === accountType;
+  // Check if this is the primary account
+  const isPrimary = accountType === 'primary';
   
   if (isPrimary) {
     // Primary account - disabled
@@ -778,7 +865,11 @@ createRemovableAccountItem(accountType, account) {
   
   const label = document.createElement('span');
   label.className = 'cell-label';
-  label.textContent = `${account.displayName} (${account.email})`;
+  
+  // Extract person's name and format nicely
+  const personName = this.extractPersonName(account.displayName);
+  const accountLabel = this.formatAccountDisplayLabel(accountType);
+  label.textContent = `${personName} (${accountLabel}): ${account.email}`;
   
   if (isPrimary) {
     label.textContent += ' — Primary Account';
@@ -797,8 +888,9 @@ createRemovableAccountItem(accountType, account) {
       this.showRemoveAccountModal(accountType, account);
     });
     
+    // FIXED: Add Enter key handler for d-pad selection
     item.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
+      if (e.key === 'Enter' || e.keyCode === 13) {
         e.preventDefault();
         this.showRemoveAccountModal(accountType, account);
       }
@@ -807,7 +899,6 @@ createRemovableAccountItem(accountType, account) {
   
   return item;
 }
-
 
 /**
  * Show remove account confirmation modal
@@ -821,7 +912,9 @@ showRemoveAccountModal(accountType, account) {
     return;
   }
   
-  accountNameEl.textContent = `${account.displayName} (${account.email})`;
+  const personName = this.extractPersonName(account.displayName);
+  const accountLabel = this.formatAccountDisplayLabel(accountType);
+  accountNameEl.textContent = `${personName} (${accountLabel}): ${account.email}`;
   modal.style.display = 'flex';
   
   // Store for confirmation handler
@@ -909,6 +1002,46 @@ async handleRemoveAccountConfirm() {
   }
 }
 
+  /**
+   * Show progress message during account addition
+   * NEW: Helper for account addition UI feedback
+   */
+  showAddAccountProgress(message) {
+    // Remove existing progress if any
+    this.hideAddAccountProgress();
+    
+    const progressDiv = document.createElement('div');
+    progressDiv.id = 'add-account-progress';
+    progressDiv.style.cssText = `
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 24px 32px;
+      border-radius: 8px;
+      z-index: 10000;
+      text-align: center;
+      font-size: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    `;
+    progressDiv.textContent = message;
+    
+    document.body.appendChild(progressDiv);
+  }
+
+
+  /**
+   * Hide progress message
+   * NEW: Helper for account addition UI feedback
+   */
+  hideAddAccountProgress() {
+    const progressDiv = document.getElementById('add-account-progress');
+    if (progressDiv && progressDiv.parentNode) {
+      progressDiv.parentNode.removeChild(progressDiv);
+    }
+  }
 
 
   /**
