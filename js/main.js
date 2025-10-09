@@ -38,6 +38,9 @@ import {
   initializePhotosSettingsManager
 } from './core/init-helpers.js';
 
+// Calendar sync
+import { syncCalendarMetadata } from './utils/calendar-sync-helper.js';
+
 // Photos QR code modal
 import { showQRCodeModal } from '../widgets/photos/photos-modal-overlays.js';
 
@@ -250,6 +253,11 @@ async function initializeApp() {
           await window.dashieAuth.initializeServices();
           console.log('✅ Services initialized with valid JWT token');
           updateProgress(isMobile, 50, 'Ready', 'Services ready');
+          
+          // Sync calendar metadata for all accounts
+          console.log('📅 Syncing calendar metadata...');
+          await syncCalendarMetadata();
+          console.log('✅ Calendar metadata sync complete');
         } catch (error) {
           console.error('❌ Failed to initialize services:', error);
           initState.servicesReady = 'failed';

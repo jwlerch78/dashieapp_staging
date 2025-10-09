@@ -6,12 +6,12 @@ import { createLogger } from './logger.js';
 const logger = createLogger('CalendarSync');
 
 /**
- * Sync calendar metadata for newly added accounts
- * This function is called during startup after new OAuth tokens are processed
- * It fetches calendar lists from Google and initializes calendar settings
+ * Sync calendar metadata for all accounts
+ * Fetches calendar lists from Google and initializes calendar settings
+ * Always saves to localStorage and database at the end
  * @returns {Promise<boolean>} True if sync successful
  */
-export async function syncCalendarMetadataForNewAccounts() {
+export async function syncCalendarMetadata() {
   logger.info('Starting calendar metadata sync for new accounts');
   
   try {
@@ -148,29 +148,29 @@ export async function syncCalendarMetadataForNewAccounts() {
       }
     }
 
-    // Save updated settings if we added any new accounts
-    if (newAccountsAdded > 0) {
-      calendarSettings.lastSync = new Date().toISOString();
-      
-      // Save to localStorage
-      localStorage.setItem('dashie_calendar_settings', JSON.stringify(calendarSettings));
-      logger.success(`Saved calendar settings to localStorage (${newAccountsAdded} new accounts)`);
+    // Always save settings at the end (even if no new accounts were added)
+    calendarSettings.lastSync = new Date().toISOString();
+    
+    // Save to localStorage
+    localStorage.setItem('dashie_calendar_settings', JSON.stringify(calendarSettings));
+    logger.success(`Saved calendar settings to localStorage (${newAccountsAdded} new accounts)`);
 
-      // Save to database via settings controller (if available)
-      try {
-        const settingsController = window.parent?.settingsController || window.settingsController;
-        if (settingsController && typeof settingsController.handleSettingChange === 'function') {
-          await settingsController.handleSettingChange('calendar', calendarSettings);
-          logger.success('Saved calendar settings to database');
-        } else {
-          logger.debug('Settings controller not available during startup - database save will happen on next settings change');
-        }
-      } catch (error) {
-        logger.debug('Settings controller not ready yet - database save will happen on next settings change', error);
-        // This is expected during startup - localStorage save is sufficient
+    // Save to database via settings controller (if available)
+    try {
+      const settingsController = window.parent?.settingsController || window.settingsController;
+      if (settingsController && typeof settingsController.handleSettingChange === 'function') {
+        await settingsController.handleSettingChange('calendar', calendarSettings);
+        logger.success('Saved calendar settings to database');
+      } else {
+        logger.debug('Settings controller not available during startup - database save will happen on next settings change');
       }
+    } catch (error) {
+      logger.debug('Settings controller not ready yet - database save will happen on next settings change', error);
+      // This is expected during startup - localStorage save is sufficient
+    }
 
-      // Trigger calendar data refresh
+    // Trigger calendar data refresh if new accounts were added
+    if (newAccountsAdded > 0) {
       try {
         const dataManager = window.parent?.dataManager || window.dataManager;
         if (dataManager && typeof dataManager.refreshCalendarData === 'function') {
@@ -180,12 +180,9 @@ export async function syncCalendarMetadataForNewAccounts() {
       } catch (error) {
         logger.warn('Failed to trigger calendar data refresh', error);
       }
-
-      return true;
-    } else {
-      logger.debug('No new accounts needed syncing');
-      return false;
     }
+
+    return true;
 
   } catch (error) {
     logger.error('Calendar metadata sync failed', error);
