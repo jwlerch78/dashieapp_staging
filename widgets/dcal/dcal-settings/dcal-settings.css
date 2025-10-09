@@ -231,14 +231,14 @@
 /* LOCATION: widgets/dcal/dcal-settings/dcal-settings.css */
 /* INSERT: At the end of the file */
 
-/* Modal Overlay */
+/* Modal Overlay - Consistent, not themed */
 .modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.75);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -246,28 +246,28 @@
   backdrop-filter: blur(4px);
 }
 
-/* Modal Content */
+/* Modal Content - Always white background, not themed */
 .modal-content {
-  background: var(--bg-primary, #1c1c1e);
+  background: #ffffff;
   border-radius: 14px;
   padding: 24px;
   max-width: 320px;
   width: 90%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
 }
 
 .modal-content h3 {
   margin: 0 0 12px 0;
   font-size: 17px;
   font-weight: 600;
-  color: var(--text-primary, #ffffff);
+  color: #000000;
   text-align: center;
 }
 
 .modal-content p {
   margin: 0 0 24px 0;
   font-size: 14px;
-  color: var(--text-secondary, #8e8e93);
+  color: #666666;
   text-align: center;
   line-height: 1.4;
 }
@@ -291,24 +291,25 @@
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
+  outline: none;
 }
 
 .modal-btn-secondary {
-  background: var(--bg-secondary, #2c2c2e);
-  color: var(--text-primary, #ffffff);
+  background: #f0f0f0;
+  color: #000000;
 }
 
 .modal-btn-secondary:hover {
-  background: var(--bg-tertiary, #3a3a3c);
+  background: #e0e0e0;
 }
 
-.modal-btn-danger {
-  background: #ff3b30;
-  color: #ffffff;
-}
-
-.modal-btn-danger:hover {
-  background: #ff453a;
+/* Orange highlight for focused buttons - matches settings */
+.modal-btn:focus,
+.modal-btn.focused {
+  background: rgba(238, 152, 40, 0.15) !important;
+  outline: 2px solid #EE9828 !important;
+  outline-offset: -2px;
+  transform: scale(1.02);
 }
 
 /* Account Remove Button */

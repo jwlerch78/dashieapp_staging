@@ -312,3 +312,98 @@
   outline: var(--outline-width-selected) solid var(--outline-selected);
   outline-offset: 2px;
 }
+
+/* Modal Overlay and Content - For confirmation modals like delete account */
+/* Consistent styling, not theme-aware, with orange focus highlighting */
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001; /* Higher than settings modal */
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.modal-content h3 {
+  margin: 0 0 12px 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: #000000;
+  text-align: center;
+}
+
+.modal-content p {
+  margin: 0 0 16px 0;
+  font-size: 14px;
+  color: #666666;
+  text-align: center;
+  line-height: 1.4;
+}
+
+.modal-content ul {
+  margin: 0 0 16px 20px;
+  padding: 0;
+  text-align: left;
+  color: #333333;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.modal-content ul li {
+  margin-bottom: 6px;
+}
+
+.modal-content p:last-of-type {
+  margin-bottom: 24px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.modal-btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.modal-btn-secondary {
+  background: #f0f0f0;
+  color: #000000;
+}
+
+.modal-btn-secondary:hover {
+  background: #e0e0e0;
+}
+
+/* Orange highlight for focused buttons - matches settings menu */
+.modal-btn:focus,
+.modal-btn.focused {
+  background: rgba(238, 152, 40, 0.15) !important;
+  outline: 2px solid #EE9828 !important;
+  outline-offset: -2px;
+  transform: scale(1.02);
+}

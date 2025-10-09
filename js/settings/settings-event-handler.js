@@ -12,6 +12,13 @@ export function setupEventHandlers(overlay, settingsManager) {
       return;
     }
 
+    // CRITICAL: Check if a confirmation modal is on top of settings
+    if (window.dashieModalManager && window.dashieModalManager.modalStack.length > 1) {
+      console.log('⚙️ ⚠️ Settings event handler: Modal is active (stack:', window.dashieModalManager.modalStack.length, '), not capturing key');
+      // Don't capture - let the modal handle it
+      return;
+    }
+
     console.log('⚙️ Settings captured key:', event.key);
     
     // Let the navigation handle it

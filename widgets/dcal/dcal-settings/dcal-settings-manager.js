@@ -1,6 +1,8 @@
 // widgets/dcal/dcal-settings/dcal-settings-manager.js
 // CHANGE SUMMARY: Added calendar count to account headers, sort calendars with enabled first, dynamic count updates - preserving all existing functionality
 
+import { createModalNavigation } from '../../../js/utils/modal-navigation-manager.js';
+
 export class CalendarSettingsManager {
   constructor(parentOverlay, parentNavigation) {
     this.parentOverlay = parentOverlay;
@@ -892,13 +894,22 @@ createRemovableAccountItem(accountType, account) {
   // Only add click handlers for non-primary accounts
   if (!isPrimary) {
     item.addEventListener('click', () => {
+      console.log('📅 🖱️ CLICK: Remove account clicked', { accountType });
       this.showRemoveAccountModal(accountType, account);
     });
     
     // FIXED: Add Enter key handler for d-pad selection
     item.addEventListener('keydown', (e) => {
+      console.log('📅 ⌨️ KEYDOWN on remove account item', { 
+        key: e.key, 
+        keyCode: e.keyCode, 
+        accountType,
+        targetElement: e.target.className 
+      });
+      
       if (e.key === 'Enter' || e.keyCode === 13) {
         e.preventDefault();
+        console.log('📅 ✅ ENTER KEY DETECTED - calling showRemoveAccountModal');
         this.showRemoveAccountModal(accountType, account);
       }
     });
@@ -911,6 +922,10 @@ createRemovableAccountItem(accountType, account) {
  * Show remove account confirmation modal
  */
 showRemoveAccountModal(accountType, account) {
+  console.log('📅 🔴 === SHOW REMOVE ACCOUNT MODAL CALLED ===');
+  console.log('📅 Account:', { accountType, email: account.email });
+  console.log('📅 Modal stack BEFORE registration:', window.dashieModalManager?.modalStack.length);
+  
   const modal = document.getElementById('remove-account-modal');
   const accountNameEl = document.getElementById('remove-account-name');
   
@@ -927,7 +942,32 @@ showRemoveAccountModal(accountType, account) {
   // Store for confirmation handler
   this.pendingRemoveAccount = { accountType, account };
   
-  console.log('📅 Showing remove account modal', { accountType });
+  // Register with modal navigation system for d-pad support
+  const buttons = ['cancel-remove-account', 'confirm-remove-account'];
+  console.log('📅 🔵 Registering modal navigation with buttons:', buttons);
+  
+  this._removeAccountModalNav = createModalNavigation(modal, buttons, {
+    initialFocus: 0, // Focus Cancel first (safe default)
+    horizontalNavigation: true, // Buttons are side-by-side, use left/right
+    onEscape: () => this.hideRemoveAccountModal()
+  });
+  
+  console.log('📅 🔵 Modal navigation registered');
+  console.log('📅 Modal stack AFTER registration:', window.dashieModalManager?.modalStack.length);
+  console.log('📅 Modal manager debug:', window.dashieModalManager?.getDebugInfo());
+  
+  // Auto-focus first button
+  setTimeout(() => {
+    const cancelBtn = document.getElementById('cancel-remove-account');
+    if (cancelBtn) {
+      cancelBtn.focus();
+      console.log('📅 Auto-focused cancel button');
+    } else {
+      console.error('📅 Cancel button not found for auto-focus');
+    }
+  }, 100);
+  
+  console.log('📅 Showing remove account modal with navigation', { accountType });
 }
 
 /**
@@ -938,6 +978,14 @@ hideRemoveAccountModal() {
   if (modal) {
     modal.style.display = 'none';
   }
+  
+  // Cleanup modal navigation
+  if (this._removeAccountModalNav) {
+    this._removeAccountModalNav.destroy();
+    this._removeAccountModalNav = null;
+    console.log('📅 Remove account modal navigation destroyed');
+  }
+  
   this.pendingRemoveAccount = null;
   
   console.log('📅 Remove account modal closed');

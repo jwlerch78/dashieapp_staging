@@ -267,6 +267,14 @@ export class SimplifiedNavigation {
         return;
       }
       
+      // NEW: Check if this is in the remove-calendar screen - these are clickable, not selection cells
+      const isRemoveCalendarScreen = this.getCurrentScreenId() === 'remove-calendar';
+      if (isRemoveCalendarScreen && current.classList.contains('selectable')) {
+        console.log(`⚙️ Triggering click on remove calendar account item`);
+        current.click();
+        return;
+      }
+      
       // Check if this is a toggle cell
       if (current.classList.contains('toggle-cell')) {
         const toggle = current.querySelector('input[type="checkbox"]');

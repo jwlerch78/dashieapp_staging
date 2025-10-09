@@ -201,7 +201,8 @@ export class SimplifiedSettings {
           // CRITICAL: Check if another modal is on top of settings
           if (window.dashieModalManager.modalStack.length > 1) {
             console.log('⚙️ 🔧 Another modal is active on top of settings, letting it handle');
-            return undefined; // Let the top modal handle via default navigation
+            console.log('⚙️ 🔧 Modal stack depth:', window.dashieModalManager.modalStack.length);
+            return false; // Explicitly return false so modal can handle it
           }
           
           console.log('⚙️ 🔧 CustomHandler called with action:', action);
@@ -355,6 +356,28 @@ export class SimplifiedSettings {
       }
     });
     
+    // Add keydown handler for Delete Account screen actions (d-pad support)
+    this.overlay.addEventListener('keydown', (e) => {
+      const selectableCell = e.target.closest('.settings-cell.selectable');
+      if (!selectableCell) return;
+      
+      // Only handle Enter key
+      if (e.key === 'Enter' || e.keyCode === 13) {
+        const action = selectableCell.dataset.action;
+        if (action === 'cancel') {
+          e.preventDefault();
+          console.log('🗑️ Cancel delete account (Enter key) - navigating back');
+          this.navigateBack();
+          return;
+        } else if (action === 'confirm') {
+          e.preventDefault();
+          console.log('🗑️ Confirm delete account (Enter key) - showing modal');
+          this.showDeleteAccountModal();
+          return;
+        }
+      }
+    });
+    
     this.overlay.addEventListener('change', (e) => {
       if (e.target.matches('.form-control')) {
         const setting = e.target.dataset.setting;
@@ -419,6 +442,7 @@ export class SimplifiedSettings {
       const buttons = ['cancel-delete-account', 'confirm-delete-account'];
       this._deleteAccountModalNav = createModalNavigation(modal, buttons, {
         initialFocus: 0, // Focus "Cancel" button first
+        horizontalNavigation: true, // Buttons are side-by-side, use left/right
         onEscape: () => this.hideDeleteAccountModal()
       });
       
