@@ -239,9 +239,13 @@ export class SettingsControllerCore {
       const loadedSettings = await this.storage.loadSettings();
       this.currentSettings = loadedSettings || this.getDefaultSettings(currentUser.email);
       
-      // CRITICAL FIX: Sync calendar settings to localStorage immediately after loading from database
-      // This ensures CalendarService can access active calendar IDs before data loading starts
+      // CRITICAL FIX: Sync calendar settings to localStorage SYNCHRONOUSLY and IMMEDIATELY
+      // This must complete BEFORE init() returns so CalendarService can access it
       this._syncCalendarSettingsToLocalStorage();
+      
+      // CRITICAL: Force synchronous completion with a microtask flush
+      // This ensures localStorage write is complete before proceeding
+      await new Promise(resolve => setTimeout(resolve, 0));
       
       this.mergeLocalOnlySettings();
       await this.applyLoadedSettings();

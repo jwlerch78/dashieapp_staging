@@ -379,12 +379,12 @@ async saveCalendarSettings() {
     console.log('📅 ✅ Saved to localStorage');
     
     // STEP 3: Save to database (persistent, cross-device)
-    const settingsInstance = window.parent?.settingsInstance;
-    if (settingsInstance && typeof settingsInstance.handleSettingChange === 'function') {
-      await settingsInstance.handleSettingChange('calendar', this.calendarSettings);
+    const settingsController = window.parent?.settingsController || window.settingsController;
+    if (settingsController && typeof settingsController.handleSettingChange === 'function') {
+      await settingsController.handleSettingChange('calendar', this.calendarSettings);
       console.log('📅 ✅ Saved to database');
     } else {
-      console.warn('📅 Settings instance not available, only saved to localStorage');
+      console.warn('📅 Settings controller not available, only saved to localStorage');
     }
     
     // STEP 4: Trigger calendar data refresh to load events with new selection
@@ -977,26 +977,59 @@ async handleRemoveAccountConfirm() {
       console.warn('📅 JWT Auth not available, skipping token removal');
     }
     
+    // 1.5. CRITICAL FIX: Reload settings from database after JWT token removal
+    // This ensures we have fresh tokenAccounts before saving calendar settings,
+    // preventing the stale tokenAccounts from overwriting the JWT removal
+    const settingsInstance = window.parent?.settingsInstance;
+    if (settingsInstance?.controller?.storage) {
+      try {
+        console.log('📅 🔄 Reloading settings from database to get fresh tokenAccounts...');
+        const freshSettings = await settingsInstance.controller.storage.loadSettings();
+        if (freshSettings) {
+          settingsInstance.controller.currentSettings = freshSettings;
+          console.log('📅 ✅ Settings reloaded - tokenAccounts are now fresh');
+        }
+      } catch (error) {
+        console.warn('📅 ⚠️ Failed to reload settings after token removal:', error);
+        // Continue anyway - calendar removal will still work
+      }
+    }
+    
     // 2. Remove from calendar settings
     const calendarsToRemove = Object.keys(account.calendars || {});
     delete this.calendarSettings.accounts[accountType];
     
-    // 3. Remove any active calendars from this account
-    // Keep only calendars that are NOT in the account being removed
+    // 3. CRITICAL FIX: Only remove calendars that are EXCLUSIVELY in this account
+    // Shared calendars that exist in other accounts should NOT be removed
+    const calendarsExclusiveToAccount = calendarsToRemove.filter(calId => {
+      // Check if this calendar exists in any OTHER account
+      for (const [otherAccountType, otherAccount] of Object.entries(this.calendarSettings.accounts)) {
+        if (otherAccountType !== accountType && otherAccount.calendars?.[calId]) {
+          console.log(`📅 Keeping calendar ${calId} - also exists in ${otherAccountType}`);
+          return false; // Calendar exists in another account, don't remove
+        }
+      }
+      return true; // Calendar only exists in removed account, safe to remove
+    });
+    
+    // Remove only exclusive calendars from activeCalendarIds
     this.calendarSettings.activeCalendarIds = this.calendarSettings.activeCalendarIds.filter(
-      calId => !calendarsToRemove.includes(calId)
+      calId => !calendarsExclusiveToAccount.includes(calId)
     );
     
-    console.log(`📅 Removed ${calendarsToRemove.length} calendars from activeCalendarIds`, {
-      calendarsRemoved: calendarsToRemove,
+    console.log(`📅 Removed ${calendarsExclusiveToAccount.length} exclusive calendars from activeCalendarIds`, {
+      totalCalendarsInAccount: calendarsToRemove.length,
+      calendarsExclusiveToAccount,
+      calendarsKeptInOtherAccounts: calendarsToRemove.filter(c => !calendarsExclusiveToAccount.includes(c)),
       activeCalendarsRemaining: this.calendarSettings.activeCalendarIds
     });
     
-    // 4. Update calendar account map
+    // 4. Update calendar account map - only remove exclusive calendars
     if (this.calendarSettings.calendarAccountMap) {
-      for (const calId of calendarsToRemove) {
+      for (const calId of calendarsExclusiveToAccount) {
         delete this.calendarSettings.calendarAccountMap[calId];
       }
+      console.log(`📅 Updated calendarAccountMap - removed ${calendarsExclusiveToAccount.length} mappings`);
     }
     
     // 5. Save settings and trigger calendar refresh
