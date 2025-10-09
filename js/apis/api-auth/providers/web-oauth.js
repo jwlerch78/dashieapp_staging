@@ -569,7 +569,7 @@ export async function processPendingRefreshTokens() {
       logger.debug('Processing queued refresh token', {
         provider: queuedToken.provider,
         accountType: queuedToken.accountType,
-        userEmail: queuedToken.userInfo.email
+        userEmail: queuedToken.tokenData.email
       });
 
       const stored = await window.jwtAuth.storeTokens(
@@ -582,7 +582,7 @@ export async function processPendingRefreshTokens() {
         success: stored,
         provider: queuedToken.provider,
         accountType: queuedToken.accountType,
-        userEmail: queuedToken.userInfo.email,
+        userEmail: queuedToken.tokenData.email,
         error: stored ? null : 'Storage operation returned false'
       };
 
@@ -592,7 +592,7 @@ export async function processPendingRefreshTokens() {
         logger.success('✅ Queued refresh token stored successfully', {
           provider: queuedToken.provider,
           accountType: queuedToken.accountType,
-          userEmail: queuedToken.userInfo.email
+          userEmail: queuedToken.tokenData.email
         });
       } else {
         logger.error('❌ Failed to store queued refresh token', result);
@@ -603,7 +603,7 @@ export async function processPendingRefreshTokens() {
         success: false,
         provider: queuedToken.provider,
         accountType: queuedToken.accountType,
-        userEmail: queuedToken.userInfo.email,
+        userEmail: queuedToken.tokenData.email,
         error: error.message
       };
 

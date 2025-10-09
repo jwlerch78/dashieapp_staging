@@ -111,6 +111,7 @@ export class JWTTokenOperations extends JWTServiceCore {
 
   /**
    * Store OAuth tokens for multi-account support
+   * FIXED: Now uses JWT authentication instead of Google token
    */
   async storeTokens(provider = 'google', accountType = 'personal', tokenData) {
     if (!this.isServiceReady()) {
@@ -125,22 +126,24 @@ export class JWTTokenOperations extends JWTServiceCore {
       }
 
       await this._ensureValidJWT();
-      const googleAccessToken = this._getGoogleAccessToken();
-      if (!googleAccessToken) {
-        throw new Error('No Google access token available');
+
+      if (!this.currentJWT) {
+        throw new Error('No Supabase JWT available');
       }
 
       const requestBody = {
-        googleAccessToken,
         operation: 'store_tokens',
         data: tokenData,
         provider,
         account_type: accountType
       };
 
+      // Use Supabase JWT in Authorization header (not Google token)
+      const headers = this._getSupabaseHeaders(true);
+
       const response = await fetch(this.edgeFunctionUrl, {
         method: 'POST',
-        headers: this._getSupabaseHeaders(),
+        headers: headers,
         body: JSON.stringify(requestBody)
       });
 

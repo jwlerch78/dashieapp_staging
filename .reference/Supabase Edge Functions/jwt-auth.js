@@ -36,8 +36,8 @@ serve(async (req)=>{
     }
     // ==================== JWT-AUTHENTICATED OPERATIONS ====================
     // These operations use Supabase JWT from Authorization header
-    // Operations: load, save, get_valid_token
-    if (operation === 'load' || operation === 'save' || operation === 'get_valid_token' || operation === 'refresh_jwt' || operation === 'list_accounts' || operation === 'remove_account') {
+    // Operations: load, save, get_valid_token, store_tokens, list_accounts, remove_account
+    if (operation === 'load' || operation === 'save' || operation === 'get_valid_token' || operation === 'refresh_jwt' || operation === 'list_accounts' || operation === 'remove_account' || operation === 'store_tokens') {
       const authHeader = req.headers.get('Authorization');
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
         return new Response(JSON.stringify({
@@ -96,6 +96,10 @@ serve(async (req)=>{
         result = await handleListAccountsOperation(supabaseAdmin, userId);
       } else if (operation === 'remove_account') {
         result = await handleRemoveAccountOperation(supabaseAdmin, userId, null, provider || 'google', account_type || 'personal');
+      } else if (operation === 'store_tokens') {
+        // Get user email from JWT for store operation
+        const userEmail = await getUserEmailFromJWT(supabaseJWT);
+        result = await handleStoreTokensOperation(supabaseAdmin, userId, userEmail, data, provider || 'google', account_type || 'personal');
       }
       return new Response(JSON.stringify({
         success: true,

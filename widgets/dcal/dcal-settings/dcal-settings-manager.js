@@ -752,8 +752,11 @@ async handleAddGoogleAccount() {
     console.log(`📅 Generated account name: ${accountName}`);
     this.showAddAccountProgress('Connecting to Google...');
     
-    // Trigger OAuth flow via account manager
-    const result = await window.accountManager.addGoogleAccount('google', accountName);
+    // Trigger OAuth flow via account manager with proper options object
+    const result = await window.accountManager.addGoogleAccount({
+      accountType: accountName,
+      displayName: 'John Lerch'  // Will be updated with actual name from Google
+    });
     
     this.hideAddAccountProgress();
     
@@ -764,6 +767,10 @@ async handleAddGoogleAccount() {
       // Reload calendar data to include new account
       await this.loadRealCalendarData();
       this.updateCalendarList();
+      
+      // CRITICAL: Save settings and trigger calendar refresh to load events from new account
+      await this.saveCalendarSettings();
+      console.log('📅 ✅ Settings saved and calendar data refreshed with new account');
       
       // Navigate back to main calendar screen
       if (this.parentNavigation && typeof this.parentNavigation.navigateBack === 'function') {
@@ -980,8 +987,10 @@ async handleRemoveAccountConfirm() {
       }
     }
     
-    // 5. Save settings
+    // 5. Save settings and trigger calendar refresh
+    console.log('📅 Saving settings and triggering calendar refresh...');
     await this.saveCalendarSettings();
+    console.log('📅 ✅ Settings saved and calendar refreshed');
     
     // 6. Refresh UI on remove-calendar screen
     this.updateRemoveAccountsList();
