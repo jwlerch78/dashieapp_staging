@@ -84,7 +84,42 @@ This prevents us from supporting multiple login providers (Amazon, Email/Passwor
 
 ## 🟡 Medium Priority (Code Quality/Maintainability)
 
-### 1. Settings System Re-Architecture
+### 1. Welcome Wizard D-pad Enter Key Auto-Confirmation Bug
+**Issue:** When using d-pad/keyboard navigation on Screen 4 (Weather Setup), pressing Enter on "Share My Location" button triggers geolocation AND auto-confirms the detected location on Screen 4B without giving user time to review.
+
+**Behavior:**
+- **With Mouse:** Works correctly - shows location, user can choose Yes/No
+- **With D-pad/Keyboard:** Enter key press bubbles through, auto-confirms location immediately
+
+**Root Cause:** Enter keydown event from Screen 4 is either:
+1. Bubbling through event handlers despite preventDefault/stopPropagation
+2. Being held down during screen transition
+3. Creating a timing issue where Screen 4B appears with focused button + lingering Enter event
+
+**Attempted Fixes (None Successful):**
+- Added `preventDefault()` and `stopPropagation()` to all location screen Enter handlers
+- Added `wizard.ignoreEnterKey` flag with 400ms debounce on Screen 4B
+- All fixes work with mouse but fail with d-pad
+
+**Impact:**
+- Users can't review detected location when using d-pad
+- Violates expected behavior and UX flow
+- Makes d-pad navigation feel broken/unreliable
+
+**Related Code:**
+- `js/welcome/screens/screen-4-location.js` (Lines 115-130, 354-368)
+- Screen 4 handlers (Lines 305-330)
+- Screen 4B handlers (Lines 340-368)
+
+**Workaround:** Mouse works fine, only affects d-pad users
+
+**Effort:** Medium (investigate event handling, modal navigation system interaction)
+**Priority:** Medium - affects Fire TV users significantly
+**Date Added:** October 10, 2025
+
+---
+
+### 2. Settings System Re-Architecture
 **Issue:** Settings system has accumulated architectural debt:
 - Calendar service bypasses settings controller to read localStorage directly (violates single source of truth)
 - Dual widget communication patterns (WidgetMessenger + direct postMessage)

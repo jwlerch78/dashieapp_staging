@@ -1,4 +1,7 @@
 // js/welcome/welcome-wizard.js
+// v1.9 - 10/10/25 2:40pm - Fixed skip modal Enter and Escape key handling
+// v1.8 - 10/10/25 2:30pm - Added location lookup, fixed skip modal navigation
+// v1.7 - 10/10/25 2:15pm - Added Screen 4C-Confirm to modal navigation
 // v1.6 - 10/9/25 10:30pm - Added Screens 5-7, QR code generation, photo modal integration
 // v1.5 - 10/9/25 10:05pm - Added modal navigation, loading spinner, fixed modal height
 // v1.4 - 10/9/25 9:50pm - Added geolocation and reverse geocoding for Screen 4
@@ -8,8 +11,7 @@
 // v1.0 - 10/9/25 - Initial welcome wizard framework with skip confirmation
 
 import { createLogger } from '../utils/logger.js';
-import { getWelcomeScreens } from './welcome-screens.js';
-import { setupScreenHandlers } from './welcome-handlers.js';
+import { getWelcomeScreens, setupScreenHandlers } from './welcome-screens.js';
 import { createModalNavigation } from '../utils/modal-navigation-manager.js';
 
 const logger = createLogger('WelcomeWizard');
@@ -188,8 +190,37 @@ export class WelcomeWizard {
     const modal = this.overlay.querySelector('#welcome-skip-confirmation');
     modal.style.display = 'flex';
     
-    // Focus the "Continue Setup" button by default
+    // Register modal navigation for skip confirmation
+    const buttons = ['welcome-skip-continue', 'welcome-skip-confirm'];
+    this.skipModalNavigation = createModalNavigation(modal, buttons, {
+      initialFocus: 0,
+      horizontalNavigation: true, // Buttons are side-by-side
+      onEscape: () => this.continueSetup() // Escape closes modal and continues setup
+    });
+    
+    // Add Enter key handlers for the buttons
     const continueBtn = this.overlay.querySelector('#welcome-skip-continue');
+    const skipBtn = this.overlay.querySelector('#welcome-skip-confirm');
+    
+    // Create keydown handler for Enter key
+    this.skipModalKeyHandler = (e) => {
+      if (e.key === 'Enter' || e.keyCode === 13) {
+        if (e.target.id === 'welcome-skip-continue') {
+          e.preventDefault();
+          e.stopPropagation();
+          this.continueSetup();
+        } else if (e.target.id === 'welcome-skip-confirm') {
+          e.preventDefault();
+          e.stopPropagation();
+          this.skipWizard();
+        }
+      }
+    };
+    
+    // Add keydown listener to modal
+    modal.addEventListener('keydown', this.skipModalKeyHandler, true);
+    
+    // Focus the "Continue Setup" button by default
     setTimeout(() => continueBtn?.focus(), 100);
   }
 
@@ -201,6 +232,19 @@ export class WelcomeWizard {
     this.skipConfirmationActive = false;
     
     const modal = this.overlay.querySelector('#welcome-skip-confirmation');
+    
+    // Remove keydown listener
+    if (this.skipModalKeyHandler) {
+      modal.removeEventListener('keydown', this.skipModalKeyHandler, true);
+      this.skipModalKeyHandler = null;
+    }
+    
+    // Clean up modal navigation
+    if (this.skipModalNavigation) {
+      this.skipModalNavigation.destroy();
+      this.skipModalNavigation = null;
+    }
+    
     modal.style.display = 'none';
   }
 
@@ -299,6 +343,7 @@ export class WelcomeWizard {
       'screen-4': { buttons: ['welcome-screen-4-share', 'welcome-screen-4-manual', 'welcome-screen-4-skip'], horizontal: false },
       'screen-4b': { buttons: ['welcome-screen-4b-confirm', 'welcome-screen-4b-manual'], horizontal: true },
       'screen-4c': { buttons: ['welcome-screen-4c-continue', 'welcome-screen-4c-back'], horizontal: true },
+      'screen-4c-confirm': { buttons: ['welcome-screen-4c-confirm-yes', 'welcome-screen-4c-confirm-no'], horizontal: true },
       'screen-4d': { buttons: ['welcome-screen-4d-continue'], horizontal: false },
       'screen-5': { buttons: ['welcome-screen-5-add', 'welcome-screen-5-skip'], horizontal: true },
       'screen-5b': { buttons: ['welcome-screen-5b-continue'], horizontal: false },
@@ -524,6 +569,89 @@ export class WelcomeWizard {
     } else {
       logger.warn('Settings controller not available, zip code not saved');
     }
+  }
+
+  /**
+   * Lookup city and state for a zip code
+   */
+  async lookupZipCodeLocation(zipCode) {
+    logger.info('Looking up location for zip code', { zipCode });
+    
+    try {
+      const url = `https://nominatim.openstreetmap.org/search?postalcode=${zipCode}&country=us&format=json&limit=1`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Dashie App'
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Geocoding failed');
+      }
+      
+      const data = await response.json();
+      
+      if (!data || data.length === 0) {
+        logger.warn('No results for zip code', { zipCode });
+        return null;
+      }
+      
+      const { lat, lon } = data[0];
+      
+      // Now reverse geocode to get detailed address
+      const reverseUrl = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1`;
+      
+      const reverseResponse = await fetch(reverseUrl, {
+        headers: {
+          'User-Agent': 'Dashie App'
+        }
+      });
+      
+      if (!reverseResponse.ok) {
+        throw new Error('Reverse geocoding failed');
+      }
+      
+      const reverseData = await reverseResponse.json();
+      const address = reverseData.address || {};
+      
+      const city = address.city || address.town || address.village || '';
+      const state = address.state || '';
+      
+      // Get state abbreviation
+      const stateAbbr = this.getStateAbbreviation(state);
+      
+      logger.info('Location found for zip code', { zipCode, city, state: stateAbbr });
+      
+      return {
+        city,
+        state: stateAbbr
+      };
+      
+    } catch (error) {
+      logger.error('Failed to lookup location', { zipCode, error: error.message });
+      return null;
+    }
+  }
+
+  /**
+   * Get state abbreviation from full state name
+   */
+  getStateAbbreviation(stateName) {
+    const stateMap = {
+      'Alabama': 'AL', 'Alaska': 'AK', 'Arizona': 'AZ', 'Arkansas': 'AR', 'California': 'CA',
+      'Colorado': 'CO', 'Connecticut': 'CT', 'Delaware': 'DE', 'Florida': 'FL', 'Georgia': 'GA',
+      'Hawaii': 'HI', 'Idaho': 'ID', 'Illinois': 'IL', 'Indiana': 'IN', 'Iowa': 'IA',
+      'Kansas': 'KS', 'Kentucky': 'KY', 'Louisiana': 'LA', 'Maine': 'ME', 'Maryland': 'MD',
+      'Massachusetts': 'MA', 'Michigan': 'MI', 'Minnesota': 'MN', 'Mississippi': 'MS', 'Missouri': 'MO',
+      'Montana': 'MT', 'Nebraska': 'NE', 'Nevada': 'NV', 'New Hampshire': 'NH', 'New Jersey': 'NJ',
+      'New Mexico': 'NM', 'New York': 'NY', 'North Carolina': 'NC', 'North Dakota': 'ND', 'Ohio': 'OH',
+      'Oklahoma': 'OK', 'Oregon': 'OR', 'Pennsylvania': 'PA', 'Rhode Island': 'RI', 'South Carolina': 'SC',
+      'South Dakota': 'SD', 'Tennessee': 'TN', 'Texas': 'TX', 'Utah': 'UT', 'Vermont': 'VT',
+      'Virginia': 'VA', 'Washington': 'WA', 'West Virginia': 'WV', 'Wisconsin': 'WI', 'Wyoming': 'WY'
+    };
+    
+    return stateMap[stateName] || stateName;
   }
 
   /**
