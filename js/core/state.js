@@ -29,11 +29,42 @@ export const widgetUrls = {
 
 // Widget layout configuration
 export const widgets = [
-  { id: "header", row: 1, col: 1, rowSpan: 1, colSpan: 1, url: widgetUrls.header, noCenter: true },
-  { id: "clock", row: 1, col: 2, rowSpan: 1, colSpan: 1, url: widgetUrls.clock },
-  { id: "main", row: 2, col: 1, rowSpan: 2, colSpan: 1, url: widgetUrls.calendar }, 
-  { id: "agenda", row: 2, col: 2, rowSpan: 1, colSpan: 1, url: widgetUrls.agenda },
-  { id: "photos", row: 3, col: 2, rowSpan: 1, colSpan: 1, url: widgetUrls.photos }
+  { 
+    id: "header", 
+    row: 1, col: 1, 
+    rowSpan: 1, colSpan: 1, 
+    url: widgetUrls.header, 
+    noCenter: true,
+    focusScale: 1.0
+  },
+  { 
+    id: "clock", 
+    row: 1, col: 2, 
+    rowSpan: 1, colSpan: 1, 
+    url: widgetUrls.clock,
+    focusScale: 1.5
+  },
+  { 
+    id: "main", 
+    row: 2, col: 1, 
+    rowSpan: 2, colSpan: 1, 
+    url: widgetUrls.calendar,
+    focusScale: 1.2
+  },
+  { 
+    id: "agenda", 
+    row: 2, col: 2, 
+    rowSpan: 1, colSpan: 1, 
+    url: widgetUrls.agenda,
+    focusScale: 1.4
+  },
+  { 
+    id: "photos", 
+    row: 3, col: 2, 
+    rowSpan: 1, colSpan: 1, 
+    url: widgetUrls.photos,
+    focusScale: 1.4
+  }
 ];
 
 // Map sidebar keys to main widget content
@@ -50,7 +81,17 @@ export const state = {
   selectedCell: null, // focused widget
   isAsleep: false, // sleep mode state
   confirmDialog: null, // exit confirmation dialog state
-  widgetReadyStatus: new Map() // track which widgets are ready
+  widgetReadyStatus: new Map(), // track which widgets are ready
+  
+  // Focus menu state
+  focusMenuState: {
+    active: false,              // Is menu currently visible?
+    widgetId: null,             // Which widget's menu ('calendar', 'photos', etc)
+    menuConfig: null,           // Menu configuration from widget
+    selectedIndex: 0,           // Currently highlighted menu item
+    inMenu: true,              // true = navigating menu, false = in widget
+    currentSelection: null      // Currently selected item ID
+  }
 };
 
 // ---------------------
@@ -94,4 +135,34 @@ export function isWidgetReady(widgetId) {
 
 export function findWidget(row, col) {
   return widgets.find(w => w.row === row && w.col === col);
+}
+
+// ---------------------
+// FOCUS MENU STATE HELPERS
+// ---------------------
+
+export function setFocusMenuActive(widgetId, config) {
+  state.focusMenuState = {
+    active: true,
+    widgetId,
+    menuConfig: config,
+    selectedIndex: config.defaultIndex || 0,
+    inMenu: true,
+    currentSelection: config.items[config.defaultIndex || 0]?.id || null
+  };
+}
+
+export function clearFocusMenuState() {
+  state.focusMenuState = {
+    active: false,
+    widgetId: null,
+    menuConfig: null,
+    selectedIndex: 0,
+    inMenu: true,
+    currentSelection: null
+  };
+}
+
+export function setFocusMenuInWidget(inWidget) {
+  state.focusMenuState.inMenu = !inWidget;
 }

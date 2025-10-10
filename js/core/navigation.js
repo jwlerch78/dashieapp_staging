@@ -1,8 +1,27 @@
 // js/core/navigation.js - Navigation Logic & Focus Management with Timeout System
-// CHANGE SUMMARY: Added feature flag support for enhanced focus mode with dynamic checking
+// v1.1 - 10/10/25 - Added focus menu integration for widget-specific controls
+// CHANGE SUMMARY: Added feature flag support for enhanced focus mode with dynamic checking, added focus menu navigation
 
 import { state, elements, findWidget, setFocus, setSelectedCell, setCurrentMain } from './state.js';
 import { isFeatureEnabled } from './feature-flags.js';
+import { 
+  registerWidgetMenu, 
+  hasWidgetMenu, 
+  getWidgetMenuConfig,
+  moveMenuSelection 
+} from './focus-menu-state.js';
+import { 
+  showFocusMenu, 
+  hideFocusMenu, 
+  updateMenuSelection,
+  dimFocusMenu,
+  undimFocusMenu 
+} from '../ui/focus-menu.js';
+import { 
+  setFocusMenuActive, 
+  clearFocusMenuState,
+  setFocusMenuInWidget 
+} from './state.js';
 
 // Initialize body class based on feature flag
 const initialMode = isFeatureEnabled('ENHANCED_FOCUS_MODE');
@@ -119,11 +138,35 @@ function showFocusOverlay() {
     console.error('❌ Focus overlay element not found!');
   }
   
-  // NEW: Center the focused widget
+  // Center the focused widget
   if (state.selectedCell) {
     // Small delay to ensure overlay is visible before centering
     setTimeout(() => {
       centerFocusedWidget(state.selectedCell);
+      
+      // NEW: Check if widget has focus menu
+      const widgetId = getWidgetIdFromElement(state.selectedCell);
+      
+      if (hasWidgetMenu(widgetId)) {
+        const menuConfig = getWidgetMenuConfig(widgetId);
+        
+        // Initialize focus menu state
+        setFocusMenuActive(widgetId, menuConfig);
+        
+        // Show the menu UI
+        showFocusMenu(state.selectedCell, menuConfig);
+        
+        // Send initial selection to widget
+        sendToWidget({
+          action: 'menu-active',
+          selectedItem: menuConfig.items[menuConfig.defaultIndex || 0].id
+        });
+        
+        console.log('✓ Focus menu activated for', widgetId);
+      } else {
+        // No menu - just send focus to widget
+        sendToWidget({ action: 'focus' });
+      }
     }, 50);
   }
 }
@@ -138,9 +181,16 @@ function hideFocusOverlay() {
     console.log('✓ Focus overlay hidden');
   }
   
-  // NEW: Remove widget centering transform (using saved reference)
+  // Remove widget centering transform (using saved reference)
   if (widgetToCleanup) {
     removeCenteringTransform(widgetToCleanup);
+  }
+  
+  // NEW: Clean up focus menu
+  if (state.focusMenuState.active) {
+    hideFocusMenu();
+    clearFocusMenuState();
+    console.log('✓ Focus menu cleaned up');
   }
 }
 
@@ -352,6 +402,47 @@ export function moveFocus(dir) {
   // Reset timer on any navigation input - this should wake up highlights
   resetHighlightTimer();
   
+  // NEW: Handle focus menu navigation
+  if (state.selectedCell && state.focusMenuState.active) {
+    
+    // If in menu, handle menu navigation
+    if (state.focusMenuState.inMenu) {
+      
+      if (dir === 'up' || dir === 'down') {
+        // Move selection in menu
+        const newItem = moveMenuSelection(dir);
+        if (newItem) {
+          updateMenuSelection(state.focusMenuState.selectedIndex);
+          
+          // Notify widget of selection change (preview)
+          sendToWidget({
+            action: 'menu-selection-changed',
+            selectedItem: newItem.id
+          });
+        }
+        return;
+      }
+      
+      if (dir === 'right') {
+        // Move from menu to widget content
+        setFocusMenuInWidget(true);
+        dimFocusMenu();
+        sendToWidget({ action: 'focus' });
+        console.log('→ Moved from menu to widget content');
+        return;
+      }
+      
+      // Left while in menu does nothing (already at boundary)
+      return;
+    } 
+    // If in widget content, send to widget
+    else {
+      sendToWidget(dir);
+      return;
+    }
+  }
+  
+  // EXISTING: Regular widget focus without menu
   if (state.selectedCell) {
     // Widget is focused — send input there
     sendToWidget(dir);
@@ -524,7 +615,47 @@ export function handleBack() {
   if (state.selectedCell) {
     console.log('  ✓ Widget is focused, defocusing...');
     
-    // IMPORTANT: Save widget reference before it's cleared
+    // NEW: Handle focus menu back navigation
+    if (state.focusMenuState.active) {
+      
+      // If in widget content, return to menu
+      if (!state.focusMenuState.inMenu) {
+        setFocusMenuInWidget(false);
+        undimFocusMenu();
+        sendToWidget({ action: 'blur' });
+        console.log('← Returned to menu from widget');
+        return;
+      }
+      
+      // If in menu, exit focus mode entirely
+      if (state.focusMenuState.inMenu) {
+        const widgetToCleanup = state.selectedCell;
+        
+        const iframe = widgetToCleanup.querySelector("iframe");
+        if (iframe && iframe.contentWindow) {
+          try {
+            iframe.contentWindow.postMessage({ action: "escape" }, "*");
+            console.log("  ✓ Sent 'escape' to widget");
+          } catch (error) {
+            console.warn("  ⚠️ Failed to send escape to widget:", error);
+          }
+        }
+        
+        console.log('  🔄 Removing widget centering...');
+        removeCenteringTransform(widgetToCleanup);
+        
+        setTimeout(() => {
+          setSelectedCell(null);
+          hideFocusOverlay(); // This will also clean up menu
+          showHighlights();
+          updateFocus();
+          console.log('  ✅ Exited focus mode from menu');
+        }, 10);
+        return;
+      }
+    }
+    
+    // EXISTING: Regular widget (no menu) handling
     const widgetToCleanup = state.selectedCell;
     
     // Send escape to widget before defocusing so it can clean up
@@ -647,3 +778,57 @@ export function initializeHighlightTimeout() {
   
   console.log("Navigation highlight timeout system initialized - starting with hidden highlights");
 }
+
+// ---------------------
+// HELPER FUNCTIONS
+// ---------------------
+
+/**
+ * Get widget ID from DOM element
+ * Checks data attributes and finds matching widget config
+ * @param {HTMLElement} element - Widget DOM element
+ * @returns {string|null} Widget ID or null if not found
+ */
+function getWidgetIdFromElement(element) {
+  // Try data-widget-id first
+  if (element.dataset.widgetId) {
+    return element.dataset.widgetId;
+  }
+  
+  // Try finding by grid position
+  const row = element.dataset.row;
+  const col = element.dataset.col;
+  
+  if (row && col) {
+    const widgetConfig = findWidget(parseInt(row), parseInt(col));
+    return widgetConfig ? widgetConfig.id : null;
+  }
+  
+  return null;
+}
+
+// ---------------------
+// MESSAGE LISTENERS
+// ---------------------
+
+// Listen for widget configuration and control messages
+window.addEventListener('message', (event) => {
+  // Handle widget configuration messages
+  if (event.data && event.data.type === 'widget-config') {
+    const { widget, focusMenu } = event.data;
+    
+    if (focusMenu && focusMenu.enabled) {
+      registerWidgetMenu(widget, focusMenu);
+      console.log('📋 Registered widget menu config', { widget, itemCount: focusMenu.items?.length });
+    }
+  }
+  
+  // Handle widget requesting return to menu
+  if (event.data && event.data.type === 'return-to-menu') {
+    if (state.focusMenuState.active && !state.focusMenuState.inMenu) {
+      setFocusMenuInWidget(false);
+      undimFocusMenu();
+      console.log('← Widget requested return to menu');
+    }
+  }
+});

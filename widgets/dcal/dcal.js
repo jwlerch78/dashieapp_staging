@@ -42,6 +42,11 @@ export class DCalWidget {
     this.lastUpdatedTimestamp = null;
     this.displayUpdateInterval = null;
 
+    // NEW: Focus menu state
+    this.menuActive = false;        // Is menu currently active?
+    this.homeDate = null;           // Home position (today) when entering from menu
+    this.isAtHome = true;          // Are we at home position?
+
     // Initialize helper modules
     this.config = new DCalConfig(this.calendars);
     this.events = new DCalEvents(this.calendars);
@@ -58,6 +63,9 @@ export class DCalWidget {
     
     // Initialize weekly view
     this.weekly.initialize(this.currentDate);
+    
+    // NEW: Send focus menu configuration to parent
+    this.sendMenuConfig();
     
     logger.info('DCal widget initialized');
     
@@ -121,7 +129,17 @@ export class DCalWidget {
 
   setupEventListeners() {
     window.addEventListener('message', (event) => {
-      // Handle navigation commands (single action strings)
+      // NEW: Handle menu-related messages first
+      if (event.data && event.data.action) {
+        // Check if it's a menu action
+        const menuActions = ['menu-active', 'menu-selection-changed', 'menu-item-selected', 'focus', 'blur'];
+        if (menuActions.includes(event.data.action)) {
+          this.handleMenuAction(event.data);
+          return; // Don't process as command
+        }
+      }
+      
+      // EXISTING: Handle navigation commands (single action strings)
       if (event.data && typeof event.data.action === 'string' && !event.data.type) {
         this.handleCommand(event.data.action);
       }
@@ -151,10 +169,25 @@ export class DCalWidget {
   
   switch (action) {
     case 'left':
+      // NEW: Check if at home position and menu is not active
+      if (this.isAtHome && !this.menuActive) {
+        // At boundary - request return to menu
+        this.requestReturnToMenu();
+        return;
+      }
+      
+      // EXISTING: Navigate backward
       this.navigateCalendar('previous');
+      
+      // NEW: Update home status after navigation
+      this.updateHomeStatus();
       break;
     case 'right':
+      // EXISTING: Navigate forward
       this.navigateCalendar('next');
+      
+      // NEW: Moving away from home
+      this.isAtHome = false;
       break;
     case 'up':
       this.scrollCalendar('up');
@@ -386,6 +419,112 @@ export class DCalWidget {
 
   element.textContent = displayText;
 }   
+
+  // ==================== FOCUS MENU METHODS ====================
+
+  /**
+   * Send focus menu configuration to parent
+   */
+  sendMenuConfig() {
+    if (window.parent !== window) {
+      window.parent.postMessage({
+        type: 'widget-config',
+        widget: 'dcal',
+        focusMenu: {
+          enabled: true,
+          defaultIndex: 1, // Start on "Week"
+          items: [
+            { id: 'monthly', label: 'Month', icon: '📅' },
+            { id: 'weekly', label: 'Week', icon: '📋' },
+            { id: 'daily', label: 'Day', icon: '📆' },
+            { id: '3day', label: '3-Day', icon: '📋' }
+          ]
+        }
+      }, '*');
+      
+      logger.info('✓ Sent focus menu config to parent');
+    }
+  }
+
+  /**
+   * Handle menu-related actions from parent
+   */
+  handleMenuAction(data) {
+    switch (data.action) {
+      case 'menu-active':
+        // Menu is now active, note the selected item
+        this.menuActive = true;
+        logger.info('📋 Menu activated, selected:', data.selectedItem);
+        break;
+        
+      case 'menu-selection-changed':
+        // User is navigating menu (preview only, don't change view)
+        logger.debug('📋 Menu selection preview:', data.selectedItem);
+        break;
+        
+      case 'menu-item-selected':
+        // User pressed ENTER on menu item
+        logger.info('⚠️ TODO: Switch to view:', data.itemId);
+        // Phase 3 will implement this
+        break;
+        
+      case 'focus':
+        // User moved from menu to widget content
+        this.menuActive = false;
+        this.isFocused = true;
+        
+        // Set home position to today
+        this.homeDate = new Date();
+        this.homeDate.setHours(0, 0, 0, 0);
+        this.isAtHome = true;
+        
+        logger.info('📍 Calendar gained focus from menu, home set to today');
+        break;
+        
+      case 'blur':
+        // User returned to menu from widget
+        this.menuActive = true;
+        this.isFocused = false;
+        logger.info('📋 Calendar returned to menu');
+        break;
+    }
+  }
+
+  /**
+   * Check if current date matches home date
+   */
+  updateHomeStatus() {
+    if (!this.homeDate) {
+      this.isAtHome = false;
+      return;
+    }
+    
+    const current = new Date(this.currentDate);
+    current.setHours(0, 0, 0, 0);
+    
+    const home = new Date(this.homeDate);
+    home.setHours(0, 0, 0, 0);
+    
+    this.isAtHome = (current.getTime() === home.getTime());
+    
+    logger.debug('Home status updated', { 
+      isAtHome: this.isAtHome,
+      currentDate: current.toDateString(),
+      homeDate: home.toDateString()
+    });
+  }
+
+  /**
+   * Request return to menu
+   */
+  requestReturnToMenu() {
+    if (window.parent !== window) {
+      window.parent.postMessage({
+        type: 'return-to-menu'
+      }, '*');
+      logger.info('📍 Requested return to menu (at home position)');
+    }
+  }
 
 }
 
