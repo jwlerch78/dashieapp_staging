@@ -196,43 +196,7 @@ async function initializeApp() {
   
   initState.auth = 'ready';
   
-  // ============================================
-  // WELCOME WIZARD (NEW USERS ONLY)
-  // ============================================
-  
-  // Check if user needs onboarding (only for Screens 1-2)
-  const skipWizard = localStorage.getItem('dashie-skip-wizard');
-  const currentUser = window.dashieAuth?.currentUser;
-  
-  if (!skipWizard && currentUser) {
-    console.log('👋 Checking if welcome wizard is needed...');
-    
-    // Check onboarding status from localStorage (settings not loaded yet)
-    let needsOnboarding = true;
-    try {
-      const cachedSettings = localStorage.getItem('dashie-settings');
-      if (cachedSettings) {
-        const settings = JSON.parse(cachedSettings);
-        needsOnboarding = !settings.onboarding?.completed;
-      }
-    } catch (error) {
-      console.warn('⚠️ Could not check onboarding status from cache');
-    }
-    
-    if (needsOnboarding) {
-      console.log('👋 First-time user detected - showing welcome wizard');
-      updateProgress(isMobile, 20, 'Welcome!', 'Welcome to Dashie!');
-      
-      try {
-        await showWelcomeWizard(currentUser, {});
-        console.log('✅ Welcome wizard completed');
-      } catch (error) {
-        console.error('❌ Welcome wizard failed:', error);
-      }
-    } else {
-      console.log('✅ User has completed onboarding - skipping welcome wizard');
-    }
-  }
+  // Welcome wizard will be shown AFTER complete initialization
   
  // ============================================
   // JWT & ACCOUNT MANAGER INITIALIZATION
@@ -513,6 +477,37 @@ async function completeDesktopInit() {
     setTimeout(() => {
       focusPhotosWidgetAndOpenUpload();
     }, 1000);
+  }
+  
+  // ============================================
+  // WELCOME WIZARD (NEW USERS ONLY)
+  // ============================================
+  
+  // Check if user needs onboarding (only for Screens 1-2)
+  const skipWizard = localStorage.getItem('dashie-skip-wizard');
+  const currentUser = window.dashieAuth?.getUser();
+  
+  if (!skipWizard && currentUser) {
+    console.log('👋 Checking if welcome wizard is needed...');
+    
+    // Check onboarding status from settings
+    let needsOnboarding = true;
+    if (window.settingsController?.currentSettings) {
+      needsOnboarding = !window.settingsController.currentSettings.onboarding?.completed;
+    }
+    
+    if (needsOnboarding) {
+      console.log('👋 First-time user detected - showing welcome wizard over dashboard');
+      
+      try {
+        await showWelcomeWizard(currentUser, {});
+        console.log('✅ Welcome wizard completed');
+      } catch (error) {
+        console.error('❌ Welcome wizard failed:', error);
+      }
+    } else {
+      console.log('✅ User has completed onboarding - skipping welcome wizard');
+    }
   }
 }
 

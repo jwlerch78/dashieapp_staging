@@ -1,5 +1,5 @@
 /* css/components/welcome-wizard.css */
-/* v1.0 - 10/9/25 - Welcome wizard styling with animations and themes */
+/* v1.1 - 10/9/25 - Forced white theme, opaque backdrop */
 
 /* ===== OVERLAY ===== */
 .welcome-wizard-overlay {
@@ -8,7 +8,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(0, 0, 0, 0.95); /* Opaque like loading screen */
   z-index: 10000;
   display: flex;
   align-items: center;
@@ -23,27 +23,33 @@
 
 /* ===== MODAL ===== */
 .welcome-wizard-modal {
-  background: var(--bg-primary, #1c1c1e);
+  background: #ffffff; /* Force white background */
+  color: #000000; /* Force black text */
   border-radius: 16px;
   max-width: 800px;
   width: 90%;
   max-height: 600px;
+  min-height: 500px;
   height: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .welcome-wizard-content {
   width: 100%;
-  height: 100%;
+  flex: 1;
   position: relative;
+  min-height: 400px;
 }
 
 /* ===== SCREENS ===== */
 .welcome-screens {
   position: relative;
   width: 100%;
-  height: 100%;
+  flex: 1;
+  min-height: 400px;
   overflow: hidden;
 }
 
@@ -122,27 +128,27 @@
 .welcome-title {
   font-size: 32px;
   font-weight: 700;
-  color: var(--text-primary, #ffffff);
+  color: #000000; /* Force black */
   margin: 0;
   line-height: 1.2;
 }
 
 .welcome-subtitle {
   font-size: 18px;
-  color: var(--text-secondary, #c7c7cc);
+  color: #666666; /* Force gray */
   margin: 0;
   line-height: 1.5;
 }
 
 .welcome-question {
   font-size: 20px;
-  color: var(--text-primary, #ffffff);
+  color: #000000; /* Force black */
   margin: 0;
   line-height: 1.5;
 }
 
 .welcome-question strong {
-  color: var(--accent-orange, #EE9828);
+  color: #EE9828; /* Keep orange accent */
 }
 
 /* ===== INPUT FIELDS ===== */
@@ -157,17 +163,17 @@
   width: 100%;
   padding: 16px;
   font-size: 18px;
-  border: 2px solid var(--text-muted, #666);
+  border: 2px solid #d1d1d6; /* Force gray border */
   border-radius: 8px;
-  background: var(--bg-secondary, #2c2c2e);
-  color: var(--text-primary, #ffffff);
+  background: #f5f5f7; /* Force light gray background */
+  color: #000000; /* Force black text */
   transition: all 0.2s ease;
   box-sizing: border-box;
 }
 
 .welcome-input:focus {
   outline: none;
-  border-color: var(--accent-orange, #EE9828);
+  border-color: #EE9828; /* Keep orange accent */
   box-shadow: 0 0 0 3px rgba(238, 152, 40, 0.2);
 }
 
@@ -186,10 +192,10 @@
   position: absolute;
   top: -10px;
   left: 12px;
-  background: var(--bg-primary, #1c1c1e);
+  background: #ffffff; /* Force white */
   padding: 0 8px;
   font-size: 14px;
-  color: var(--text-secondary, #c7c7cc);
+  color: #666666; /* Force gray */
   font-weight: 500;
 }
 
@@ -215,8 +221,8 @@
 }
 
 .welcome-btn-primary {
-  background: var(--accent-orange, #EE9828);
-  color: #000000;
+  background: #EE9828; /* Force orange */
+  color: #000000; /* Force black */
 }
 
 .welcome-btn-primary:hover {
@@ -232,24 +238,24 @@
 
 .welcome-btn-secondary {
   background: transparent;
-  color: var(--text-primary, #ffffff);
-  border: 2px solid var(--text-muted, #666);
+  color: #000000; /* Force black */
+  border: 2px solid #d1d1d6; /* Force gray border */
 }
 
 .welcome-btn-secondary:hover {
-  border-color: var(--text-primary, #ffffff);
+  border-color: #000000; /* Force black */
   transform: translateY(-2px);
 }
 
 .welcome-btn-secondary:focus {
-  outline: 3px solid rgba(199, 199, 204, 0.5);
+  outline: 3px solid rgba(0, 0, 0, 0.3);
   outline-offset: 2px;
 }
 
 /* ===== HINT TEXT ===== */
 .welcome-hint {
   font-size: 14px;
-  color: var(--text-muted, #666);
+  color: #999999; /* Force gray */
   margin-top: 20px;
   font-style: italic;
 }
@@ -269,7 +275,8 @@
 }
 
 .welcome-skip-content {
-  background: var(--bg-secondary, #2c2c2e);
+  background: #ffffff; /* Force white */
+  color: #000000; /* Force black */
   border-radius: 12px;
   padding: 40px;
   max-width: 500px;
@@ -280,13 +287,13 @@
 
 .welcome-skip-content h2 {
   font-size: 28px;
-  color: var(--text-primary, #ffffff);
+  color: #000000; /* Force black */
   margin: 0 0 16px 0;
 }
 
 .welcome-skip-content p {
   font-size: 16px;
-  color: var(--text-secondary, #c7c7cc);
+  color: #666666; /* Force gray */
   margin: 0 0 32px 0;
   line-height: 1.5;
 }
@@ -297,47 +304,8 @@
   justify-content: center;
 }
 
-/* ===== LIGHT THEME ===== */
-body.theme-light .welcome-wizard-modal {
-  background: #ffffff;
-}
-
-body.theme-light .welcome-title,
-body.theme-light .welcome-question {
-  color: #000000;
-}
-
-body.theme-light .welcome-subtitle {
-  color: #666666;
-}
-
-body.theme-light .welcome-input {
-  background: #f5f5f7;
-  border-color: #d1d1d6;
-  color: #000000;
-}
-
-body.theme-light .welcome-input-label {
-  background: #ffffff;
-  color: #666666;
-}
-
-body.theme-light .welcome-btn-secondary {
-  color: #000000;
-  border-color: #d1d1d6;
-}
-
-body.theme-light .welcome-skip-content {
-  background: #f5f5f7;
-}
-
-body.theme-light .welcome-skip-content h2 {
-  color: #000000;
-}
-
-body.theme-light .welcome-skip-content p {
-  color: #666666;
-}
+/* ===== REMOVE ALL LIGHT THEME OVERRIDES ===== */
+/* No longer needed - always white */
 
 /* ===== TV OPTIMIZATIONS ===== */
 @media (min-width: 1200px) {

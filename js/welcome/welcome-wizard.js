@@ -301,17 +301,19 @@ export class WelcomeWizard {
     logger.info('Welcome wizard completed', { state: this.state });
     
     // Save completion to settings
-    if (window.settingsService) {
+    if (window.settingsController) {
       try {
-        await window.settingsService.updateSettings({
-          'onboarding.completed': true,
-          'onboarding.completedAt': new Date().toISOString(),
-          'family.familyName': this.state.familyName
-        });
-        logger.success('Onboarding completion saved to database');
+        // Use settingsController to save settings properly
+        await window.settingsController.handleSettingChange('onboarding.completed', true);
+        await window.settingsController.handleSettingChange('onboarding.completedAt', new Date().toISOString());
+        await window.settingsController.handleSettingChange('family.familyName', this.state.familyName);
+        
+        logger.success('Onboarding completion saved via settingsController');
       } catch (error) {
-        logger.error('Failed to save onboarding completion', { error: error.message });
+        logger.error('Failed to save onboarding completion via settingsController', { error: error.message });
       }
+    } else {
+      logger.warn('settingsController not available, settings not saved');
     }
     
     // Clear localStorage state

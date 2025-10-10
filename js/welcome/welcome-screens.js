@@ -19,7 +19,7 @@ export function getWelcomeScreens() {
         return `
           <div class="welcome-screen-content">
             <div class="welcome-logo">
-              <img src="/images/dashie-logo.png" alt="Dashie Logo" />
+              <img src="/icons/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie Logo" />
             </div>
             <h1 class="welcome-title">Welcome to Dashie, ${firstName}!</h1>
             <p class="welcome-subtitle">Let's get you on the road to better family organization!</p>
