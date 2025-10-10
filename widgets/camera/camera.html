@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Map Widget</title>
+  <title>Camera Widget</title>
   
   <!-- Import theme variables from parent -->
   <link rel="stylesheet" href="../../css/core/variables.css">
@@ -68,9 +68,9 @@
 <body>
   <div class="placeholder-container">
     <div class="icon-container">
-      <img src="/icons/icon-map.svg" alt="Map Icon">
+      <img src="/icons/icon-video-camera.svg" alt="Camera Icon">
     </div>
-    <div class="widget-title">Location Map Widget</div>
+    <div class="widget-title">Camera Feed Widget</div>
     <div class="widget-message">Not available yet</div>
   </div>
 
@@ -80,7 +80,7 @@
       if (window.parent !== window) {
         window.parent.postMessage({ 
           type: 'widget-ready', 
-          widget: 'map' 
+          widget: 'camera' 
         }, '*');
       }
     });
@@ -89,7 +89,7 @@
     window.addEventListener('message', (event) => {
       if (event.data && event.data.type === 'theme-change') {
         // Theme will be applied via CSS variables automatically
-        console.log('Map placeholder received theme:', event.data.theme);
+        console.log('Camera placeholder received theme:', event.data.theme);
       }
     });
   </script>

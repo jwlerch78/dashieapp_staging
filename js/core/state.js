@@ -23,7 +23,7 @@ export const widgetUrls = {
   map: "/widgets/map/map.html",
   agenda: "/widgets/agenda/agenda.html",
   photos: "/widgets/photos/photos.html",
-  camera: "/widgets/camera.html",
+  camera: "/widgets/camera/camera.html",
   header: "/widgets/header/header.html"
 };
 

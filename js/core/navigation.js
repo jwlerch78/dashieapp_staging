@@ -579,10 +579,9 @@ function handleMenuSelection(optionId) {
         renderGrid();
         renderSidebar();
         
-        // Move focus back to grid and close sidebar
-        setFocus({ type: "grid", row: 2, col: 1 });
+        // Close sidebar without setting grid focus (keeps dashboard clean)
         elements.sidebar.classList.remove("expanded");
-        updateFocus();
+        hideHighlights(); // Hide any highlights after switching
         
         console.log(`Switched main widget to: ${optionId}`);
       });
