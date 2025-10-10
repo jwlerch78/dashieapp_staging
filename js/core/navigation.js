@@ -317,6 +317,7 @@ function removeCenteringTransform(widgetElement) {
   }
   
   console.log('🔙 === REMOVE CENTERING DEBUG START ===');
+  console.log('Called from:', new Error().stack);
   console.log('Widget element:', widgetElement);
   console.log('Widget classes before:', widgetElement.className);
   console.log('Current transform:', window.getComputedStyle(widgetElement).transform);
@@ -619,6 +620,13 @@ export function handleEnter() {
   resetHighlightTimer();
   
   if (state.isAsleep || state.confirmDialog) return;
+  
+  // CRITICAL: If focus menu is active and we're in the menu, do NOT handle enter here
+  // The enter key should ONLY send menu-item-selected to the widget, not trigger selection
+  if (state.focusMenuState.active && state.focusMenuState.inMenu) {
+    console.log('⚠️ handleEnter blocked - focus menu is active and in menu state');
+    return;
+  }
 
   if (state.focus.type === "grid") {
     // findWidget returns the widget config object, we need the actual DOM element
@@ -927,9 +935,22 @@ window.addEventListener('message', (event) => {
   
   // Handle widget requesting return to menu
   if (event.data && event.data.type === 'return-to-menu') {
+    // CRITICAL: Do EXACTLY what escape/back does when returning from widget to menu
     if (state.focusMenuState.active && !state.focusMenuState.inMenu) {
       setFocusMenuInWidget(false);
       undimFocusMenu();
+      
+      // Remove visual indicator that widget was active
+      if (state.selectedCell) {
+        console.log('🔵 [return-to-menu] BEFORE removing widget-active:', state.selectedCell.className);
+        state.selectedCell.classList.remove('widget-active');
+        console.log('🔵 [return-to-menu] AFTER removing widget-active:', state.selectedCell.className);
+      }
+      
+      // Update controls guide back to menu mode
+      updateControlsGuide(true);
+      
+      sendToWidget({ action: 'blur' });
       console.log('← Widget requested return to menu');
     }
   }

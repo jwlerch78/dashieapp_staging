@@ -65,6 +65,7 @@
   padding: var(--outline-width-selected);
   pointer-events: none;
   z-index: -1;
+  transition: background 0.2s ease; /* ADDED: Smooth color transition */
 }
 
 /* LEGACY MODE - Orange for selected, Blue for focused */
@@ -175,11 +176,13 @@ body.legacy-focus .menu-item.focused {
 /* IMPORTANT: Gray border when centered but NOT widget-active (in menu) */
 .widget.focused.centered:not(.widget-active)::before {
   background: var(--widget-border-gradient) !important;
+  transition: background 0.3s ease !important; /* CRITICAL: Ensure transition works */
 }
 
 /* Blue gradient border when user is actively controlling the widget (not in menu) */
 .widget.focused.centered.widget-active::before {
   background: var(--widget-border-gradient-active) !important;
+  transition: background 0.3s ease !important; /* CRITICAL: Ensure transition works */
 }
 
 /* Ensure smooth transition back to grid position */

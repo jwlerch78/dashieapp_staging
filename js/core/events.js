@@ -191,6 +191,13 @@ async function handleUnifiedInput(action, originalEvent = null) {
           });
           
           console.log('✓ Menu item selected:', selectedItem.label);
+          // IMPORTANT: return here to prevent handleEnter from being called
+          return;
+        } else if (state.focusMenuState.active && !state.focusMenuState.inMenu) {
+          // User is IN WIDGET - send enter command to widget
+          const { sendToWidget } = await import('./navigation.js');
+          sendToWidget('enter');
+          return;
         } else {
           // Regular enter handling (grid selection or widget action)
           handleEnter();
