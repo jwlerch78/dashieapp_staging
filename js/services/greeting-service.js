@@ -1,5 +1,5 @@
 // js/services/greeting-service.js
-// v1.0 - 10/9/25 - Dynamic greeting system with context-aware phrases
+// v1.2 - 10/10/25 2:25pm - Varied punctuation to reduce over-enthusiasm
 
 /**
  * Dynamic Greeting Service
@@ -11,200 +11,200 @@ const GREETINGS = {
   // Early Morning (5am - 8am)
   earlyMorning: {
     monday: [
-      "Rise and shine, {family}! New week ahead!",
-      "Good morning, {family}! Monday motivation time!",
-      "Early start, {family}! Let's make it count!",
-      "Morning, {family}! Fresh week, fresh start!",
-      "Up early, {family}! Ready to tackle Monday?"
+      "Rise and shine, {family} Family.",
+      "Good morning, {family} Family.",
+      "Early start, {family} Family.",
+      "Morning, {family} Family.",
+      "Happy Monday, {family} Family!"
     ],
     friday: [
-      "Good morning, {family}! Friday is here!",
-      "Early bird catches the weekend, {family}!",
-      "Morning, {family}! The weekend is almost here!",
-      "Rise and shine, {family}! Friday vibes!",
-      "Good morning, {family}! One more day until the weekend!"
+      "Good morning, {family} Family.",
+      "Friday is here, {family} Family!",
+      "Morning, {family} Family.",
+      "Rise and shine, {family} Family.",
+      "Happy Friday, {family} Family!"
     ],
     weekend: [
-      "Good morning, {family}! Enjoy your weekend!",
-      "Rise and shine, {family}! Weekend mode activated!",
-      "Early weekend morning, {family}!",
-      "Good morning, {family}! Time to relax!",
-      "Up early on the weekend, {family}? Impressive!"
+      "Good morning, {family} Family.",
+      "Rise and shine, {family} Family.",
+      "Happy weekend, {family} Family!",
+      "Morning, {family} Family.",
+      "Weekend mornings, {family} Family."
     ],
     default: [
-      "Good morning, {family}!",
-      "Rise and shine, {family}!",
-      "Early morning energy, {family}!",
-      "Morning, {family}! Have a great day!",
-      "Good morning, {family}! Ready for the day?"
+      "Good morning, {family} Family.",
+      "Rise and shine, {family} Family.",
+      "Morning energy, {family} Family.",
+      "Morning, {family} Family.",
+      "Have a great day, {family} Family."
     ]
   },
 
   // Morning (8am - 12pm)
   morning: {
     monday: [
-      "Good morning, {family}! Let's conquer Monday!",
-      "Happy Monday, {family}!",
-      "Morning, {family}! New week, new opportunities!",
-      "Monday morning, {family}! You've got this!",
-      "Good morning, {family}! Start strong!"
+      "Good morning, {family} Family.",
+      "Happy Monday, {family} Family!",
+      "Morning, {family} Family.",
+      "Monday morning, {family} Family.",
+      "Start strong, {family} Family."
     ],
     friday: [
-      "Happy Friday, {family}!",
-      "Good morning, {family}! The weekend is near!",
-      "Friday morning, {family}! Almost there!",
-      "Morning, {family}! Friday energy activated!",
-      "TGIF, {family}!"
+      "Happy Friday, {family} Family!",
+      "Good morning, {family} Family.",
+      "Friday morning, {family} Family.",
+      "Morning, {family} Family.",
+      "TGIF, {family} Family!"
     ],
     weekend: [
-      "Good morning, {family}! Enjoy your weekend!",
-      "Weekend mornings are the best, {family}!",
-      "Happy Saturday/Sunday, {family}!",
-      "Morning, {family}! Relax and recharge!",
-      "Good morning, {family}! Weekend vibes!"
+      "Good morning, {family} Family.",
+      "Weekend mornings, {family} Family.",
+      "Happy weekend, {family} Family!",
+      "Morning, {family} Family.",
+      "Relax and recharge, {family} Family."
     ],
     default: [
-      "Good morning, {family}!",
-      "Morning, {family}! Have a wonderful day!",
-      "Hello, {family}! Great day ahead!",
-      "Good morning, {family}! Make it count!",
-      "Morning, {family}! Ready for today?"
+      "Good morning, {family} Family.",
+      "Morning, {family} Family.",
+      "Hello, {family} Family.",
+      "Have a great day, {family} Family.",
+      "Ready for today, {family} Family?"
     ]
   },
 
   // Afternoon (12pm - 5pm)
   afternoon: {
     monday: [
-      "Good afternoon, {family}! Monday's halfway done!",
-      "Afternoon, {family}! Keep pushing!",
-      "Happy Monday afternoon, {family}!",
-      "Afternoon check-in, {family}! You're doing great!",
-      "Monday afternoon, {family}! Almost there!"
+      "Good afternoon, {family} Family.",
+      "Afternoon, {family} Family.",
+      "Happy Monday afternoon, {family} Family.",
+      "You're doing great, {family} Family.",
+      "Keep going, {family} Family."
     ],
     friday: [
-      "Happy Friday afternoon, {family}!",
-      "Afternoon, {family}! The weekend is so close!",
-      "Friday afternoon vibes, {family}!",
-      "Almost the weekend, {family}!",
-      "Happy Friday, {family}! Time to wrap up!"
+      "Happy Friday afternoon, {family} Family!",
+      "Afternoon, {family} Family.",
+      "Friday vibes, {family} Family.",
+      "Almost the weekend, {family} Family!",
+      "Keep it up, {family} Family."
     ],
     weekend: [
-      "Good afternoon, {family}! Enjoying the weekend?",
-      "Afternoon, {family}! Weekend mode!",
-      "Happy weekend afternoon, {family}!",
-      "Afternoon, {family}! Hope you're relaxing!",
-      "Good afternoon, {family}! Weekend fun time!"
+      "Good afternoon, {family} Family.",
+      "Happy weekend, {family} Family!",
+      "Afternoon, {family} Family.",
+      "Enjoying your day, {family} Family?",
+      "Weekend vibes, {family} Family."
     ],
     default: [
-      "Good afternoon, {family}!",
-      "Afternoon, {family}! Hope your day is going well!",
-      "Happy afternoon, {family}!",
-      "Good afternoon, {family}! Keep it up!",
-      "Afternoon check-in, {family}!"
+      "Good afternoon, {family} Family.",
+      "Afternoon, {family} Family.",
+      "Keep going, {family} Family.",
+      "You're doing great, {family} Family.",
+      "Happy afternoon, {family} Family."
     ]
   },
 
   // Evening (5pm - 9pm)
   evening: {
     monday: [
-      "Good evening, {family}! Monday's done!",
-      "Evening, {family}! Time to unwind!",
-      "Happy Monday evening, {family}!",
-      "Evening, {family}! You made it through Monday!",
-      "Good evening, {family}! Relax time!"
+      "Good evening, {family} Family.",
+      "Evening, {family} Family.",
+      "Monday complete, {family} Family.",
+      "Time to relax, {family} Family.",
+      "Well done today, {family} Family."
     ],
     friday: [
-      "Happy Friday evening, {family}!",
-      "Evening, {family}! The weekend is here!",
-      "Friday night vibes, {family}!",
-      "Good evening, {family}! Time to celebrate!",
-      "Weekend mode activated, {family}!"
+      "Happy Friday evening, {family} Family!",
+      "Evening, {family} Family.",
+      "Weekend is here, {family} Family!",
+      "Friday night, {family} Family.",
+      "Time to celebrate, {family} Family!"
     ],
     weekend: [
-      "Good evening, {family}! Enjoying the weekend?",
-      "Evening, {family}! Weekend relaxation time!",
-      "Happy weekend evening, {family}!",
-      "Evening, {family}! Hope it's been a great day!",
-      "Good evening, {family}! Unwind and enjoy!"
+      "Good evening, {family} Family.",
+      "Happy weekend evening, {family} Family.",
+      "Evening, {family} Family.",
+      "Weekend relaxation, {family} Family.",
+      "Enjoy your evening, {family} Family."
     ],
     default: [
-      "Good evening, {family}!",
-      "Evening, {family}! Time to relax!",
-      "Happy evening, {family}!",
-      "Good evening, {family}! Hope your day was great!",
-      "Evening, {family}! Kick back and relax!"
+      "Good evening, {family} Family.",
+      "Evening, {family} Family.",
+      "Time to unwind, {family} Family.",
+      "Relax and recharge, {family} Family.",
+      "Happy evening, {family} Family."
     ]
   },
 
   // Night (9pm - 5am)
   night: {
     monday: [
-      "Good night, {family}! Rest up for Tuesday!",
-      "Late night, {family}? Monday's over!",
-      "Evening, {family}! Time to wind down!",
-      "Good night, {family}! Sleep well!",
-      "Late Monday night, {family}!"
+      "Good night, {family} Family.",
+      "Sweet dreams, {family} Family.",
+      "Rest well, {family} Family.",
+      "Sleep tight, {family} Family.",
+      "Time for bed, {family} Family."
     ],
     friday: [
-      "Happy Friday night, {family}!",
-      "Late night fun, {family}?",
-      "Friday night, {family}! Enjoy!",
-      "Good evening, {family}! Weekend's here!",
-      "Friday night vibes, {family}!"
+      "Good night, {family} Family.",
+      "Friday night, {family} Family!",
+      "Sweet dreams, {family} Family.",
+      "Rest up, {family} Family.",
+      "Sleep well, {family} Family."
     ],
     weekend: [
-      "Good night, {family}! Enjoy your weekend evening!",
-      "Late weekend night, {family}!",
-      "Evening, {family}! Hope you're having fun!",
-      "Good night, {family}! Rest well!",
-      "Late night weekend vibes, {family}!"
+      "Good night, {family} Family.",
+      "Sweet dreams, {family} Family.",
+      "Weekend rest, {family} Family.",
+      "Sleep tight, {family} Family.",
+      "Rest well, {family} Family."
     ],
     default: [
-      "Good evening, {family}!",
-      "Late night, {family}?",
-      "Evening, {family}! Time to rest!",
-      "Good night, {family}!",
-      "Late night check-in, {family}!"
+      "Good night, {family} Family.",
+      "Sweet dreams, {family} Family.",
+      "Time for rest, {family} Family.",
+      "Sleep tight, {family} Family.",
+      "Rest well, {family} Family."
     ]
   }
 };
 
-// Phrases without family name for variety
+// Greetings without family name (for variety - 20% chance)
 const NO_FAMILY_GREETINGS = {
   earlyMorning: [
-    "Rise and shine!",
-    "Early bird gets the worm!",
-    "Good morning sunshine!",
+    "Rise and shine.",
+    "Early bird gets the worm.",
+    "Good morning.",
     "Wakey wakey!",
-    "Morning has broken!"
+    "Morning has broken."
   ],
   morning: [
-    "Good morning!",
-    "Have a great day!",
-    "Make today amazing!",
-    "Seize the day!",
+    "Good morning.",
+    "Have a great day.",
+    "Make today amazing.",
+    "Seize the day.",
     "Hello sunshine!"
   ],
   afternoon: [
-    "Good afternoon!",
-    "Happy afternoon!",
-    "Keep going strong!",
-    "You're doing great!",
-    "Afternoon vibes!"
+    "Good afternoon.",
+    "Happy afternoon.",
+    "Keep going strong.",
+    "You're doing great.",
+    "Afternoon vibes."
   ],
   evening: [
-    "Good evening!",
-    "Time to unwind!",
-    "Relax and recharge!",
-    "Evening relaxation!",
-    "Wind down time!"
+    "Good evening.",
+    "Time to unwind.",
+    "Relax and recharge.",
+    "Evening relaxation.",
+    "Wind down time."
   ],
   night: [
-    "Good night!",
-    "Sweet dreams!",
-    "Time for rest!",
-    "Sleep tight!",
-    "Late night vibes!"
+    "Good night.",
+    "Sweet dreams.",
+    "Time for rest.",
+    "Sleep tight.",
+    "Late night vibes."
   ]
 };
 
@@ -267,6 +267,35 @@ export function getGreeting(familyName) {
   // Select random greeting and format with family name
   const template = selectRandom(dayGreetings);
   return template.replace('{family}', familyName);
+}
+
+/**
+ * Get all available greetings for current context
+ * @param {string} familyName - The family name to use
+ * @returns {Array<string>} Array of all possible greetings
+ */
+export function getAllGreetings(familyName) {
+  const timePeriod = getTimePeriod();
+  const dayContext = getDayContext();
+  
+  const allGreetings = [];
+  
+  // Get greetings for this time period
+  const timeGreetings = GREETINGS[timePeriod];
+  
+  // Get day-specific greetings
+  const dayGreetings = timeGreetings[dayContext] || timeGreetings.default;
+  
+  // Add all day-specific greetings with family name
+  dayGreetings.forEach(template => {
+    allGreetings.push(template.replace('{family}', familyName));
+  });
+  
+  // Add no-family greetings
+  const noFamilyGreetings = NO_FAMILY_GREETINGS[timePeriod];
+  allGreetings.push(...noFamilyGreetings);
+  
+  return allGreetings;
 }
 
 /**

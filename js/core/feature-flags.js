@@ -23,7 +23,7 @@ export const FEATURE_DEFINITIONS = [
     name: 'ENHANCED_FOCUS_MODE',
     label: 'Enhanced Focus Mode',
     description: 'Larger selection (105%), thicker silver border (6px), and semi-transparent overlay when focusing widgets. Original: 102% scale, 2px orange border, no overlay.',
-    default: false,
+    default: true,
     category: 'ui'
   },
   // Future features:

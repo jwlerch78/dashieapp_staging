@@ -43,10 +43,10 @@
   <div id="family-name">The Dashie Family</div>
 
   <script type="module">
-    // v1.1 - 10/9/25 - Added dynamic greeting support with context-aware phrases
+    // v1.2 - 10/10/25 2:20pm - Updated to use getAllGreetings for cycling through complete greeting pool
     // Import logger for structured logging
     import { createLogger } from '../../js/utils/logger.js';
-    import { getGreeting, getStaticGreeting } from '../../js/services/greeting-service.js';
+    import { getGreeting, getStaticGreeting, getAllGreetings } from '../../js/services/greeting-service.js';
     const logger = createLogger('HeaderWidget');
 
     class HeaderWidget {
@@ -302,24 +302,18 @@
       }
 
       generateGreetingVariations(baseName) {
-        // Generate 5 different greeting variations
+        // Generate ALL available greeting variations for cycling
         this.greetingVariations = [];
         this.currentVariationIndex = 0;
         
         if (this.dynamicGreetingEnabled) {
-          // Generate 5 unique greetings
-          const uniqueGreetings = new Set();
-          let attempts = 0;
-          const maxAttempts = 20; // Prevent infinite loop
+          // Get ALL possible greetings for current time/day context
+          this.greetingVariations = getAllGreetings(baseName);
           
-          while (uniqueGreetings.size < 5 && attempts < maxAttempts) {
-            const greeting = getGreeting(baseName);
-            uniqueGreetings.add(greeting);
-            attempts++;
-          }
+          // Shuffle the array for variety
+          this.greetingVariations = this.greetingVariations.sort(() => Math.random() - 0.5);
           
-          this.greetingVariations = Array.from(uniqueGreetings);
-          logger.debug('Generated greeting variations', { 
+          logger.debug('Generated ALL greeting variations', { 
             count: this.greetingVariations.length,
             variations: this.greetingVariations 
           });

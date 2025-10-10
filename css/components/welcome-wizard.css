@@ -365,6 +365,31 @@
   margin: 0 auto;
 }
 
+/* ===== PHOTO THUMBNAILS ===== */
+.welcome-photo-thumbnails {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 20px 0;
+  height: 120px;
+  position: relative;
+}
+
+.welcome-photo-thumb {
+  width: 100px;
+  height: 100px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 3px solid #ffffff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  margin: 0 -15px; /* Overlap effect */
+  transition: transform 0.2s ease;
+}
+
+.welcome-photo-thumb:hover {
+  transform: scale(1.1) translateY(-5px);
+}
+
 /* ===== HINT TEXT ===== */
 .welcome-hint {
   font-size: 14px;
@@ -482,5 +507,16 @@
   
   .welcome-btn {
     width: 100%;
+  }
+  
+  /* Mobile photo thumbnails */
+  .welcome-photo-thumbnails {
+    height: 90px;
+  }
+  
+  .welcome-photo-thumb {
+    width: 75px;
+    height: 75px;
+    margin: 0 -10px;
   }
 }

@@ -29,7 +29,7 @@ export const widgetUrls = {
 
 // Widget layout configuration
 export const widgets = [
-  { id: "header", row: 1, col: 1, rowSpan: 1, colSpan: 1, url: widgetUrls.header },
+  { id: "header", row: 1, col: 1, rowSpan: 1, colSpan: 1, url: widgetUrls.header, noCenter: true },
   { id: "clock", row: 1, col: 2, rowSpan: 1, colSpan: 1, url: widgetUrls.clock },
   { id: "main", row: 2, col: 1, rowSpan: 2, colSpan: 1, url: widgetUrls.calendar }, 
   { id: "agenda", row: 2, col: 2, rowSpan: 1, colSpan: 1, url: widgetUrls.agenda },

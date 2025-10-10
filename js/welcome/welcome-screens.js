@@ -1,13 +1,12 @@
 // js/welcome/welcome-screens.js
+// v2.1 - 10/10/25 3:45pm - Streamlined to 5 screens, removed photos/QR/tutorial screens
 // v2.0 - 10/10/25 - Refactored to modular structure with individual screen files
 
 import { welcomeScreens, setupWelcomeHandlers } from './screens/screen-1-welcome.js';
 import { familyNameScreens, setupFamilyNameHandlers } from './screens/screen-2-family-name.js';
 import { calendarScreens, setupCalendarHandlers } from './screens/screen-3-calendar.js';
 import { locationScreens, setupLocationScreenHandlers } from './screens/screen-4-location.js';
-import { photoScreens, setupPhotoHandlers } from './screens/screen-5-photos.js';
-import { qrCodeScreens, setupQRCodeHandlers } from './screens/screen-6-qr-code.js';
-import { tutorialScreens, setupTutorialHandlers } from './screens/screen-7-tutorial.js';
+import { finalScreen, setupFinalScreenHandlers } from './screens/screen-5-final.js';
 
 /**
  * Get all welcome screens
@@ -18,9 +17,7 @@ export function getWelcomeScreens() {
     ...familyNameScreens,
     ...calendarScreens,
     ...locationScreens,
-    ...photoScreens,
-    ...qrCodeScreens,
-    ...tutorialScreens
+    ...finalScreen
   ];
 }
 
@@ -32,7 +29,5 @@ export function setupScreenHandlers(wizard) {
   setupFamilyNameHandlers(wizard);
   setupCalendarHandlers(wizard);
   setupLocationScreenHandlers(wizard);
-  setupPhotoHandlers(wizard);
-  setupQRCodeHandlers(wizard);
-  setupTutorialHandlers(wizard);
+  setupFinalScreenHandlers(wizard);
 }

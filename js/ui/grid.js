@@ -89,6 +89,12 @@ export function renderGrid() {
     div.classList.add("widget");
     div.dataset.row = w.row;
     div.dataset.col = w.col;
+    
+    // Add no-center attribute if widget should not be centered on focus
+    if (w.noCenter === true) {
+      div.dataset.noCenter = "true";
+    }
+    
     div.style.gridRow = `${w.row} / span ${w.rowSpan}`;
     div.style.gridColumn = `${w.col} / span ${w.colSpan}`;
     div.style.position = "relative";

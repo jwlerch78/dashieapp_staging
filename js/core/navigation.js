@@ -158,6 +158,12 @@ function centerFocusedWidget(widgetElement) {
     return;
   }
   
+  // Check if widget has no-center flag - if so, skip centering
+  if (widgetElement.dataset.noCenter === "true") {
+    console.log('⏭️ Widget has no-center flag, skipping centering');
+    return;
+  }
+  
   console.log('🎯 === CENTER WIDGET DEBUG START ===');
   console.log('Widget element:', widgetElement);
   console.log('Widget classes:', widgetElement.className);

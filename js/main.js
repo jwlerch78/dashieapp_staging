@@ -483,7 +483,7 @@ async function completeDesktopInit() {
   // WELCOME WIZARD (NEW USERS ONLY)
   // ============================================
   
-  // Check if user needs onboarding (only for Screens 1-2)
+  // Check if user needs onboarding
   const skipWizard = localStorage.getItem('dashie-skip-wizard');
   const currentUser = window.dashieAuth?.getUser();
   
@@ -492,8 +492,14 @@ async function completeDesktopInit() {
     
     // Check onboarding status from settings
     let needsOnboarding = true;
-    if (window.settingsController?.currentSettings) {
-      needsOnboarding = !window.settingsController.currentSettings.onboarding?.completed;
+    if (window.settingsInstance?.controller?.currentSettings) {
+      needsOnboarding = !window.settingsInstance.controller.currentSettings.onboarding?.completed;
+      console.log('👋 Onboarding check:', { 
+        completed: window.settingsInstance.controller.currentSettings.onboarding?.completed,
+        needsOnboarding 
+      });
+    } else {
+      console.log('👋 Settings not ready yet, defaulting to show wizard');
     }
     
     if (needsOnboarding) {
@@ -507,6 +513,10 @@ async function completeDesktopInit() {
       }
     } else {
       console.log('✅ User has completed onboarding - skipping welcome wizard');
+    }
+  } else {
+    if (skipWizard) {
+      console.log('✅ Skip wizard flag found - not showing wizard');
     }
   }
 }

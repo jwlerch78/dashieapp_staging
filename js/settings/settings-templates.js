@@ -1,4 +1,5 @@
 // js/settings/settings-templates.js
+// v1.4 - 10/10/25 4:05pm - Moved Dynamic Greeting toggle to bottom of Display screen (after sleep settings)
 // v1.3 - 10/9/25 - Added location display element below zip code input
 // v1.2 - 10/9/25 - Added zip code input to Family settings & moved Family to top of menu
 // Version: 1.1 | Last Updated: 2025-01-09 20:40 EST
@@ -89,13 +90,6 @@ export const displayScreens = `
           <span class="cell-value" id="mobile-theme-value">Dark</span>
           <span class="cell-chevron">›</span>
         </div>
-        <div class="settings-cell toggle-cell" id="dynamic-greeting-toggle-cell">
-          <span class="cell-label">Dynamic Greeting</span>
-          <label class="toggle-switch">
-            <input type="checkbox" id="dynamic-greeting-enabled" data-setting="display.dynamicGreeting">
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
       </div>
       
       <div class="settings-section">
@@ -115,6 +109,16 @@ export const displayScreens = `
           <span class="cell-label">Wake Time</span>
           <span class="cell-value" id="mobile-wake-time-value">7:00 AM</span>
           <span class="cell-chevron">›</span>
+        </div>
+      </div>
+      
+      <div class="settings-section">
+        <div class="settings-cell toggle-cell" id="dynamic-greeting-toggle-cell">
+          <span class="cell-label">Dynamic Greeting</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="dynamic-greeting-enabled" data-setting="display.dynamicGreeting">
+            <span class="toggle-slider"></span>
+          </label>
         </div>
       </div>
     </div>

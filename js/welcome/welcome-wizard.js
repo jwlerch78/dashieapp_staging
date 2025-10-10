@@ -1,4 +1,9 @@
 // js/welcome/welcome-wizard.js
+// v2.0 - 10/10/25 3:45pm - Streamlined to 5 screens, removed photo/QR methods, simplified navigation
+// v1.13 - 10/10/25 3:35pm - Added delay for data refresh after modal closes, added debug logging
+// v1.12 - 10/10/25 3:30pm - Fixed photo URL capture and navigation logic for Screen 5
+// v1.11 - 10/10/25 3:15pm - Fixed openAddPhotosModal to use correct global window.photosSettingsManager
+// v1.10 - 10/10/25 3:00pm - Added screen-5-skipped to navigation, improved openAddPhotosModal
 // v1.9 - 10/10/25 2:40pm - Fixed skip modal Enter and Escape key handling
 // v1.8 - 10/10/25 2:30pm - Added location lookup, fixed skip modal navigation
 // v1.7 - 10/10/25 2:15pm - Added Screen 4C-Confirm to modal navigation
@@ -164,7 +169,7 @@ export class WelcomeWizard {
       if (e.key === 'Escape' || e.key === 'Backspace') {
         // Don't show skip confirmation on last screen
         const currentScreen = this.screens[this.currentScreenIndex];
-        if (currentScreen.id === 'screen-7') {
+        if (currentScreen.id === 'screen-5') {
           this.completeWizard();
           return;
         }
@@ -264,13 +269,14 @@ export class WelcomeWizard {
     // Set skip flag
     localStorage.setItem('dashie-skip-wizard', 'true');
     
-    // Update settings if possible
+    // Update settings - mark as both skipped AND completed so wizard never shows again
     if (window.settingsInstance?.controller) {
       try {
         const controller = window.settingsInstance.controller;
         controller.setSetting('onboarding.skipped', true);
+        controller.setSetting('onboarding.completed', true);
         controller.setSetting('onboarding.skippedAt', new Date().toISOString());
-        logger.info('Skip status saved to settings');
+        logger.info('Skip status saved - wizard will not show again');
       } catch (err) {
         logger.warn('Failed to save skip status', err);
       }
@@ -345,10 +351,7 @@ export class WelcomeWizard {
       'screen-4c': { buttons: ['welcome-screen-4c-continue', 'welcome-screen-4c-back'], horizontal: true },
       'screen-4c-confirm': { buttons: ['welcome-screen-4c-confirm-yes', 'welcome-screen-4c-confirm-no'], horizontal: true },
       'screen-4d': { buttons: ['welcome-screen-4d-continue'], horizontal: false },
-      'screen-5': { buttons: ['welcome-screen-5-add', 'welcome-screen-5-skip'], horizontal: true },
-      'screen-5b': { buttons: ['welcome-screen-5b-continue'], horizontal: false },
-      'screen-6': { buttons: ['welcome-screen-6-continue'], horizontal: false },
-      'screen-7': { buttons: ['welcome-screen-7-complete'], horizontal: false }
+      'screen-5': { buttons: ['welcome-screen-5-complete'], horizontal: false }
     };
     
     const config = screenButtons[screenId];
@@ -687,88 +690,11 @@ export class WelcomeWizard {
     const lastLocationScreenIndex = this.screens.findIndex(s => s.id === 'screen-4d');
     
     if (lastLocationScreenIndex >= 0 && lastLocationScreenIndex < this.screens.length - 1) {
-      // Move to the screen after the last location screen
+      // Move to the screen after the last location screen (now screen-5)
       this.showScreen(lastLocationScreenIndex + 1);
     } else {
       // If we're at or past the last screen, complete the wizard
       this.completeWizard();
-    }
-  }
-
-  /**
-   * Open add photos modal
-   */
-  async openAddPhotosModal() {
-    logger.info('Opening add photos modal from wizard');
-    
-    try {
-      // Check if settings modal manager exists
-      if (window.settingsInstance?.modalManager) {
-        // Close wizard temporarily
-        this.overlay.style.display = 'none';
-        
-        // Open photos settings which includes upload
-        await window.settingsInstance.modalManager.show('photos');
-        
-        // Set flag that photos were added
-        this.state.photosAdded = true;
-        this.saveState();
-        
-        // Navigate to confirmation screen
-        const screen5BIndex = this.screens.findIndex(s => s.id === 'screen-5b');
-        if (screen5BIndex >= 0) {
-          await this.showScreen(screen5BIndex);
-        }
-        
-        // Show wizard again
-        this.overlay.style.display = 'flex';
-      } else {
-        logger.warn('Settings modal manager not available');
-        // Just move to next screen
-        this.nextScreen();
-      }
-    } catch (error) {
-      logger.error('Failed to open add photos modal', { error: error.message });
-      // Show wizard again if hidden
-      this.overlay.style.display = 'flex';
-      // Move to next screen anyway
-      this.nextScreen();
-    }
-  }
-
-  /**
-   * Generate QR code for mobile access
-   */
-  generateQRCode() {
-    const qrContainer = this.overlay.querySelector('.welcome-qr-code');
-    if (!qrContainer) {
-      logger.warn('QR code container not found');
-      return;
-    }
-    
-    const url = qrContainer.dataset.url;
-    if (!url) {
-      logger.warn('QR code URL not found');
-      return;
-    }
-    
-    logger.info('Generating QR code', { url });
-    
-    // Use QRCode.js library if available
-    if (window.QRCode) {
-      qrContainer.innerHTML = '';
-      new window.QRCode(qrContainer, {
-        text: url,
-        width: 200,
-        height: 200,
-        colorDark: '#EE9828',
-        colorLight: '#ffffff',
-        correctLevel: window.QRCode.CorrectLevel.M
-      });
-    } else {
-      // Fallback to simple text
-      qrContainer.innerHTML = `<div style="padding: 20px; background: #f5f5f5; border-radius: 8px;">${url}</div>`;
-      logger.warn('QRCode library not available, showing URL as text');
     }
   }
 

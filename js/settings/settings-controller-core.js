@@ -1,4 +1,7 @@
 // js/settings/settings-controller-core.js
+// v1.6 - 10/10/25 4:10pm - Changed default reSleepDelay to 10 minutes (was 30)
+// v1.5 - 10/10/25 4:00pm - Changed default sleepTimerEnabled to false (disabled by default)
+// v1.4 - 10/10/25 3:50pm - Skip auto-location for new users (only prompt returning users)
 // v1.3 - 10/9/25 - Added automatic location detection via browser geolocation on first login
 // v1.2 - 10/9/25 - Added zipCode field to family settings for weather location
 // v1.1 - 1/9/25 8:20pm - Converted console.log to logger.debug
@@ -295,11 +298,19 @@ export class SettingsControllerCore {
       console.log('⚙️ ✅ Settings Controller initialized successfully');
       
       // AUTO-DETECT LOCATION: Must happen AFTER isInitialized = true
-      // This provides seamless onboarding - weather "just works" on first login
-      // Run async without blocking (fire and forget)
-      this._initializeLocationFromBrowser().catch(err => {
-        console.error('⚙️ ❌ Location detection failed:', err);
-      });
+      // Only run for returning users who have completed onboarding
+      // New users will be asked for location in the welcome wizard
+      const hasCompletedOnboarding = this.currentSettings.onboarding?.completed;
+      
+      if (hasCompletedOnboarding) {
+        console.log('⚙️ User has completed onboarding - checking for auto-location');
+        // Run async without blocking (fire and forget)
+        this._initializeLocationFromBrowser().catch(err => {
+          console.error('⚙️ ❌ Location detection failed:', err);
+        });
+      } else {
+        console.log('⚙️ New user detected - skipping auto-location (will be prompted in welcome wizard)');
+      }
       
       return true;
       
@@ -325,7 +336,8 @@ export class SettingsControllerCore {
       display: {
         sleepTime: '22:00',
         wakeTime: '07:00', 
-        reSleepDelay: 30,
+        reSleepDelay: 10,  // CHANGED: Default re-sleep delay to 10 minutes
+        sleepTimerEnabled: false,  // CHANGED: Default sleep timer to disabled
         theme: 'light'  // CHANGED: Default theme is now light
       },
       accounts: {
