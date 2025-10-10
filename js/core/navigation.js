@@ -1,6 +1,6 @@
 // js/core/navigation.js - Navigation Logic & Focus Management with Timeout System
-// v1.6 - 10/10/25 3:45pm - Clarified menu-first navigation flow with better logging
-// CHANGE SUMMARY: Enhanced logging to show navigation starts in menu, widget receives menu-active (not focus) initially
+// v1.7 - 10/10/25 4:25pm - Added controls guide updates on navigation state changes
+// CHANGE SUMMARY: Controls guide now updates when moving between menu and widget, shows dynamic labels based on widget context
 
 import { state, elements, findWidget, setFocus, setSelectedCell, setCurrentMain } from './state.js';
 import { isFeatureEnabled } from './feature-flags.js';
@@ -15,7 +15,8 @@ import {
   hideFocusMenu, 
   updateMenuSelection,
   dimFocusMenu,
-  undimFocusMenu 
+  undimFocusMenu,
+  updateControlsGuide 
 } from '../ui/focus-menu.js';
 import { 
   setFocusMenuActive, 
@@ -321,7 +322,9 @@ function removeCenteringTransform(widgetElement) {
   console.log('Current transform:', window.getComputedStyle(widgetElement).transform);
   console.log('Widget position before:', widgetElement.getBoundingClientRect());
   
+  // Remove both centering and widget-active classes
   widgetElement.classList.remove('centered');
+  widgetElement.classList.remove('widget-active');
   widgetElement.style.transform = ''; // Remove inline style, let CSS take over
   
   console.log('Widget classes after:', widgetElement.className);
@@ -412,13 +415,18 @@ export function sendToWidget(action) {
   const iframe = state.selectedCell.querySelector("iframe");
   if (iframe && iframe.contentWindow) {
     try {
-      iframe.contentWindow.postMessage({ action }, "*");
-      console.log(`✓ Sent command '${action}' to widget iframe`);
+      // FIXED: Check if action is already an object with properties
+      // If it's an object (like {action: 'menu-item-selected', itemId: 'weekly'}), send it directly
+      // If it's a string (like 'left', 'right'), wrap it in {action: ...}
+      const message = (typeof action === 'string') ? { action } : action;
+      
+      iframe.contentWindow.postMessage(message, "*");
+      console.log(`✓ Sent command`, message, `to widget iframe`);
     } catch (error) {
       console.warn("Failed to send message to widget:", error);
     }
   } else {
-    console.log(`No iframe found in selected cell for action: ${action}`);
+    console.log(`No iframe found in selected cell for action:`, action);
   }
   
   // Reset timer when sending commands to widgets
@@ -474,8 +482,18 @@ export function moveFocus(dir) {
         
         // Add visual indicator that widget is now active
         if (state.selectedCell) {
+          console.log('🔵 BEFORE adding widget-active:', state.selectedCell.className);
           state.selectedCell.classList.add('widget-active');
+          console.log('🔵 AFTER adding widget-active:', state.selectedCell.className);
         }
+        
+        // Update controls guide to widget mode
+        updateControlsGuide(false, {
+          upDownLabel: 'Scroll Time',
+          rightLabel: 'Next Week',
+          leftLabel: 'Prev Week',
+          selectLabel: ''
+        });
         
         sendToWidget({ action: 'focus' });
         console.log('→ Moved from menu to widget content');
@@ -678,8 +696,13 @@ export function handleBack() {
         
         // Remove visual indicator that widget was active
         if (state.selectedCell) {
+          console.log('🔵 BEFORE removing widget-active:', state.selectedCell.className);
           state.selectedCell.classList.remove('widget-active');
+          console.log('🔵 AFTER removing widget-active:', state.selectedCell.className);
         }
+        
+        // Update controls guide back to menu mode
+        updateControlsGuide(true);
         
         sendToWidget({ action: 'blur' });
         console.log('← Returned to menu from widget');

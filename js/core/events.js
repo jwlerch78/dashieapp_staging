@@ -177,7 +177,24 @@ async function handleUnifiedInput(action, originalEvent = null) {
         moveFocus(action);
         break;
       case "enter":
-        handleEnter();
+        // NEW: Check if focus menu is active and user is in menu
+        if (state.focusMenuState.active && state.focusMenuState.inMenu) {
+          // Send menu item selection to widget
+          const selectedItem = state.focusMenuState.menuConfig.items[
+            state.focusMenuState.selectedIndex
+          ];
+          
+          const { sendToWidget } = await import('./navigation.js');
+          sendToWidget({
+            action: 'menu-item-selected',
+            itemId: selectedItem.id
+          });
+          
+          console.log('✓ Menu item selected:', selectedItem.label);
+        } else {
+          // Regular enter handling (grid selection or widget action)
+          handleEnter();
+        }
         break;
       default:
         // For other actions (prev-view, next-view, etc), send directly to widget

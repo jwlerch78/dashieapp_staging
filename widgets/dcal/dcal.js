@@ -5,6 +5,7 @@ import { createLogger } from '../../js/utils/logger.js';
 import { DCalConfig } from './dcal-config.js';
 import { DCalEvents } from './dcal-events.js';
 import { DCalWeekly } from './dcal-weekly.js';
+import { showToast } from '../../js/ui/toast.js';
 
 const logger = createLogger('DCalWidget');
 
@@ -432,18 +433,41 @@ export class DCalWidget {
         widget: 'dcal',
         focusMenu: {
           enabled: true,
-          defaultIndex: 1, // Start on "Week"
-          currentView: this.currentView === 'week' ? 'weekly' : this.currentView, // Map internal view to menu ID
+          defaultIndex: 1, // Start on "Week" (index 1 after "Go to Today")
+          currentView: this.currentView === 'week' ? 'weekly' : this.currentView,
           items: [
-            { id: 'monthly', label: 'Month' },
-            { id: 'weekly', label: 'Week' },
-            { id: 'daily', label: 'Day' },
-            { id: '3day', label: '3-Day' }
+            // Action button
+            { 
+              id: 'go-to-today', 
+              label: 'Go to Today', 
+              type: 'action' 
+            },
+            // View options
+            { 
+              id: 'monthly', 
+              label: 'Month',
+              type: 'view' 
+            },
+            { 
+              id: 'weekly', 
+              label: 'Week',
+              type: 'view' 
+            },
+            { 
+              id: 'daily', 
+              label: 'Day',
+              type: 'view' 
+            },
+            { 
+              id: '3day', 
+              label: '3-Day',
+              type: 'view' 
+            }
           ]
         }
       }, '*');
       
-      logger.info('✓ Sent focus menu config to parent');
+      logger.info('✓ Sent enhanced focus menu config to parent');
     }
   }
 
@@ -465,8 +489,37 @@ export class DCalWidget {
         
       case 'menu-item-selected':
         // User pressed ENTER on menu item
-        logger.info('⚠️ TODO: Switch to view:', data.itemId);
-        // Phase 3 will implement this
+        if (data.itemId === 'go-to-today') {
+          // Reset to today
+          this.currentDate = new Date();
+          this.homeDate = new Date();
+          this.homeDate.setHours(0, 0, 0, 0);
+          this.isAtHome = true;
+          
+          // Update weekly view
+          this.weekly.setDate(this.currentDate);
+          this.updateCalendarHeader();
+          
+          // Re-render with current data
+          if (this.isDataLoaded) {
+            this.weekly.renderEvents(this.calendarData);
+          }
+          
+          logger.info('📅 Returned to today');
+        } else if (data.itemId === 'weekly') {
+          // Already in weekly mode - do nothing
+          logger.debug('Already in weekly view, no action needed');
+        } else {
+          // Unimplemented view modes - show toast
+          const viewLabels = {
+            'monthly': 'Month View',
+            'daily': 'Day View',
+            '3day': '3-Day View'
+          };
+          const viewLabel = viewLabels[data.itemId] || data.itemId;
+          showToast(`${viewLabel} - Coming Soon!`, 'info', 2500);
+          logger.info('⚠️ TODO: Switch to view:', data.itemId);
+        }
         break;
         
       case 'focus':
