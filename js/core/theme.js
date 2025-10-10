@@ -1,4 +1,5 @@
 // js/core/theme.js - Simplified Theme System
+// v1.1 - 10/9/25 - Changed default theme from dark to light
 // CHANGE SUMMARY: Drastically simplified - only manages body/logo, WidgetMessenger handles all widget communication
 
 import { createLogger } from '../utils/logger.js';

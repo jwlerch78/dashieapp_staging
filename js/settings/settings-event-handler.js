@@ -82,6 +82,37 @@ export function setupEventHandlers(overlay, settingsManager) {
     console.log('⚙️ Sleep timer toggle handler attached');
   }
   
+  // NEW: Dynamic greeting toggle handler
+  const dynamicGreetingToggle = overlay.querySelector('#dynamic-greeting-enabled');
+  if (dynamicGreetingToggle) {
+    dynamicGreetingToggle.addEventListener('change', async (e) => {
+      const enabled = e.target.checked;
+      console.log('⚙️ Dynamic greeting toggle changed:', enabled);
+      
+      // Save setting via settings manager
+      if (settingsManager && settingsManager.handleSettingChange) {
+        settingsManager.handleSettingChange('display.dynamicGreeting', enabled);
+      }
+      
+      // Force immediate update of header greeting
+      const headerWidgets = document.querySelectorAll('iframe[src*="header.html"]');
+      headerWidgets.forEach((iframe) => {
+        if (iframe.contentWindow) {
+          try {
+            iframe.contentWindow.postMessage({
+              type: 'force-greeting-update',
+              enabled: enabled
+            }, '*');
+          } catch (error) {
+            console.warn('Failed to send greeting update to header widget:', error);
+          }
+        }
+      });
+    });
+    
+    console.log('⚙️ Dynamic greeting toggle handler attached');
+  }
+  
   // NEW: Zip code input handler for location display
   const zipCodeInput = overlay.querySelector('#mobile-family-zipcode');
   if (zipCodeInput) {

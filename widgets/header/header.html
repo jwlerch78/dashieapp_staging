@@ -43,14 +43,21 @@
   <div id="family-name">The Dashie Family</div>
 
   <script type="module">
+    // v1.1 - 10/9/25 - Added dynamic greeting support with context-aware phrases
     // Import logger for structured logging
     import { createLogger } from '../../js/utils/logger.js';
+    import { getGreeting, getStaticGreeting } from '../../js/services/greeting-service.js';
     const logger = createLogger('HeaderWidget');
 
     class HeaderWidget {
       constructor() {
         this.currentTheme = null;
         this.currentFamilyName = 'Loading...';
+        this.currentGreeting = null;
+        this.dynamicGreetingEnabled = false;
+        this.greetingRefreshInterval = null;
+        this.greetingVariations = []; // Store multiple greeting options
+        this.currentVariationIndex = 0; // Track which variation is showing
         
         this.init();
       }
@@ -62,10 +69,13 @@
         // Set up event listeners
         this.setupEventListeners();
         
-        // Load initial family name
-        this.loadFamilyName();
+        // Load initial family name and settings
+        this.loadInitialSettings();
         
-        logger.info('Header widget initialized with proper theme detection');
+        // Start greeting refresh interval (30 minutes)
+        this.startGreetingRefresh();
+        
+        logger.info('Header widget initialized with dynamic greeting support');
       }
 
       // Detect initial theme from DOM or localStorage
@@ -126,16 +136,25 @@
         });
       }
 
-      // Handle navigation commands (header widget doesn't need navigation but keeping pattern)
+      // Handle navigation commands
       handleCommand(action) {
         logger.debug('Header widget received command', { action });
         
-        // Header widget doesn't have interactive navigation, but could be extended
+        // If dynamic greeting is enabled and we have variations, allow cycling
+        if (this.dynamicGreetingEnabled && this.greetingVariations.length > 0) {
+          if (action === 'left') {
+            this.cycleToPreviousGreeting();
+            return;
+          } else if (action === 'right') {
+            this.cycleToNextGreeting();
+            return;
+          }
+        }
+        
+        // Other commands not needed for header widget
         switch (action) {
           case 'up':
           case 'down':
-          case 'left':
-          case 'right':
           case 'select':
           case 'back':
             // No action needed for header widget
@@ -148,15 +167,37 @@
 
       handleDataServiceMessage(data) {
         switch (data.type) {
+          case 'force-greeting-update':
+            // Immediate update when toggle changes
+            this.dynamicGreetingEnabled = data.enabled === true;
+            logger.debug('Force greeting update received', { enabled: this.dynamicGreetingEnabled });
+            
+            // Regenerate greeting variations and display
+            const baseName = localStorage.getItem('dashie-family-name') || 'Dashie';
+            this.generateGreetingVariations(baseName);
+            this.displayCurrentGreeting();
+            break;
+            
           case 'widget-update':
             if (data.action === 'state-update') {
               // Check if this update contains anything relevant to header widget
               const hasFamilyName = data.payload?.settings?.['family.familyName'];
               const hasTheme = data.payload?.theme;
+              const hasDynamicGreeting = data.payload?.settings?.['display.dynamicGreeting'] !== undefined;
               
               // Only log if update is relevant
-              if (hasFamilyName || hasTheme) {
-                logger.debug('Processing relevant state update', { hasFamilyName, hasTheme });
+              if (hasFamilyName || hasTheme || hasDynamicGreeting) {
+                logger.debug('Processing relevant state update', { 
+                  hasFamilyName, 
+                  hasTheme, 
+                  hasDynamicGreeting 
+                });
+              }
+              
+              // Handle dynamic greeting setting changes
+              if (hasDynamicGreeting) {
+                this.dynamicGreetingEnabled = data.payload.settings['display.dynamicGreeting'] === true;
+                logger.debug('Dynamic greeting setting changed', { enabled: this.dynamicGreetingEnabled });
               }
               
               // Handle family name updates from settings
@@ -211,52 +252,153 @@
         
       }
 
-      async loadFamilyName() {
+      async loadInitialSettings() {
         try {
-          // Try to load from localStorage first (faster)
-          const cached = localStorage.getItem('dashie-family-name');
-          if (cached) {
-            this.updateFamilyName(cached);
-            logger.debug('Family name loaded from cache', { familyName: cached });
+          // Load family name from localStorage
+          const cachedName = localStorage.getItem('dashie-family-name');
+          if (cachedName) {
+            logger.debug('Family name loaded from cache', { familyName: cachedName });
           }
           
-          // Could also try to load from settings system here if needed
-          // For now, we'll rely on the WidgetMessenger to send the current state
+          // Load dynamic greeting setting from localStorage
+          const cachedSettings = localStorage.getItem('dashie-settings');
+          if (cachedSettings) {
+            try {
+              const settings = JSON.parse(cachedSettings);
+              this.dynamicGreetingEnabled = settings.display?.dynamicGreeting === true;
+              logger.debug('Dynamic greeting setting loaded', { enabled: this.dynamicGreetingEnabled });
+            } catch (e) {
+              logger.debug('Could not parse cached settings');
+            }
+          }
+          
+          // Update display with loaded settings
+          this.updateFamilyName(cachedName || 'Dashie');
           
         } catch (error) {
-          logger.error('Failed to load family name', { error: error.message });
-          this.updateFamilyName('Dashie');  // This will become "The Dashie Family"
+          logger.error('Failed to load initial settings', { error: error.message });
+          this.updateFamilyName('Dashie');
         }
       }
 
-      updateFamilyName(familyName) {
+      startGreetingRefresh() {
+        // Refresh greeting every 30 minutes to update context
+        this.greetingRefreshInterval = setInterval(() => {
+          if (this.dynamicGreetingEnabled) {
+            this.refreshGreeting();
+          }
+        }, 30 * 60 * 1000); // 30 minutes
+      }
+
+      refreshGreeting() {
+        // Force update of greeting display - regenerate variations
+        const element = document.getElementById('family-name');
+        if (element && this.dynamicGreetingEnabled) {
+          const baseName = localStorage.getItem('dashie-family-name') || 'Dashie';
+          this.generateGreetingVariations(baseName);
+          this.displayCurrentGreeting();
+          logger.debug('Greeting refreshed with new variations');
+        }
+      }
+
+      generateGreetingVariations(baseName) {
+        // Generate 5 different greeting variations
+        this.greetingVariations = [];
+        this.currentVariationIndex = 0;
+        
+        if (this.dynamicGreetingEnabled) {
+          // Generate 5 unique greetings
+          const uniqueGreetings = new Set();
+          let attempts = 0;
+          const maxAttempts = 20; // Prevent infinite loop
+          
+          while (uniqueGreetings.size < 5 && attempts < maxAttempts) {
+            const greeting = getGreeting(baseName);
+            uniqueGreetings.add(greeting);
+            attempts++;
+          }
+          
+          this.greetingVariations = Array.from(uniqueGreetings);
+          logger.debug('Generated greeting variations', { 
+            count: this.greetingVariations.length,
+            variations: this.greetingVariations 
+          });
+        } else {
+          // Static greeting
+          this.greetingVariations = [getStaticGreeting(baseName)];
+        }
+      }
+
+      displayCurrentGreeting() {
+        if (this.greetingVariations.length === 0) return;
+        
+        const element = document.getElementById('family-name');
+        if (element) {
+          const greeting = this.greetingVariations[this.currentVariationIndex];
+          element.textContent = greeting;
+          this.currentGreeting = greeting;
+          
+          // Add subtle animation on change
+          element.style.transition = 'opacity 0.2s ease';
+          element.style.opacity = '0.7';
+          setTimeout(() => {
+            element.style.opacity = '1';
+          }, 100);
+          
+          logger.debug('Displayed greeting variation', { 
+            index: this.currentVariationIndex,
+            greeting 
+          });
+        }
+      }
+
+      cycleToNextGreeting() {
+        if (this.greetingVariations.length <= 1) return;
+        
+        this.currentVariationIndex = (this.currentVariationIndex + 1) % this.greetingVariations.length;
+        this.displayCurrentGreeting();
+        logger.debug('Cycled to next greeting', { index: this.currentVariationIndex });
+      }
+
+      cycleToPreviousGreeting() {
+        if (this.greetingVariations.length <= 1) return;
+        
+        this.currentVariationIndex = (this.currentVariationIndex - 1 + this.greetingVariations.length) % this.greetingVariations.length;
+        this.displayCurrentGreeting();
+        logger.debug('Cycled to previous greeting', { index: this.currentVariationIndex });
+      }
+
+      updateFamilyName(familyName, dynamicGreetingOverride = null) {
         if (!familyName || familyName.trim() === '') {
           familyName = 'Dashie';
         }
 
-        // Format as "The [Name] Family" to match original
-        const formattedName = `The ${familyName.trim()} Family`;
+        const baseName = familyName.trim();
         
-        // Skip if family name hasn't changed
-        if (this.currentFamilyName === formattedName) {
-          return;
+        // Determine if dynamic greeting is enabled (use override if provided)
+        const useDynamic = dynamicGreetingOverride !== null ? dynamicGreetingOverride : this.dynamicGreetingEnabled;
+        
+        // Update the dynamic greeting state
+        this.dynamicGreetingEnabled = useDynamic;
+        
+        // Generate greeting variations
+        this.generateGreetingVariations(baseName);
+        
+        // Display the first variation
+        this.displayCurrentGreeting();
+        
+        // Cache the family name (store the base name)
+        try {
+          localStorage.setItem('dashie-family-name', baseName);
+        } catch (error) {
+          logger.debug('Could not cache family name', { error: error.message });
         }
         
-        this.currentFamilyName = formattedName;
-        const element = document.getElementById('family-name');
-        
-        if (element) {
-          element.textContent = formattedName;
-          
-          // Cache the family name (store the base name, not the formatted version)
-          try {
-            localStorage.setItem('dashie-family-name', familyName.trim());
-          } catch (error) {
-            logger.debug('Could not cache family name', { error: error.message });
-          }
-          
-          logger.info('Family name updated', { familyName: formattedName });
-        }
+        logger.info('Family name updated with greeting variations', { 
+          baseName,
+          dynamic: useDynamic,
+          variationCount: this.greetingVariations.length
+        });
       }
     }
 

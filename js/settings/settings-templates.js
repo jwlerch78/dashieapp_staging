@@ -89,6 +89,13 @@ export const displayScreens = `
           <span class="cell-value" id="mobile-theme-value">Dark</span>
           <span class="cell-chevron">›</span>
         </div>
+        <div class="settings-cell toggle-cell" id="dynamic-greeting-toggle-cell">
+          <span class="cell-label">Dynamic Greeting</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="dynamic-greeting-enabled" data-setting="display.dynamicGreeting">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
       </div>
       
       <div class="settings-section">

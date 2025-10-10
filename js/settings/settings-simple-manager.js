@@ -1,4 +1,5 @@
 // js/settings/settings-simple-manager.js - Auto-save implementation
+// v1.2 - 10/9/25 - Fixed default theme fallback from dark to light
 // Version: 1.1 | Last Updated: 2025-01-09 20:45 EST
 // CHANGE SUMMARY: Added account deletion handlers and modal management
 

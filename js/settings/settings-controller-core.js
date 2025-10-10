@@ -245,7 +245,34 @@ export class SettingsControllerCore {
       
       // Load settings from database/local storage
       const loadedSettings = await this.storage.loadSettings();
-      this.currentSettings = loadedSettings || this.getDefaultSettings(currentUser.email);
+      
+      // Check if we have valid settings with required fields
+      // If settings exist but don't have a theme, they're incomplete (calendar-only or corrupt)
+      const hasValidSettings = loadedSettings && loadedSettings.display && loadedSettings.display.theme;
+      
+      if (!hasValidSettings) {
+        console.log('⚙️ No valid settings found - using defaults (including light theme)');
+        this.currentSettings = this.getDefaultSettings(currentUser.email);
+        
+        // CRITICAL: Preserve tokenAccounts and calendar if they exist in loaded settings
+        // These are stored separately and must not be lost when using defaults
+        if (loadedSettings) {
+          if (loadedSettings.tokenAccounts) {
+            console.log('⚙️ Preserving tokenAccounts from loaded settings');
+            this.currentSettings.tokenAccounts = loadedSettings.tokenAccounts;
+          }
+          if (loadedSettings.calendar) {
+            console.log('⚙️ Preserving calendar settings from loaded settings');
+            this.currentSettings.calendar = loadedSettings.calendar;
+          }
+        }
+        
+        this.isDirty = true;
+        await this.saveSettings();
+      } else {
+        console.log('⚙️ Valid settings loaded from database');
+        this.currentSettings = loadedSettings;
+      }
       
       // CRITICAL FIX: Sync calendar settings to localStorage SYNCHRONOUSLY and IMMEDIATELY
       // This must complete BEFORE init() returns so CalendarService can access it

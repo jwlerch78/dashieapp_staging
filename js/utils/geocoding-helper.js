@@ -1,4 +1,5 @@
 // js/utils/geocoding-helper.js
+// v1.4 - 10/9/25 - Reduced logging noise: changed info logs to debug
 // v1.3 - 10/9/25 - Fixed getLocationName to use reverse geocoding for reliable city/state display
 // v1.2 - 10/9/25 - Added reverse geocoding and browser geolocation for automatic zip detection
 // v1.1 - 10/9/25 - Added getLocationName function for city/state/country display
@@ -60,7 +61,7 @@ export async function geocodeZipCode(zipCode) {
       longitude: parseFloat(data[0].lon)
     };
     
-    logger.info('Geocoding successful', { 
+    logger.debug('Geocoding successful', { 
       zipCode: zip5, 
       latitude: result.latitude, 
       longitude: result.longitude 
@@ -202,7 +203,7 @@ export async function getLocationName(zipCode) {
     // Cache it for next time
     locationNameCache.set(zip5, locationName);
     
-    logger.info('Location name resolved for zip', { zipCode: zip5, locationName });
+    logger.debug('Location name resolved for zip', { zipCode: zip5, locationName });
     return locationName;
     
   } catch (error) {
@@ -247,7 +248,7 @@ export async function reverseGeocodeToZip(latitude, longitude) {
   }
   
   try {
-    logger.info('Reverse geocoding coordinates to zip code', { latitude, longitude });
+    logger.debug('Reverse geocoding coordinates to zip code', { latitude, longitude });
     
     const url = `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`;
     
@@ -292,7 +293,7 @@ export async function reverseGeocodeToZip(latitude, longitude) {
           locationName = `${city}, ${country}`;
         }
         
-        logger.info('Reverse geocoding successful', { 
+        logger.debug('Reverse geocoding successful', { 
           latitude, 
           longitude, 
           zipCode: zip5,
@@ -339,13 +340,13 @@ export async function getZipFromBrowserLocation() {
     return null;
   }
   
-  logger.info('Requesting browser geolocation for automatic zip detection');
+  logger.debug('Requesting browser geolocation for automatic zip detection');
   
   return new Promise((resolve) => {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         const { latitude, longitude } = position.coords;
-        logger.info('Browser geolocation obtained', { latitude, longitude });
+        logger.debug('Browser geolocation obtained', { latitude, longitude });
         
         // Reverse geocode to zip code AND location name
         const result = await reverseGeocodeToZip(latitude, longitude);
@@ -353,7 +354,7 @@ export async function getZipFromBrowserLocation() {
         if (result) {
           // Cache the location name for this zip code
           locationNameCache.set(result.zipCode, result.locationName);
-          logger.info('Cached location name for zip', { 
+          logger.debug('Cached location name for zip', { 
             zipCode: result.zipCode, 
             locationName: result.locationName 
           });

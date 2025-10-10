@@ -1,0 +1,405 @@
+/* css/components/welcome-wizard.css */
+/* v1.0 - 10/9/25 - Welcome wizard styling with animations and themes */
+
+/* ===== OVERLAY ===== */
+.welcome-wizard-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.welcome-wizard-overlay.active {
+  opacity: 1;
+}
+
+/* ===== MODAL ===== */
+.welcome-wizard-modal {
+  background: var(--bg-primary, #1c1c1e);
+  border-radius: 16px;
+  max-width: 800px;
+  width: 90%;
+  max-height: 600px;
+  height: auto;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+}
+
+.welcome-wizard-content {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+/* ===== SCREENS ===== */
+.welcome-screens {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.welcome-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  padding: 60px 40px;
+  box-sizing: border-box;
+  opacity: 0;
+  transform: translateX(100%);
+  transition: all 0.3s ease;
+  display: none;
+}
+
+.welcome-screen.active {
+  display: block;
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.welcome-screen.sliding-in {
+  animation: slideInFromRight 0.3s ease forwards;
+}
+
+.welcome-screen.sliding-out {
+  animation: slideOutToLeft 0.3s ease forwards;
+}
+
+@keyframes slideInFromRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideOutToLeft {
+  from {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(-100%);
+  }
+}
+
+/* ===== SCREEN CONTENT ===== */
+.welcome-screen-content {
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
+}
+
+.welcome-logo img {
+  width: 200px;
+  height: auto;
+  margin-bottom: 20px;
+}
+
+.welcome-icon {
+  color: var(--accent-orange, #EE9828);
+  margin-bottom: 10px;
+}
+
+.welcome-title {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text-primary, #ffffff);
+  margin: 0;
+  line-height: 1.2;
+}
+
+.welcome-subtitle {
+  font-size: 18px;
+  color: var(--text-secondary, #c7c7cc);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.welcome-question {
+  font-size: 20px;
+  color: var(--text-primary, #ffffff);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.welcome-question strong {
+  color: var(--accent-orange, #EE9828);
+}
+
+/* ===== INPUT FIELDS ===== */
+.welcome-input-group {
+  position: relative;
+  width: 100%;
+  max-width: 400px;
+  margin: 20px 0;
+}
+
+.welcome-input {
+  width: 100%;
+  padding: 16px;
+  font-size: 18px;
+  border: 2px solid var(--text-muted, #666);
+  border-radius: 8px;
+  background: var(--bg-secondary, #2c2c2e);
+  color: var(--text-primary, #ffffff);
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.welcome-input:focus {
+  outline: none;
+  border-color: var(--accent-orange, #EE9828);
+  box-shadow: 0 0 0 3px rgba(238, 152, 40, 0.2);
+}
+
+.welcome-input.error {
+  border-color: #ff3b30;
+  animation: shake 0.3s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-10px); }
+  75% { transform: translateX(10px); }
+}
+
+.welcome-input-label {
+  position: absolute;
+  top: -10px;
+  left: 12px;
+  background: var(--bg-primary, #1c1c1e);
+  padding: 0 8px;
+  font-size: 14px;
+  color: var(--text-secondary, #c7c7cc);
+  font-weight: 500;
+}
+
+/* ===== BUTTONS ===== */
+.welcome-actions {
+  display: flex;
+  gap: 16px;
+  margin-top: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.welcome-btn {
+  padding: 16px 32px;
+  font-size: 18px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  min-width: 160px;
+}
+
+.welcome-btn-primary {
+  background: var(--accent-orange, #EE9828);
+  color: #000000;
+}
+
+.welcome-btn-primary:hover {
+  background: #f5a940;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(238, 152, 40, 0.4);
+}
+
+.welcome-btn-primary:focus {
+  outline: 3px solid rgba(238, 152, 40, 0.5);
+  outline-offset: 2px;
+}
+
+.welcome-btn-secondary {
+  background: transparent;
+  color: var(--text-primary, #ffffff);
+  border: 2px solid var(--text-muted, #666);
+}
+
+.welcome-btn-secondary:hover {
+  border-color: var(--text-primary, #ffffff);
+  transform: translateY(-2px);
+}
+
+.welcome-btn-secondary:focus {
+  outline: 3px solid rgba(199, 199, 204, 0.5);
+  outline-offset: 2px;
+}
+
+/* ===== HINT TEXT ===== */
+.welcome-hint {
+  font-size: 14px;
+  color: var(--text-muted, #666);
+  margin-top: 20px;
+  font-style: italic;
+}
+
+/* ===== SKIP CONFIRMATION MODAL ===== */
+.welcome-skip-modal {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+}
+
+.welcome-skip-content {
+  background: var(--bg-secondary, #2c2c2e);
+  border-radius: 12px;
+  padding: 40px;
+  max-width: 500px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.6);
+}
+
+.welcome-skip-content h2 {
+  font-size: 28px;
+  color: var(--text-primary, #ffffff);
+  margin: 0 0 16px 0;
+}
+
+.welcome-skip-content p {
+  font-size: 16px;
+  color: var(--text-secondary, #c7c7cc);
+  margin: 0 0 32px 0;
+  line-height: 1.5;
+}
+
+.welcome-skip-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+/* ===== LIGHT THEME ===== */
+body.theme-light .welcome-wizard-modal {
+  background: #ffffff;
+}
+
+body.theme-light .welcome-title,
+body.theme-light .welcome-question {
+  color: #000000;
+}
+
+body.theme-light .welcome-subtitle {
+  color: #666666;
+}
+
+body.theme-light .welcome-input {
+  background: #f5f5f7;
+  border-color: #d1d1d6;
+  color: #000000;
+}
+
+body.theme-light .welcome-input-label {
+  background: #ffffff;
+  color: #666666;
+}
+
+body.theme-light .welcome-btn-secondary {
+  color: #000000;
+  border-color: #d1d1d6;
+}
+
+body.theme-light .welcome-skip-content {
+  background: #f5f5f7;
+}
+
+body.theme-light .welcome-skip-content h2 {
+  color: #000000;
+}
+
+body.theme-light .welcome-skip-content p {
+  color: #666666;
+}
+
+/* ===== TV OPTIMIZATIONS ===== */
+@media (min-width: 1200px) {
+  .welcome-wizard-modal {
+    max-width: 900px;
+    max-height: 700px;
+  }
+  
+  .welcome-title {
+    font-size: 40px;
+  }
+  
+  .welcome-subtitle,
+  .welcome-question {
+    font-size: 22px;
+  }
+  
+  .welcome-btn {
+    font-size: 20px;
+    padding: 18px 36px;
+  }
+  
+  .welcome-logo img {
+    width: 240px;
+  }
+}
+
+/* ===== MOBILE OPTIMIZATIONS ===== */
+@media (max-width: 768px) {
+  .welcome-wizard-modal {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+  }
+  
+  .welcome-screen {
+    padding: 40px 20px;
+  }
+  
+  .welcome-title {
+    font-size: 28px;
+  }
+  
+  .welcome-subtitle,
+  .welcome-question {
+    font-size: 16px;
+  }
+  
+  .welcome-btn {
+    font-size: 16px;
+    padding: 14px 24px;
+    min-width: 140px;
+  }
+  
+  .welcome-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+  
+  .welcome-btn {
+    width: 100%;
+  }
+}

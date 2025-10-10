@@ -91,6 +91,13 @@ export function populateFormFields(overlay, settings) {
     updateSleepTimerStates(overlay, enabled);
   }
 
+  // Dynamic greeting enabled toggle
+  const dynamicGreetingToggle = overlay.querySelector('#dynamic-greeting-enabled');
+  if (dynamicGreetingToggle) {
+    const enabled = settings.display?.dynamicGreeting === true; // Default to false
+    dynamicGreetingToggle.checked = enabled;
+  }
+
   
   // Sleep time value display
   const mobileSleepTimeValue = overlay.querySelector('#mobile-sleep-time-value');
