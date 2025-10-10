@@ -1,12 +1,13 @@
 // widgets/dcal/dcal-weekly.js - Weekly View Rendering Module
-// CHANGE SUMMARY: Added setTimeout to scroll positioning, event borders, collision detection for 2-3 events, dynamic text wrapping
+// v1.6 - 10/10/25 5:30pm - Added n-day view mode support with settings integration
+// CHANGE SUMMARY: Added setTimeout to scroll positioning, event borders, collision detection for 2-3 events, dynamic text wrapping, n-day view support
 
 import { createLogger } from '../../js/utils/logger.js';
 
 const logger = createLogger('DCalWeekly');
 
 export class DCalWeekly {
-  constructor(calendars) {
+  constructor(calendars, settings = {}) {
     this.calendars = calendars;
     this.currentDate = new Date();
     this.weekDates = [];
@@ -14,6 +15,11 @@ export class DCalWeekly {
     this.isFocused = false;
     this.selectedEventId = null;
     this.savedScrollPosition = null; // Track scroll position across week changes
+    
+    // Settings for n-day view mode
+    this.dayCount = settings.viewMode === 'week' ? 7 : parseInt(settings.viewMode) || 7;
+    this.startWeekOn = settings.startWeekOn || 'sun'; // 'sun' or 'mon'
+    this.scrollTime = settings.scrollTime || 8; // Default 8 AM
     
     this.hourHeight = 30; // pixels per hour
     this.startHour = 0;
@@ -68,7 +74,7 @@ export class DCalWeekly {
 
   navigateDay(direction) {
     const newIndex = this.focusedDayIndex + direction;
-    if (newIndex >= 0 && newIndex < 7) {
+    if (newIndex >= 0 && newIndex < this.dayCount) {
       this.focusedDayIndex = newIndex;
       this.updateDayFocus();
     }
@@ -83,14 +89,22 @@ export class DCalWeekly {
   }
 
   calculateWeekDates() {
-    const startOfWeek = new Date(this.currentDate);
-    const dayOfWeek = startOfWeek.getDay();
-    startOfWeek.setDate(startOfWeek.getDate() - dayOfWeek);
+    const startDate = new Date(this.currentDate);
+    
+    if (this.dayCount === 7) {
+      // Weekly mode: calculate based on startWeekOn setting
+      const dayOfWeek = startDate.getDay();
+      const offset = this.startWeekOn === 'mon' 
+        ? (dayOfWeek === 0 ? -6 : 1 - dayOfWeek) // Monday start
+        : -dayOfWeek; // Sunday start
+      startDate.setDate(startDate.getDate() + offset);
+    }
+    // N-day mode: always start from current date (no offset)
     
     this.weekDates = [];
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(startOfWeek);
-      date.setDate(startOfWeek.getDate() + i);
+    for (let i = 0; i < this.dayCount; i++) {
+      const date = new Date(startDate);
+      date.setDate(startDate.getDate() + i);
       this.weekDates.push(date);
     }
   }
@@ -105,15 +119,18 @@ export class DCalWeekly {
     // Add today-column class to all-day grid if today is in this week
     const alldayGridClass = todayIndex >= 0 ? `today-column-${todayIndex}` : '';
     
+    // Dynamic grid columns based on dayCount
+    const gridStyle = `style="grid-template-columns: 60px repeat(${this.dayCount}, 1fr);"`;
+    
     calendarContainer.innerHTML = `
       <div class="allday-section">
-        <div class="allday-header">
+        <div class="allday-header" ${gridStyle}>
           <div class="day-header-spacer"></div>
           ${this.renderDayHeaders()}
         </div>
         <div class="allday-events-container">
           <div class="allday-label">All day</div>
-          <div class="allday-events-grid ${alldayGridClass}" id="alldayEventsGrid">
+          <div class="allday-events-grid ${alldayGridClass}" id="alldayEventsGrid" style="grid-template-columns: repeat(${this.dayCount}, 1fr);">
             <!-- All-day events rendered with proper stacking -->
           </div>
         </div>
@@ -122,7 +139,7 @@ export class DCalWeekly {
         <div class="time-column">
           ${this.renderTimeSlots()}
         </div>
-        <div class="days-grid">
+        <div class="days-grid" style="grid-template-columns: repeat(${this.dayCount}, 1fr);">
           ${this.weekDates.map((_, i) => {
             const isTodayColumn = i === todayIndex;
             return `<div class="day-column ${isTodayColumn ? 'today-column' : ''}" id="dayColumn${i}">${this.renderHourLines()}</div>`;
@@ -130,6 +147,9 @@ export class DCalWeekly {
         </div>
       </div>
     `;
+    
+    // Update today column shading width for all-day section
+    this.updateTodayColumnShading(todayIndex);
   }
 
   renderDayHeaders() {
@@ -138,10 +158,11 @@ export class DCalWeekly {
     
     return this.weekDates.map((date, index) => {
       const isToday = date.toDateString() === today.toDateString();
+      const dayName = dayNames[date.getDay()]; // Use date's actual day of week
       return `
         <div class="day-header ${isToday ? 'today' : ''}" id="dayHeader${index}">
           <div class="day-number">${date.getDate()}</div>
-          <div class="day-name">${dayNames[index]}</div>
+          <div class="day-name">${dayName}</div>
         </div>
       `;
     }).join('');
@@ -182,7 +203,7 @@ export class DCalWeekly {
     }
 
     // Clear existing events
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < this.dayCount; i++) {
       const dayColumn = document.getElementById(`dayColumn${i}`);
       if (dayColumn) {
         dayColumn.querySelectorAll('.event').forEach(e => e.remove());
@@ -275,7 +296,7 @@ export class DCalWeekly {
       let spanDays = 0;
       let current = new Date(eventStart);
       
-      while (current <= eventEnd && startDayIndex + spanDays < 7) {
+      while (current <= eventEnd && startDayIndex + spanDays < this.dayCount) {
         spanDays++;
         current.setDate(current.getDate() + 1);
       }
@@ -557,8 +578,15 @@ export class DCalWeekly {
   }
 
   getWeekTitle() {
+    if (this.weekDates.length === 0) return '';
+    
     const startDate = this.weekDates[0];
-    const endDate = this.weekDates[6];
+    const endDate = this.weekDates[this.weekDates.length - 1];
+    
+    // For single day, just show the date
+    if (this.dayCount === 1) {
+      return startDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    }
     
     const startMonth = startDate.getMonth();
     const endMonth = endDate.getMonth();
@@ -590,7 +618,8 @@ export class DCalWeekly {
       
       // Check if content has been rendered (scrollHeight > 0)
       if (timeGrid.scrollHeight > 0) {
-        const targetHour = 8;
+        // Use scrollTime setting (default 8 AM)
+        const targetHour = this.scrollTime;
         const targetScroll = targetHour * this.hourHeight;
         
         timeGrid.scrollTop = targetScroll;
@@ -675,7 +704,7 @@ export class DCalWeekly {
 
   updateDayFocus() {
     this.clearDayFocus();
-    if (this.focusedDayIndex >= 0 && this.focusedDayIndex < 7) {
+    if (this.focusedDayIndex >= 0 && this.focusedDayIndex < this.dayCount) {
       const dayColumn = document.getElementById(`dayColumn${this.focusedDayIndex}`);
       if (dayColumn) {
         dayColumn.classList.add('focused');
@@ -694,6 +723,51 @@ export class DCalWeekly {
     return this.weekDates.findIndex(date => 
       date.toDateString() === today.toDateString()
     );
+  }
+
+  /**
+   * Update settings and re-render if needed
+   */
+  updateSettings(settings) {
+    const needsRerender = 
+      this.dayCount !== (settings.viewMode === 'week' ? 7 : parseInt(settings.viewMode)) ||
+      this.startWeekOn !== settings.startWeekOn ||
+      this.scrollTime !== settings.scrollTime;
+    
+    this.dayCount = settings.viewMode === 'week' ? 7 : parseInt(settings.viewMode) || 7;
+    this.startWeekOn = settings.startWeekOn || 'sun';
+    this.scrollTime = settings.scrollTime || 8;
+    
+    if (needsRerender) {
+      logger.info('Settings changed, re-rendering view', {
+        dayCount: this.dayCount,
+        startWeekOn: this.startWeekOn,
+        scrollTime: this.scrollTime
+      });
+      
+      this.calculateWeekDates();
+      this.render();
+      this.setOptimalScrollPosition();
+      this.updateNowIndicator();
+    }
+  }
+
+  /**
+   * Update today column shading width for all-day section
+   */
+  updateTodayColumnShading(todayIndex) {
+    if (todayIndex < 0) return;
+    
+    const alldayGrid = document.getElementById('alldayEventsGrid');
+    if (!alldayGrid) return;
+    
+    // Calculate the width percentage based on dayCount
+    const columnWidth = `calc(100% / ${this.dayCount})`;
+    const leftPosition = `calc(100% / ${this.dayCount} * ${todayIndex})`;
+    
+    // Use CSS custom properties to dynamically set the today column shading
+    alldayGrid.style.setProperty('--today-column-width', columnWidth);
+    alldayGrid.style.setProperty('--today-column-left', leftPosition);
   }
 
   /**

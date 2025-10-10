@@ -1,5 +1,6 @@
 // widgets/dcal/dcal.js - Main Dashie Calendar Widget Class
-// CHANGE SUMMARY: Fixed theme detection to check html element, removed command indicator references
+// v1.7 - 10/10/25 5:35pm - Added n-day view mode switching via focus menu
+// CHANGE SUMMARY: Fixed theme detection to check html element, removed command indicator references, added n-day view switching
 
 import { createLogger } from '../../js/utils/logger.js';
 import { DCalConfig } from './dcal-config.js';
@@ -29,7 +30,9 @@ export class DCalWidget {
       color: cal.textColor
     }));
 
-    this.currentView = 'week'; // Only week view for now
+    // Load settings and set initial view mode
+    const settings = this.loadSettings();
+    this.currentView = settings.viewMode || 'week';
     this.currentDate = new Date();
     
     this.calendarData = { events: [], calendars: [], lastUpdated: null };
@@ -48,10 +51,10 @@ export class DCalWidget {
     this.homeDate = null;           // Home position (today) when entering from menu
     this.isAtHome = true;          // Are we at home position?
 
-    // Initialize helper modules
+    // Initialize helper modules with settings
     this.config = new DCalConfig(this.calendars);
     this.events = new DCalEvents(this.calendars);
-    this.weekly = new DCalWeekly(this.calendars);
+    this.weekly = new DCalWeekly(this.calendars, settings);
 
     this.init();
   }
@@ -227,7 +230,9 @@ export class DCalWidget {
 
   navigateCalendar(direction) {
     const newDate = new Date(this.currentDate);
-    newDate.setDate(newDate.getDate() + (direction === 'next' ? 7 : -7));
+    // Use dayCount from weekly view for navigation increment
+    const increment = this.weekly.dayCount || 7;
+    newDate.setDate(newDate.getDate() + (direction === 'next' ? increment : -increment));
     
     this.currentDate = newDate;
     this.weekly.setDate(this.currentDate);
@@ -238,7 +243,7 @@ export class DCalWidget {
       this.weekly.renderEvents(this.calendarData);
     }
     
-    logger.debug('Navigated calendar', { direction, newWeek: this.weekly.getWeekTitle() });
+    logger.debug('Navigated calendar', { direction, increment, newWeek: this.weekly.getWeekTitle() });
   }
 
   scrollCalendar(direction) {
@@ -250,7 +255,16 @@ export class DCalWidget {
     const modeEl = document.getElementById('calendarMode');
     
     titleEl.textContent = this.weekly.getWeekTitle();
-    modeEl.textContent = 'Week';
+    
+    // Display mode based on view setting
+    const modeLabels = {
+      '1': 'Day',
+      '2': '2-Day',
+      '3': '3-Day',
+      '5': '5-Day',
+      'week': 'Week'
+    };
+    modeEl.textContent = modeLabels[this.currentView] || 'Week';
   }
 
   handleDataServiceMessage(data) {
@@ -424,17 +438,44 @@ export class DCalWidget {
   // ==================== FOCUS MENU METHODS ====================
 
   /**
+   * Load settings from localStorage
+   */
+  loadSettings() {
+    try {
+      const localStorage = window.parent?.localStorage || window.localStorage;
+      const settings = localStorage.getItem('dashie_settings');
+      
+      if (settings) {
+        const parsed = JSON.parse(settings);
+        return {
+          viewMode: parsed.calendar?.dcalViewMode || 'week',
+          startWeekOn: parsed.calendar?.startWeekOn || 'sun',
+          scrollTime: parsed.calendar?.scrollTime || 8
+        };
+      }
+    } catch (error) {
+      logger.error('Failed to load dcal settings', error);
+    }
+    
+    // Defaults
+    return { viewMode: 'week', startWeekOn: 'sun', scrollTime: 8 };
+  }
+
+  /**
    * Send focus menu configuration to parent
    */
   sendMenuConfig() {
     if (window.parent !== window) {
+      const settings = this.loadSettings();
+      const currentViewMode = settings.viewMode || 'week';
+      
       window.parent.postMessage({
         type: 'widget-config',
         widget: 'dcal',
         focusMenu: {
           enabled: true,
-          defaultIndex: 1, // Start on "Week" (index 1 after "Go to Today")
-          currentView: this.currentView === 'week' ? 'weekly' : this.currentView,
+          defaultIndex: this.getMenuIndexForView(currentViewMode),
+          currentView: currentViewMode, // Highlight active view
           items: [
             // Action button
             { 
@@ -442,24 +483,24 @@ export class DCalWidget {
               label: 'Go to Today', 
               type: 'action' 
             },
-            // View options
+            // View options (restored original with monthly)
             { 
               id: 'monthly', 
               label: 'Month',
               type: 'view' 
             },
             { 
-              id: 'weekly', 
+              id: 'week', 
               label: 'Week',
               type: 'view' 
             },
             { 
-              id: 'daily', 
+              id: '1', 
               label: 'Day',
               type: 'view' 
             },
             { 
-              id: '3day', 
+              id: '3', 
               label: '3-Day',
               type: 'view' 
             }
@@ -467,8 +508,22 @@ export class DCalWidget {
         }
       }, '*');
       
-      logger.info('✓ Sent enhanced focus menu config to parent');
+      logger.info('✓ Sent enhanced focus menu config', { currentViewMode });
     }
+  }
+
+  /**
+   * Get menu index for current view mode (for default selection)
+   */
+  getMenuIndexForView(viewMode) {
+    const viewMap = {
+      'go-to-today': 0,
+      'monthly': 1,
+      'week': 2,
+      '1': 3,
+      '3': 4
+    };
+    return viewMap[viewMode] || 2; // Default to week
   }
 
   /**
@@ -506,19 +561,9 @@ export class DCalWidget {
           }
           
           logger.info('📅 Returned to today');
-        } else if (data.itemId === 'weekly') {
-          // Already in weekly mode - do nothing
-          logger.debug('Already in weekly view, no action needed');
         } else {
-          // Unimplemented view modes - show toast
-          const viewLabels = {
-            'monthly': 'Month View',
-            'daily': 'Day View',
-            '3day': '3-Day View'
-          };
-          const viewLabel = viewLabels[data.itemId] || data.itemId;
-          showToast(`${viewLabel} - Coming Soon!`, 'info', 2500);
-          logger.info('⚠️ TODO: Switch to view:', data.itemId);
+          // View mode change (1, 2, 3, 5, week)
+          this.switchViewMode(data.itemId);
         }
         break;
         
@@ -577,6 +622,86 @@ export class DCalWidget {
         type: 'return-to-menu'
       }, '*');
       logger.info('📍 Requested return to menu (at home position)');
+    }
+  }
+
+  /**
+   * Switch to a new view mode and save to settings
+   * @param {string} viewMode - View mode ID ('1', '3', 'week', 'monthly')
+   */
+  async switchViewMode(viewMode) {
+    // Temporary: monthly mode points to week mode
+    if (viewMode === 'monthly') {
+      showToast('Month View - Coming Soon!', 'info', 2500);
+      logger.info('⚠️ TODO: Implement monthly view');
+      return;
+    }
+    
+    logger.info('Switching view mode', { from: this.currentView, to: viewMode });
+    
+    // Update current view
+    this.currentView = viewMode;
+    
+    // Save to settings (localStorage + database)
+    await this.saveViewModeSetting(viewMode);
+    
+    // Update weekly renderer with new settings
+    const settings = this.loadSettings();
+    this.weekly.updateSettings(settings);
+    
+    // Reset to today when changing views
+    this.currentDate = new Date();
+    this.homeDate = new Date();
+    this.homeDate.setHours(0, 0, 0, 0);
+    this.isAtHome = true;
+    
+    this.weekly.setDate(this.currentDate);
+    this.updateCalendarHeader();
+    
+    // Re-render with current data
+    if (this.isDataLoaded) {
+      this.weekly.renderEvents(this.calendarData);
+    }
+    
+    // Update menu to reflect new active view
+    this.sendMenuConfig();
+    
+    logger.info('✓ View mode switched', { viewMode });
+  }
+
+  /**
+   * Save view mode setting to localStorage and database
+   */
+  async saveViewModeSetting(viewMode) {
+    try {
+      // 1. Save to localStorage (immediate)
+      const localStorage = window.parent?.localStorage || window.localStorage;
+      let settings = {};
+      
+      try {
+        const existing = localStorage.getItem('dashie_settings');
+        if (existing) {
+          settings = JSON.parse(existing);
+        }
+      } catch (e) {
+        logger.warn('Failed to parse existing settings', e);
+      }
+      
+      if (!settings.calendar) settings.calendar = {};
+      settings.calendar.dcalViewMode = viewMode;
+      
+      localStorage.setItem('dashie_settings', JSON.stringify(settings));
+      logger.debug('✓ Saved viewMode to localStorage', { viewMode });
+      
+      // 2. Save to database (persistent)
+      const settingsController = window.parent?.settingsController || window.settingsController;
+      if (settingsController && typeof settingsController.handleSettingChange === 'function') {
+        await settingsController.handleSettingChange('calendar', settings.calendar);
+        logger.debug('✓ Saved viewMode to database', { viewMode });
+      }
+      
+    } catch (error) {
+      logger.error('Failed to save view mode setting', error);
     }
   }
 

@@ -1,6 +1,6 @@
 /* css/components/focus-menu.css - Focus Menu Styling */
-/* v1.4 - 10/10/25 5:00pm - Fixed action button background, commented out controls guide, added active view highlighting */
-/* CHANGE SUMMARY: Fixed Go to Today button color (transparent bg), kept controls guide logic but hidden visually, added active class styling */
+/* v1.5 - 10/10/25 5:45pm - Added blue gradient border when menu is active (not dimmed) */
+/* CHANGE SUMMARY: Fixed Go to Today button color (transparent bg), kept controls guide logic but hidden visually, added active view highlighting, added menu border gradient */
 
 /* Focus Menu Container */
 .focus-menu {
@@ -19,6 +19,24 @@
   
   /* Smooth transform animation - matches widget centering animation */
   transition: transform 0.4s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.3s ease;
+}
+
+/* Blue gradient border when menu is active (user is navigating menu, not widget) */
+.focus-menu:not(.dimmed)::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--border-radius);
+  background: var(--widget-border-gradient-active);
+  -webkit-mask: 
+    linear-gradient(#fff 0 0) content-box, 
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: var(--outline-width-selected); /* Use same thickness as widget border */
+  pointer-events: none;
+  z-index: -1;
+  transition: background 0.3s ease;
 }
 
 /* Dimmed state when user is in widget content - very subtle fade */
