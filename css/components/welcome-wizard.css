@@ -1,4 +1,8 @@
 /* css/components/welcome-wizard.css */
+/* v1.5 - 10/9/25 10:30pm - Added QR code styles for Screen 6 */
+/* v1.4 - 10/9/25 10:05pm - Fixed modal height, added loading spinner */
+/* v1.3 - 10/9/25 9:50pm - Added column button layout and tertiary button for Screen 4 */
+/* v1.2 - 10/9/25 9:35pm - Added styles for Screen 3 message types */
 /* v1.1 - 10/9/25 - Forced white theme, opaque backdrop */
 
 /* ===== OVERLAY ===== */
@@ -28,7 +32,7 @@
   border-radius: 16px;
   max-width: 800px;
   width: 90%;
-  max-height: 600px;
+  max-height: 90vh; /* Changed from 600px to 90vh for better fit */
   min-height: 500px;
   height: auto;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
@@ -42,6 +46,7 @@
   flex: 1;
   position: relative;
   min-height: 400px;
+  overflow-y: auto; /* Allow scrolling if content is tall */
 }
 
 /* ===== SCREENS ===== */
@@ -50,16 +55,14 @@
   width: 100%;
   flex: 1;
   min-height: 400px;
-  overflow: hidden;
+  overflow-y: auto; /* Allow scrolling */
+  overflow-x: hidden; /* Keep horizontal hidden for slide animation */
 }
 
 .welcome-screen {
-  position: absolute;
-  top: 0;
-  left: 0;
+  /* Removed absolute positioning - now flows naturally */
   width: 100%;
-  height: 100%;
-  padding: 60px 40px;
+  padding: 40px 40px 60px 40px;
   box-sizing: border-box;
   opacity: 0;
   transform: translateX(100%);
@@ -143,6 +146,28 @@
 .welcome-question {
   font-size: 20px;
   color: #000000; /* Force black */
+  margin: 0;
+  line-height: 1.5;
+}
+
+.welcome-question strong {
+  color: var(--accent-orange, #EE9828);
+}
+
+.welcome-message {
+  font-size: 18px;
+  color: #000000; /* Force black */
+  margin: 0;
+  line-height: 1.6;
+}
+
+.welcome-message strong {
+  color: var(--accent-orange, #EE9828);
+}
+
+.welcome-hint-text {
+  font-size: 15px;
+  color: #666666; /* Force gray */
   margin: 0;
   line-height: 1.5;
 }
@@ -250,6 +275,94 @@
 .welcome-btn-secondary:focus {
   outline: 3px solid rgba(0, 0, 0, 0.3);
   outline-offset: 2px;
+}
+
+.welcome-btn-tertiary {
+  background: transparent;
+  color: #666666; /* Force gray */
+  border: 2px solid transparent;
+  font-weight: 500;
+}
+
+.welcome-btn-tertiary:hover {
+  color: #000000; /* Force black */
+  border-color: #d1d1d6;
+  transform: translateY(-2px);
+}
+
+.welcome-btn-tertiary:focus {
+  outline: 3px solid rgba(0, 0, 0, 0.2);
+  outline-offset: 2px;
+}
+
+/* ===== BUTTON LAYOUTS ===== */
+/* Column layout for Screen 4 (3 vertical buttons) */
+.welcome-actions-column {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 100%;
+  max-width: 400px;
+}
+
+.welcome-actions-column .welcome-btn {
+  width: 100%;
+}
+
+/* ===== LOADING SPINNER ===== */
+.welcome-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10002;
+  border-radius: 16px;
+}
+
+.welcome-loading-content {
+  text-align: center;
+}
+
+.welcome-spinner {
+  width: 60px;
+  height: 60px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #EE9828;
+  border-radius: 50%;
+  animation: welcome-spin 1s linear infinite;
+  margin: 0 auto 20px;
+}
+
+@keyframes welcome-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.welcome-loading-content p {
+  font-size: 16px;
+  color: #666666;
+  margin: 0;
+}
+
+/* ===== QR CODE ===== */
+.welcome-qr-code {
+  margin: 20px auto;
+  padding: 20px;
+  background: #ffffff;
+  border: 2px solid #f0f0f0;
+  border-radius: 12px;
+  display: inline-block;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.welcome-qr-code img {
+  display: block;
+  margin: 0 auto;
 }
 
 /* ===== HINT TEXT ===== */

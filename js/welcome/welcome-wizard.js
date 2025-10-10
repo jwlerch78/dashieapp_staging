@@ -1,9 +1,16 @@
 // js/welcome/welcome-wizard.js
+// v1.6 - 10/9/25 10:30pm - Added Screens 5-7, QR code generation, photo modal integration
+// v1.5 - 10/9/25 10:05pm - Added modal navigation, loading spinner, fixed modal height
+// v1.4 - 10/9/25 9:50pm - Added geolocation and reverse geocoding for Screen 4
+// v1.3 - 10/9/25 9:35pm - Added detectCalendars method for Screen 3
+// v1.2 - 10/9/25 9:25pm - Fixed to use correct global reference window.settingsInstance.controller
+// v1.1 - 10/9/25 9:15pm - Fixed family name save to use setSetting instead of handleSettingChange
 // v1.0 - 10/9/25 - Initial welcome wizard framework with skip confirmation
 
 import { createLogger } from '../utils/logger.js';
 import { getWelcomeScreens } from './welcome-screens.js';
 import { setupScreenHandlers } from './welcome-handlers.js';
+import { createModalNavigation } from '../utils/modal-navigation-manager.js';
 
 const logger = createLogger('WelcomeWizard');
 
@@ -16,6 +23,7 @@ export class WelcomeWizard {
     this.state = this.loadState();
     this.overlay = null;
     this.skipConfirmationActive = false;
+    this.modalNavigation = null; // For d-pad navigation
     
     logger.info('Welcome wizard initialized', { 
       userName: user?.name,
@@ -213,11 +221,15 @@ export class WelcomeWizard {
     localStorage.setItem('dashie-skip-wizard', 'true');
     
     // Update settings if possible
-    if (window.settingsService) {
-      window.settingsService.updateSettings({
-        'onboarding.skipped': true,
-        'onboarding.skippedAt': new Date().toISOString()
-      }).catch(err => logger.warn('Failed to save skip status', err));
+    if (window.settingsInstance?.controller) {
+      try {
+        const controller = window.settingsInstance.controller;
+        controller.setSetting('onboarding.skipped', true);
+        controller.setSetting('onboarding.skippedAt', new Date().toISOString());
+        logger.info('Skip status saved to settings');
+      } catch (err) {
+        logger.warn('Failed to save skip status', err);
+      }
     }
     
     // Close wizard
@@ -235,6 +247,12 @@ export class WelcomeWizard {
     }
     
     logger.debug('Showing screen', { screenId: screen.id, index });
+    
+    // Clean up previous modal navigation
+    if (this.modalNavigation) {
+      this.modalNavigation.destroy();
+      this.modalNavigation = null;
+    }
     
     // Update current screen index
     this.currentScreenIndex = index;
@@ -264,8 +282,49 @@ export class WelcomeWizard {
     if (screen.onEnter) {
       await screen.onEnter(this);
     }
+    
+    // Register modal navigation for buttons on this screen
+    this.registerScreenNavigation(screen.id);
   }
 
+  /**
+   * Register modal navigation for current screen's buttons
+   */
+  registerScreenNavigation(screenId) {
+    // Map screen IDs to their button IDs and layout
+    const screenButtons = {
+      'screen-1': { buttons: ['welcome-screen-1-next'], horizontal: false },
+      'screen-2': { buttons: ['welcome-screen-2-confirm', 'welcome-screen-2-edit'], horizontal: true },
+      'screen-3': { buttons: ['welcome-screen-3-continue'], horizontal: false },
+      'screen-4': { buttons: ['welcome-screen-4-share', 'welcome-screen-4-manual', 'welcome-screen-4-skip'], horizontal: false },
+      'screen-4b': { buttons: ['welcome-screen-4b-confirm', 'welcome-screen-4b-manual'], horizontal: true },
+      'screen-4c': { buttons: ['welcome-screen-4c-continue', 'welcome-screen-4c-back'], horizontal: true },
+      'screen-4d': { buttons: ['welcome-screen-4d-continue'], horizontal: false },
+      'screen-5': { buttons: ['welcome-screen-5-add', 'welcome-screen-5-skip'], horizontal: true },
+      'screen-5b': { buttons: ['welcome-screen-5b-continue'], horizontal: false },
+      'screen-6': { buttons: ['welcome-screen-6-continue'], horizontal: false },
+      'screen-7': { buttons: ['welcome-screen-7-complete'], horizontal: false }
+    };
+    
+    const config = screenButtons[screenId];
+    if (!config) {
+      logger.debug('No button navigation for screen', { screenId });
+      return;
+    }
+    
+    // Register with modal navigation system
+    this.modalNavigation = createModalNavigation(this.overlay, config.buttons, {
+      initialFocus: 0,
+      horizontalNavigation: config.horizontal,
+      onEscape: () => this.showSkipConfirmation()
+    });
+    
+    logger.debug('Modal navigation registered for screen', { 
+      screenId, 
+      buttons: config.buttons.length,
+      horizontal: config.horizontal 
+    });
+  }
   /**
    * Navigate to next screen
    */
@@ -295,25 +354,345 @@ export class WelcomeWizard {
   }
 
   /**
+   * Detect calendars from user's Google account
+   */
+  async detectCalendars() {
+    logger.debug('Detecting calendars');
+    
+    try {
+      // Check if calendar settings exist in localStorage
+      const calendarSettings = localStorage.getItem('dashie_calendar_settings');
+      
+      if (calendarSettings) {
+        const settings = JSON.parse(calendarSettings);
+        
+        // Count total calendars across all accounts
+        let totalCalendars = 0;
+        let primaryCalendarName = null;
+        
+        for (const [accountType, account] of Object.entries(settings.accounts || {})) {
+          const calendars = Object.values(account.calendars || {});
+          totalCalendars += calendars.length;
+          
+          // Find primary calendar (calendar ID matches account email)
+          if (!primaryCalendarName && account.email) {
+            const primaryCal = account.calendars[account.email];
+            if (primaryCal) {
+              // Use name or the calendar ID itself
+              primaryCalendarName = primaryCal.name || primaryCal.id;
+              logger.debug('Found primary calendar', { name: primaryCalendarName, account: accountType });
+            }
+          }
+        }
+        
+        this.state.calendarCount = totalCalendars;
+        this.state.primaryCalendarName = primaryCalendarName || 'Calendar';
+        
+        logger.info('Calendars detected', { 
+          count: totalCalendars, 
+          primary: primaryCalendarName 
+        });
+      } else {
+        // No calendars found
+        this.state.calendarCount = 0;
+        this.state.primaryCalendarName = null;
+        logger.info('No calendars detected');
+      }
+      
+      this.saveState();
+    } catch (error) {
+      logger.error('Failed to detect calendars', { error: error.message });
+      this.state.calendarCount = 0;
+      this.state.primaryCalendarName = null;
+    }
+  }
+
+  /**
+   * Request geolocation from browser
+   */
+  async requestGeolocation() {
+    logger.info('Requesting geolocation');
+    
+    if (!navigator.geolocation) {
+      logger.error('Geolocation not supported');
+      alert('Geolocation is not supported by your browser');
+      return;
+    }
+    
+    // Show loading spinner
+    this.showLoadingSpinner('Detecting your location...');
+    
+    try {
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          timeout: 10000,
+          maximumAge: 0
+        });
+      });
+      
+      const { latitude, longitude } = position.coords;
+      logger.info('Geolocation acquired', { latitude, longitude });
+      
+      // Reverse geocode to get location details
+      await this.reverseGeocode(latitude, longitude);
+      
+    } catch (error) {
+      logger.error('Geolocation failed', { error: error.message });
+      
+      this.hideLoadingSpinner();
+      
+      if (error.code === 1) {
+        alert('Location access denied. You can enter your zip code manually instead.');
+      } else if (error.code === 2) {
+        alert('Location unavailable. Please try entering your zip code manually.');
+      } else if (error.code === 3) {
+        alert('Location request timed out. Please try entering your zip code manually.');
+      } else {
+        alert('Failed to get location. You can enter your zip code manually instead.');
+      }
+    }
+  }
+
+  /**
+   * Reverse geocode coordinates to city/state/zip
+   */
+  async reverseGeocode(latitude, longitude) {
+    logger.info('Reverse geocoding', { latitude, longitude });
+    
+    try {
+      // Use Nominatim (OpenStreetMap) reverse geocoding
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+        {
+          headers: {
+            'User-Agent': 'Dashie App'
+          }
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error('Reverse geocoding failed');
+      }
+      
+      const data = await response.json();
+      logger.debug('Reverse geocode result', data);
+      
+      // Extract location details
+      const address = data.address || {};
+      this.state.detectedCity = address.city || address.town || address.village || '';
+      this.state.detectedState = address.state || '';
+      this.state.detectedZipCode = address.postcode || '';
+      
+      logger.info('Location detected', {
+        city: this.state.detectedCity,
+        state: this.state.detectedState,
+        zip: this.state.detectedZipCode
+      });
+      
+      this.saveState();
+      
+      // Hide loading spinner before navigating
+      this.hideLoadingSpinner();
+      
+      // Navigate to confirmation screen (4B)
+      const screen4BIndex = this.screens.findIndex(s => s.id === 'screen-4b');
+      if (screen4BIndex >= 0) {
+        await this.showScreen(screen4BIndex);
+      }
+      
+    } catch (error) {
+      logger.error('Reverse geocoding failed', { error: error.message });
+      this.hideLoadingSpinner();
+      alert('Failed to determine your location. Please enter your zip code manually.');
+    }
+  }
+
+  /**
+   * Save zip code to settings
+   */
+  async saveZipCode(zipCode) {
+    logger.info('Saving zip code to settings', { zipCode });
+    
+    if (window.settingsInstance?.controller) {
+      try {
+        const controller = window.settingsInstance.controller;
+        controller.setSetting('family.zipCode', zipCode);
+        logger.success('Zip code saved', { zipCode });
+      } catch (error) {
+        logger.error('Failed to save zip code', { error: error.message });
+      }
+    } else {
+      logger.warn('Settings controller not available, zip code not saved');
+    }
+  }
+
+  /**
+   * Clear location data (used when skipping location setup)
+   */
+  async clearLocationData() {
+    logger.info('Clearing location data');
+    
+    // Clear from wizard state
+    this.state.detectedCity = null;
+    this.state.detectedState = null;
+    this.state.detectedZipCode = null;
+    this.state.manualZipCode = null;
+    this.saveState();
+    
+    // Clear from settings
+    if (window.settingsInstance?.controller) {
+      try {
+        const controller = window.settingsInstance.controller;
+        controller.setSetting('family.zipCode', '');
+        logger.success('Location data cleared from settings');
+      } catch (error) {
+        logger.error('Failed to clear location data', { error: error.message });
+      }
+    }
+  }
+
+  /**
+   * Skip to next major screen (after all location sub-screens)
+   */
+  skipToNextMajorScreen() {
+    // Find the last location screen (screen-4d)
+    const lastLocationScreenIndex = this.screens.findIndex(s => s.id === 'screen-4d');
+    
+    if (lastLocationScreenIndex >= 0 && lastLocationScreenIndex < this.screens.length - 1) {
+      // Move to the screen after the last location screen
+      this.showScreen(lastLocationScreenIndex + 1);
+    } else {
+      // If we're at or past the last screen, complete the wizard
+      this.completeWizard();
+    }
+  }
+
+  /**
+   * Open add photos modal
+   */
+  async openAddPhotosModal() {
+    logger.info('Opening add photos modal from wizard');
+    
+    try {
+      // Check if settings modal manager exists
+      if (window.settingsInstance?.modalManager) {
+        // Close wizard temporarily
+        this.overlay.style.display = 'none';
+        
+        // Open photos settings which includes upload
+        await window.settingsInstance.modalManager.show('photos');
+        
+        // Set flag that photos were added
+        this.state.photosAdded = true;
+        this.saveState();
+        
+        // Navigate to confirmation screen
+        const screen5BIndex = this.screens.findIndex(s => s.id === 'screen-5b');
+        if (screen5BIndex >= 0) {
+          await this.showScreen(screen5BIndex);
+        }
+        
+        // Show wizard again
+        this.overlay.style.display = 'flex';
+      } else {
+        logger.warn('Settings modal manager not available');
+        // Just move to next screen
+        this.nextScreen();
+      }
+    } catch (error) {
+      logger.error('Failed to open add photos modal', { error: error.message });
+      // Show wizard again if hidden
+      this.overlay.style.display = 'flex';
+      // Move to next screen anyway
+      this.nextScreen();
+    }
+  }
+
+  /**
+   * Generate QR code for mobile access
+   */
+  generateQRCode() {
+    const qrContainer = this.overlay.querySelector('.welcome-qr-code');
+    if (!qrContainer) {
+      logger.warn('QR code container not found');
+      return;
+    }
+    
+    const url = qrContainer.dataset.url;
+    if (!url) {
+      logger.warn('QR code URL not found');
+      return;
+    }
+    
+    logger.info('Generating QR code', { url });
+    
+    // Use QRCode.js library if available
+    if (window.QRCode) {
+      qrContainer.innerHTML = '';
+      new window.QRCode(qrContainer, {
+        text: url,
+        width: 200,
+        height: 200,
+        colorDark: '#EE9828',
+        colorLight: '#ffffff',
+        correctLevel: window.QRCode.CorrectLevel.M
+      });
+    } else {
+      // Fallback to simple text
+      qrContainer.innerHTML = `<div style="padding: 20px; background: #f5f5f5; border-radius: 8px;">${url}</div>`;
+      logger.warn('QRCode library not available, showing URL as text');
+    }
+  }
+
+  /**
+   * Show loading spinner
+   */
+  showLoadingSpinner(message = 'Loading...') {
+    const spinner = document.createElement('div');
+    spinner.id = 'welcome-loading-spinner';
+    spinner.className = 'welcome-loading-overlay';
+    spinner.innerHTML = `
+      <div class="welcome-loading-content">
+        <div class="welcome-spinner"></div>
+        <p>${message}</p>
+      </div>
+    `;
+    this.overlay.appendChild(spinner);
+    logger.debug('Loading spinner shown', { message });
+  }
+
+  /**
+   * Hide loading spinner
+   */
+  hideLoadingSpinner() {
+    const spinner = document.getElementById('welcome-loading-spinner');
+    if (spinner) {
+      spinner.remove();
+      logger.debug('Loading spinner hidden');
+    }
+  }
+
+  /**
    * Complete the wizard
    */
   async completeWizard() {
     logger.info('Welcome wizard completed', { state: this.state });
     
     // Save completion to settings
-    if (window.settingsController) {
+    if (window.settingsInstance?.controller) {
       try {
-        // Use settingsController to save settings properly
-        await window.settingsController.handleSettingChange('onboarding.completed', true);
-        await window.settingsController.handleSettingChange('onboarding.completedAt', new Date().toISOString());
-        await window.settingsController.handleSettingChange('family.familyName', this.state.familyName);
+        // Use correct global reference and setSetting method
+        const controller = window.settingsInstance.controller;
+        controller.setSetting('onboarding.completed', true);
+        controller.setSetting('onboarding.completedAt', new Date().toISOString());
+        controller.setSetting('family.familyName', this.state.familyName);
         
-        logger.success('Onboarding completion saved via settingsController');
+        logger.success('Onboarding completion saved', { familyName: this.state.familyName });
       } catch (error) {
-        logger.error('Failed to save onboarding completion via settingsController', { error: error.message });
+        logger.error('Failed to save onboarding completion', { error: error.message });
       }
     } else {
-      logger.warn('settingsController not available, settings not saved');
+      logger.warn('Settings controller not available, settings not saved');
     }
     
     // Clear localStorage state
