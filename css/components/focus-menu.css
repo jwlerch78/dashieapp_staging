@@ -37,11 +37,13 @@
   pointer-events: none;
   z-index: -1;
   transition: background 0.3s ease;
+  display: none; /* DISABLED: Remove blue border around menu */
 }
 
-/* Dimmed state when user is in widget content - very subtle fade */
+/* Dimmed state when user is in widget content - scale down and gray out */
 .focus-menu.dimmed {
-  opacity: 0.85;
+  opacity: 0.9;
+  transition: opacity 0.3s ease;
 }
 
 /* Menu Item */

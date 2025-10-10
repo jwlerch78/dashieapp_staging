@@ -481,10 +481,23 @@ export function moveFocus(dir) {
         setFocusMenuInWidget(true);
         dimFocusMenu();
         
-        // Add visual indicator that widget is now active
+        // Add visual indicator that widget is now active AND update transform scale
         if (state.selectedCell) {
           console.log('🔵 BEFORE adding widget-active:', state.selectedCell.className);
           state.selectedCell.classList.add('widget-active');
+          
+          // Update the transform to include larger scale while keeping translate
+          const currentTransform = state.selectedCell.style.transform;
+          if (currentTransform && currentTransform.includes('translate')) {
+            // Extract translate values and apply new scale
+            const translateMatch = currentTransform.match(/translate\(([^)]+)\)/);
+            if (translateMatch) {
+              const newTransform = `${translateMatch[0]} scale(1.08)`;
+              state.selectedCell.style.transform = newTransform;
+              console.log('🔵 Updated transform to:', newTransform);
+            }
+          }
+          
           console.log('🔵 AFTER adding widget-active:', state.selectedCell.className);
         }
         

@@ -1,11 +1,12 @@
 // widgets/dcal/dcal.js - Main Dashie Calendar Widget Class
-// v1.7 - 10/10/25 5:35pm - Added n-day view mode switching via focus menu
-// CHANGE SUMMARY: Fixed theme detection to check html element, removed command indicator references, added n-day view switching
+// v1.8 - 10/10/25 7:20pm - Added monthly view support with CSS Grid
+// CHANGE SUMMARY: Added DCalMonthly import and integration, monthly view switching, month navigation
 
 import { createLogger } from '../../js/utils/logger.js';
 import { DCalConfig } from './dcal-config.js';
 import { DCalEvents } from './dcal-events.js';
 import { DCalWeekly } from './dcal-weekly.js';
+import { DCalMonthly } from './dcal-monthly.js';
 import { showToast } from '../../js/ui/toast.js';
 
 const logger = createLogger('DCalWidget');
@@ -55,6 +56,7 @@ export class DCalWidget {
     this.config = new DCalConfig(this.calendars);
     this.events = new DCalEvents(this.calendars);
     this.weekly = new DCalWeekly(this.calendars, settings);
+    this.monthly = null; // Monthly view renderer (lazy init)
 
     this.init();
   }
@@ -230,23 +232,41 @@ export class DCalWidget {
 
   navigateCalendar(direction) {
     const newDate = new Date(this.currentDate);
-    // Use dayCount from weekly view for navigation increment
-    const increment = this.weekly.dayCount || 7;
-    newDate.setDate(newDate.getDate() + (direction === 'next' ? increment : -increment));
     
-    this.currentDate = newDate;
-    this.weekly.setDate(this.currentDate);
-    this.updateCalendarHeader();
-    
-    // Re-render with current data
-    if (this.isDataLoaded) {
-      this.weekly.renderEvents(this.calendarData);
+    if (this.currentView === 'monthly') {
+      // Navigate by month
+      newDate.setMonth(newDate.getMonth() + (direction === 'next' ? 1 : -1));
+      this.currentDate = newDate;
+      this.monthly.setDate(this.currentDate);
+      
+      if (this.isDataLoaded) {
+        this.monthly.renderEvents(this.calendarData);
+      }
+      
+      logger.debug('Navigated month', { direction, newMonth: this.monthly.getMonthTitle() });
+    } else {
+      // Weekly/n-day navigation
+      const increment = this.weekly.dayCount || 7;
+      newDate.setDate(newDate.getDate() + (direction === 'next' ? increment : -increment));
+      
+      this.currentDate = newDate;
+      this.weekly.setDate(this.currentDate);
+      
+      if (this.isDataLoaded) {
+        this.weekly.renderEvents(this.calendarData);
+      }
+      
+      logger.debug('Navigated calendar', { direction, increment, newWeek: this.weekly.getWeekTitle() });
     }
     
-    logger.debug('Navigated calendar', { direction, increment, newWeek: this.weekly.getWeekTitle() });
+    this.updateCalendarHeader();
   }
 
   scrollCalendar(direction) {
+    // Monthly view has no scrolling
+    if (this.currentView === 'monthly') {
+      return;
+    }
     this.weekly.scroll(direction);
   }
 
@@ -254,17 +274,21 @@ export class DCalWidget {
     const titleEl = document.getElementById('calendarTitle');
     const modeEl = document.getElementById('calendarMode');
     
-    titleEl.textContent = this.weekly.getWeekTitle();
-    
-    // Display mode based on view setting
-    const modeLabels = {
-      '1': 'Day',
-      '2': '2-Day',
-      '3': '3-Day',
-      '5': '5-Day',
-      'week': 'Week'
-    };
-    modeEl.textContent = modeLabels[this.currentView] || 'Week';
+    if (this.currentView === 'monthly') {
+      titleEl.textContent = this.monthly.getMonthTitle();
+      modeEl.textContent = 'Month';
+    } else {
+      titleEl.textContent = this.weekly.getWeekTitle();
+      
+      const modeLabels = {
+        '1': 'Day',
+        '2': '2-Day',
+        '3': '3-Day',
+        '5': '5-Day',
+        'week': 'Week'
+      };
+      modeEl.textContent = modeLabels[this.currentView] || 'Week';
+    }
   }
 
   handleDataServiceMessage(data) {
@@ -350,6 +374,9 @@ export class DCalWidget {
     this.config.updateCalendars(updatedCalendars);
     this.events.updateCalendars(updatedCalendars);
     this.weekly.updateCalendars(updatedCalendars);
+    if (this.monthly) {
+      this.monthly.updateCalendars(updatedCalendars);
+    }
     
     logger.debug('Calendar configurations updated with Google colors', {
       calendars: updatedCalendars.length,
@@ -630,13 +657,6 @@ export class DCalWidget {
    * @param {string} viewMode - View mode ID ('1', '3', 'week', 'monthly')
    */
   async switchViewMode(viewMode) {
-    // Temporary: monthly mode points to week mode
-    if (viewMode === 'monthly') {
-      showToast('Month View - Coming Soon!', 'info', 2500);
-      logger.info('⚠️ TODO: Implement monthly view');
-      return;
-    }
-    
     logger.info('Switching view mode', { from: this.currentView, to: viewMode });
     
     // Update current view
@@ -645,23 +665,54 @@ export class DCalWidget {
     // Save to settings (localStorage + database)
     await this.saveViewModeSetting(viewMode);
     
-    // Update weekly renderer with new settings
-    const settings = this.loadSettings();
-    this.weekly.updateSettings(settings);
-    
-    // Reset to today when changing views
-    this.currentDate = new Date();
-    this.homeDate = new Date();
-    this.homeDate.setHours(0, 0, 0, 0);
-    this.isAtHome = true;
-    
-    this.weekly.setDate(this.currentDate);
-    this.updateCalendarHeader();
-    
-    // Re-render with current data
-    if (this.isDataLoaded) {
-      this.weekly.renderEvents(this.calendarData);
+    if (viewMode === 'monthly') {
+      // Initialize monthly view if needed
+      if (!this.monthly) {
+        const settings = this.loadSettings();
+        this.monthly = new DCalMonthly(this.calendars, settings);
+        this.monthly.initialize(this.currentDate);
+      }
+      
+      // Hide weekly, show monthly
+      document.querySelector('.allday-section')?.classList.add('hidden');
+      document.querySelector('.time-grid')?.classList.add('hidden');
+      document.querySelector('.month-grid')?.classList.remove('hidden');
+      
+      // Reset to today when switching to monthly
+      this.currentDate = new Date();
+      this.homeDate = new Date();
+      this.homeDate.setHours(0, 0, 0, 0);
+      this.isAtHome = true;
+      
+      this.monthly.setDate(this.currentDate);
+      
+      if (this.isDataLoaded) {
+        this.monthly.renderEvents(this.calendarData);
+      }
+    } else {
+      // Weekly/n-day mode
+      document.querySelector('.month-grid')?.classList.add('hidden');
+      document.querySelector('.allday-section')?.classList.remove('hidden');
+      document.querySelector('.time-grid')?.classList.remove('hidden');
+      
+      // Update weekly renderer with new settings
+      const settings = this.loadSettings();
+      this.weekly.updateSettings(settings);
+      
+      // Reset to today when changing views
+      this.currentDate = new Date();
+      this.homeDate = new Date();
+      this.homeDate.setHours(0, 0, 0, 0);
+      this.isAtHome = true;
+      
+      this.weekly.setDate(this.currentDate);
+      
+      if (this.isDataLoaded) {
+        this.weekly.renderEvents(this.calendarData);
+      }
     }
+    
+    this.updateCalendarHeader();
     
     // Update menu to reflect new active view
     this.sendMenuConfig();
