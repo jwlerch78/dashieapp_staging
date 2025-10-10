@@ -1,5 +1,6 @@
 // js/core/events.js - Unified Input Handling System
-// CHANGE SUMMARY: Removed Backspace->escape mapping and fixed preventDefault timing to allow dropdown/text input to work naturally
+// v1.1 - 10/10/25 4:00pm - Fixed widget focus to use moveFocus for menu navigation
+// CHANGE SUMMARY: Changed widget input handling to call moveFocus() instead of sendToWidget() directly, allowing focus menu logic to intercept arrow keys
 
 import { state, elements, setFocus, setWidgetReady } from './state.js';
 import { moveFocus, handleEnter, handleBack, openMenuWithCurrentSelection, updateFocus } from './navigation.js';
@@ -161,14 +162,25 @@ async function handleUnifiedInput(action, originalEvent = null) {
     return;
   }
   
-  // If widget is focused, send commands to widget (except escape)
+  // If widget is focused, delegate to moveFocus which handles menu vs widget navigation
   if (state.selectedCell) {
     switch (action) {
       case "escape":
-        handleBack(); // This will unfocus the widget
+        handleBack(); // This will unfocus the widget or return to menu
+        break;
+      case "left":
+      case "right":
+      case "up":
+      case "down":
+        // Use moveFocus instead of sendToWidget directly
+        // This allows focus menu logic to intercept navigation
+        moveFocus(action);
+        break;
+      case "enter":
+        handleEnter();
         break;
       default:
-        // Send action to the widget (including prev-view/next-view for calendar)
+        // For other actions (prev-view, next-view, etc), send directly to widget
         import('./navigation.js').then(({ sendToWidget }) => {
           sendToWidget(action);
         });

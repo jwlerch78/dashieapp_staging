@@ -172,6 +172,11 @@ body.legacy-focus .menu-item.focused {
   transition: all 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
 }
 
+/* Blue gradient border when user is actively controlling the widget (not in menu) */
+.widget.focused.centered.widget-active::before {
+  background: var(--widget-border-gradient-active);
+}
+
 /* Ensure smooth transition back to grid position */
 .widget.focused:not(.centered) {
   transition: all 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);

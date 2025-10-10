@@ -1,5 +1,6 @@
 /* css/components/focus-menu.css - Focus Menu Styling */
-/* v1.0 - 10/10/25 - Initial implementation for widget focus menu system */
+/* v1.2 - 10/10/25 3:30pm - Added transform animation to sync with widget centering */
+/* CHANGE SUMMARY: Menu now animates smoothly with widget using same cubic-bezier timing (0.4s) */
 
 /* Focus Menu Container */
 .focus-menu {
@@ -13,13 +14,15 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  transition: opacity 0.3s ease;
   opacity: 1;
+  
+  /* Smooth transform animation - matches widget centering animation */
+  transition: transform 0.4s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.3s ease;
 }
 
-/* Dimmed state when user is in widget content */
+/* Dimmed state when user is in widget content - very subtle fade */
 .focus-menu.dimmed {
-  opacity: 0.4;
+  opacity: 0.85;
 }
 
 /* Menu Item */
@@ -27,13 +30,17 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 16px;
-  border-radius: var(--border-radius-small);
+  padding: 12px 0;
+  margin: 0 -12px; /* Extend to edges of container */
+  padding-left: 12px;
+  padding-right: 12px;
+  border-radius: 0; /* Square edges for full-width highlighting */
   background: transparent;
   color: var(--text-primary, #fff);
   cursor: pointer;
   transition: all var(--transition-fast);
   user-select: none;
+  position: relative;
 }
 
 /* Menu Item - Hover (mouse support) */
@@ -41,12 +48,18 @@
   background: rgba(255, 255, 255, 0.05);
 }
 
-/* Menu Item - Selected/Highlighted */
+/* Menu Item - Selected/Highlighted (edge-to-edge like sidebar) */
 .focus-menu-item.selected {
   background: var(--bg-selected-fill);
-  outline: 2px solid var(--outline-color-nav);
-  outline-offset: -2px;
-  transform: scale(1.02);
+  /* Edge-to-edge blue border on left */
+  border-left: 3px solid var(--outline-color-nav);
+  padding-left: 9px; /* Compensate for border */
+}
+
+/* Menu Item - Active (current view) - keeps shading */
+.focus-menu-item.active {
+  background: var(--bg-active);
+  font-weight: 600;
 }
 
 /* Menu Icon */
@@ -75,9 +88,4 @@
 .focus-menu-item,
 .focus-menu {
   transition: all 0.2s ease;
-}
-
-/* Ensure menu stays above overlay but below modals */
-.focus-menu {
-  z-index: calc(var(--z-focus-overlay) + 10);
 }

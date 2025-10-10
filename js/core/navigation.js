@@ -1,6 +1,6 @@
 // js/core/navigation.js - Navigation Logic & Focus Management with Timeout System
-// v1.1 - 10/10/25 - Added focus menu integration for widget-specific controls
-// CHANGE SUMMARY: Added feature flag support for enhanced focus mode with dynamic checking, added focus menu navigation
+// v1.6 - 10/10/25 3:45pm - Clarified menu-first navigation flow with better logging
+// CHANGE SUMMARY: Enhanced logging to show navigation starts in menu, widget receives menu-active (not focus) initially
 
 import { state, elements, findWidget, setFocus, setSelectedCell, setCurrentMain } from './state.js';
 import { isFeatureEnabled } from './feature-flags.js';
@@ -142,29 +142,36 @@ function showFocusOverlay() {
   if (state.selectedCell) {
     // Small delay to ensure overlay is visible before centering
     setTimeout(() => {
-      centerFocusedWidget(state.selectedCell);
-      
-      // NEW: Check if widget has focus menu
+      // NEW: Check if widget has focus menu BEFORE centering
       const widgetId = getWidgetIdFromElement(state.selectedCell);
+      const hasFocusMenu = hasWidgetMenu(widgetId);
       
-      if (hasWidgetMenu(widgetId)) {
+      if (hasFocusMenu) {
         const menuConfig = getWidgetMenuConfig(widgetId);
         
-        // Initialize focus menu state
+        // Initialize focus menu state (starts in menu, not widget)
         setFocusMenuActive(widgetId, menuConfig);
         
-        // Show the menu UI
+        // Show menu BEFORE widget moves (at initial position)
         showFocusMenu(state.selectedCell, menuConfig);
         
-        // Send initial selection to widget
-        sendToWidget({
-          action: 'menu-active',
-          selectedItem: menuConfig.items[menuConfig.defaultIndex || 0].id
-        });
+        // Now center the widget (this will also move the menu)
+        centerFocusedWidget(state.selectedCell);
         
-        console.log('✓ Focus menu activated for', widgetId);
+        // Send menu-active message to widget after animation completes
+        // Widget should NOT accept navigation yet (user is in menu)
+        setTimeout(() => {
+          sendToWidget({
+            action: 'menu-active',
+            selectedItem: menuConfig.items[menuConfig.defaultIndex || 0].id
+          });
+          console.log('📋 Widget notified of menu activation (not focused yet)');
+        }, 450);
+        
+        console.log('✓ Focus menu activated for', widgetId, '- user starts in MENU');
       } else {
-        // No menu - just send focus to widget
+        // No menu - just center and send focus
+        centerFocusedWidget(state.selectedCell);
         sendToWidget({ action: 'focus' });
       }
     }, 50);
@@ -201,6 +208,8 @@ function hideFocusOverlay() {
 /**
  * Center a focused widget on screen with smooth transform
  * Calculates viewport center and applies translate transform
+ * If widget has a focus menu, shifts widget right to balance the menu on the left
+ * Also applies the same transform to the menu so they move together
  */
 function centerFocusedWidget(widgetElement) {
   if (!widgetElement) {
@@ -240,10 +249,24 @@ function centerFocusedWidget(widgetElement) {
   const viewportHeight = window.innerHeight;
   console.log('Viewport:', { width: viewportWidth, height: viewportHeight });
   
-  // Calculate center of viewport
-  const viewportCenterX = viewportWidth / 2;
+  // Check if widget has focus menu
+  const widgetId = getWidgetIdFromElement(widgetElement);
+  const hasFocusMenu = hasWidgetMenu(widgetId);
+  
+  // If widget has focus menu, offset the center point to account for menu width
+  const menuWidth = 200; // Match focus-menu.css
+  const menuGap = 20;    // Match focus-menu.js
+  const menuOffset = hasFocusMenu ? (menuWidth + menuGap) / 2 : 0;
+  
+  // Calculate center of viewport (with menu offset)
+  const viewportCenterX = (viewportWidth / 2) + menuOffset;
   const viewportCenterY = viewportHeight / 2;
-  console.log('Viewport center:', { x: viewportCenterX, y: viewportCenterY });
+  console.log('Viewport center:', { 
+    x: viewportCenterX, 
+    y: viewportCenterY,
+    menuOffset,
+    hasFocusMenu 
+  });
   
   // Calculate widget's current center
   const widgetCenterX = widgetRect.left + (widgetRect.width / 2);
@@ -255,11 +278,21 @@ function centerFocusedWidget(widgetElement) {
   const translateY = viewportCenterY - widgetCenterY;
   console.log('Translation needed:', { x: translateX, y: translateY });
   
-  // Apply centering transform
+  // Apply centering transform to widget
   widgetElement.classList.add('centered');
   const newTransform = `translate(${translateX}px, ${translateY}px) scale(1.05)`;
   widgetElement.style.transform = newTransform;
   console.log('Applied transform:', newTransform);
+  
+  // NEW: If menu exists, apply the same transform to it (without scale)
+  if (hasFocusMenu) {
+    const menu = document.getElementById('widget-focus-menu');
+    if (menu) {
+      // Menu moves with the widget but doesn't scale
+      menu.style.transform = `translate(${translateX}px, ${translateY}px)`;
+      console.log('✓ Applied same transform to menu (no scale)');
+    }
+  }
   
   // Verify it was applied
   setTimeout(() => {
@@ -268,7 +301,7 @@ function centerFocusedWidget(widgetElement) {
     console.log('Widget position after:', widgetElement.getBoundingClientRect());
   }, 100);
   
-  console.log('✓ Widget centered at viewport center');
+  console.log('✓ Widget centered at viewport center (with menu offset)');
   console.log('🎯 === CENTER WIDGET DEBUG END ===');
 }
 
@@ -402,11 +435,21 @@ export function moveFocus(dir) {
   // Reset timer on any navigation input - this should wake up highlights
   resetHighlightTimer();
   
+  // DEBUG: Log focus menu state
+  console.log('🎯 moveFocus:', dir, {
+    selectedCell: !!state.selectedCell,
+    menuActive: state.focusMenuState.active,
+    inMenu: state.focusMenuState.inMenu,
+    widgetId: state.focusMenuState.widgetId
+  });
+  
   // NEW: Handle focus menu navigation
   if (state.selectedCell && state.focusMenuState.active) {
+    console.log('📋 Focus menu is active, checking navigation...');
     
     // If in menu, handle menu navigation
     if (state.focusMenuState.inMenu) {
+      console.log('📋 User is IN MENU, handling menu navigation');
       
       if (dir === 'up' || dir === 'down') {
         // Move selection in menu
@@ -420,6 +463,7 @@ export function moveFocus(dir) {
             selectedItem: newItem.id
           });
         }
+        console.log('📋 Menu navigation handled, NOT sending to widget');
         return;
       }
       
@@ -427,16 +471,24 @@ export function moveFocus(dir) {
         // Move from menu to widget content
         setFocusMenuInWidget(true);
         dimFocusMenu();
+        
+        // Add visual indicator that widget is now active
+        if (state.selectedCell) {
+          state.selectedCell.classList.add('widget-active');
+        }
+        
         sendToWidget({ action: 'focus' });
         console.log('→ Moved from menu to widget content');
         return;
       }
       
       // Left while in menu does nothing (already at boundary)
+      console.log('📋 Left pressed in menu, ignoring');
       return;
     } 
     // If in widget content, send to widget
     else {
+      console.log('📋 User is IN WIDGET, sending command to widget');
       sendToWidget(dir);
       return;
     }
@@ -444,6 +496,7 @@ export function moveFocus(dir) {
   
   // EXISTING: Regular widget focus without menu
   if (state.selectedCell) {
+    console.log('📋 No focus menu, sending command to widget');
     // Widget is focused — send input there
     sendToWidget(dir);
     return;
@@ -622,6 +675,12 @@ export function handleBack() {
       if (!state.focusMenuState.inMenu) {
         setFocusMenuInWidget(false);
         undimFocusMenu();
+        
+        // Remove visual indicator that widget was active
+        if (state.selectedCell) {
+          state.selectedCell.classList.remove('widget-active');
+        }
+        
         sendToWidget({ action: 'blur' });
         console.log('← Returned to menu from widget');
         return;
@@ -785,26 +844,46 @@ export function initializeHighlightTimeout() {
 
 /**
  * Get widget ID from DOM element
- * Checks data attributes and finds matching widget config
+ * Derives widget type from the loaded URL to support swappable grid positions
  * @param {HTMLElement} element - Widget DOM element
  * @returns {string|null} Widget ID or null if not found
  */
 function getWidgetIdFromElement(element) {
-  // Try data-widget-id first
+  // Try data-widget-id attribute first (future enhancement)
   if (element.dataset.widgetId) {
     return element.dataset.widgetId;
   }
   
-  // Try finding by grid position
+  // Find widget config by grid position
   const row = element.dataset.row;
   const col = element.dataset.col;
   
-  if (row && col) {
-    const widgetConfig = findWidget(parseInt(row), parseInt(col));
-    return widgetConfig ? widgetConfig.id : null;
+  if (!row || !col) {
+    console.warn('getWidgetIdFromElement: Missing row/col data attributes');
+    return null;
   }
   
-  return null;
+  const widgetConfig = findWidget(parseInt(row), parseInt(col));
+  if (!widgetConfig) {
+    console.warn(`getWidgetIdFromElement: No widget config found at (${row},${col})`);
+    return null;
+  }
+  
+  // Extract widget name from URL path
+  // URL format: "/widgets/{name}/{file}.html"
+  // Examples: "/widgets/dcal/calendar_dcal.html" → "dcal"
+  //           "/widgets/photos/photos.html" → "photos"
+  if (widgetConfig.url) {
+    const urlMatch = widgetConfig.url.match(/\/widgets\/([^\/]+)\//); 
+    if (urlMatch && urlMatch[1]) {
+      console.log(`✓ Resolved widget ID from URL: ${urlMatch[1]} (grid position: ${widgetConfig.id})`);
+      return urlMatch[1];
+    }
+  }
+  
+  // Fallback to grid position ID if URL parsing fails
+  console.log(`⚠️ Using fallback grid ID: ${widgetConfig.id}`);
+  return widgetConfig.id;
 }
 
 // ---------------------

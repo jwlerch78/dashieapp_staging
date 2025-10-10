@@ -121,6 +121,9 @@ body.theme-dark {
 
   /* Widget border gradient for enhanced focus mode - gray solid to 30% transparent to solid */
   --widget-border-gradient: linear-gradient(to right, #a8b0b8 0%, rgba(168, 176, 184, 0.3) 50%, #a8b0b8 100%);
+  
+  /* Widget border gradient when actively controlling widget - blue */
+  --widget-border-gradient-active: linear-gradient(to right, #00aaff 0%, rgba(0, 170, 255, 0.3) 50%, #00aaff 100%);
 
   /* Theme-specific */
   --sidebar-logo-src: url('/icons/Dashie_Full_Logo_White_Transparent.png');
@@ -175,6 +178,9 @@ body:not([class*="theme-"]) {
 
   /* Widget border gradient for enhanced focus mode - gray solid to 30% transparent to solid */
   --widget-border-gradient: linear-gradient(to right, #6b7280 0%, rgba(107, 114, 128, 0.3) 50%, #6b7280 100%);
+  
+  /* Widget border gradient when actively controlling widget - blue */
+  --widget-border-gradient-active: linear-gradient(to right, #2196f3 0%, rgba(33, 150, 243, 0.3) 50%, #2196f3 100%);
 
   /* Theme-specific */
   --sidebar-logo-src: url('/icons/Dashie_Full_Logo_Orange_Transparent.png');

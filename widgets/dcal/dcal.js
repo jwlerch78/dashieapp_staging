@@ -433,11 +433,12 @@ export class DCalWidget {
         focusMenu: {
           enabled: true,
           defaultIndex: 1, // Start on "Week"
+          currentView: this.currentView === 'week' ? 'weekly' : this.currentView, // Map internal view to menu ID
           items: [
-            { id: 'monthly', label: 'Month', icon: '📅' },
-            { id: 'weekly', label: 'Week', icon: '📋' },
-            { id: 'daily', label: 'Day', icon: '📆' },
-            { id: '3day', label: '3-Day', icon: '📋' }
+            { id: 'monthly', label: 'Month' },
+            { id: 'weekly', label: 'Week' },
+            { id: 'daily', label: 'Day' },
+            { id: '3day', label: '3-Day' }
           ]
         }
       }, '*');

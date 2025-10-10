@@ -1,5 +1,6 @@
 // js/ui/focus-menu.js - Focus Menu UI Component
-// v1.0 - 10/10/25 - Initial implementation for widget focus menu rendering and management
+// v1.3 - 10/10/25 3:15pm - Enhanced positioning debug logging
+// CHANGE SUMMARY: Added comprehensive logging to positionMenu() showing widget rect, calculations, and off-screen detection for all edges
 
 import { createLogger } from '../utils/logger.js';
 
@@ -35,7 +36,8 @@ export function showFocusMenu(widgetElement, menuConfig) {
   // Render menu items
   menuConfig.items.forEach((item, index) => {
     const isSelected = index === (menuConfig.defaultIndex || 0);
-    const menuItem = createMenuItem(item, isSelected);
+    const isActive = item.id === menuConfig.currentView; // Mark current view as active
+    const menuItem = createMenuItem(item, isSelected, isActive);
     menu.appendChild(menuItem);
   });
   
@@ -51,18 +53,22 @@ export function showFocusMenu(widgetElement, menuConfig) {
 /**
  * Create a single menu item element
  * @param {Object} item - Menu item data { id, label, icon }
- * @param {boolean} isSelected - Whether this item is initially selected
+ * @param {boolean} isSelected - Whether this item is currently highlighted/selected
+ * @param {boolean} isActive - Whether this is the current active view
  * @returns {HTMLElement} Menu item element
  */
-function createMenuItem(item, isSelected) {
+function createMenuItem(item, isSelected, isActive) {
   const div = document.createElement('div');
-  div.className = 'focus-menu-item' + (isSelected ? ' selected' : '');
+  const classes = ['focus-menu-item'];
+  if (isSelected) classes.push('selected');
+  if (isActive) classes.push('active');
+  div.className = classes.join(' ');
   div.dataset.itemId = item.id;
   
-  // Icon span
+  // Icon span - use SVG icons instead of emoji
   const iconSpan = document.createElement('span');
   iconSpan.className = 'menu-icon';
-  iconSpan.textContent = item.icon || '•';
+  iconSpan.innerHTML = getMenuIcon(item.id);
   
   // Label span
   const labelSpan = document.createElement('span');
@@ -76,45 +82,86 @@ function createMenuItem(item, isSelected) {
 }
 
 /**
+ * Get SVG icon for menu item
+ * Returns inline SVG matching the style from welcome screen
+ */
+function getMenuIcon(itemId) {
+  const iconMap = {
+    'monthly': `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>`,
+    'weekly': `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="8" y1="14" x2="8" y2="18"></line><line x1="12" y1="14" x2="12" y2="18"></line><line x1="16" y1="14" x2="16" y2="18"></line></svg>`,
+    'daily': `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="12" y1="2" x2="12" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>`,
+    '3day': `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="10" x2="21" y2="10"></line><line x1="10" y1="14" x2="10" y2="18"></line><line x1="14" y1="14" x2="14" y2="18"></line></svg>`
+  };
+  
+  return iconMap[itemId] || '\u2022'; // Fallback to bullet point
+}
+
+/**
  * Position menu to the left of the centered widget
  * @param {HTMLElement} menu - Menu element to position
  * @param {HTMLElement} widgetElement - Widget element to position relative to
  */
 function positionMenu(menu, widgetElement) {
-  // Get widget's current position (after centering)
+  // Get widget's current position (after centering transform has been applied)
   const widgetRect = widgetElement.getBoundingClientRect();
+  
+  logger.info('📍 Positioning menu - widget rect:', {
+    left: widgetRect.left,
+    top: widgetRect.top,
+    right: widgetRect.right,
+    bottom: widgetRect.bottom,
+    width: widgetRect.width,
+    height: widgetRect.height
+  });
   
   // Menu dimensions
   const menuWidth = 200; // Fixed width from CSS
   const gap = 20; // Space between menu and widget
   
-  // Calculate position - to the left of the widget
+  // ALWAYS position on the left
   const left = widgetRect.left - menuWidth - gap;
   const top = widgetRect.top;
+  
+  logger.info('📍 Menu position calculated:', {
+    left,
+    top,
+    menuWidth,
+    gap,
+    calculation: `${widgetRect.left} - ${menuWidth} - ${gap} = ${left}`
+  });
   
   // Apply position
   menu.style.left = `${left}px`;
   menu.style.top = `${top}px`;
   menu.style.height = `${widgetRect.height}px`; // Match widget height
   
-  logger.debug('Menu positioned', {
-    left,
-    top,
-    height: widgetRect.height,
-    widgetRect: {
-      left: widgetRect.left,
-      top: widgetRect.top,
-      width: widgetRect.width,
-      height: widgetRect.height
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const isOffScreenLeft = left < 0;
+  const isOffScreenRight = (left + menuWidth) > viewportWidth;
+  const isOffScreenTop = top < 0;
+  const isOffScreenBottom = (top + widgetRect.height) > viewportHeight;
+  
+  logger.info('✓ Menu positioned', {
+    finalPosition: { left, top, height: widgetRect.height },
+    viewport: { width: viewportWidth, height: viewportHeight },
+    offScreen: {
+      left: isOffScreenLeft,
+      right: isOffScreenRight,
+      top: isOffScreenTop,
+      bottom: isOffScreenBottom
     }
   });
   
-  // Handle edge case: menu goes off left edge of screen
-  if (left < 0) {
-    logger.warn('Menu would go off screen, positioning at right side instead');
-    // Position to the right of widget instead
-    const rightPos = widgetRect.right + gap;
-    menu.style.left = `${rightPos}px`;
+  if (isOffScreenLeft || isOffScreenRight || isOffScreenTop || isOffScreenBottom) {
+    logger.warn('⚠️ Menu is partially or fully off-screen!', {
+      offScreenDirections: [
+        isOffScreenLeft && 'LEFT',
+        isOffScreenRight && 'RIGHT',
+        isOffScreenTop && 'TOP',
+        isOffScreenBottom && 'BOTTOM'
+      ].filter(Boolean)
+    });
   }
 }
 
