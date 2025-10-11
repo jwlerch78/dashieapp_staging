@@ -1,5 +1,6 @@
 // js/core/state.js - Global State Management
-// CHANGE SUMMARY: Fixed widget URLs to use absolute paths for OAuth callback compatibility
+// v1.1 - 10/11/25 - Added new state variables for clearer widget state tracking
+// CHANGE SUMMARY: Added focusedWidget and widgetActive properties with backward compatibility helpers
 
 // ---------------------
 // APP STATE
@@ -78,7 +79,9 @@ export const sidebarMapping = {
 export const state = {
   currentMain: "calendar", // default main widget
   focus: { type: "grid", row: 1, col: 1 }, // current focus for D-pad navigation
-  selectedCell: null, // focused widget
+  selectedCell: null, // DEPRECATED: Use focusedWidget instead (kept for backward compat)
+  focusedWidget: null, // NEW: Widget in FOCUSED state (centered, has attention)
+  widgetActive: false, // NEW: Is widget in ACTIVE state (receiving commands)?
   isAsleep: false, // sleep mode state
   confirmDialog: null, // exit confirmation dialog state
   widgetReadyStatus: new Map(), // track which widgets are ready
@@ -165,4 +168,26 @@ export function clearFocusMenuState() {
 
 export function setFocusMenuInWidget(inWidget) {
   state.focusMenuState.inMenu = !inWidget;
+}
+
+// ---------------------
+// NEW STATE HELPERS (WITH BACKWARD COMPATIBILITY)
+// ---------------------
+
+/**
+ * Set the focused widget (FOCUSED state)
+ * Also keeps old selectedCell in sync for backward compatibility
+ */
+export function setFocusedWidget(widget) {
+  state.focusedWidget = widget;
+  state.selectedCell = widget;  // Keep old name in sync during transition
+}
+
+/**
+ * Set whether widget is in ACTIVE state (receiving commands)
+ * Also keeps old focusMenuState.inMenu in sync for backward compatibility
+ */
+export function setWidgetActive(active) {
+  state.widgetActive = active;
+  state.focusMenuState.inMenu = !active;  // Keep old inverted logic working
 }
