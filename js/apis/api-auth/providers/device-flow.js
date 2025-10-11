@@ -691,7 +691,7 @@ export class DeviceFlowProvider {
         margin: 0;
         font-weight: 700;
         color: #EE9828;
-        font-size: 18px;
+        font-size: 25px;
         text-transform: uppercase;
         letter-spacing: 1px;
       }
