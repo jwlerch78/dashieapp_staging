@@ -1,5 +1,7 @@
 @echo off
 REM ===============================
+REM Function: This bat file copies the main branch of one repo to the main branch of another
+REM Purpose is to deploy dashieapp_staging repo (staging site) to the dashieapp.com prod site
 REM Usage: gitdeploy_main.bat <staging_repo_path> <production_repo_name>
 REM Example: gitdeploy_main.bat "C:\projects\dashieapp_staging" dashieapp
 REM ===============================

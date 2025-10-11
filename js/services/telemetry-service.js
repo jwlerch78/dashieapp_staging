@@ -36,8 +36,8 @@ class TelemetryService {
       // Get platform info
       const platformDetector = getPlatformDetector();
       this.platform = {
-        type: platformDetector.getDeviceType(),
-        name: platformDetector.getPlatformName(),
+        type: platformDetector.deviceType,
+        name: platformDetector.getPlatformDescription(),
         isTV: platformDetector.isTV(),
         isMobile: platformDetector.isMobile()
       };
