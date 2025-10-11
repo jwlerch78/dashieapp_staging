@@ -1,7 +1,8 @@
 // js/settings/settings-event-handler.js
+// v1.3 - 10/11/25 11:55pm - Added telemetry toggle handler to sync with telemetry service
 // v1.2 - 10/9/25 - Added zip code input handler with debounced location display
 // v1.1 - 1/9/25 8:20pm - Converted console.log to logger.debug
-// CHANGE SUMMARY: Added sleep timer toggle handler to update UI states and save setting
+// CHANGE SUMMARY: Added telemetry toggle to sync settings with telemetry service localStorage
 
 import { createLogger } from '../utils/logger.js';
 
@@ -111,6 +112,35 @@ export function setupEventHandlers(overlay, settingsManager) {
     });
     
     console.log('⚙️ Dynamic greeting toggle handler attached');
+  }
+  
+  // NEW: Telemetry toggle handler
+  const telemetryToggle = overlay.querySelector('#enable-crash-reporting');
+  if (telemetryToggle) {
+    telemetryToggle.addEventListener('change', async (e) => {
+      const enabled = e.target.checked;
+      console.log('⚙️ 📊 Telemetry toggle changed:', enabled);
+      
+      // Save setting via settings manager (to database)
+      if (settingsManager && settingsManager.handleSettingChange) {
+        settingsManager.handleSettingChange('system.telemetryEnabled', enabled);
+      }
+      
+      // CRITICAL: Also update telemetry service directly
+      if (window.telemetryService) {
+        if (enabled) {
+          window.telemetryService.enable();
+          console.log('✅ Telemetry service enabled');
+        } else {
+          window.telemetryService.disable();
+          console.log('❌ Telemetry service disabled');
+        }
+      } else {
+        console.warn('⚠️  Telemetry service not available yet');
+      }
+    });
+    
+    console.log('⚙️ Telemetry toggle handler attached');
   }
   
   // NEW: Zip code input handler for location display

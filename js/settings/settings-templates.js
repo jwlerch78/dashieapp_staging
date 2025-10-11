@@ -1,9 +1,10 @@
 // js/settings/settings-templates.js
+// v1.5 - 10/11/25 11:35pm - Added Privacy section to System settings with crash reporting toggle
 // v1.4 - 10/10/25 4:05pm - Moved Dynamic Greeting toggle to bottom of Display screen (after sleep settings)
 // v1.3 - 10/9/25 - Added location display element below zip code input
 // v1.2 - 10/9/25 - Added zip code input to Family settings & moved Family to top of menu
 // Version: 1.1 | Last Updated: 2025-01-09 20:40 EST
-// CHANGE SUMMARY: Added Delete Account screen and confirmation modal
+// CHANGE SUMMARY: Added Privacy screen with telemetry opt-in toggle
 
 import { getFeaturesMenuItem, getFeaturesScreen } from './settings-templates-features.js';
 
@@ -631,6 +632,13 @@ export const systemScreens = `
         </div>
         <span class="cell-chevron">›</span>
       </div>
+      
+      <div class="settings-cell" data-navigate="privacy">
+        <div class="cell-content">
+          <span class="cell-label">Privacy</span>
+        </div>
+        <span class="cell-chevron">›</span>
+      </div>
 
        ${getFeaturesMenuItem()}
       
@@ -730,6 +738,24 @@ export const systemScreens = `
         <div class="settings-cell selectable danger-cell" id="delete-account-btn" data-action="confirm">
           <span class="cell-label">Delete My Account</span>
           <span class="cell-checkmark"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Privacy Screen (Level 2) -->
+  <div class="settings-screen" data-level="2" data-screen="privacy" data-title="Privacy">
+    <div class="settings-list">
+      <div class="settings-section">
+        <div class="settings-cell toggle-cell" id="telemetry-toggle-cell">
+          <span class="cell-label">Enable Crash Reporting (Beta)</span>
+          <label class="toggle-switch">
+            <input type="checkbox" id="enable-crash-reporting" data-setting="system.telemetryEnabled">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="setting-helper-text" style="padding: 8px 16px; font-size: 13px; color: var(--text-secondary);">
+          Help improve Dashie by automatically sending crash reports and error logs. Only errors are sent - no personal data.
         </div>
       </div>
     </div>

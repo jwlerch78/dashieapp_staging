@@ -1,5 +1,6 @@
 // js/main.js
-// CHANGE SUMMARY: Added QR code upload support - platform config storage, hash detection, auto-trigger upload, direct QR modal on TV
+// v1.1 - 10/11/25 11:40pm - Added telemetry service initialization for remote crash monitoring
+// CHANGE SUMMARY: Added telemetry service for beta crash reporting
 
 // ============================================
 // IMPORTS
@@ -52,6 +53,9 @@ import crashMonitor from './utils/crash-monitor.js';
 
 // Console debugging commands
 import consoleCommands from './utils/console-commands.js';
+
+// Telemetry service for remote crash reporting
+import telemetryService from './services/telemetry-service.js';
 
 // Expose crash monitor globally for data-manager and other services
 window.crashMonitor = crashMonitor;
@@ -232,6 +236,20 @@ async function initializeApp() {
       } catch (error) {
         console.error('❌ Account Manager initialization failed:', error);
         // Non-critical - continue without account manager
+      }
+
+      // ============================================
+      // TELEMETRY SERVICE INITIALIZATION
+      // ============================================
+      
+      console.log('📊 Initializing telemetry service...');
+      try {
+        await telemetryService.initialize();
+        window.telemetryService = telemetryService;
+        console.log('✅ Telemetry service initialized and available as window.telemetryService');
+      } catch (error) {
+        console.error('❌ Telemetry service initialization failed:', error);
+        // Non-critical - continue without telemetry
       }
 
       // ============================================

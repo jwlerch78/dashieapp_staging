@@ -1,6 +1,7 @@
 // js/utils/console-commands.js
+// v1.1 - 10/11/25 11:45pm - Added telemetry upload and status commands
 // v1.0 - 10/11/25 3:35pm - Console debugging helper commands
-// CHANGE SUMMARY: New file - provides convenient console commands for debugging
+// CHANGE SUMMARY: Added uploadLogs() and getTelemetryStatus() commands
 
 /**
  * Console Commands Helper
@@ -70,6 +71,13 @@ class ConsoleCommands {
     window.ListWidgets = this.listWidgets.bind(this);
     window.listWidgets = this.listWidgets.bind(this);
     
+    // Telemetry Commands
+    window.UploadLogs = this.uploadLogs.bind(this);
+    window.uploadLogs = this.uploadLogs.bind(this);
+    
+    window.GetTelemetryStatus = this.getTelemetryStatus.bind(this);
+    window.getTelemetryStatus = this.getTelemetryStatus.bind(this);
+    
     console.log('✅ Console commands loaded! Type help() or Help() to see available commands.');
   }
 
@@ -113,6 +121,10 @@ class ConsoleCommands {
 
 🎨 WIDGET MANAGEMENT:
   listWidgets()             - List all registered widgets
+
+📡 TELEMETRY COMMANDS (BETA):
+  uploadLogs()              - Manually upload crash logs to Supabase
+  getTelemetryStatus()      - Check telemetry service status
 
 ╔════════════════════════════════════════════════════════════════╗
 ║  TIP: All commands work in lowercase or UpperCase!           ║
@@ -280,6 +292,60 @@ class ConsoleCommands {
     } else {
       return `${seconds}s`;
     }
+  }
+
+  /**
+   * Manually upload logs to telemetry service
+   */
+  async uploadLogs() {
+    if (!window.telemetryService) {
+      console.error('❌ Telemetry service not available');
+      console.log('💡 Telemetry service initializes after authentication');
+      return { success: false, error: 'Service not available' };
+    }
+
+    console.log('📤 Uploading logs to Supabase...');
+    
+    try {
+      const result = await window.telemetryService.uploadLogs(true); // Force upload
+      
+      if (result.success) {
+        console.log(`✅ Successfully uploaded ${result.uploaded} log entries`);
+        if (result.timestamp) {
+          console.log(`⏰ Upload time: ${result.timestamp.toLocaleString()}`);
+        }
+      } else {
+        console.error(`❌ Upload failed: ${result.error}`);
+      }
+      
+      return result;
+      
+    } catch (error) {
+      console.error('❌ Upload error:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get telemetry service status
+   */
+  getTelemetryStatus() {
+    if (!window.telemetryService) {
+      console.warn('⚠️  Telemetry service not available yet');
+      return null;
+    }
+
+    const status = window.telemetryService.getStatus();
+    
+    console.log('📊 Telemetry Service Status:');
+    console.log(`  Enabled: ${status.enabled ? '✅ Yes' : '❌ No (Enable in Settings → System → Privacy)'}`);
+    console.log(`  Currently Uploading: ${status.uploading ? '⏳ Yes' : 'No'}`);
+    console.log(`  Last Upload: ${status.lastUpload ? status.lastUpload.toLocaleString() : 'Never'}`);
+    console.log(`  Upload Frequency: ${status.uploadFrequency}`);
+    console.log(`  Platform: ${status.platform?.name || 'Unknown'}`);
+    console.log(`  Edge Function: ${status.edgeFunctionUrl}`);
+    
+    return status;
   }
 }
 

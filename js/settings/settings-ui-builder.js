@@ -1,6 +1,7 @@
 // js/settings/settings-ui-builder.js
+// v1.2 - 10/11/25 11:58pm - Added telemetry toggle initialization from settings
 // v1.1 - 10/9/25 - Added zip code population and location display functionality
-// CHANGE SUMMARY: Completed populateSystemStatus to display calendar data and uptime from window.dataManager
+// CHANGE SUMMARY: Added telemetry toggle state sync from system.telemetryEnabled setting
 
 import { getPlatformDetector } from '../utils/platform-detector.js';
 import * as templates from './settings-templates.js';
@@ -96,6 +97,26 @@ export function populateFormFields(overlay, settings) {
   if (dynamicGreetingToggle) {
     const enabled = settings.display?.dynamicGreeting === true; // Default to false
     dynamicGreetingToggle.checked = enabled;
+  }
+
+  // Telemetry (crash reporting) enabled toggle
+  const telemetryToggle = overlay.querySelector('#enable-crash-reporting');
+  if (telemetryToggle) {
+    // Check both settings and localStorage to ensure consistency
+    const settingsValue = settings.system?.telemetryEnabled;
+    const localStorageValue = localStorage.getItem('dashie_telemetry_enabled');
+    
+    // Determine enabled state (default to true for beta testing)
+    let enabled = true; // Default
+    
+    if (settingsValue !== undefined) {
+      enabled = settingsValue;
+    } else if (localStorageValue !== null) {
+      enabled = localStorageValue === 'true';
+    }
+    
+    telemetryToggle.checked = enabled;
+    console.log('⚙️ 📊 Telemetry toggle initialized:', { enabled, settingsValue, localStorageValue });
   }
 
   
