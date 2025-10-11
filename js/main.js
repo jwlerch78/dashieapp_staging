@@ -47,6 +47,18 @@ import { syncCalendarMetadata } from './utils/calendar-sync-helper.js';
 // Photos QR code modal
 import { showQRCodeModal } from '../widgets/photos/photos-modal-overlays.js';
 
+// Crash monitoring for FireTV debugging
+import crashMonitor from './utils/crash-monitor.js';
+
+// Console debugging commands
+import consoleCommands from './utils/console-commands.js';
+
+// Expose crash monitor globally for data-manager and other services
+window.crashMonitor = crashMonitor;
+
+// Initialize console commands
+consoleCommands.initialize();
+
 // ============================================
 // GLOBAL STATE
 // ============================================
@@ -451,6 +463,17 @@ async function completeDesktopInit() {
   } catch (error) {
     console.error('❌ Failed to initialize sleep timer:', error);
   }
+
+  // Log successful dashboard start for crash monitoring
+  crashMonitor.logEvent('dashboard_started', {
+    platform: platformDetector?.platform || window.dashiePlatformConfig?.platform || 'unknown',
+    deviceType: platformDetector?.deviceType || 'unknown',
+    authMethod: window.authMethod || 'unknown',
+    widgetCount: widgetCoordinator ? widgetCoordinator.getRegisteredWidgets().length : 0,
+    jwtStatus: initState.jwt,
+    settingsStatus: initState.settings
+  });
+  console.log('📊 Crash monitoring active - access via DashieDebug API');
 
   // Complete initialization
   const loadingMessage = initState.tokens === 'ready' 

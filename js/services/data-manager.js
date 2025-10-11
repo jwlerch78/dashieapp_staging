@@ -261,6 +261,9 @@ export class DataManager {
 
     this.cache.setLoading('calendar', true);
     
+    // Track API performance for crash monitoring
+    const startTime = Date.now();
+    
     try {
       eventSystem.data.emitLoading('calendar');
       
@@ -286,8 +289,30 @@ export class DataManager {
         calendarsCount: freshData.calendars?.length || 0
       });
       
+      // Log successful API call to crash monitor
+      if (window.crashMonitor) {
+        window.crashMonitor.logAPICall(
+          'GET', 
+          'calendar-events', 
+          200, 
+          Date.now() - startTime
+        );
+      }
+      
     } catch (error) {
       logger.error('Calendar data refresh failed', error);
+      
+      // Log failed API call to crash monitor
+      if (window.crashMonitor) {
+        window.crashMonitor.logAPICall(
+          'GET', 
+          'calendar-events', 
+          500, 
+          Date.now() - startTime,
+          error
+        );
+      }
+      
       eventSystem.data.emitError('calendar', error);
       throw error;
     } finally {
@@ -336,6 +361,9 @@ export class DataManager {
 
     this.cache.setLoading('photos', true);
     
+    // Track API performance for crash monitoring
+    const startTime = Date.now();
+    
     try {
       eventSystem.data.emitLoading('photos');
       
@@ -353,8 +381,30 @@ export class DataManager {
         foldersCount: freshData?.folders?.length || 0
       });
       
+      // Log successful API call to crash monitor
+      if (window.crashMonitor) {
+        window.crashMonitor.logAPICall(
+          'GET', 
+          'photos', 
+          200, 
+          Date.now() - startTime
+        );
+      }
+      
     } catch (error) {
       logger.error('Photo data refresh failed', error);
+      
+      // Log failed API call to crash monitor
+      if (window.crashMonitor) {
+        window.crashMonitor.logAPICall(
+          'GET', 
+          'photos', 
+          500, 
+          Date.now() - startTime,
+          error
+        );
+      }
+      
       eventSystem.data.emitError('photos', error);
       throw error;
     } finally {

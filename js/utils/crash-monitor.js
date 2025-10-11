@@ -40,17 +40,17 @@ class CrashMonitor {
    * Initialize crash monitoring
    */
   init() {
-    // Log session start
+    // Log session start (simplified - no memory check)
     this.logSessionStart();
     
     // Set up global error handlers
     this.setupGlobalErrorHandlers();
     
-    // Monitor memory usage
-    this.startMemoryMonitoring();
+    // Monitor memory usage (DISABLED - was causing freeze)
+    // this.startMemoryMonitoring();
     
-    // Monitor intervals/timers
-    this.monitorTimers();
+    // Monitor intervals/timers (DISABLED - was causing freeze)
+    // this.monitorTimers();
     
     // Clean old logs on startup
     this.cleanOldLogs();
@@ -72,13 +72,14 @@ class CrashMonitor {
    * Log session start
    */
   logSessionStart() {
+    // Re-enabled memory check - safe because it only runs once at startup
     this.addLog({
       type: 'session_start',
       severity: 'info',
       sessionId: this.sessionId,
       userAgent: navigator.userAgent,
       platform: this.detectPlatform(),
-      memory: this.getMemoryInfo(),
+      memory: this.getMemoryInfo(),  // Re-enabled - one-time call is safe
       timestamp: Date.now()
     });
   }
@@ -118,7 +119,9 @@ class CrashMonitor {
       });
     });
 
+    // CONSOLE WRAPPING DISABLED - was causing freeze/recursion
     // Monitor console errors
+    /*
     const originalConsoleError = console.error;
     console.error = (...args) => {
       this.errorCount++;
@@ -149,23 +152,27 @@ class CrashMonitor {
       });
       originalConsoleWarn.apply(console, args);
     };
+    */
   }
 
   /**
    * Start monitoring memory usage
+   * DISABLED: Causing browser freeze - will re-enable after debugging
    */
   startMemoryMonitoring() {
-    // Check if performance.memory is available (Chromium-based browsers)
+    // TEMPORARILY DISABLED - was causing browser tab to freeze
+    logger.debug('Memory monitoring temporarily disabled');
+    return;
+    
+    /* ORIGINAL CODE - DISABLED
     if (!performance.memory) {
       logger.debug('Memory monitoring not available on this platform');
       return;
     }
 
-    // Check memory every 30 seconds
     setInterval(() => {
       const memory = this.getMemoryInfo();
       
-      // Warn if using over 80% of heap
       if (memory.usedPercent > 80) {
         this.memoryWarnings++;
         this.addLog({
@@ -179,7 +186,6 @@ class CrashMonitor {
         });
       }
 
-      // Log critical memory usage
       if (memory.usedPercent > 90) {
         this.addLog({
           type: 'memory_critical',
@@ -190,14 +196,23 @@ class CrashMonitor {
           timestamp: Date.now()
         });
       }
-    }, 30000); // Every 30 seconds
+    }, 30000);
+    */
   }
 
   /**
    * Monitor active timers and intervals
+   * DISABLED: Wrapping setInterval was causing infinite loop/freeze
    */
   monitorTimers() {
-    // Track setInterval calls
+    // TEMPORARILY DISABLED - was causing browser tab to freeze
+    logger.debug('Interval monitoring temporarily disabled');
+    
+    // Provide fallback for interval count
+    window.getActiveIntervalCount = () => 'N/A';
+    return;
+    
+    /* ORIGINAL CODE - DISABLED
     const originalSetInterval = window.setInterval;
     const activeIntervals = new Set();
     
@@ -205,7 +220,6 @@ class CrashMonitor {
       const id = originalSetInterval.apply(window, args);
       activeIntervals.add(id);
       
-      // Log if too many intervals
       if (activeIntervals.size > 20) {
         logger.warn(`High interval count: ${activeIntervals.size} active intervals`);
       }
@@ -219,8 +233,8 @@ class CrashMonitor {
       return originalClearInterval.call(window, id);
     };
 
-    // Expose interval count
     window.getActiveIntervalCount = () => activeIntervals.size;
+    */
   }
 
   /**
@@ -256,7 +270,7 @@ class CrashMonitor {
   }
 
   /**
-   * Add log entry
+   * Add log entry - OPTIMIZED to prevent blocking
    */
   addLog(logEntry) {
     try {
@@ -275,17 +289,25 @@ class CrashMonitor {
         logs = logs.slice(-this.MAX_LOGS);
       }
       
-      // Save to localStorage
-      localStorage.setItem(this.LOG_KEY, JSON.stringify(logs));
+      // Save to localStorage asynchronously using setTimeout
+      setTimeout(() => {
+        try {
+          localStorage.setItem(this.LOG_KEY, JSON.stringify(logs));
+        } catch (err) {
+          // Silently fail if localStorage is full or blocked
+        }
+      }, 0);
       
-      // Also log to console for immediate visibility
-      if (logEntry.severity === 'error') {
-        logger.error(`[CrashMonitor] ${logEntry.type}:`, logEntry.message || logEntry);
-      } else if (logEntry.severity === 'warn') {
-        logger.warn(`[CrashMonitor] ${logEntry.type}:`, logEntry.message || logEntry);
+      // Log critical errors to console immediately (but don't wrap console.error)
+      if (logEntry.severity === 'error' && logEntry.type === 'uncaught_error') {
+        // Use native console.error directly
+        const nativeError = window.console.error || console.error;
+        nativeError.call(console, `[CrashMonitor] ${logEntry.type}:`, logEntry.message || logEntry);
       }
     } catch (error) {
-      console.error('Failed to add log entry:', error);
+      // Use native console to avoid recursion
+      const nativeError = window.console.error || console.error;
+      nativeError.call(console, 'Failed to add log entry:', error);
     }
   }
 
@@ -424,7 +446,7 @@ class CrashMonitor {
           totalWarnings: warnings.length,
           errorCount: this.errorCount,
           memoryWarnings: this.memoryWarnings,
-          memory: this.getMemoryInfo(),
+          memory: this.getMemoryInfo(), // Re-enabled - on-demand call is safe
           performance: this.performanceMetrics,
           activeIntervals: window.getActiveIntervalCount ? window.getActiveIntervalCount() : 'N/A',
           recentErrors: errors.slice(-5).map(e => ({
