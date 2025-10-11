@@ -89,7 +89,7 @@ async initialize() {
     try {
       // 1. Try localStorage first (fast)
       const localStorage = window.parent?.localStorage || window.localStorage;
-      const cached = localStorage.getItem('dashie_calendar_settings');
+      const cached = localStorage.getItem('dashie-calendar-settings');
       
       if (cached) {
         this.calendarSettings = JSON.parse(cached);
@@ -107,7 +107,7 @@ async initialize() {
         if (dbSettings && JSON.stringify(dbSettings) !== cached) {
           console.log('📅 Database has newer settings, syncing to localStorage');
           this.calendarSettings = dbSettings;
-          localStorage.setItem('dashie_calendar_settings', JSON.stringify(dbSettings));
+          localStorage.setItem('dashie-calendar-settings', JSON.stringify(dbSettings));
         }
       }
       
@@ -377,7 +377,7 @@ async saveCalendarSettings() {
     
     // STEP 2: Save to localStorage (immediate)
     const localStorage = window.parent?.localStorage || window.localStorage;
-    localStorage.setItem('dashie_calendar_settings', JSON.stringify(this.calendarSettings));
+    localStorage.setItem('dashie-calendar-settings', JSON.stringify(this.calendarSettings));
     console.log('📅 ✅ Saved to localStorage');
     
     // STEP 3: Save to database (persistent, cross-device)

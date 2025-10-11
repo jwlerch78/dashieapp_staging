@@ -355,7 +355,7 @@ window.addEventListener('offline', () => {
 - `dashie-local-settings` (device-specific)
 - `dashie-calendar-settings` (calendar cache)
 - `dashie-theme` (theme cache)
-- `dashie_supabase_jwt` (JWT token)
+- `dashie-supabase-jwt` (JWT token)
 
 **Impact:**
 - Inconsistent naming (dash vs underscore)

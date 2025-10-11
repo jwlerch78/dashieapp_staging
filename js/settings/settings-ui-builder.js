@@ -173,7 +173,7 @@ export function populateSystemStatus(overlay) {
     }
   }
   
-  // JWT Token Status - FIXED to use dashie_supabase_jwt
+  // JWT Token Status - FIXED to use dashie-supabase-jwt
   const jwtDot = overlay.querySelector('#jwt-status-dot');
   const jwtText = overlay.querySelector('#jwt-status-text');
   
@@ -183,7 +183,7 @@ export function populateSystemStatus(overlay) {
     
     try {
       // Read JWT data from localStorage
-      const jwtData = localStorage.getItem('dashie_supabase_jwt');
+      const jwtData = localStorage.getItem('dashie-supabase-jwt');
       
       if (jwtData) {
         const parsed = JSON.parse(jwtData);

@@ -11,7 +11,7 @@ const logger = createLogger('CrashMonitor');
  */
 class CrashMonitor {
   constructor() {
-    this.LOG_KEY = 'dashie_crash_logs';
+    this.LOG_KEY = 'dashie-crash-logs';
     this.MAX_LOGS = 200; // Keep last 200 errors
     this.MAX_LOG_AGE_HOURS = 48; // Keep logs for 48 hours
     this.sessionStartTime = Date.now();

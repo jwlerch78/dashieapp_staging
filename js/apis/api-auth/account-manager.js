@@ -108,7 +108,7 @@ export class AccountManager {
 
       // CRITICAL: Store account info in sessionStorage BEFORE OAuth redirect
       // This preserves the account type across the redirect since OAuth loses context
-      sessionStorage.setItem('dashie_pending_account', JSON.stringify({
+      sessionStorage.setItem('dashie-pending-account', JSON.stringify({
         accountType,
         displayName,
         timestamp: Date.now()
@@ -191,7 +191,7 @@ export class AccountManager {
       logger.error('Failed to add Google account', error);
       
       // Clean up pending account info on error
-      sessionStorage.removeItem('dashie_pending_account');
+      sessionStorage.removeItem('dashie-pending-account');
 
       // Return structured error
       return {

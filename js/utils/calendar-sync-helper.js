@@ -53,7 +53,7 @@ export async function syncCalendarMetadata() {
     let calendarSettings = null;
     
     try {
-      const stored = localStorage.getItem('dashie_calendar_settings');
+      const stored = localStorage.getItem('dashie-calendar-settings');
       if (stored) {
         calendarSettings = JSON.parse(stored);
       }
@@ -206,7 +206,7 @@ export async function syncCalendarMetadata() {
     });
     
     // Save to localStorage
-    localStorage.setItem('dashie_calendar_settings', JSON.stringify(calendarSettings));
+    localStorage.setItem('dashie-calendar-settings', JSON.stringify(calendarSettings));
     logger.success(`Saved calendar settings to localStorage (${newAccountsAdded} new accounts)`);
 
     // Save to database via settings instance (if available)

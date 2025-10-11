@@ -470,7 +470,7 @@ export class DCalWidget {
   loadSettings() {
     try {
       const localStorage = window.parent?.localStorage || window.localStorage;
-      const settings = localStorage.getItem('dashie_settings');
+      const settings = localStorage.getItem('dashie-settings');
       
       if (settings) {
         const parsed = JSON.parse(settings);
@@ -766,7 +766,7 @@ export class DCalWidget {
       let settings = {};
       
       try {
-        const existing = localStorage.getItem('dashie_settings');
+        const existing = localStorage.getItem('dashie-settings');
         if (existing) {
           settings = JSON.parse(existing);
         }
@@ -777,7 +777,7 @@ export class DCalWidget {
       if (!settings.calendar) settings.calendar = {};
       settings.calendar.dcalViewMode = viewMode;
       
-      localStorage.setItem('dashie_settings', JSON.stringify(settings));
+      localStorage.setItem('dashie-settings', JSON.stringify(settings));
       logger.debug('✓ Saved viewMode to localStorage', { viewMode });
       
       // 2. Save to database (persistent)

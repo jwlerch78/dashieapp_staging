@@ -24,7 +24,7 @@ export class CalendarService {
     try {
       // Try localStorage first (fast)
       const localStorage = window.parent?.localStorage || window.localStorage;
-      const cached = localStorage.getItem('dashie_calendar_settings');
+      const cached = localStorage.getItem('dashie-calendar-settings');
       
       if (cached) {
         const settings = JSON.parse(cached);
@@ -327,7 +327,7 @@ async fetchAllCalendarsMetadata() {
   try {
     // Get calendar settings to know which accounts exist
     const localStorage = window.parent?.localStorage || window.localStorage;
-    const calendarSettings = localStorage.getItem('dashie_calendar_settings');
+    const calendarSettings = localStorage.getItem('dashie-calendar-settings');
     
     if (!calendarSettings) {
       logger.warn('No calendar settings found, fetching from primary account only');

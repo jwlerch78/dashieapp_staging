@@ -258,8 +258,8 @@ export class AccountDeletionService {
       const keysToRemove = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        // Remove all dashie keys, including dashie_calendar_settings and dashie_supabase_jwt
-        if (key && (key.startsWith('dashie-') || key.startsWith('dashie_') || key.startsWith('user-'))) {
+        // Remove all dashie keys
+        if (key && (key.startsWith('dashie') || key.startsWith('user'))) {
           keysToRemove.push(key);
         }
       }

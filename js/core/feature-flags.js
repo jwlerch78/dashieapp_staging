@@ -40,7 +40,7 @@ export const FEATURE_DEFINITIONS = [
  * Get feature flag values from localStorage or defaults
  */
 function loadFeatureFlags() {
-  const stored = localStorage.getItem('dashie_feature_flags');
+  const stored = localStorage.getItem('dashie-feature-flags');
   const flags = {};
   
   // Initialize with defaults
@@ -66,7 +66,7 @@ function loadFeatureFlags() {
  */
 function saveFeatureFlags(flags) {
   try {
-    localStorage.setItem('dashie_feature_flags', JSON.stringify(flags));
+    localStorage.setItem('dashie-feature-flags', JSON.stringify(flags));
     console.log('💾 Feature flags saved:', flags);
   } catch (e) {
     console.error('Failed to save feature flags:', e);

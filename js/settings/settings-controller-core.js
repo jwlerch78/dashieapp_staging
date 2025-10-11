@@ -46,12 +46,12 @@ export class SettingsControllerCore {
   }
 
   /**
-   * Get user from dashie_supabase_jwt - SINGLE SOURCE OF TRUTH
+   * Get user from dashie-supabase-jwt - SINGLE SOURCE OF TRUTH
    * @returns {Object|null} User object with {id, email} or null
    */
   getUserFromJWT() {
     try {
-      const jwtData = localStorage.getItem('dashie_supabase_jwt');
+      const jwtData = localStorage.getItem('dashie-supabase-jwt');
       if (!jwtData) {
         console.log('⚙️ No JWT data found in localStorage');
         return null;
@@ -179,13 +179,12 @@ export class SettingsControllerCore {
 
   /**
    * Sync calendar settings to separate localStorage key for fast widget access
-   * Called after loading settings from database
+   * Called after loading settings from the database
    * @private
    */
   _syncCalendarSettingsToLocalStorage() {
     try {
       if (this.currentSettings.calendar) {
-        // FIXED: Use dash naming convention
         localStorage.setItem('dashie-calendar-settings', JSON.stringify(this.currentSettings.calendar));
         console.log('⚙️ 📅 Synced calendar settings to localStorage', {
           activeCalendars: this.currentSettings.calendar.activeCalendarIds?.length || 0,

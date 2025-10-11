@@ -346,7 +346,7 @@ async getAllCalendarEvents(options = {}) {
   try {
     // Get calendar settings from localStorage
     const localStorage = window.parent?.localStorage || window.localStorage;
-    const calendarSettings = localStorage.getItem('dashie_calendar_settings');
+    const calendarSettings = localStorage.getItem('dashie-calendar-settings');
     
     if (!calendarSettings) {
       logger.warn('No calendar settings found');

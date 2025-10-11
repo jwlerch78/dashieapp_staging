@@ -48,7 +48,7 @@ export class JWTServiceCore {
     this.currentJWT = null;
     this.currentUser = null;
     this.jwtExpiry = null;
-    localStorage.removeItem('dashie_supabase_jwt');
+    localStorage.removeItem('dashie-supabase-jwt');
     
     // Trigger logout through auth system
     try {
@@ -226,7 +226,7 @@ export class JWTServiceCore {
    */
   _loadJWTFromStorage() {
     try {
-      const stored = localStorage.getItem('dashie_supabase_jwt');
+      const stored = localStorage.getItem('dashie-supabase-jwt');
       if (!stored) return null;
 
       const data = JSON.parse(stored);
@@ -234,7 +234,7 @@ export class JWTServiceCore {
       // Check if expired
       if (Date.now() >= data.expiry) {
         logger.debug('Stored JWT is expired, removing');
-        localStorage.removeItem('dashie_supabase_jwt');
+        localStorage.removeItem('dashie-supabase-jwt');
         return null;
       }
 
@@ -242,7 +242,7 @@ export class JWTServiceCore {
       return data;
     } catch (error) {
       logger.error('Error loading JWT from localStorage', error);
-      localStorage.removeItem('dashie_supabase_jwt');
+      localStorage.removeItem('dashie-supabase-jwt');
       return null;
     }
   }
@@ -266,7 +266,7 @@ export class JWTServiceCore {
         savedAt: Date.now()
       };
 
-      localStorage.setItem('dashie_supabase_jwt', JSON.stringify(data));
+      localStorage.setItem('dashie-supabase-jwt', JSON.stringify(data));
       logger.debug('JWT saved to localStorage');
 
       // Also update user storage with Supabase auth ID
