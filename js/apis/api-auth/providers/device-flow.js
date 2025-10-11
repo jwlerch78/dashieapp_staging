@@ -1,4 +1,5 @@
 // js/apis/api-auth/providers/device-flow.js - Clean Device Flow Implementation
+// v1.9 - 10/11/25 6:25pm - Compressed spacing, orange code, single-line status
 // v1.8 - 10/11/25 6:15pm - QR code points to google.com/device only, restructured layout, larger code
 // v1.7 - 10/11/25 6:00pm - Registered with modal manager, UI tweaks (larger logo, black text, normal font)
 // v1.6 - 10/11/25 5:30pm - Added Fire TV back button support (keyCode 4) for cancel/escape
@@ -185,8 +186,7 @@ export class DeviceFlowProvider {
         
         <!-- Status -->
         <div class="device-flow-status">
-          <div class="status-text">Waiting for sign-in...</div>
-          <div class="countdown">Expires in <span id="countdown-timer">${Math.floor(deviceData.expires_in / 60)}</span> min</div>
+          <div class="status-text">Waiting for sign-in (Expires in <span id="countdown-timer">${Math.floor(deviceData.expires_in / 60)}</span> min)</div>
         </div>
         
         <!-- Cancel Button -->
@@ -593,7 +593,7 @@ export class DeviceFlowProvider {
       .device-flow-modal {
         background: #FCFCFF;
         border-radius: 12px;
-        padding: 20px 30px;
+        padding: 15px 25px;
         max-width: 380px;
         max-height: 90vh;
         overflow-y: auto;
@@ -607,7 +607,7 @@ export class DeviceFlowProvider {
         align-items: center;
         justify-content: center;
         gap: 12px;
-        margin-bottom: 15px;
+        margin-bottom: 10px;
       }
       
       .google-logo {
@@ -633,7 +633,7 @@ export class DeviceFlowProvider {
       
       /* Heading */
       .sign-in-heading {
-        margin: 0 0 15px 0;
+        margin: 0 0 10px 0;
         color: #1a1a1a;
         font-size: 18px;
         font-weight: 600;
@@ -641,16 +641,16 @@ export class DeviceFlowProvider {
       
       /* QR Code */
       .qr-wrapper {
-        margin: 0 auto 10px;
+        margin: 0 auto 8px;
       }
       
       #qr-code-container {
         display: inline-block;
-        padding: 10px;
+        padding: 8px;
         background: #fff;
         border-radius: 8px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        margin: 0 auto 8px;
+        margin: 0 auto 6px;
       }
       
       #qr-code-container img {
@@ -660,25 +660,25 @@ export class DeviceFlowProvider {
       }
       
       .qr-instruction {
-        margin: 8px 0 0 0;
+        margin: 6px 0 0 0;
         color: #555;
         font-size: 13px;
-        line-height: 1.6;
+        line-height: 1.4;
       }
       
       /* Code Entry Section */
       .code-entry {
-        margin: 15px 0;
-        padding: 15px;
+        margin: 10px 0;
+        padding: 12px;
         background: #f8f9fa;
         border-radius: 8px;
       }
       
       .code-label {
-        margin: 0 0 8px 0;
+        margin: 0 0 6px 0;
         color: #555;
         font-size: 13px;
-        line-height: 1.6;
+        line-height: 1.4;
       }
       
       .device-url {
@@ -690,7 +690,7 @@ export class DeviceFlowProvider {
       .user-code {
         margin: 0;
         font-weight: 700;
-        color: #1a1a1a;
+        color: #EE9828;
         font-size: 18px;
         text-transform: uppercase;
         letter-spacing: 1px;
@@ -698,23 +698,17 @@ export class DeviceFlowProvider {
       
       /* Status */
       .device-flow-status {
-        margin: 15px 0 12px 0;
+        margin: 10px 0 8px 0;
       }
       
       .status-text {
-        font-size: 13px;
-        color: #666;
-        margin-bottom: 5px;
-      }
-      
-      .countdown {
         font-size: 12px;
-        color: #999;
+        color: #666;
       }
       
       /* Cancel Button */
       .cancel-btn {
-        padding: 10px 32px;
+        padding: 8px 28px;
         border: 2px solid #ddd;
         border-radius: 8px;
         font-size: 14px;
@@ -724,7 +718,7 @@ export class DeviceFlowProvider {
         background: #fff;
         color: #666;
         outline: none;
-        margin-top: 8px;
+        margin-top: 6px;
       }
       
       .cancel-btn:hover {
