@@ -65,7 +65,7 @@
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #ff9800 0%, #f57c00 100%);
+  background: linear-gradient(90deg, #EE9828 0%, #EE9828 100%);
   border-radius: 3px;
   width: 0%;
   transition: width 0.3s ease-out;
@@ -86,7 +86,7 @@
   height: 20px;
   border: 2px solid #e9ecef;
   border-radius: 50%;
-  border-top-color: #ff9800;
+  border-top-color: #EE9828;
   animation: spin 1s ease-in-out infinite;
   margin-left: 0.5rem;
 }
