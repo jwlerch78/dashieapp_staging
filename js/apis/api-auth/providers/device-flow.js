@@ -1,4 +1,5 @@
 // js/apis/api-auth/providers/device-flow.js - Clean Device Flow Implementation
+// v1.4 - 10/11/25 4:40pm - Final polish: icon logo, orange URL/code, fixed cancel error message
 // v1.3 - 10/11/25 4:30pm - Compact design, simplified code styling, fixed cancel to return to login
 // v1.2 - 10/11/25 4:15pm - Fixed sizing, QR code rendering, correct orange color (#EE9828)
 // v1.1 - 10/11/25 4:00pm - Redesigned UI with QR code, d-pad navigation, and new layout
@@ -153,7 +154,7 @@ export class DeviceFlowProvider {
           
           <div class="connection-arrow">↔️</div>
           
-          <img src="icons/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo-small">
+          <img src="icons/Dashie_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo-small">
         </div>
         
         <!-- Heading -->
@@ -166,7 +167,10 @@ export class DeviceFlowProvider {
         
         <!-- Alternative Method -->
         <div class="alternative-method">
-          <p class="alt-text">or go to <strong>google.com/device</strong> and enter <span class="user-code">${userCode}</span></p>
+          <p class="alt-text">or go to</p>
+          <p class="device-url">google.com/device</p>
+          <p class="alt-text">and enter</p>
+          <p class="user-code">${userCode}</p>
         </div>
         
         <!-- Status -->
@@ -195,9 +199,8 @@ export class DeviceFlowProvider {
     this.cancelHandler = () => {
       logger.auth('device', 'user_cancelled', 'info');
       this.cleanup(overlay);
-      // Reject the promise to return to login screen
-      const error = new Error('User cancelled authentication');
-      error.code = 'USER_CANCELLED';
+      // Reject with message that auth-coordinator expects
+      const error = new Error('CANCELLED');
       if (this.currentReject) {
         this.currentReject(error);
       }
@@ -643,17 +646,26 @@ export class DeviceFlowProvider {
       }
       
       .alt-text {
-        margin: 0;
+        margin: 3px 0;
         color: #555;
         font-size: 13px;
-        line-height: 1.5;
+        line-height: 1.3;
+      }
+      
+      .device-url {
+        margin: 3px 0;
+        color: #EE9828;
+        font-size: 15px;
+        font-weight: 700;
       }
       
       .user-code {
+        margin: 3px 0;
         font-weight: 700;
-        color: #333;
+        color: #EE9828;
         font-family: 'Courier New', monospace;
-        letter-spacing: 1px;
+        letter-spacing: 2px;
+        font-size: 18px;
       }
       
       /* Status */
