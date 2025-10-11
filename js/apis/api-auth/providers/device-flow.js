@@ -1,4 +1,5 @@
 // js/apis/api-auth/providers/device-flow.js - Clean Device Flow Implementation
+// v1.3 - 10/11/25 4:30pm - Compact design, simplified code styling, fixed cancel to return to login
 // v1.2 - 10/11/25 4:15pm - Fixed sizing, QR code rendering, correct orange color (#EE9828)
 // v1.1 - 10/11/25 4:00pm - Redesigned UI with QR code, d-pad navigation, and new layout
 // CHANGE SUMMARY: Added token queuing for Supabase storage (_queueRefreshTokensForStorage method and call in startPolling)
@@ -142,7 +143,7 @@ export class DeviceFlowProvider {
       <div class="device-flow-modal">
         <!-- Logo Connection Row -->
         <div class="logo-connection">
-          <svg class="google-logo" viewBox="0 0 48 48" width="40" height="40">
+          <svg class="google-logo" viewBox="0 0 48 48" width="32" height="32">
             <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
             <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
             <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
@@ -161,13 +162,11 @@ export class DeviceFlowProvider {
         <!-- QR Code -->
         <div class="qr-wrapper">
           <div id="qr-code-container"></div>
-          <p class="qr-instruction">Scan to sign in</p>
         </div>
         
         <!-- Alternative Method -->
         <div class="alternative-method">
-          <p class="alt-text">or go to <strong>google.com/device</strong> and enter</p>
-          <div class="user-code">${userCode}</div>
+          <p class="alt-text">or go to <strong>google.com/device</strong> and enter <span class="user-code">${userCode}</span></p>
         </div>
         
         <!-- Status -->
@@ -191,17 +190,26 @@ export class DeviceFlowProvider {
     
     // Set up cancel button
     const cancelBtn = overlay.querySelector('#cancel-device-flow');
-    cancelBtn.addEventListener('click', () => {
+    
+    // Store reject function for cancel handling
+    this.cancelHandler = () => {
       logger.auth('device', 'user_cancelled', 'info');
       this.cleanup(overlay);
-    });
+      // Reject the promise to return to login screen
+      const error = new Error('User cancelled authentication');
+      error.code = 'USER_CANCELLED';
+      if (this.currentReject) {
+        this.currentReject(error);
+      }
+    };
+    
+    cancelBtn.addEventListener('click', this.cancelHandler);
     
     // D-pad/Keyboard handlers
     cancelBtn.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' || e.keyCode === 13) {
         e.preventDefault();
-        logger.auth('device', 'user_cancelled', 'info');
-        this.cleanup(overlay);
+        this.cancelHandler();
       }
     });
     
@@ -209,8 +217,7 @@ export class DeviceFlowProvider {
     const escapeHandler = (e) => {
       if (e.key === 'Escape' || e.key === 'Back' || e.keyCode === 27) {
         e.preventDefault();
-        logger.auth('device', 'user_cancelled', 'info');
-        this.cleanup(overlay);
+        this.cancelHandler();
       }
     };
     overlay.addEventListener('keydown', escapeHandler);
@@ -274,8 +281,8 @@ export class DeviceFlowProvider {
     try {
       new QRCode(container, {
         text: url,
-        width: 180,
-        height: 180,
+        width: 120,
+        height: 120,
         colorDark: '#EE9828',  // Dashie orange
         colorLight: '#ffffff',
         correctLevel: QRCode.CorrectLevel.H
@@ -299,6 +306,9 @@ export class DeviceFlowProvider {
     let interval = deviceData.interval || 5; // seconds
     const maxAttempts = Math.floor(deviceData.expires_in / interval);
     let attempts = 0;
+    
+    // Store reject function for cancel handling
+    this.currentReject = reject;
 
     const poll = async () => {
       attempts++;
@@ -565,8 +575,8 @@ export class DeviceFlowProvider {
       .device-flow-modal {
         background: #FCFCFF;
         border-radius: 12px;
-        padding: 30px 40px;
-        max-width: 450px;
+        padding: 20px 30px;
+        max-width: 380px;
         max-height: 90vh;
         overflow-y: auto;
         text-align: center;
@@ -578,46 +588,40 @@ export class DeviceFlowProvider {
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 15px;
-        margin-bottom: 20px;
+        gap: 12px;
+        margin-bottom: 15px;
       }
       
       .google-logo {
-        width: 40px;
-        height: 40px;
+        width: 32px;
+        height: 32px;
       }
       
       .connection-arrow {
-        font-size: 24px;
+        font-size: 20px;
         color: #666;
-        animation: pulse 2s ease-in-out infinite;
-      }
-      
-      @keyframes pulse {
-        0%, 100% { opacity: 1; transform: scale(1); }
-        50% { opacity: 0.6; transform: scale(1.1); }
       }
       
       .dashie-logo-small {
-        height: 40px;
+        height: 32px;
       }
       
       /* Heading */
       .sign-in-heading {
-        margin: 0 0 20px 0;
+        margin: 0 0 15px 0;
         color: #1a1a1a;
-        font-size: 22px;
+        font-size: 18px;
         font-weight: 600;
       }
       
       /* QR Code */
       .qr-wrapper {
-        margin: 0 auto 20px;
+        margin: 0 auto 15px;
       }
       
       #qr-code-container {
         display: inline-block;
-        padding: 12px;
+        padding: 10px;
         background: #fff;
         border-radius: 8px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -626,53 +630,41 @@ export class DeviceFlowProvider {
       
       #qr-code-container img {
         display: block !important;
-        width: 180px !important;
-        height: 180px !important;
-      }
-      
-      .qr-instruction {
-        margin: 10px 0 0 0;
-        color: #666;
-        font-size: 13px;
-        font-weight: 500;
+        width: 120px !important;
+        height: 120px !important;
       }
       
       /* Alternative Method */
       .alternative-method {
-        margin: 20px 0;
-        padding: 20px;
+        margin: 15px 0;
+        padding: 12px;
         background: #f8f9fa;
         border-radius: 8px;
       }
       
       .alt-text {
-        margin: 0 0 12px 0;
+        margin: 0;
         color: #555;
-        font-size: 14px;
+        font-size: 13px;
+        line-height: 1.5;
       }
       
       .user-code {
-        font-size: 24px;
         font-weight: 700;
-        color: #EE9828;
-        background: #fff;
-        padding: 12px 20px;
-        border-radius: 6px;
-        margin: 0;
-        letter-spacing: 3px;
+        color: #333;
         font-family: 'Courier New', monospace;
-        border: 2px solid #EE9828;
+        letter-spacing: 1px;
       }
       
       /* Status */
       .device-flow-status {
-        margin: 20px 0;
+        margin: 15px 0 12px 0;
       }
       
       .status-text {
-        font-size: 14px;
+        font-size: 13px;
         color: #666;
-        margin-bottom: 6px;
+        margin-bottom: 5px;
       }
       
       .countdown {
@@ -682,17 +674,17 @@ export class DeviceFlowProvider {
       
       /* Cancel Button */
       .cancel-btn {
-        padding: 12px 36px;
+        padding: 10px 32px;
         border: 2px solid #ddd;
         border-radius: 8px;
-        font-size: 15px;
+        font-size: 14px;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s;
         background: #fff;
         color: #666;
         outline: none;
-        margin-top: 10px;
+        margin-top: 8px;
       }
       
       .cancel-btn:hover {
@@ -729,6 +721,10 @@ export class DeviceFlowProvider {
       clearInterval(this.countdownInterval);
       this.countdownInterval = null;
     }
+    
+    // Clear reject handler
+    this.currentReject = null;
+    this.cancelHandler = null;
     
     if (overlay && overlay.parentNode) {
       overlay.parentNode.removeChild(overlay);
