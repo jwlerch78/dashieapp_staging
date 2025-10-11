@@ -1,4 +1,5 @@
 // js/apis/api-auth/providers/device-flow.js - Clean Device Flow Implementation
+// v1.8 - 10/11/25 6:15pm - QR code points to google.com/device only, restructured layout, larger code
 // v1.7 - 10/11/25 6:00pm - Registered with modal manager, UI tweaks (larger logo, black text, normal font)
 // v1.6 - 10/11/25 5:30pm - Added Fire TV back button support (keyCode 4) for cancel/escape
 // v1.5 - 10/11/25 5:15pm - UI polish: larger logo, black arrow, 2-line QR instructions, uppercase code
@@ -142,8 +143,9 @@ export class DeviceFlowProvider {
     const verificationUrl = deviceData.verification_uri || 'https://www.google.com/device';
     const userCode = deviceData.user_code;
     
-    // Build verification URL with code embedded for QR code
-    const qrCodeUrl = `${verificationUrl}?user_code=${userCode}`;
+    // QR code just points to google.com/device (no code parameter)
+    // User will manually enter the code shown below
+    const qrCodeUrl = verificationUrl;
     
     overlay.innerHTML = `
       <div class="device-flow-modal">
@@ -172,12 +174,13 @@ export class DeviceFlowProvider {
         <!-- QR Code -->
         <div class="qr-wrapper">
           <div id="qr-code-container"></div>
+          <p class="qr-instruction">or go to <span class="device-url">google.com/device</span></p>
         </div>
         
-        <!-- Alternative Method -->
-        <div class="alternative-method">
-          <p class="device-instruction">or go to <span class="device-url">google.com/device</span></p>
-          <p class="device-instruction">and enter <span class="user-code">${userCode.toUpperCase()}</span></p>
+        <!-- Code Entry -->
+        <div class="code-entry">
+          <p class="code-label">and enter this code:</p>
+          <p class="user-code">${userCode.toUpperCase()}</p>
         </div>
         
         <!-- Status -->
@@ -638,7 +641,7 @@ export class DeviceFlowProvider {
       
       /* QR Code */
       .qr-wrapper {
-        margin: 0 auto 15px;
+        margin: 0 auto 10px;
       }
       
       #qr-code-container {
@@ -647,7 +650,7 @@ export class DeviceFlowProvider {
         background: #fff;
         border-radius: 8px;
         box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        margin: 0 auto;
+        margin: 0 auto 8px;
       }
       
       #qr-code-container img {
@@ -656,16 +659,23 @@ export class DeviceFlowProvider {
         height: 120px !important;
       }
       
-      /* Alternative Method */
-      .alternative-method {
+      .qr-instruction {
+        margin: 8px 0 0 0;
+        color: #555;
+        font-size: 13px;
+        line-height: 1.6;
+      }
+      
+      /* Code Entry Section */
+      .code-entry {
         margin: 15px 0;
-        padding: 12px;
+        padding: 15px;
         background: #f8f9fa;
         border-radius: 8px;
       }
       
-      .device-instruction {
-        margin: 3px 0;
+      .code-label {
+        margin: 0 0 8px 0;
         color: #555;
         font-size: 13px;
         line-height: 1.6;
@@ -678,10 +688,12 @@ export class DeviceFlowProvider {
       }
       
       .user-code {
+        margin: 0;
         font-weight: 700;
         color: #1a1a1a;
-        font-size: 15px;
+        font-size: 18px;
         text-transform: uppercase;
+        letter-spacing: 1px;
       }
       
       /* Status */
