@@ -91,7 +91,7 @@ export class WebOAuthProvider {
       });
 
       // Store that we initiated OAuth for security
-      sessionStorage.setItem('dashie_oauth_state', Date.now().toString());
+      sessionStorage.setItem('dashie-oauth-state', Date.now().toString());
     
       // Redirect to Google
       window.location.href = authUrl;
@@ -245,7 +245,7 @@ export class WebOAuthProvider {
    */
   _clearOAuthState() {
     try {
-      sessionStorage.removeItem('dashie_oauth_state');
+      sessionStorage.removeItem('dashie-oauth-state');
       logger.debug('OAuth state cleared from sessionStorage');
     } catch (error) {
       logger.warn('Failed to clear OAuth state', error);
@@ -275,7 +275,7 @@ _queueRefreshTokensForStorage(userInfo, tokens) {
     
     // Check for pending account from account manager (multi-account flow)
     try {
-      const pendingAccount = sessionStorage.getItem('dashie_pending_account');
+      const pendingAccount = sessionStorage.getItem('dashie-pending-account');
       if (pendingAccount) {
         const accountInfo = JSON.parse(pendingAccount);
         accountType = accountInfo.accountType || 'primary';
@@ -283,7 +283,7 @@ _queueRefreshTokensForStorage(userInfo, tokens) {
         displayName = accountInfo.displayName || userInfo.name;
         
         // Clear the pending account info after using it
-        sessionStorage.removeItem('dashie_pending_account');
+        sessionStorage.removeItem('dashie-pending-account');
         
         logger.info('Using pending account info from multi-account flow', {
           accountType,
