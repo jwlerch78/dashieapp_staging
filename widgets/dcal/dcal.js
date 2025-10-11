@@ -781,9 +781,9 @@ export class DCalWidget {
       logger.debug('✓ Saved viewMode to localStorage', { viewMode });
       
       // 2. Save to database (persistent)
-      const settingsController = window.parent?.settingsController || window.settingsController;
-      if (settingsController && typeof settingsController.handleSettingChange === 'function') {
-        await settingsController.handleSettingChange('calendar', settings.calendar);
+      const settingsInstance = window.parent?.settingsInstance || window.settingsInstance;
+      if (settingsInstance && typeof settingsInstance.handleSettingChange === 'function') {
+        await settingsInstance.handleSettingChange('calendar', settings.calendar);
         logger.debug('✓ Saved viewMode to database', { viewMode });
       }
       

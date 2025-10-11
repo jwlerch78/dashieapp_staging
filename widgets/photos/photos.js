@@ -129,15 +129,12 @@ export class PhotosWidget {
    // Load initial transition time setting from parent
           if (window.parent && window.parent.settingsInstance) {
             try {
-              const settingsController = window.parent.settingsInstance.controller;
-              if (settingsController) {
-                const transitionTime = settingsController.getSetting('photos.transitionTime', 5);
-                if (transitionTime && transitionTime !== 5) {
-                  this.updateTransitionTime(transitionTime);
-                  logger.info('Applied initial transition time from settings', { 
-                    transitionTime 
-                  });
-                }
+              const transitionTime = window.parent.settingsInstance.getSetting('photos.transitionTime', 5);
+              if (transitionTime && transitionTime !== 5) {
+                this.updateTransitionTime(transitionTime);
+                logger.info('Applied initial transition time from settings', { 
+                  transitionTime 
+                });
               }
             } catch (error) {
               logger.warn('Failed to get initial photos settings', error);

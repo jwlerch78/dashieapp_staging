@@ -209,17 +209,17 @@ export async function syncCalendarMetadata() {
     localStorage.setItem('dashie_calendar_settings', JSON.stringify(calendarSettings));
     logger.success(`Saved calendar settings to localStorage (${newAccountsAdded} new accounts)`);
 
-    // Save to database via settings controller (if available)
+    // Save to database via settings instance (if available)
     try {
-      const settingsController = window.parent?.settingsController || window.settingsController;
-      if (settingsController && typeof settingsController.handleSettingChange === 'function') {
-        await settingsController.handleSettingChange('calendar', calendarSettings);
+      const settingsInstance = window.parent?.settingsInstance || window.settingsInstance;
+      if (settingsInstance && typeof settingsInstance.handleSettingChange === 'function') {
+        await settingsInstance.handleSettingChange('calendar', calendarSettings);
         logger.success('Saved calendar settings to database');
       } else {
-        logger.debug('Settings controller not available during startup - database save will happen on next settings change');
+        logger.debug('Settings instance not available during startup - database save will happen on next settings change');
       }
     } catch (error) {
-      logger.debug('Settings controller not ready yet - database save will happen on next settings change', error);
+      logger.debug('Settings instance not ready yet - database save will happen on next settings change', error);
       // This is expected during startup - localStorage save is sufficient
     }
 

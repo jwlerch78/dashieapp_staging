@@ -1,4 +1,6 @@
 // js/settings/settings-simple-manager.js - Auto-save implementation
+// v1.4 - 10/11/25 3:30pm - Added public API methods to standardize on window.settingsInstance
+// v1.3 - 10/11/25 3:15pm - Fixed calendar settings save by detecting category-level updates
 // v1.2 - 10/9/25 - Fixed default theme fallback from dark to light
 // Version: 1.1 | Last Updated: 2025-01-09 20:45 EST
 // CHANGE SUMMARY: Added account deletion handlers and modal management
@@ -714,7 +716,16 @@ export class SimplifiedSettings {
       return;
     }
 
-    this.controller.setSetting(path, value);
+    // CRITICAL FIX: Detect if this is a category-level update (no dots in path)
+    // If path has no dots AND value is an object, use setCategorySettings
+    if (!path.includes('.') && typeof value === 'object' && value !== null) {
+      console.log(`⚙️ Category-level update detected: ${path}`);
+      this.controller.setCategorySettings(path, value);
+    } else {
+      // Regular nested path setting
+      this.controller.setSetting(path, value);
+    }
+    
     this.controller.saveSettings();
 
     this.showSaveToast();
@@ -726,6 +737,78 @@ export class SimplifiedSettings {
         changedValue: value
       }
     }));
+  }
+
+  // ============================================
+  // PUBLIC API - Delegate to controller
+  // ============================================
+  // These methods provide a clean API surface for external code
+  // Always use window.settingsInstance instead of window.settingsController
+
+  /**
+   * Get a setting value by path
+   * @param {string} path - Dot-notation path (e.g., 'display.theme')
+   * @param {*} defaultValue - Value to return if setting not found
+   * @returns {*} Setting value or defaultValue
+   */
+  getSetting(path, defaultValue) {
+    if (!this.controller) {
+      console.warn('⚙️ Controller not ready');
+      return defaultValue;
+    }
+    return this.controller.getSetting(path) ?? defaultValue;
+  }
+
+  /**
+   * Set a setting value by path
+   * @param {string} path - Dot-notation path (e.g., 'display.theme')
+   * @param {*} value - Value to set
+   * @returns {boolean} Success status
+   */
+  setSetting(path, value) {
+    if (!this.controller) {
+      console.warn('⚙️ Controller not ready');
+      return false;
+    }
+    return this.controller.setSetting(path, value);
+  }
+
+  /**
+   * Set all settings for a category
+   * @param {string} categoryId - Category name (e.g., 'calendar', 'display')
+   * @param {object} settings - Settings object for the category
+   * @returns {boolean} Success status
+   */
+  setCategorySettings(categoryId, settings) {
+    if (!this.controller) {
+      console.warn('⚙️ Controller not ready');
+      return false;
+    }
+    return this.controller.setCategorySettings(categoryId, settings);
+  }
+
+  /**
+   * Save settings to database
+   * @returns {Promise<boolean>} Success status
+   */
+  async saveSettings() {
+    if (!this.controller) {
+      console.warn('⚙️ Controller not ready');
+      return false;
+    }
+    return await this.controller.saveSettings();
+  }
+
+  /**
+   * Get all settings
+   * @returns {object} Complete settings object
+   */
+  getSettings() {
+    if (!this.controller) {
+      console.warn('⚙️ Controller not ready');
+      return {};
+    }
+    return this.controller.getSettings();
   }
 
   showSaveToast() {

@@ -193,8 +193,8 @@ export class DataManager {
     // Get refresh interval from settings (default to 5 minutes)
     let intervalMinutes = 5;
     try {
-      if (window.settingsController) {
-        const settingValue = window.settingsController.getSetting('system.calendarRefreshInterval');
+      if (window.settingsInstance) {
+        const settingValue = window.settingsInstance.getSetting('system.calendarRefreshInterval');
         if (settingValue && typeof settingValue === 'number' && settingValue > 0) {
           intervalMinutes = settingValue;
         }

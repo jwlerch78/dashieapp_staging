@@ -1,4 +1,5 @@
 // js/apis/api-auth/providers/device-flow.js - Clean Device Flow Implementation
+// v1.1 - 10/11/25 4:00pm - Redesigned UI with QR code, d-pad navigation, and new layout
 // CHANGE SUMMARY: Added token queuing for Supabase storage (_queueRefreshTokensForStorage method and call in startPolling)
 
 import { createLogger } from '../../../utils/logger.js';
@@ -131,38 +132,53 @@ export class DeviceFlowProvider {
     overlay.id = 'device-flow-overlay';
     
     const verificationUrl = deviceData.verification_uri || 'https://www.google.com/device';
+    const userCode = deviceData.user_code;
+    
+    // Build verification URL with code embedded for QR code
+    const qrCodeUrl = `${verificationUrl}?user_code=${userCode}`;
     
     overlay.innerHTML = `
       <div class="device-flow-modal">
-        <img src="icons/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo">
-        
-        <div class="device-flow-header">
-          <h2>Sign in to Dashie</h2>
-          <p>Use your phone or computer to complete sign-in</p>
+        <!-- Logo Connection Row -->
+        <div class="logo-connection">
+          <svg class="google-logo" viewBox="0 0 48 48" width="48" height="48">
+            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+            <path fill="none" d="M0 0h48v48H0z"/>
+          </svg>
+          
+          <div class="connection-arrow">↔️</div>
+          
+          <img src="icons/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo-small">
         </div>
         
-        <div class="device-flow-content">
-          <div class="verification-steps">
-            <div class="step">
-              <div class="step-number">1</div>
-              <div class="step-text">Go to <strong>${verificationUrl}</strong></div>
-            </div>
-            <div class="step">
-              <div class="step-number">2</div>
-              <div class="step-text">Enter this code:</div>
-            </div>
-          </div>
-          
-          <div class="user-code">${deviceData.user_code}</div>
-          
-          <div class="device-flow-status">
-            <div class="status-text">Waiting for you to complete sign-in...</div>
-            <div class="countdown">Code expires in <span id="countdown-timer">${Math.floor(deviceData.expires_in / 60)}</span> minutes</div>
-          </div>
+        <!-- Heading -->
+        <h2 class="sign-in-heading">Sign in to Dashie with Google</h2>
+        
+        <!-- QR Code -->
+        <div class="qr-code-container">
+          <canvas id="qr-code-canvas"></canvas>
+          <p class="qr-instruction">Scan to sign in</p>
         </div>
         
+        <!-- Alternative Method -->
+        <div class="alternative-method">
+          <p class="alt-text">or go to <strong>google.com/device</strong></p>
+          <p class="alt-text">and enter code</p>
+          <div class="user-code">${userCode}</div>
+        </div>
+        
+        <!-- Status -->
+        <div class="device-flow-status">
+          <div class="status-text">Waiting for you to complete sign-in...</div>
+          <div class="countdown">Code expires in <span id="countdown-timer">${Math.floor(deviceData.expires_in / 60)}</span> minutes</div>
+        </div>
+        
+        <!-- Cancel Button -->
         <div class="device-flow-buttons">
-          <button id="cancel-device-flow" class="device-flow-button secondary">Cancel</button>
+          <button id="cancel-device-flow" class="device-flow-button cancel-btn" tabindex="0">Cancel</button>
         </div>
       </div>
     `;
@@ -170,22 +186,104 @@ export class DeviceFlowProvider {
     // Add styles
     this.addDeviceFlowStyles();
     
+    // Generate QR code
+    setTimeout(() => {
+      this.generateQRCode(qrCodeUrl);
+    }, 100);
+    
     // Set up cancel button
     const cancelBtn = overlay.querySelector('#cancel-device-flow');
     cancelBtn.addEventListener('click', () => {
       logger.auth('device', 'user_cancelled', 'info');
       this.cleanup(overlay);
     });
+    
+    // D-pad/Keyboard handlers
+    cancelBtn.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.keyCode === 13) {
+        e.preventDefault();
+        logger.auth('device', 'user_cancelled', 'info');
+        this.cleanup(overlay);
+      }
+    });
+    
+    // Escape key handler on overlay
+    const escapeHandler = (e) => {
+      if (e.key === 'Escape' || e.key === 'Back' || e.keyCode === 27) {
+        e.preventDefault();
+        logger.auth('device', 'user_cancelled', 'info');
+        this.cleanup(overlay);
+      }
+    };
+    overlay.addEventListener('keydown', escapeHandler);
+    document.addEventListener('keydown', escapeHandler);
+    
+    // Auto-focus cancel button for d-pad navigation
+    setTimeout(() => {
+      cancelBtn.focus();
+    }, 200);
 
     // Start countdown timer
     this.startCountdownTimer(deviceData.expires_in);
     
     logger.debug('Device flow UI created and displayed', {
       userCode: deviceData.user_code,
-      verificationUrl: verificationUrl
+      verificationUrl: verificationUrl,
+      qrCodeUrl: qrCodeUrl
     });
 
     return overlay;
+  }
+
+  /**
+   * Generate QR code on canvas
+   * @param {string} url - URL to encode in QR code
+   */
+  generateQRCode(url) {
+    const canvas = document.getElementById('qr-code-canvas');
+    if (!canvas) {
+      logger.warn('QR code canvas not found');
+      return;
+    }
+    
+    try {
+      // Use QRCode library if available, otherwise show fallback
+      if (typeof QRCode !== 'undefined') {
+        new QRCode(canvas, {
+          text: url,
+          width: 200,
+          height: 200,
+          colorDark: '#FF6B35',  // Orange color
+          colorLight: '#FFFFFF',
+          correctLevel: QRCode.CorrectLevel.M
+        });
+        logger.debug('QR code generated', { url });
+      } else {
+        // Fallback: Load QRCode library from CDN
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+        script.onload = () => {
+          new QRCode(canvas, {
+            text: url,
+            width: 200,
+            height: 200,
+            colorDark: '#FF6B35',  // Orange color
+            colorLight: '#FFFFFF',
+            correctLevel: QRCode.CorrectLevel.M
+          });
+          logger.debug('QR code generated (after loading library)', { url });
+        };
+        script.onerror = () => {
+          logger.error('Failed to load QR code library');
+          // Show text fallback
+          const container = canvas.parentElement;
+          container.innerHTML = '<p style="color: #999; font-size: 14px;">QR code unavailable</p>';
+        };
+        document.head.appendChild(script);
+      }
+    } catch (error) {
+      logger.error('Error generating QR code', error);
+    }
   }
 
   /**
@@ -455,7 +553,7 @@ export class DeviceFlowProvider {
         left: 0;
         width: 100%;
         height: 100%;
-        background: rgba(0, 0, 0, 0.8);
+        background: rgba(0, 0, 0, 0.85);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -465,101 +563,149 @@ export class DeviceFlowProvider {
       
       .device-flow-modal {
         background: #FCFCFF;
-        border-radius: 12px;
-        padding: 40px;
-        max-width: 500px;
+        border-radius: 16px;
+        padding: 50px 60px;
+        max-width: 550px;
         text-align: center;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        box-shadow: 0 25px 70px rgba(0, 0, 0, 0.4);
       }
       
-      .dashie-logo {
-        height: 60px;
-        margin-bottom: 30px;
-      }
-      
-      .device-flow-header h2 {
-        margin: 0 0 10px 0;
-        color: #333;
-        font-size: 28px;
-      }
-      
-      .device-flow-header p {
-        margin: 0 0 30px 0;
-        color: #666;
-        font-size: 16px;
-      }
-      
-      .verification-steps {
-        margin-bottom: 30px;
-      }
-      
-      .step {
-        display: flex;
-        align-items: center;
-        margin-bottom: 15px;
-        text-align: left;
-      }
-      
-      .step-number {
-        width: 30px;
-        height: 30px;
-        background: #007AFF;
-        color: white;
-        border-radius: 50%;
+      /* Logo Connection Row */
+      .logo-connection {
         display: flex;
         align-items: center;
         justify-content: center;
-        font-weight: bold;
-        margin-right: 15px;
+        gap: 20px;
+        margin-bottom: 30px;
       }
       
-      .step-text {
-        font-size: 16px;
-        color: #333;
+      .google-logo {
+        width: 48px;
+        height: 48px;
+      }
+      
+      .connection-arrow {
+        font-size: 32px;
+        color: #666;
+        animation: pulse 2s ease-in-out infinite;
+      }
+      
+      @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.6; transform: scale(1.1); }
+      }
+      
+      .dashie-logo-small {
+        height: 48px;
+      }
+      
+      /* Heading */
+      .sign-in-heading {
+        margin: 0 0 35px 0;
+        color: #1a1a1a;
+        font-size: 26px;
+        font-weight: 600;
+      }
+      
+      /* QR Code */
+      .qr-code-container {
+        margin: 0 auto 30px;
+        padding: 20px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        display: inline-block;
+      }
+      
+      #qr-code-canvas {
+        display: block;
+        width: 200px;
+        height: 200px;
+        margin: 0 auto;
+      }
+      
+      .qr-instruction {
+        margin: 15px 0 0 0;
+        color: #666;
+        font-size: 14px;
+        font-weight: 500;
+      }
+      
+      /* Alternative Method */
+      .alternative-method {
+        margin: 30px 0;
+        padding: 25px;
+        background: #f8f9fa;
+        border-radius: 10px;
+      }
+      
+      .alt-text {
+        margin: 5px 0;
+        color: #555;
+        font-size: 15px;
       }
       
       .user-code {
-        font-size: 36px;
+        font-size: 32px;
         font-weight: bold;
-        color: #007AFF;
-        background: #F0F8FF;
-        padding: 20px;
+        color: #FF6B35;
+        background: #fff;
+        padding: 18px 25px;
         border-radius: 8px;
-        margin: 30px 0;
-        letter-spacing: 4px;
+        margin: 15px 0 0 0;
+        letter-spacing: 5px;
+        font-family: 'Courier New', monospace;
+        border: 2px solid #FF6B35;
       }
       
+      /* Status */
       .device-flow-status {
-        margin: 30px 0;
+        margin: 30px 0 25px 0;
       }
       
       .status-text {
-        font-size: 16px;
+        font-size: 15px;
         color: #666;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
       }
       
       .countdown {
-        font-size: 14px;
+        font-size: 13px;
         color: #999;
       }
       
-      .device-flow-button {
-        padding: 12px 24px;
-        border: none;
-        border-radius: 6px;
+      /* Cancel Button */
+      .device-flow-buttons {
+        margin-top: 30px;
+      }
+      
+      .cancel-btn {
+        padding: 14px 40px;
+        border: 2px solid #ddd;
+        border-radius: 8px;
         font-size: 16px;
+        font-weight: 600;
         cursor: pointer;
         transition: all 0.2s;
-      }
-      
-      .device-flow-button.secondary {
-        background: #f5f5f5;
+        background: #fff;
         color: #666;
+        outline: none;
       }
       
-      .device-flow-button.secondary:hover {
-        background: #e5e5e5;
+      .cancel-btn:hover {
+        background: #f5f5f5;
+        border-color: #ccc;
+      }
+      
+      .cancel-btn:focus {
+        border-color: #FF6B35;
+        box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.2);
+        background: #fff;
+        color: #333;
+      }
+      
+      .cancel-btn:active {
+        transform: scale(0.98);
       }
     `;
     

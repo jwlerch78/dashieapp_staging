@@ -381,12 +381,12 @@ async saveCalendarSettings() {
     console.log('📅 ✅ Saved to localStorage');
     
     // STEP 3: Save to database (persistent, cross-device)
-    const settingsController = window.parent?.settingsController || window.settingsController;
-    if (settingsController && typeof settingsController.handleSettingChange === 'function') {
-      await settingsController.handleSettingChange('calendar', this.calendarSettings);
+    const settingsInstance = window.parent?.settingsInstance || window.settingsInstance;
+    if (settingsInstance && typeof settingsInstance.handleSettingChange === 'function') {
+      await settingsInstance.handleSettingChange('calendar', this.calendarSettings);
       console.log('📅 ✅ Saved to database');
     } else {
-      console.warn('📅 Settings controller not available, only saved to localStorage');
+      console.warn('📅 Settings instance not available, only saved to localStorage');
     }
     
     // STEP 4: Trigger calendar data refresh to load events with new selection
