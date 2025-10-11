@@ -1,4 +1,5 @@
 // js/apis/api-auth/providers/device-flow.js - Clean Device Flow Implementation
+// v1.7 - 10/11/25 6:00pm - Registered with modal manager, UI tweaks (larger logo, black text, normal font)
 // v1.6 - 10/11/25 5:30pm - Added Fire TV back button support (keyCode 4) for cancel/escape
 // v1.5 - 10/11/25 5:15pm - UI polish: larger logo, black arrow, 2-line QR instructions, uppercase code
 // v1.4 - 10/11/25 4:40pm - Final polish: icon logo, orange URL/code, fixed cancel error message
@@ -9,6 +10,7 @@
 
 import { createLogger } from '../../../utils/logger.js';
 import { AUTH_CONFIG } from '../../../auth/auth-config.js';
+import { createModalNavigation } from '../../../utils/modal-navigation-manager.js';
 
 const logger = createLogger('DeviceFlowAuth');
 
@@ -29,6 +31,7 @@ export class DeviceFlowProvider {
     this.pollInterval = null;
     this.countdownInterval = null;
     this.currentTokens = null;
+    this.modalNavigation = null; // Store modal navigation reference for cleanup
     
     logger.debug('Device Flow provider initialized', {
       clientId: this.config.client_id,
@@ -222,17 +225,18 @@ export class DeviceFlowProvider {
       }
     });
     
-    // Escape key handler on overlay (includes Fire TV back button)
-    const escapeHandler = (e) => {
-      // Fire TV back button (keyCode 4), standard Escape (27), or Back key
-      if (e.keyCode === 4 || e.keyCode === 27 || e.key === 'Escape' || e.key === 'Back') {
-        e.preventDefault();
-        logger.debug('🔙 Escape/Back key detected', { keyCode: e.keyCode, key: e.key });
+    // Register with modal navigation manager for proper event handling
+    // This ensures Fire TV back button (keyCode 4) and escape work correctly
+    logger.debug('Registering device flow with modal manager');
+    this.modalNavigation = createModalNavigation(overlay, ['cancel-device-flow'], {
+      initialFocus: 0,
+      onEscape: () => {
+        logger.debug('Modal manager escape triggered');
         this.cancelHandler();
       }
-    };
-    overlay.addEventListener('keydown', escapeHandler);
-    document.addEventListener('keydown', escapeHandler);
+    });
+    
+    logger.debug('Device flow modal registered with navigation manager');
     
     // Auto-focus cancel button for d-pad navigation
     setTimeout(() => {
@@ -621,7 +625,7 @@ export class DeviceFlowProvider {
       }
       
       .dashie-logo-small {
-        height: 42px;
+        height: 46px;
       }
       
       /* Heading */
@@ -668,16 +672,14 @@ export class DeviceFlowProvider {
       }
       
       .device-url {
-        color: #EE9828;
+        color: #1a1a1a;
         font-size: 15px;
         font-weight: 700;
       }
       
       .user-code {
         font-weight: 700;
-        color: #EE9828;
-        font-family: 'Courier New', monospace;
-        letter-spacing: 2px;
+        color: #1a1a1a;
         font-size: 15px;
         text-transform: uppercase;
       }
@@ -746,6 +748,13 @@ export class DeviceFlowProvider {
     if (this.countdownInterval) {
       clearInterval(this.countdownInterval);
       this.countdownInterval = null;
+    }
+    
+    // Unregister from modal navigation manager
+    if (this.modalNavigation) {
+      logger.debug('Unregistering device flow from modal manager');
+      this.modalNavigation.destroy();
+      this.modalNavigation = null;
     }
     
     // Clear reject handler
