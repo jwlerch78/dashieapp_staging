@@ -1,5 +1,6 @@
 /* css/components/navigation.css - Focus & Selection States */
-/* CHANGE SUMMARY: Fixed widget gradient border to use border-image properly, menu highlighting now uses theme colors (gray for dark, blue for light) */
+/* v1.9 - 10/10/25 8:15pm - Updated sidebar menu styling to match focus menu */
+/* CHANGE SUMMARY: Sidebar now uses thick left border for active, shading for selected (no outline) */
 
 /* ENHANCED MODE (default) - Silver/grey border with gradient and rounded corners */
 .widget.selected {
@@ -93,38 +94,37 @@ body.legacy-focus .widget.focused::before {
   display: none;
 }
 
-/* Menu item selection and focus states - theme-aware (gray for dark, blue for light) */
+/* Menu item selection and focus states - Updated to match focus menu styling */
 .menu-item.active {
-  background-color: var(--bg-active);
+  background-color: transparent; /* No shading for active */
+  border-left: 6px solid var(--outline-color-nav); /* Thick left border */
+  padding-left: 6px; /* Compensate for border */
+}
+
+/* Active item that's also selected gets shading */
+.menu-item.active.selected {
+  background: var(--bg-selected-fill); /* Add shading when cursor is on active item */
 }
 
 .menu-item.selected {
-  background: var(--bg-selected-fill);
-  outline: 2px solid var(--outline-color-nav);
-  outline-offset: -2px;
-  border-radius: var(--border-radius-small);
+  background: var(--bg-selected-fill); /* Shading only */
+  border-radius: 0; /* No rounded corners */
 }
 
 .menu-item.focused {
-  background: var(--bg-selected-fill);
-  outline: 2px solid var(--outline-color-nav);
-  outline-offset: -2px;
-  border-radius: var(--border-radius-small);
+  background: var(--bg-selected-fill); /* Shading only */
+  border-radius: 0; /* No rounded corners */
 }
 
 /* Legacy mode - SAME styling for menu items (no change between modes) */
 body.legacy-focus .menu-item.selected {
   background: var(--bg-selected-fill);
-  outline: 2px solid var(--outline-color-nav);
-  outline-offset: -2px;
-  border-radius: var(--border-radius-small);
+  border-radius: 0;
 }
 
 body.legacy-focus .menu-item.focused {
   background: var(--bg-selected-fill);
-  outline: 2px solid var(--outline-color-nav);
-  outline-offset: -2px;
-  border-radius: var(--border-radius-small);
+  border-radius: 0;
 }
 
 /* Hide highlights when timed out or manually hidden */

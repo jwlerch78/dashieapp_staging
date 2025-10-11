@@ -1,6 +1,6 @@
 /* css/components/focus-menu.css - Focus Menu Styling */
-/* v1.5 - 10/10/25 5:45pm - Added blue gradient border when menu is active (not dimmed) */
-/* CHANGE SUMMARY: Fixed Go to Today button color (transparent bg), kept controls guide logic but hidden visually, added active view highlighting, added menu border gradient */
+/* v1.8 - 10/10/25 8:15pm - Removed checkmark from active items */
+/* CHANGE SUMMARY: Active items now only show thick left border (no checkmark) */
 
 /* Focus Menu Container */
 .focus-menu {
@@ -50,6 +50,7 @@
 .focus-menu-item {
   display: flex;
   align-items: center;
+  justify-content: space-between; /* Push checkmark to right */
   gap: 12px;
   padding: 12px 0;
   margin: 0 -12px; /* Extend to edges of container */
@@ -70,18 +71,28 @@
   background: rgba(255, 255, 255, 0.05);
 }
 
-/* Menu Item - Selected/Highlighted (edge-to-edge like sidebar) */
+/* Menu Item - Selected/Highlighted (cursor position with d-pad) */
 .focus-menu-item.selected {
-  background: var(--bg-selected-fill);
-  /* Edge-to-edge blue border on left */
-  border-left: 3px solid var(--outline-color-nav);
-  padding-left: 9px; /* Compensate for border */
+  background: var(--bg-selected-fill); /* Shading for cursor selection */
+  padding-left: 12px; /* No border compensation needed */
 }
 
-/* Menu Item - Active (current view) - keeps shading */
+/* Menu Item - Active (current view/calendar) */
 .focus-menu-item.active {
-  background: var(--bg-active);
+  background: transparent; /* No shading by default */
   font-weight: 600;
+  border-left: 6px solid var(--outline-color-nav); /* Left border for active - 2x thickness */
+  padding-left: 6px; /* Compensate for thicker border (12px - 6px) */
+}
+
+/* Active item that's also selected gets shading */
+.focus-menu-item.active.selected {
+  background: var(--bg-selected-fill); /* Add shading when cursor is on active item */
+}
+
+/* Checkmark for active items */
+.focus-menu-item.active::after {
+  display: none; /* REMOVED: Checkmark no longer needed, thick border is enough */
 }
 
 /* Menu Icon */

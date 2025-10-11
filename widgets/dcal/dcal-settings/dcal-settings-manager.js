@@ -427,14 +427,14 @@ async saveCalendarSettings() {
     const freshItems = this.parentOverlay.querySelectorAll('.calendar-item');
     
     freshItems.forEach(item => {
-      item.addEventListener('click', (e) => {
-        this.toggleCalendar(item);
+      item.addEventListener('click', async (e) => {
+        await this.toggleCalendar(item);
       });
       
-      item.addEventListener('keydown', (e) => {
+      item.addEventListener('keydown', async (e) => {
         if (e.key === 'Enter') {
           e.preventDefault();
-          this.toggleCalendar(item);
+          await this.toggleCalendar(item);
         }
       });
     });
@@ -444,9 +444,9 @@ async saveCalendarSettings() {
 
   /**
    * Toggle calendar enabled/disabled state
-   * CRITICAL FIX: Removed auto-save to prevent database egress spike!
+   * UPDATED: Now saves to database immediately for cross-device sync
    */
-  toggleCalendar(calendarItem) {
+  async toggleCalendar(calendarItem) {
     const calendarId = calendarItem.dataset.calendarId;
     const accountType = calendarItem.dataset.account;
     
@@ -485,11 +485,8 @@ async saveCalendarSettings() {
     
     console.log(`📅 Calendar ${calendar.name} ${calendar.enabled ? 'enabled' : 'disabled'}`);
     
-    // CRITICAL FIX: Only save to localStorage (fast), mark as needing save
-    // Database save will happen when user navigates away or explicitly saves
-    const localStorage = window.parent?.localStorage || window.localStorage;
-    localStorage.setItem('dashie_calendar_settings', JSON.stringify(this.calendarSettings));
-    this.hasUnsavedChanges = true;
+    // Save to both localStorage and database immediately
+    await this.saveCalendarSettings();
     
     // Update the calendar count in the header
     this.updateAccountHeaderCount(accountType);

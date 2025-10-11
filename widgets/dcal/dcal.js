@@ -1,6 +1,6 @@
 // widgets/dcal/dcal.js - Main Dashie Calendar Widget Class
-// v1.8 - 10/10/25 7:20pm - Added monthly view support with CSS Grid
-// CHANGE SUMMARY: Added DCalMonthly import and integration, monthly view switching, month navigation
+// v1.11 - 10/10/25 8:10pm - Swapped Day and 3-Day menu positions
+// CHANGE SUMMARY: Menu order now: Month, Week, 3-Day, Day
 
 import { createLogger } from '../../js/utils/logger.js';
 import { DCalConfig } from './dcal-config.js';
@@ -510,7 +510,7 @@ export class DCalWidget {
               label: 'Go to Today', 
               type: 'action' 
             },
-            // View options (restored original with monthly)
+            // View options (swapped 3-Day and Day order)
             { 
               id: 'monthly', 
               label: 'Month',
@@ -522,13 +522,13 @@ export class DCalWidget {
               type: 'view' 
             },
             { 
-              id: '1', 
-              label: 'Day',
+              id: '3', 
+              label: '3-Day',
               type: 'view' 
             },
             { 
-              id: '3', 
-              label: '3-Day',
+              id: '1', 
+              label: 'Day',
               type: 'view' 
             }
           ]
@@ -547,8 +547,8 @@ export class DCalWidget {
       'go-to-today': 0,
       'monthly': 1,
       'week': 2,
-      '1': 3,
-      '3': 4
+      '3': 3,  // 3-Day now at index 3
+      '1': 4   // Day now at index 4
     };
     return viewMap[viewMode] || 2; // Default to week
   }
@@ -659,6 +659,16 @@ export class DCalWidget {
   async switchViewMode(viewMode) {
     logger.info('Switching view mode', { from: this.currentView, to: viewMode });
     
+    // NEW: Save current scroll position if switching from a weekly/day view
+    let savedScroll = null;
+    if (this.currentView !== 'monthly') {
+      const timeGrid = document.querySelector('.time-grid');
+      if (timeGrid && timeGrid.scrollTop > 0) {
+        savedScroll = timeGrid.scrollTop;
+        logger.debug('Saved scroll position before view switch', { scrollTop: savedScroll });
+      }
+    }
+    
     // Update current view
     this.currentView = viewMode;
     
@@ -709,6 +719,32 @@ export class DCalWidget {
       
       if (this.isDataLoaded) {
         this.weekly.renderEvents(this.calendarData);
+      }
+      
+      // NEW: Restore scroll position if we saved one
+      if (savedScroll !== null) {
+        const timeGrid = document.querySelector('.time-grid');
+        if (timeGrid) {
+          // Poll until content is ready, then restore scroll
+          let checkCount = 0;
+          const maxChecks = 20;
+          
+          const scrollWhenReady = () => {
+            checkCount++;
+            
+            if (timeGrid.scrollHeight > 0) {
+              timeGrid.scrollTop = savedScroll;
+              logger.debug('Restored scroll position after view switch', { 
+                scrollTop: savedScroll,
+                checksNeeded: checkCount
+              });
+            } else if (checkCount < maxChecks) {
+              setTimeout(scrollWhenReady, 250);
+            }
+          };
+          
+          setTimeout(scrollWhenReady, 50);
+        }
       }
     }
     

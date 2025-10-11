@@ -1,6 +1,6 @@
 // js/core/navigation.js - Navigation Logic & Focus Management with Timeout System
-// v1.7 - 10/10/25 4:25pm - Added controls guide updates on navigation state changes
-// CHANGE SUMMARY: Controls guide now updates when moving between menu and widget, shows dynamic labels based on widget context
+// v1.8 - 10/10/25 7:55pm - Added menu refresh on config update
+// CHANGE SUMMARY: Menu now refreshes when widget sends updated config (e.g., after view change) to update active highlighting
 
 import { state, elements, findWidget, setFocus, setSelectedCell, setCurrentMain } from './state.js';
 import { isFeatureEnabled } from './feature-flags.js';
@@ -943,6 +943,22 @@ window.addEventListener('message', (event) => {
     if (focusMenu && focusMenu.enabled) {
       registerWidgetMenu(widget, focusMenu);
       console.log('📋 Registered widget menu config', { widget, itemCount: focusMenu.items?.length });
+      
+      // NEW: If this widget's menu is currently visible, refresh it with updated config
+      if (state.focusMenuState.active && state.focusMenuState.widgetId === widget && state.selectedCell) {
+        console.log('🔄 Refreshing visible menu with updated config');
+        
+        // Update state with new config
+        state.focusMenuState.menuConfig = focusMenu;
+        
+        // Rebuild the menu UI
+        showFocusMenu(state.selectedCell, focusMenu);
+        
+        // Restore menu selection to the updated item
+        updateMenuSelection(state.focusMenuState.selectedIndex);
+        
+        console.log('✓ Menu refreshed with new active view');
+      }
     }
   }
   

@@ -203,3 +203,8 @@
   flex-shrink: 0;
   transition: background var(--transition-fast);
 }
+
+/* Active item in collapsed mode - pull back to align with other icons */
+#sidebar:not(.expanded) .menu-item.active {
+  margin-left: -6px; /* Pull back by border width to keep icon centered */
+}
