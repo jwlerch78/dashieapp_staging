@@ -1,8 +1,8 @@
 // js/core/navigation.js - Navigation Logic & Focus Management with Timeout System
-// v1.8 - 10/10/25 7:55pm - Added menu refresh on config update
-// CHANGE SUMMARY: Menu now refreshes when widget sends updated config (e.g., after view change) to update active highlighting
+// v1.9 - 10/11/25 - Updated to use new state setter functions
+// CHANGE SUMMARY: Replaced setSelectedCell with setFocusedWidget and setFocusMenuInWidget with setWidgetActive
 
-import { state, elements, findWidget, setFocus, setSelectedCell, setCurrentMain } from './state.js';
+import { state, elements, findWidget, setFocus, setFocusedWidget, setCurrentMain } from './state.js';
 import { isFeatureEnabled } from './feature-flags.js';
 import { 
   registerWidgetMenu, 
@@ -21,7 +21,7 @@ import {
 import { 
   setFocusMenuActive, 
   clearFocusMenuState,
-  setFocusMenuInWidget 
+  setWidgetActive 
 } from './state.js';
 
 // Initialize body class based on feature flag
@@ -85,7 +85,7 @@ function hideHighlights() {
     
     // Small delay to let widget process the escape, then defocus (same pattern as handleBack)
     setTimeout(() => {
-      setSelectedCell(null);
+      setFocusedWidget(null);
       hideFocusOverlay();  // NEW: Hide overlay when timeout clears selection
       console.log(`Focused widget timed out - cleared selection after escape command`);
     }, 10);
@@ -407,8 +407,8 @@ export function sendToWidget(action) {
   // Add safety checks for selectedCell
   if (typeof state.selectedCell.querySelector !== 'function') {
     console.error("selectedCell is not a DOM element:", state.selectedCell);
-    // Clear the invalid selectedCell
-    setSelectedCell(null);
+    // Clear the invalid focusedWidget
+    setFocusedWidget(null);
     hideFocusOverlay();  // NEW: Hide overlay when clearing invalid selection
     return;
   }
@@ -478,7 +478,7 @@ export function moveFocus(dir) {
       
       if (dir === 'right') {
         // Move from menu to widget content
-        setFocusMenuInWidget(true);
+        setWidgetActive(true);
         dimFocusMenu();
         
         // Add visual indicator that widget is now active AND update transform scale
@@ -654,7 +654,7 @@ export function handleEnter() {
       console.log(`Found widget DOM element:`, widgetElement);
       
       if (widgetElement && widgetElement.classList) {
-        setSelectedCell(widgetElement);
+        setFocusedWidget(widgetElement);
         console.log(`Selected widget element:`, widgetElement);
         
         // ADDED: Send focus message to the widget iframe
@@ -712,7 +712,7 @@ export function handleBack() {
       
       // If in widget content, return to menu
       if (!state.focusMenuState.inMenu) {
-        setFocusMenuInWidget(false);
+        setWidgetActive(false);
         undimFocusMenu();
         
         // Remove visual indicator that widget was active
@@ -748,7 +748,7 @@ export function handleBack() {
         removeCenteringTransform(widgetToCleanup);
         
         setTimeout(() => {
-          setSelectedCell(null);
+          setFocusedWidget(null);
           hideFocusOverlay(); // This will also clean up menu
           showHighlights();
           updateFocus();
@@ -779,7 +779,7 @@ export function handleBack() {
     // Small delay to let widget process the escape, then defocus
     setTimeout(() => {
       console.log('  🔄 Clearing selection...');
-      setSelectedCell(null);
+      setFocusedWidget(null);
       console.log('    selectedCell is now:', state.selectedCell);
       
       hideFocusOverlay();
@@ -966,7 +966,7 @@ window.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'return-to-menu') {
     // CRITICAL: Do EXACTLY what escape/back does when returning from widget to menu
     if (state.focusMenuState.active && !state.focusMenuState.inMenu) {
-      setFocusMenuInWidget(false);
+      setWidgetActive(false);
       undimFocusMenu();
       
       // Remove visual indicator that widget was active

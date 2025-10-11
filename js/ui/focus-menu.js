@@ -1,6 +1,6 @@
 // js/ui/focus-menu.js - Focus Menu UI Component
-// v1.5 - 10/10/25 5:05pm - Added active view highlighting, controls guide still updates but hidden
-// CHANGE SUMMARY: Menu items now show active state for current view, controls guide rendered but CSS hides it
+// v1.6 - 10/11/25 - Updated to read new state variables
+// CHANGE SUMMARY: Now reads state.focusedWidget instead of state.selectedCell
 
 import { createLogger } from '../utils/logger.js';
 
@@ -412,13 +412,13 @@ async function handleMenuItemClick(itemId) {
   // Get the currently selected cell (widget)
   const { state } = await import('../core/state.js');
   
-  if (!state.selectedCell) {
-    logger.warn('No selected cell - cannot send menu selection');
+  if (!state.focusedWidget) {
+    logger.warn('No focused widget - cannot send menu selection');
     return;
   }
   
   // Send menu-item-selected message to widget
-  const iframe = state.selectedCell.querySelector('iframe');
+  const iframe = state.focusedWidget.querySelector('iframe');
   if (iframe && iframe.contentWindow) {
     try {
       iframe.contentWindow.postMessage({

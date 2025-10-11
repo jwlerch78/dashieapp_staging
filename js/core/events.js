@@ -1,6 +1,6 @@
 // js/core/events.js - Unified Input Handling System
-// v1.1 - 10/10/25 4:00pm - Fixed widget focus to use moveFocus for menu navigation
-// CHANGE SUMMARY: Changed widget input handling to call moveFocus() instead of sendToWidget() directly, allowing focus menu logic to intercept arrow keys
+// v1.2 - 10/11/25 - Updated to read new state variables
+// CHANGE SUMMARY: Now reads state.focusedWidget instead of state.selectedCell
 
 import { state, elements, setFocus, setWidgetReady } from './state.js';
 import { moveFocus, handleEnter, handleBack, openMenuWithCurrentSelection, updateFocus } from './navigation.js';
@@ -163,7 +163,7 @@ async function handleUnifiedInput(action, originalEvent = null) {
   }
   
   // If widget is focused, delegate to moveFocus which handles menu vs widget navigation
-  if (state.selectedCell) {
+  if (state.focusedWidget) {
     switch (action) {
       case "escape":
         handleBack(); // This will unfocus the widget or return to menu
