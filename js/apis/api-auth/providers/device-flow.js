@@ -1,4 +1,6 @@
 // js/apis/api-auth/providers/device-flow.js - Clean Device Flow Implementation
+// v1.6 - 10/11/25 5:30pm - Added Fire TV back button support (keyCode 4) for cancel/escape
+// v1.5 - 10/11/25 5:15pm - UI polish: larger logo, black arrow, 2-line QR instructions, uppercase code
 // v1.4 - 10/11/25 4:40pm - Final polish: icon logo, orange URL/code, fixed cancel error message
 // v1.3 - 10/11/25 4:30pm - Compact design, simplified code styling, fixed cancel to return to login
 // v1.2 - 10/11/25 4:15pm - Fixed sizing, QR code rendering, correct orange color (#EE9828)
@@ -152,7 +154,11 @@ export class DeviceFlowProvider {
             <path fill="none" d="M0 0h48v48H0z"/>
           </svg>
           
-          <div class="connection-arrow">↔️</div>
+          <div class="connection-arrow">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6 9L2 12L6 15M18 9L22 12L18 15M2 12H22" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </div>
           
           <img src="icons/Dashie_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo-small">
         </div>
@@ -167,10 +173,8 @@ export class DeviceFlowProvider {
         
         <!-- Alternative Method -->
         <div class="alternative-method">
-          <p class="alt-text">or go to</p>
-          <p class="device-url">google.com/device</p>
-          <p class="alt-text">and enter</p>
-          <p class="user-code">${userCode}</p>
+          <p class="device-instruction">or go to <span class="device-url">google.com/device</span></p>
+          <p class="device-instruction">and enter <span class="user-code">${userCode.toUpperCase()}</span></p>
         </div>
         
         <!-- Status -->
@@ -197,13 +201,15 @@ export class DeviceFlowProvider {
     
     // Store reject function for cancel handling
     this.cancelHandler = () => {
+      logger.info('🚫 Device flow cancelled by user - reloading page');
       logger.auth('device', 'user_cancelled', 'info');
       this.cleanup(overlay);
-      // Reject with message that auth-coordinator expects
-      const error = new Error('CANCELLED');
-      if (this.currentReject) {
-        this.currentReject(error);
-      }
+      
+      // Reload the page to restart the auth flow cleanly
+      // This prevents getting stuck in waitForAuthentication() loop
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
     };
     
     cancelBtn.addEventListener('click', this.cancelHandler);
@@ -216,10 +222,12 @@ export class DeviceFlowProvider {
       }
     });
     
-    // Escape key handler on overlay
+    // Escape key handler on overlay (includes Fire TV back button)
     const escapeHandler = (e) => {
-      if (e.key === 'Escape' || e.key === 'Back' || e.keyCode === 27) {
+      // Fire TV back button (keyCode 4), standard Escape (27), or Back key
+      if (e.keyCode === 4 || e.keyCode === 27 || e.key === 'Escape' || e.key === 'Back') {
         e.preventDefault();
+        logger.debug('🔙 Escape/Back key detected', { keyCode: e.keyCode, key: e.key });
         this.cancelHandler();
       }
     };
@@ -601,12 +609,19 @@ export class DeviceFlowProvider {
       }
       
       .connection-arrow {
-        font-size: 20px;
-        color: #666;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .connection-arrow svg {
+        width: 24px;
+        height: 24px;
+        display: block;
       }
       
       .dashie-logo-small {
-        height: 32px;
+        height: 42px;
       }
       
       /* Heading */
@@ -645,27 +660,26 @@ export class DeviceFlowProvider {
         border-radius: 8px;
       }
       
-      .alt-text {
+      .device-instruction {
         margin: 3px 0;
         color: #555;
         font-size: 13px;
-        line-height: 1.3;
+        line-height: 1.6;
       }
       
       .device-url {
-        margin: 3px 0;
         color: #EE9828;
         font-size: 15px;
         font-weight: 700;
       }
       
       .user-code {
-        margin: 3px 0;
         font-weight: 700;
         color: #EE9828;
         font-family: 'Courier New', monospace;
         letter-spacing: 2px;
-        font-size: 18px;
+        font-size: 15px;
+        text-transform: uppercase;
       }
       
       /* Status */
