@@ -687,7 +687,6 @@ ${getFeaturesScreen()}
   </div>
 
   <!-- Privacy Screen (Level 2) -->
-  <!-- Privacy Screen (Level 2) -->
   <div class="settings-screen" data-level="2" data-screen="privacy" data-title="Privacy">
     <div class="settings-list">
       <div class="settings-section">
@@ -824,6 +823,43 @@ export const accountScreens = `
       </div>
     </div>
   </div>
+
+ <!-- Delete Account Screen (Level 2) -->
+  <div class="settings-screen" data-level="2" data-screen="delete-account" data-title="Delete Account">
+    <div class="settings-list">
+      <div class="settings-section">
+        <div class="settings-info-text">
+          <h3 style="margin-bottom: 16px; color: var(--danger-color, #ff4444);">⚠️ Delete Your Account</h3>
+          <p style="margin-bottom: 12px;">
+            This will <strong>permanently delete</strong> your Dashie account and all associated data:
+          </p>
+          <ul style="margin: 12px 0; padding-left: 20px;">
+            <li>All photos and uploaded files</li>
+            <li>Calendar connections and settings</li>
+            <li>All preferences and configurations</li>
+            <li>User profile and authentication data</li>
+          </ul>
+          <p style="margin-top: 12px;">
+            <strong>This action cannot be undone.</strong>
+          </p>
+        </div>
+      </div>
+      
+      <div class="settings-section">
+        <div class="settings-cell selectable" data-action="cancel">
+          <span class="cell-label">Cancel</span>
+          <span class="cell-checkmark"></span>
+        </div>
+        
+        <div class="settings-cell selectable danger-cell" id="delete-account-btn" data-action="confirm">
+          <span class="cell-label">Delete My Account</span>
+          <span class="cell-checkmark"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
 
   <!-- Manage Subscription (Level 2) -->
   <div class="settings-screen" data-level="2" data-screen="manage-subscription" data-title="Subscription">

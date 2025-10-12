@@ -341,7 +341,7 @@ export class SimplifiedSettings {
             this.selectionHandler.updateParentDisplayValue(action.setting, action.value, this.overlay);
             
             setTimeout(() => {
-              this.navigateDirectToScreen('display');
+              this.navigateDirectToScreen('interface');
             }, 300);
             break;
             
