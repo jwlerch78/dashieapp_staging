@@ -31,8 +31,8 @@ export const rootScreen = `
           <span class="cell-label">Family</span>
           <span class="cell-chevron">›</span>
         </div>
-        <div class="settings-cell" data-navigate="display">
-          <span class="cell-label">Display</span>
+        <div class="settings-cell" data-navigate="interface">
+          <span class="cell-label">Interface</span>
           <span class="cell-chevron">›</span>
         </div>
         <div class="settings-cell action-cell" id="photos-menu-btn">
@@ -47,10 +47,14 @@ export const rootScreen = `
           <span class="cell-label">System</span>
           <span class="cell-chevron">›</span>
         </div>
+        <div class="settings-cell" data-navigate="account">
+          <span class="cell-label">Account</span>
+          <span class="cell-chevron">›</span>
+        </div>
       </div>
     </div>
   </div>
-  
+
   <!-- Delete Account Confirmation Modal -->
   <div id="delete-account-modal" class="modal-overlay" style="display: none;">
     <div class="modal-content">
@@ -79,12 +83,21 @@ export const rootScreen = `
 `;
 
 /**
- * Display Screens (Level 1-4)
+ * Interface Screens (Level 1-4) - NEW SECTION
+ * Contains: Dashboard Mode (Core/Plus), Theme, Sleep Timer, Dynamic Greeting
  */
-export const displayScreens = `
-    <!-- Display Screen (Level 1) -->
-  <div class="settings-screen" data-level="1" data-screen="display" data-title="Display">
+export const interfaceScreens = `
+  <!-- Interface Screen (Level 1) -->
+  <div class="settings-screen" data-level="1" data-screen="interface" data-title="Interface">
     <div class="settings-list">
+      <div class="settings-section">
+        <div class="settings-cell" data-navigate="sidebar-mode">
+          <span class="cell-label">Dashboard Mode</span>
+          <span class="cell-value" id="mobile-sidebar-mode-value">Plus</span>
+          <span class="cell-chevron">›</span>
+        </div>
+      </div>
+      
       <div class="settings-section">
         <div class="settings-cell" data-navigate="theme">
           <span class="cell-label">Theme</span>
@@ -97,7 +110,7 @@ export const displayScreens = `
         <div class="settings-cell toggle-cell" id="sleep-timer-toggle-cell">
           <span class="cell-label">Sleep/Wake Timer</span>
           <label class="toggle-switch">
-            <input type="checkbox" id="sleep-timer-enabled" data-setting="display.sleepTimerEnabled" checked>
+            <input type="checkbox" id="sleep-timer-enabled" data-setting="interface.sleepTimerEnabled" checked>
             <span class="toggle-slider"></span>
           </label>
         </div>
@@ -117,9 +130,31 @@ export const displayScreens = `
         <div class="settings-cell toggle-cell" id="dynamic-greeting-toggle-cell">
           <span class="cell-label">Dynamic Greeting</span>
           <label class="toggle-switch">
-            <input type="checkbox" id="dynamic-greeting-enabled" data-setting="display.dynamicGreeting">
+            <input type="checkbox" id="dynamic-greeting-enabled" data-setting="interface.dynamicGreeting">
             <span class="toggle-slider"></span>
           </label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dashboard Mode Selection Screen (Level 2) -->
+  <div class="settings-screen" data-level="2" data-screen="sidebar-mode" data-title="Dashboard Mode">
+    <div class="settings-list">
+      <div class="settings-section">
+        <div class="settings-cell selectable" data-setting="interface.sidebarMode" data-value="core">
+          <div class="cell-content">
+            <span class="cell-label">Core</span>
+            <span class="cell-description" style="display: block; font-size: 13px; color: #8E8E93; margin-top: 4px;">Calendar and Photos with streamlined controls</span>
+          </div>
+          <span class="cell-checkmark">✓</span>
+        </div>
+        <div class="settings-cell selectable" data-setting="interface.sidebarMode" data-value="plus">
+          <div class="cell-content">
+            <span class="cell-label">Plus</span>
+            <span class="cell-description" style="display: block; font-size: 13px; color: #8E8E93; margin-top: 4px;">All features including Maps and Camera feeds</span>
+          </div>
+          <span class="cell-checkmark">✓</span>
         </div>
       </div>
     </div>
@@ -129,11 +164,11 @@ export const displayScreens = `
   <div class="settings-screen" data-level="2" data-screen="theme" data-title="Theme">
     <div class="settings-list">
       <div class="settings-section">
-        <div class="settings-cell selectable" data-setting="display.theme" data-value="dark">
+        <div class="settings-cell selectable" data-setting="interface.theme" data-value="dark">
           <span class="cell-label">Dark Theme</span>
           <span class="cell-checkmark">✓</span>
         </div>
-        <div class="settings-cell selectable" data-setting="display.theme" data-value="light">
+        <div class="settings-cell selectable" data-setting="interface.theme" data-value="light">
           <span class="cell-label">Light Theme</span>
           <span class="cell-checkmark">✓</span>
         </div>
@@ -227,11 +262,11 @@ export const displayScreens = `
   <div class="settings-screen" data-level="4" data-screen="sleep-time-period" data-title="Sleep Time">
     <div class="settings-list">
       <div class="settings-section">
-        <div class="settings-cell selectable" data-setting="display.sleepTime" data-period="AM">
+        <div class="settings-cell selectable" data-setting="interface.sleepTime" data-period="AM">
           <span class="cell-label">AM</span>
           <span class="cell-checkmark">✓</span>
         </div>
-        <div class="settings-cell selectable" data-setting="display.sleepTime" data-period="PM">
+        <div class="settings-cell selectable" data-setting="interface.sleepTime" data-period="PM">
           <span class="cell-label">PM</span>
           <span class="cell-checkmark">✓</span>
         </div>
@@ -325,11 +360,11 @@ export const displayScreens = `
   <div class="settings-screen" data-level="4" data-screen="wake-time-period" data-title="Wake Time">
     <div class="settings-list">
       <div class="settings-section">
-        <div class="settings-cell selectable" data-setting="display.wakeTime" data-period="AM">
+        <div class="settings-cell selectable" data-setting="interface.wakeTime" data-period="AM">
           <span class="cell-label">AM</span>
           <span class="cell-checkmark">✓</span>
         </div>
-        <div class="settings-cell selectable" data-setting="display.wakeTime" data-period="PM">
+        <div class="settings-cell selectable" data-setting="interface.wakeTime" data-period="PM">
           <span class="cell-label">PM</span>
           <span class="cell-checkmark">✓</span>
         </div>
@@ -338,6 +373,8 @@ export const displayScreens = `
   </div>
 `;
 
+// DEPRECATED: displayScreens is now interfaceScreens
+export const displayScreens = interfaceScreens;
 /**
  * Calendar Screens (Level 1-2)
  */
@@ -609,23 +646,9 @@ export const familyScreen = `
  * System Screens (Level 1-2)
  */
 export const systemScreens = `
-  <!-- System Screen (Level 1) -->
+  <!-- System Screen (Level 1) - CLEANED UP -->
   <div class="settings-screen" data-screen="system" data-title="System">
     <div class="settings-section">
-      <div class="settings-cell" data-navigate="about">
-        <div class="cell-content">
-          <span class="cell-label">About</span>
-        </div>
-        <span class="cell-chevron">›</span>
-      </div>
-      
-      <div class="settings-cell" data-navigate="manage-subscription">
-        <div class="cell-content">
-          <span class="cell-label">Manage Subscription</span>
-        </div>
-        <span class="cell-chevron">›</span>
-      </div>
-      
       <div class="settings-cell" data-navigate="system-status">
         <div class="cell-content">
           <span class="cell-label">System Status</span>
@@ -640,65 +663,20 @@ export const systemScreens = `
         <span class="cell-chevron">›</span>
       </div>
 
-       ${getFeaturesMenuItem()}
+      ${getFeaturesMenuItem()}
       
-      <div class="settings-cell" data-navigate="restore-defaults">
+      <div class="settings-cell" data-navigate="about">
         <div class="cell-content">
-          <span class="cell-label">Restore Default Settings</span>
-        </div>
-        <span class="cell-chevron">›</span>
-      </div>
-      
-      <div class="settings-cell" data-navigate="reset-all">
-        <div class="cell-content">
-          <span class="cell-label">Reset All</span>
-        </div>
-        <span class="cell-chevron">›</span>
-      </div>
-      
-      <div class="settings-cell" data-navigate="delete-account">
-        <div class="cell-content">
-          <span class="cell-label" style="color: var(--danger-color, #ff4444);">Delete Account</span>
+          <span class="cell-label">About</span>
         </div>
         <span class="cell-chevron">›</span>
       </div>
     </div>
   </div>
 
-  <!-- System Placeholders (Level 2) -->
+${getFeaturesScreen()}
 
-  ${getFeaturesScreen()}
-
-
-  <div class="settings-screen" data-level="2" data-screen="restore-defaults" data-title="Restore Defaults">
-    <div class="settings-list">
-      <div class="coming-soon">
-        <h3>Restore Default Settings</h3>
-        <p>Reset all settings to default values.</p>
-        <p style="margin-top: 20px; font-size: 14px;">This feature is coming soon.</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="settings-screen" data-level="2" data-screen="reset-all" data-title="Reset All">
-    <div class="settings-list">
-      <div class="coming-soon">
-        <h3>Reset All</h3>
-        <p>Clear all data and settings.</p>
-        <p style="margin-top: 20px; font-size: 14px;">This feature is coming soon.</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="settings-screen" data-level="2" data-screen="manage-subscription" data-title="Subscription">
-    <div class="settings-list">
-      <div class="coming-soon">
-        <h3>Manage Subscription</h3>
-        <p>Subscription management coming soon.</p>
-      </div>
-    </div>
-  </div>
-
+  <!-- About Screen (Level 2) -->
   <div class="settings-screen" data-level="2" data-screen="about" data-title="About">
     <div class="settings-list">
       <div class="coming-soon">
@@ -708,41 +686,7 @@ export const systemScreens = `
     </div>
   </div>
 
-  <!-- Delete Account Screen (Level 2) -->
-  <div class="settings-screen" data-level="2" data-screen="delete-account" data-title="Delete Account">
-    <div class="settings-list">
-      <div class="settings-section">
-        <div class="settings-info-text">
-          <h3 style="margin-bottom: 16px; color: var(--danger-color, #ff4444);">⚠️ Delete Your Account</h3>
-          <p style="margin-bottom: 12px;">
-            This will <strong>permanently delete</strong> your Dashie account and all associated data:
-          </p>
-          <ul style="margin: 12px 0; padding-left: 20px;">
-            <li>All photos and uploaded files</li>
-            <li>Calendar connections and settings</li>
-            <li>All preferences and configurations</li>
-            <li>User profile and authentication data</li>
-          </ul>
-          <p style="margin-top: 12px;">
-            <strong>This action cannot be undone.</strong>
-          </p>
-        </div>
-      </div>
-      
-      <div class="settings-section">
-        <div class="settings-cell selectable" data-action="cancel">
-          <span class="cell-label">Cancel</span>
-          <span class="cell-checkmark"></span>
-        </div>
-        
-        <div class="settings-cell selectable danger-cell" id="delete-account-btn" data-action="confirm">
-          <span class="cell-label">Delete My Account</span>
-          <span class="cell-checkmark"></span>
-        </div>
-      </div>
-    </div>
-  </div>
-
+  <!-- Privacy Screen (Level 2) -->
   <!-- Privacy Screen (Level 2) -->
   <div class="settings-screen" data-level="2" data-screen="privacy" data-title="Privacy">
     <div class="settings-list">
@@ -842,4 +786,76 @@ export const systemScreens = `
       </div>
     </div>
   </div>
+`;
+
+/**
+ * Account Screens (Level 1-2) - NEW SECTION
+ */
+export const accountScreens = `
+  <!-- Account Screen (Level 1) -->
+  <div class="settings-screen" data-screen="account" data-title="Account">
+    <div class="settings-section">
+      <div class="settings-cell" data-navigate="manage-subscription">
+        <div class="cell-content">
+          <span class="cell-label">Manage Subscription</span>
+        </div>
+        <span class="cell-chevron">›</span>
+      </div>
+      
+      <div class="settings-cell" data-navigate="restore-defaults">
+        <div class="cell-content">
+          <span class="cell-label">Restore Default Settings</span>
+        </div>
+        <span class="cell-chevron">›</span>
+      </div>
+      
+      <div class="settings-cell" data-navigate="erase-all">
+        <div class="cell-content">
+          <span class="cell-label">Erase All Data</span>
+        </div>
+        <span class="cell-chevron">›</span>
+      </div>
+      
+      <div class="settings-cell" data-navigate="delete-account">
+        <div class="cell-content">
+          <span class="cell-label" style="color: var(--danger-color, #ff4444);">Delete Account</span>
+        </div>
+        <span class="cell-chevron">›</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manage Subscription (Level 2) -->
+  <div class="settings-screen" data-level="2" data-screen="manage-subscription" data-title="Subscription">
+    <div class="settings-list">
+      <div class="coming-soon">
+        <h3>Manage Subscription</h3>
+        <p>Subscription management coming soon.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Restore Defaults (Level 2) -->
+  <div class="settings-screen" data-level="2" data-screen="restore-defaults" data-title="Restore Defaults">
+    <div class="settings-list">
+      <div class="coming-soon">
+        <h3>Restore Default Settings</h3>
+        <p>Reset all settings to default values.</p>
+        <p style="margin-top: 20px; font-size: 14px;">This feature is coming soon.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Erase All Data (Level 2) -->
+  <div class="settings-screen" data-level="2" data-screen="erase-all" data-title="Erase All Data">
+    <div class="settings-list">
+      <div class="coming-soon">
+        <h3>Erase All Data</h3>
+        <p>Clear all data and settings.</p>
+        <p style="margin-top: 20px; font-size: 14px;">This feature is coming soon.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Account Screen already exists in rootScreen modal -->
 `;

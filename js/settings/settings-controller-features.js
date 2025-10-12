@@ -195,14 +195,24 @@ async saveSettings() {
       return;
     }
     
-    // Apply theme if it exists (only if not redirecting)
-    const theme = this.currentSettings.display?.theme;
+    // Apply theme if it exists
+    const theme = this.currentSettings.interface?.theme;
     if (theme) {
       try {
         const { switchTheme } = await import('../core/theme.js');
         switchTheme(theme);
       } catch (error) {
         console.warn('Failed to apply theme:', error);
+      }
+    }
+    
+    // Apply sidebar mode if it exists
+    const sidebarMode = this.currentSettings.interface?.sidebarMode;
+    if (sidebarMode) {
+      try {
+        await this.applySidebarModeImmediate(sidebarMode);
+      } catch (error) {
+        console.warn('Failed to apply sidebar mode:', error);
       }
     }
     
@@ -254,6 +264,22 @@ async saveSettings() {
       await this.applyZipCodeToClockWidget(zipCode);
     } catch (error) {
       console.warn('Failed to apply zip code immediately:', error);
+    }
+  }
+  
+  // Apply sidebar mode immediately when setting changes
+  async applySidebarModeImmediate(mode) {
+    try {
+      const sidebar = document.getElementById('sidebar');
+      if (sidebar) {
+        // Remove existing mode classes
+        sidebar.classList.remove('sidebar-core-mode', 'sidebar-plus-mode');
+        // Add new mode class
+        sidebar.classList.add(`sidebar-${mode}-mode`);
+        console.log('⚙️ ✅ Sidebar mode applied:', mode);
+      }
+    } catch (error) {
+      console.warn('Failed to apply sidebar mode immediately:', error);
     }
   }
 

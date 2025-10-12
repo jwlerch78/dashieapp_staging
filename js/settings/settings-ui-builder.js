@@ -24,10 +24,11 @@ function buildMobileSettingsUI() {
       <div class="settings-content">
         <div class="settings-screens">
           ${templates.rootScreen}
-          ${templates.displayScreens}
+          ${templates.interfaceScreens}
           ${templates.calendarScreens}
           ${templates.familyScreen}
           ${templates.systemScreens}
+          ${templates.accountScreens}
         </div>
       </div>
     </div>
@@ -68,16 +69,35 @@ export function populateFormFields(overlay, settings) {
     updateZipCodeLocationDisplay(overlay, zipCode);
   }
   
-  // Theme value display
+   // Theme value display
   const mobileThemeValue = overlay.querySelector('#mobile-theme-value');
-  if (mobileThemeValue && settings.display?.theme) {
-    mobileThemeValue.textContent = settings.display.theme === 'dark' ? 'Dark' : 'Light';
+  if (mobileThemeValue && settings.interface?.theme) {
+    mobileThemeValue.textContent = settings.interface.theme === 'dark' ? 'Dark' : 'Light';
   }
   
   // Theme selection cells
-  const themeSelectionCells = overlay.querySelectorAll('.settings-cell[data-setting="display.theme"]');
+  const themeSelectionCells = overlay.querySelectorAll('.settings-cell[data-setting="interface.theme"]');
   themeSelectionCells.forEach(cell => {
-    if (cell.dataset.value === settings.display?.theme) {
+    if (cell.dataset.value === settings.interface?.theme) {
+      cell.classList.add('selected');
+    } else {
+      cell.classList.remove('selected');
+    }
+  });
+
+
+// Sidebar mode value display
+  const mobileSidebarModeValue = overlay.querySelector('#mobile-sidebar-mode-value');
+  if (mobileSidebarModeValue) {
+    const sidebarMode = settings.interface?.sidebarMode || 'plus'; // Default to 'plus'
+    mobileSidebarModeValue.textContent = sidebarMode === 'core' ? 'Core' : 'Plus';
+  }
+  
+  // Sidebar mode selection cells (checkmarks)
+  const sidebarModeSelectionCells = overlay.querySelectorAll('.settings-cell[data-setting="interface.sidebarMode"]');
+  sidebarModeSelectionCells.forEach(cell => {
+    const currentMode = settings.interface?.sidebarMode || 'plus'; // Default to 'plus'
+    if (cell.dataset.value === currentMode) {
       cell.classList.add('selected');
     } else {
       cell.classList.remove('selected');
@@ -85,9 +105,12 @@ export function populateFormFields(overlay, settings) {
   });
 
  // Sleep timer enabled toggle
+
+
+ // Sleep timer enabled toggle
   const sleepTimerToggle = overlay.querySelector('#sleep-timer-enabled');
   if (sleepTimerToggle) {
-    const enabled = settings.display?.sleepTimerEnabled !== false; // Default to true
+    const enabled = settings.interface?.sleepTimerEnabled !== false; // Default to true
     sleepTimerToggle.checked = enabled;
     updateSleepTimerStates(overlay, enabled);
   }
@@ -95,7 +118,7 @@ export function populateFormFields(overlay, settings) {
   // Dynamic greeting enabled toggle
   const dynamicGreetingToggle = overlay.querySelector('#dynamic-greeting-enabled');
   if (dynamicGreetingToggle) {
-    const enabled = settings.display?.dynamicGreeting === true; // Default to false
+    const enabled = settings.interface?.dynamicGreeting === true; // Default to false
     dynamicGreetingToggle.checked = enabled;
   }
 
@@ -122,14 +145,14 @@ export function populateFormFields(overlay, settings) {
   
   // Sleep time value display
   const mobileSleepTimeValue = overlay.querySelector('#mobile-sleep-time-value');
-  if (mobileSleepTimeValue && settings.display?.sleepTime) {
-    mobileSleepTimeValue.textContent = formatTime(settings.display.sleepTime);
+  if (mobileSleepTimeValue && settings.interface?.sleepTime) {
+    mobileSleepTimeValue.textContent = formatTime(settings.interface.sleepTime);
   }
   
   // Wake time value display
   const mobileWakeTimeValue = overlay.querySelector('#mobile-wake-time-value');
-  if (mobileWakeTimeValue && settings.display?.wakeTime) {
-    mobileWakeTimeValue.textContent = formatTime(settings.display.wakeTime);
+  if (mobileWakeTimeValue && settings.interface?.wakeTime) {
+    mobileWakeTimeValue.textContent = formatTime(settings.interface.wakeTime);
   }
 }
 

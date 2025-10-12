@@ -332,12 +332,14 @@ export class SettingsControllerCore {
       photos: {
         transitionTime: 5
       },
-      display: {
+      interface: {
+        sidebarMode: 'plus',  // 'core' or 'plus'
         sleepTime: '22:00',
         wakeTime: '07:00', 
-        reSleepDelay: 10,  // CHANGED: Default re-sleep delay to 10 minutes
-        sleepTimerEnabled: false,  // CHANGED: Default sleep timer to disabled
-        theme: 'light'  // CHANGED: Default theme is now light
+        reSleepDelay: 10,
+        sleepTimerEnabled: false,
+        theme: 'light',
+        dynamicGreeting: false
       },
       accounts: {
         dashieAccount: userEmail,
@@ -410,12 +412,16 @@ export class SettingsControllerCore {
       this.currentSettings.lastModified = Date.now();
       
       // Apply immediate changes for specific settings
-      if (path === 'display.theme') {
+      if (path === 'interface.theme') {
         this.applyThemeImmediate(value);
       }
       
       if (path === 'family.familyName') {
         this.applyFamilyNameImmediate(value);
+      }
+      
+      if (path === 'interface.sidebarMode') {
+        this.applySidebarModeImmediate(value);
       }
       
       if (path === 'family.zipCode') {
