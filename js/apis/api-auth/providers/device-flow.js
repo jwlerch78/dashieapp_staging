@@ -221,25 +221,28 @@ generateQRCode(container, url) {
     return;
   }
 
-    container.querySelectorAll('canvas, img').forEach(el => el.remove());
-
   // Internal function to create QR
-  const createInstance = () => {
-    try {
-      new QRCode(container, {
-        text: url,
-        width: 120,
-        height: 120,
-        colorDark: '#EE9828',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.H
-      });
-      logger.debug('QR code generated', { url });
-    } catch (error) {
-      logger.error('Error generating QR code', error);
-      container.innerHTML = '<p style="color: #999; font-size: 14px;">Failed to generate QR code</p>';
-    }
-  };
+ const createInstance = () => {
+  try {
+    new QRCode(container, {
+      text: url,
+      width: 120,
+      height: 120,
+      colorDark: '#EE9828',
+      colorLight: '#ffffff',
+      correctLevel: QRCode.CorrectLevel.H
+    });
+
+    // ✅ Remove any img fallback added by the library
+    container.querySelectorAll('img').forEach(el => el.remove());
+
+    logger.debug('QR code generated', { url });
+  } catch (error) {
+    logger.error('Error generating QR code', error);
+    container.innerHTML = '<p style="color: #999; font-size: 14px;">Failed to generate QR code</p>';
+  }
+};
+
 
   // Load QRCode library if needed
   if (typeof QRCode === 'undefined') {
