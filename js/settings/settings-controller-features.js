@@ -1,4 +1,5 @@
 // js/settings/settings-controller-features.js
+// v1.2 - 10/12/25 8:45pm - CRITICAL FIX: Preserve tokenAccounts when saving calendar settings
 // v1.1 - 10/9/25 - Added zip code broadcasting to clock widget for weather location
 // Local-only settings, site redirect, theme/family name application
 
@@ -124,6 +125,20 @@ async saveSettings() {
     try {
       // Filter out local-only settings before saving to database
       const databaseSettings = this.filterOutLocalOnlySettings(this.currentSettings);
+      
+      // ✅ CRITICAL FIX: Reload fresh tokenAccounts from database before saving
+      // This prevents overwriting recently added accounts with stale data from currentSettings
+      try {
+        const freshSettings = await this.storage.loadSettings();
+        if (freshSettings?.tokenAccounts) {
+          console.log('⚙️ 🔄 Merging fresh tokenAccounts from database to prevent overwrite');
+          console.log('⚙️ Current accounts:', Object.keys(databaseSettings.tokenAccounts?.google || {}));
+          console.log('⚙️ Fresh accounts:', Object.keys(freshSettings.tokenAccounts?.google || {}));
+          databaseSettings.tokenAccounts = freshSettings.tokenAccounts;
+        }
+      } catch (error) {
+        console.warn('⚙️ ⚠️ Could not load fresh tokenAccounts, proceeding with current data:', error);
+      }
       
       // DEBUG: Check if tokens are being filtered out
       console.log('⚙️ [DEBUG] Saving to Supabase:', {
