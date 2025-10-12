@@ -222,11 +222,20 @@ export class AuthStorage {
 
   /**
    * Clear all stored authentication data
+   * CRITICAL: Also clears calendar settings to prevent cross-account data leakage
    */
   clearAllData() {
     logger.info('Clearing all authentication data');
     
     this.clearSavedUser();
+    
+    // Clear calendar settings cache to prevent cross-account data leakage
+    try {
+      localStorage.removeItem('dashie-calendar-settings');
+      logger.debug('Cleared calendar settings cache');
+    } catch (error) {
+      logger.warn('Failed to clear calendar cache', error);
+    }
     
     eventSystem.emit(EVENTS.AUTH_CLEARED);
   }

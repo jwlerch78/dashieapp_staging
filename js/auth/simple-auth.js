@@ -251,8 +251,19 @@ async initializeServices() {
 
   /**
    * Clean up services on sign out
+   * CRITICAL: Clears localStorage caches to prevent cross-account data leakage
    */
   cleanupServices() {
+    // Clear localStorage caches BEFORE cleaning up services
+    // This prevents calendar IDs from one account being used by another
+    try {
+      const localStorage = window.parent?.localStorage || window.localStorage;
+      localStorage.removeItem('dashie-calendar-settings');
+      logger.debug('Cleared localStorage caches on logout');
+    } catch (error) {
+      logger.warn('Failed to clear localStorage caches', error);
+    }
+
     if (this.dataManager) {
       // FIXED: DataManager has clearAll(), not clearCache()
       if (typeof this.dataManager.clearAll === 'function') {

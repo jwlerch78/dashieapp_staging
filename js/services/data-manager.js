@@ -420,4 +420,33 @@ export class DataManager {
   getPhotosData(allowStale = true) {
     return this.cache.get('photos', allowStale);
   }
+
+  // ==================== CLEANUP ====================
+
+  /**
+   * Clear all cached data and stop timers
+   * Called on logout to prevent cross-account data leakage
+   */
+  clearAll() {
+    logger.info('Clearing all data manager data and caches');
+    
+    // Clear in-memory cache
+    this.cache.clearAll();
+    
+    // Clear localStorage caches that could leak between accounts
+    try {
+      const localStorage = window.parent?.localStorage || window.localStorage;
+      
+      // Calendar settings cache (contains calendar IDs from old account)
+      localStorage.removeItem('dashie-calendar-settings');
+      logger.debug('Cleared calendar settings cache from localStorage');
+    } catch (error) {
+      logger.warn('Failed to clear localStorage caches', error);
+    }
+    
+    // Stop periodic refresh timer
+    this.stopPeriodicRefresh();
+    
+    logger.success('All data and caches cleared');
+  }
 }

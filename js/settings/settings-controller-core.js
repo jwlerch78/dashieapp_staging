@@ -1,11 +1,12 @@
 // js/settings/settings-controller-core.js
+// v1.7 - 10/12/25 7:45pm - CRITICAL: Added user mismatch validation to prevent Account A settings being used by Account B after logout/login
 // v1.6 - 10/10/25 4:10pm - Changed default reSleepDelay to 10 minutes (was 30)
 // v1.5 - 10/10/25 4:00pm - Changed default sleepTimerEnabled to false (disabled by default)
 // v1.4 - 10/10/25 3:50pm - Skip auto-location for new users (only prompt returning users)
 // v1.3 - 10/9/25 - Added automatic location detection via browser geolocation on first login
 // v1.2 - 10/9/25 - Added zipCode field to family settings for weather location
 // v1.1 - 1/9/25 8:20pm - Converted console.log to logger.debug
-// CHANGE SUMMARY: Added calendar settings sync to localStorage after loading from database to ensure CalendarService can access active calendar IDs immediately
+// CHANGE SUMMARY: Added user email validation in init() to detect and clear settings from wrong user, prevents cross-account data leakage
 
 import { createLogger } from '../utils/logger.js';
 
@@ -248,32 +249,65 @@ export class SettingsControllerCore {
       // Load settings from database/local storage
       const loadedSettings = await this.storage.loadSettings();
       
-      // Check if we have valid settings with required fields
-      // If settings exist but don't have a theme, they're incomplete (calendar-only or corrupt)
-      const hasValidSettings = loadedSettings && loadedSettings.interface && loadedSettings.interface.theme;
+      // CRITICAL: Validate that loaded settings belong to the current user
+      // This prevents Account A's settings from being used by Account B after logout/login
+      const settingsUserEmail = loadedSettings?.accounts?.dashieAccount;
+      const currentUserEmail = currentUser.email;
       
-      if (!hasValidSettings) {
-        console.log('⚙️ No valid settings found - using defaults (including light theme)');
-        this.currentSettings = this.getDefaultSettings(currentUser.email);
+      if (loadedSettings && settingsUserEmail && settingsUserEmail !== currentUserEmail) {
+        console.warn('⚙️ 🚨 USER MISMATCH DETECTED!');
+        console.warn('⚙️ Settings belong to:', settingsUserEmail);
+        console.warn('⚙️ Current user is:', currentUserEmail);
+        console.warn('⚙️ Clearing old settings and loading fresh data from database');
         
-        // CRITICAL: Preserve tokenAccounts and calendar if they exist in loaded settings
-        // These are stored separately and must not be lost when using defaults
-        if (loadedSettings) {
-          if (loadedSettings.tokenAccounts) {
-            console.log('⚙️ Preserving tokenAccounts from loaded settings');
-            this.currentSettings.tokenAccounts = loadedSettings.tokenAccounts;
-          }
-          if (loadedSettings.calendar) {
-            console.log('⚙️ Preserving calendar settings from loaded settings');
-            this.currentSettings.calendar = loadedSettings.calendar;
-          }
-        }
+        // Clear localStorage to remove stale data
+        localStorage.removeItem('dashie-settings');
+        localStorage.removeItem('dashie-calendar-settings');
+        
+        // Force reload settings from database for THIS user
+        // The storage.loadSettings() will return empty/defaults for new user
+        const freshSettings = await this.storage.loadSettings();
+        
+        // Use fresh settings (will be defaults if user has no saved settings)
+        this.currentSettings = freshSettings && freshSettings.interface && freshSettings.interface.theme 
+          ? freshSettings 
+          : this.getDefaultSettings(currentUserEmail);
         
         this.isDirty = true;
         await this.saveSettings();
+        
+        console.log('⚙️ ✅ Fresh settings loaded for new user');
       } else {
-        console.log('⚙️ Valid settings loaded from database');
-        this.currentSettings = loadedSettings;
+        // No mismatch - proceed normally
+        console.log('⚙️ ✅ User validation passed - settings match current user');
+        
+        // Check if we have valid settings with required fields
+        // If settings exist but don't have a theme, they're incomplete (calendar-only or corrupt)
+        const hasValidSettings = loadedSettings && loadedSettings.interface && loadedSettings.interface.theme;
+      
+        if (!hasValidSettings) {
+          console.log('⚙️ No valid settings found - using defaults (including light theme)');
+          this.currentSettings = this.getDefaultSettings(currentUser.email);
+          
+          // CRITICAL: Preserve tokenAccounts and calendar if they exist in loaded settings
+          // These are stored separately and must not be lost when using defaults
+          if (loadedSettings) {
+            if (loadedSettings.tokenAccounts) {
+              console.log('⚙️ Preserving tokenAccounts from loaded settings');
+              this.currentSettings.tokenAccounts = loadedSettings.tokenAccounts;
+            }
+            if (loadedSettings.calendar) {
+              console.log('⚙️ Preserving calendar settings from loaded settings');
+              this.currentSettings.calendar = loadedSettings.calendar;
+            }
+          }
+          
+          this.isDirty = true;
+          await this.saveSettings();
+        } else {
+          console.log('⚙️ Valid settings loaded from database');
+          this.currentSettings = loadedSettings;
+        }
       }
       
       // CRITICAL FIX: Sync calendar settings to localStorage SYNCHRONOUSLY and IMMEDIATELY
