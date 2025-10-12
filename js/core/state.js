@@ -79,7 +79,6 @@ export const sidebarMapping = {
 export const state = {
   currentMain: "calendar", // default main widget
   focus: { type: "grid", row: 1, col: 1 }, // current focus for D-pad navigation
-  selectedCell: null, // DEPRECATED: Use focusedWidget instead (kept for backward compat)
   focusedWidget: null, // NEW: Widget in FOCUSED state (centered, has attention)
   widgetActive: false, // NEW: Is widget in ACTIVE state (receiving commands)?
   isAsleep: false, // sleep mode state
@@ -105,9 +104,6 @@ export function setFocus(newFocus) {
   state.focus = newFocus;
 }
 
-export function setSelectedCell(cell) {
-  state.selectedCell = cell;
-}
 
 export function setCurrentMain(mainType) {
   state.currentMain = mainType;
@@ -180,7 +176,6 @@ export function setFocusMenuInWidget(inWidget) {
  */
 export function setFocusedWidget(widget) {
   state.focusedWidget = widget;
-  state.selectedCell = widget;  // Keep old name in sync during transition
 }
 
 /**

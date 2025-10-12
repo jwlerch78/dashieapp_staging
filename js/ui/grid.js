@@ -260,7 +260,7 @@ function addMenuItemEventListeners(div, type, globalIndex) {
   
   // Mouse hover events (unchanged)
   div.addEventListener("mouseover", () => {
-    if (state.confirmDialog || state.isAsleep || state.selectedCell) return;
+    if (state.confirmDialog || state.isAsleep || state.focusedWidget) return;
     setFocus({ type: "menu", index: globalIndex });
     elements.sidebar.classList.add("expanded");
     
@@ -268,7 +268,7 @@ function addMenuItemEventListeners(div, type, globalIndex) {
   });
 
   div.addEventListener("mouseout", () => {
-    if (state.confirmDialog || state.isAsleep || state.selectedCell) return;
+    if (state.confirmDialog || state.isAsleep || state.focusedWidget) return;
     if (state.focus.type !== "menu") elements.sidebar.classList.remove("expanded");
   });
 
@@ -281,7 +281,7 @@ function addMenuItemEventListeners(div, type, globalIndex) {
     e.preventDefault();
     
     // Don't allow menu touches when widget is focused
-    if (state.selectedCell) return;
+    if (state.focusedWidget) return;
     
     // Set focus immediately on touch start
     setFocus({ type: "menu", index: globalIndex });
@@ -302,7 +302,7 @@ function addMenuItemEventListeners(div, type, globalIndex) {
     if (touchDuration < 300) {
       e.preventDefault();
       
-      if (state.selectedCell) return;
+      if (state.focusedWidget) return;
       
       import('../core/navigation.js').then(({ updateFocus, handleEnter }) => {
         // Small delay to show expansion, then execute
@@ -325,7 +325,7 @@ function addMenuItemEventListeners(div, type, globalIndex) {
       return;
     }
     
-    if (state.selectedCell) return;
+    if (state.focusedWidget) return;
     
     setFocus({ type: "menu", index: globalIndex });
     
