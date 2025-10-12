@@ -277,6 +277,11 @@ async loadCalendarsForAccount(accountName, googleAPI, jwtAuth) {
     
     const account = this.calendarSettings.accounts[accountName];
     
+    // v1.15 - 10/12/25 11:46pm - CRITICAL FIX: Ensure calendars object exists
+    if (!account.calendars) {
+      account.calendars = {};
+    }
+    
     // Process each calendar from Google
     for (const googleCal of googleCalendars) {
       const calId = googleCal.id;

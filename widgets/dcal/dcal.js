@@ -782,32 +782,34 @@ export class DCalWidget {
 
   /**
    * Save view mode setting to localStorage and database
+   * v1.14 - 10/12/25 11:45pm - CRITICAL FIX: Use dashie-calendar-settings instead of dashie-settings
    */
   async saveViewModeSetting(viewMode) {
     try {
-      // 1. Save to localStorage (immediate)
       const localStorage = window.parent?.localStorage || window.localStorage;
-      let settings = {};
       
+      // Load existing calendar settings from dashie-calendar-settings (NOT dashie-settings)
+      let calendarSettings = {};
       try {
-        const existing = localStorage.getItem('dashie-settings');
+        const existing = localStorage.getItem('dashie-calendar-settings');
         if (existing) {
-          settings = JSON.parse(existing);
+          calendarSettings = JSON.parse(existing);
         }
       } catch (e) {
-        logger.warn('Failed to parse existing settings', e);
+        logger.warn('Failed to parse existing calendar settings', e);
       }
       
-      if (!settings.calendar) settings.calendar = {};
-      settings.calendar.dcalViewMode = viewMode;
+      // Update view mode in calendar settings
+      calendarSettings.dcalViewMode = viewMode;
       
-      localStorage.setItem('dashie-settings', JSON.stringify(settings));
-      logger.debug('✓ Saved viewMode to localStorage', { viewMode });
+      // Save to dashie-calendar-settings (NOT dashie-settings)
+      localStorage.setItem('dashie-calendar-settings', JSON.stringify(calendarSettings));
+      logger.debug('✓ Saved viewMode to dashie-calendar-settings', { viewMode });
       
-      // 2. Save to database (persistent)
+      // Save to database
       const settingsInstance = window.parent?.settingsInstance || window.settingsInstance;
       if (settingsInstance && typeof settingsInstance.handleSettingChange === 'function') {
-        await settingsInstance.handleSettingChange('calendar', settings.calendar);
+        await settingsInstance.handleSettingChange('calendar', calendarSettings);
         logger.debug('✓ Saved viewMode to database', { viewMode });
       }
       

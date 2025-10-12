@@ -437,8 +437,8 @@ export class DeviceFlowProvider {
         }
       };
 
-      // Determine account type (for now, assume 'personal' - can be enhanced later)
-      const accountType = 'personal';
+      // v1.10 - 10/12/25 11:50pm - CRITICAL FIX: Use 'primary' not 'personal' for account type
+      const accountType = 'primary';
 
       // Queue for processing during startup sequence
       const queuedToken = {
