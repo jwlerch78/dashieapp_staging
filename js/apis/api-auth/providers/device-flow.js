@@ -140,6 +140,11 @@ export class DeviceFlowProvider {
   createDeviceCodeOverlay(deviceData) {
     const overlay = document.createElement('div');
     overlay.id = 'device-flow-overlay';
+
+    const existingOverlay = document.getElementById('device-flow-overlay');
+      if (existingOverlay) {
+        existingOverlay.remove(); // Remove previous overlay
+      }
     
     const verificationUrl = deviceData.verification_uri || 'https://www.google.com/device';
     const userCode = deviceData.user_code;
