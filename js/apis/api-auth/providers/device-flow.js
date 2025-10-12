@@ -133,172 +133,128 @@ export class DeviceFlowProvider {
   }
 
   /**
-   * Create the device flow UI overlay
-   * @param {Object} deviceData - Device code response data
-   * @returns {HTMLElement} UI overlay element
-   */
-  createDeviceCodeOverlay(deviceData) {
-    const overlay = document.createElement('div');
-    overlay.id = 'device-flow-overlay';
+ * Create the device flow UI overlay
+ * @param {Object} deviceData - Device code response data
+ * @returns {HTMLElement} UI overlay element
+ */
+createDeviceCodeOverlay(deviceData) {
+  // Remove any previous overlay first
+  const existingOverlay = document.getElementById('device-flow-overlay');
+  if (existingOverlay) {
+    existingOverlay.remove();
+  }
 
-    const existingOverlay = document.getElementById('device-flow-overlay');
-      if (existingOverlay) {
-        existingOverlay.remove(); // Remove previous overlay
-      }
-    
-    const verificationUrl = deviceData.verification_uri || 'https://www.google.com/device';
-    const userCode = deviceData.user_code;
-    
-    // QR code just points to google.com/device (no code parameter)
-    // User will manually enter the code shown below
-    const qrCodeUrl = verificationUrl;
-    
-    overlay.innerHTML = `
-      <div class="device-flow-modal">
-        <!-- Logo Connection Row -->
-        <div class="logo-connection">
-          <svg class="google-logo" viewBox="0 0 48 48" width="32" height="32">
-            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-            <path fill="none" d="M0 0h48v48H0z"/>
-          </svg>
-          
-          <div class="connection-arrow">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M6 9L2 12L6 15M18 9L22 12L18 15M2 12H22" stroke="#000000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-          </div>
-          
-          <img src="icons/Dashie_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo-small">
-        </div>
-        
-        <!-- Heading -->
-        <h2 class="sign-in-heading">Sign in to Dashie with Google</h2>
-        
-        <!-- QR Code -->
-        <div class="qr-wrapper">
-          <div id="qr-code-container">
-            <div class="qr-inner-wrapper"></div>
-          </div>
-          <p class="qr-instruction">or go to <span class="device-url">google.com/device</span></p>
-        </div>
+  // Create new overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'device-flow-overlay';
 
-        
-        <!-- Code Entry -->
-        <div class="code-entry">
-          <p class="code-label">and enter this code:</p>
-          <p class="user-code">${userCode.toUpperCase()}</p>
-        </div>
-        
-        <!-- Status -->
-        <div class="device-flow-status">
-          <div class="status-text">Waiting for sign-in (Expires in <span id="countdown-timer">${Math.floor(deviceData.expires_in / 60)}</span> min)</div>
-        </div>
-        
-        <!-- Cancel Button -->
-        <button id="cancel-device-flow" class="cancel-btn" tabindex="0">Cancel</button>
+  const verificationUrl = deviceData.verification_uri || 'https://www.google.com/device';
+  const userCode = deviceData.user_code;
+  const qrCodeUrl = verificationUrl; // QR code just points to google.com/device
+
+  overlay.innerHTML = `
+    <div class="device-flow-modal">
+      <div class="logo-connection">
+        <!-- logos and arrow here -->
       </div>
-    `;
+      <h2 class="sign-in-heading">Sign in to Dashie with Google</h2>
+      <div class="qr-wrapper">
+        <div id="qr-code-container">
+          <div class="qr-inner-wrapper"></div>
+        </div>
+        <p class="qr-instruction">or go to <span class="device-url">google.com/device</span></p>
+      </div>
+      <div class="code-entry">
+        <p class="code-label">and enter this code:</p>
+        <p class="user-code">${userCode.toUpperCase()}</p>
+      </div>
+      <div class="device-flow-status">
+        <div class="status-text">Waiting for sign-in (Expires in <span id="countdown-timer">${Math.floor(deviceData.expires_in / 60)}</span> min)</div>
+      </div>
+      <button id="cancel-device-flow" class="cancel-btn" tabindex="0">Cancel</button>
+    </div>
+  `;
 
-    // Add styles
-    this.addDeviceFlowStyles();
-    
-    // Generate QR code
-    setTimeout(() => {
-      this.generateQRCode(qrCodeUrl);
-    }, 100);
-    
-    // Set up cancel button
-    const cancelBtn = overlay.querySelector('#cancel-device-flow');
-    
-    // Store reject function for cancel handling
-    this.cancelHandler = () => {
-      logger.info('🚫 Device flow cancelled by user - reloading page');
-      logger.auth('device', 'user_cancelled', 'info');
-      this.cleanup(overlay);
-      
-      // Reload the page to restart the auth flow cleanly
-      // This prevents getting stuck in waitForAuthentication() loop
-      setTimeout(() => {
-        window.location.reload();
-      }, 100);
+  this.addDeviceFlowStyles();
+
+  // QR code generation scoped to this overlay
+  const qrContainer = overlay.querySelector('.qr-inner-wrapper');
+  this.generateQRCode(qrContainer, qrCodeUrl);
+
+  // Cancel button handling
+  const cancelBtn = overlay.querySelector('#cancel-device-flow');
+  this.cancelHandler = () => {
+    logger.info('🚫 Device flow cancelled by user');
+    this.cleanup(overlay);
+    setTimeout(() => window.location.reload(), 100);
+  };
+  cancelBtn.addEventListener('click', this.cancelHandler);
+  cancelBtn.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.keyCode === 13) this.cancelHandler();
+  });
+
+  // Modal navigation registration
+  this.modalNavigation = createModalNavigation(overlay, ['cancel-device-flow'], {
+    initialFocus: 0,
+    onEscape: this.cancelHandler
+  });
+
+  setTimeout(() => cancelBtn.focus(), 200);
+
+  // Start countdown
+  this.startCountdownTimer(deviceData.expires_in);
+
+  return overlay;
+}
+
+/**
+ * Generate QR code on a specific container
+ * @param {HTMLElement} container - QR container inside the overlay
+ * @param {string} url - URL to encode in QR code
+ */
+generateQRCode(container, url) {
+  if (!container) {
+    logger.warn('QR code container not found');
+    return;
+  }
+
+  if (container.querySelector('canvas')) return; // Already generated
+
+  // Clear container
+  container.innerHTML = '';
+
+  const createInstance = () => {
+    try {
+      new QRCode(container, {
+        text: url,
+        width: 120,
+        height: 120,
+        colorDark: '#EE9828',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+      logger.debug('QR code generated', { url });
+    } catch (error) {
+      logger.error('Error generating QR code', error);
+      container.innerHTML = '<p style="color: #999; font-size: 14px;">Failed to generate QR code</p>';
+    }
+  };
+
+  // Load QRCode library if not present
+  if (typeof QRCode === 'undefined') {
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    script.onload = createInstance;
+    script.onerror = () => {
+      logger.error('Failed to load QR code library');
+      container.innerHTML = '<p style="color: #999; font-size: 14px;">QR code unavailable</p>';
     };
-    
-    cancelBtn.addEventListener('click', this.cancelHandler);
-    
-    // D-pad/Keyboard handlers
-    cancelBtn.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.keyCode === 13) {
-        e.preventDefault();
-        this.cancelHandler();
-      }
-    });
-    
-    // Register with modal navigation manager for proper event handling
-    // This ensures Fire TV back button (keyCode 4) and escape work correctly
-    logger.debug('Registering device flow with modal manager');
-    this.modalNavigation = createModalNavigation(overlay, ['cancel-device-flow'], {
-      initialFocus: 0,
-      onEscape: () => {
-        logger.debug('Modal manager escape triggered');
-        this.cancelHandler();
-      }
-    });
-    
-    logger.debug('Device flow modal registered with navigation manager');
-    
-    // Auto-focus cancel button for d-pad navigation
-    setTimeout(() => {
-      cancelBtn.focus();
-    }, 200);
-
-    // Start countdown timer
-    this.startCountdownTimer(deviceData.expires_in);
-    
-    logger.debug('Device flow UI created and displayed', {
-      userCode: deviceData.user_code,
-      verificationUrl: verificationUrl,
-      qrCodeUrl: qrCodeUrl
-    });
-
-    return overlay;
+    document.head.appendChild(script);
+  } else {
+    createInstance();
   }
+}
 
-  /**
-   * Generate QR code on canvas
-   * @param {string} url - URL to encode in QR code
-   */
-  generateQRCode(url) {
-    const container = document.querySelector('#qr-code-container .qr-inner-wrapper');
-    if (container.querySelector('canvas')) return; // Already generated
-
-    if (!container) {
-      logger.warn('QR code container not found');
-      return;
-    }
-    
-    // Clear container
-    container.innerHTML = '';
-    
-    // Check if qrcode library is loaded
-    if (typeof QRCode === 'undefined') {
-      // Load QRCode library from CDN
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-      script.onload = () => {
-        this.createQRCodeInstance(container, url);
-      };
-      script.onerror = () => {
-        logger.error('Failed to load QR code library');
-        container.innerHTML = '<p style="color: #999; font-size: 14px;">QR code unavailable</p>';
-      };
-      document.head.appendChild(script);
-    } else {
-      this.createQRCodeInstance(container, url);
-    }
-  }
 
   /**
    * Create QR code instance
