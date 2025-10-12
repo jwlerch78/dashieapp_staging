@@ -362,6 +362,22 @@ export async function updateZipCodeLocationDisplay(overlay, zipCode) {
     return;
   }
   
+  // FIRST: Check if we have cached location info in settings (avoids API call)
+  if (window.settingsInstance?.controller) {
+    const cachedCity = window.settingsInstance.controller.getSetting('family.city');
+    const cachedState = window.settingsInstance.controller.getSetting('family.state');
+    const cachedZip = window.settingsInstance.controller.getSetting('family.zipCode');
+    
+    // If we have cached data for THIS zip code, use it
+    if (cachedZip === zipCode && cachedCity && cachedState) {
+      locationDisplay.textContent = `${cachedCity}, ${cachedState}`;
+      locationDisplay.style.color = 'var(--text-secondary, #999)';
+      console.log('⚙️ Using cached location data', { zipCode, city: cachedCity, state: cachedState });
+      return;
+    }
+  }
+  
+  // FALLBACK: Only call API if we don't have cached data
   // Show loading state
   locationDisplay.textContent = 'Looking up location...';
   locationDisplay.style.color = 'var(--text-secondary, #999)';
