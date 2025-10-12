@@ -250,7 +250,7 @@ export class SettingsControllerCore {
       
       // Check if we have valid settings with required fields
       // If settings exist but don't have a theme, they're incomplete (calendar-only or corrupt)
-      const hasValidSettings = loadedSettings && loadedSettings.display && loadedSettings.display.theme;
+      const hasValidSettings = loadedSettings && loadedSettings.interface && loadedSettings.interface.theme;
       
       if (!hasValidSettings) {
         console.log('⚙️ No valid settings found - using defaults (including light theme)');

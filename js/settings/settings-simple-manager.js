@@ -594,15 +594,15 @@ export class SimplifiedSettings {
     nextScreen.classList.add('sliding-in-right', 'active');
 
     
-    setTimeout(() => {
-      currentScreen.classList.remove('sliding-out-right');
-      previousScreen.classList.remove('sliding-in-left');
-      
-      // Reload settings to update display values
-      this.loadCurrentSettings();
-      
-      this.selectionHandler.highlightCurrentSelections(this.overlay, this.getCurrentScreenId());
-    }, 300);
+  setTimeout(() => {
+    currentScreen.classList.remove('sliding-out-left');
+    nextScreen.classList.remove('sliding-in-right');
+    
+    // Reload settings to update display values
+    this.loadCurrentSettings();
+    
+    this.selectionHandler.highlightCurrentSelections(this.overlay, this.getCurrentScreenId());
+  }, 300);
     
     this.selectionHandler.updateNavBar(this.overlay, this.getCurrentScreenId(), this.navigationStack);
   }

@@ -76,7 +76,7 @@ export function setupEventHandlers(overlay, settingsManager) {
       
       // Save setting via settings manager
       if (settingsManager && settingsManager.handleSettingChange) {
-        settingsManager.handleSettingChange('display.sleepTimerEnabled', enabled);
+        settingsManager.handleSettingChange('interface.sleepTimerEnabled', enabled);
       }
     });
     
@@ -92,7 +92,7 @@ export function setupEventHandlers(overlay, settingsManager) {
       
       // Save setting via settings manager
       if (settingsManager && settingsManager.handleSettingChange) {
-        settingsManager.handleSettingChange('display.dynamicGreeting', enabled);
+        settingsManager.handleSettingChange('interface.dynamicGreeting', enabled);
       }
       
       // Force immediate update of header greeting
