@@ -95,9 +95,9 @@ export function getAllSettings() {
 
 export function getSleepTimes() {
   return {
-    sleepTime: getSettingValue('display.sleepTime', '22:00'),
-    wakeTime: getSettingValue('display.wakeTime', '07:00'),
-    reSleepDelay: getSettingValue('display.reSleepDelay', 30)
+    sleepTime: getSettingValue('interface.sleepTime', '22:00'),
+    wakeTime: getSettingValue('interface.wakeTime', '07:00'),
+    reSleepDelay: getSettingValue('interface.reSleepDelay', 30)
   };
 }
 

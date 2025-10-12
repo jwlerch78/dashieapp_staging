@@ -221,7 +221,7 @@
               // Check if this update contains anything relevant to header widget
               const hasFamilyName = data.payload?.settings?.['family.familyName'];
               const hasTheme = data.payload?.theme;
-              const hasDynamicGreeting = data.payload?.settings?.['display.dynamicGreeting'] !== undefined;
+              const hasDynamicGreeting = data.payload?.settings?.['interface.dynamicGreeting'] !== undefined;
               
               // Only log if update is relevant
               if (hasFamilyName || hasTheme || hasDynamicGreeting) {
@@ -234,7 +234,7 @@
               
               // Handle dynamic greeting setting changes
               if (hasDynamicGreeting) {
-                this.dynamicGreetingEnabled = data.payload.settings['display.dynamicGreeting'] === true;
+                this.dynamicGreetingEnabled = data.payload.settings['interface.dynamicGreeting'] === true;
                 logger.debug('Dynamic greeting setting changed', { enabled: this.dynamicGreetingEnabled });
               }
               

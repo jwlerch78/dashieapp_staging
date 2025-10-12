@@ -82,7 +82,7 @@ async function saveTheme(theme) {
   // Save to settings system
   if (settingsSystem) {
     try {
-      settingsSystem.setSettingValue('display.theme', theme);
+      settingsSystem.setSettingValue('interface.theme', theme);
       logger.debug('Theme saved to settings system');
     } catch (error) {
       logger.debug('Failed to save to settings:', error.message);
@@ -195,7 +195,7 @@ export async function initializeThemeSystem() {
     // Only override if settings system has different theme
     if (settingsConnected && settingsSystem) {
       try {
-        const settingsTheme = settingsSystem.getSettingValue('display.theme', currentTheme);
+        const settingsTheme = settingsSystem.getSettingValue('interface.theme', currentTheme);
         if (settingsTheme !== currentTheme && Object.values(THEMES).includes(settingsTheme)) {
           logger.info('Settings system has different theme, switching:', { from: currentTheme, to: settingsTheme });
           await switchTheme(settingsTheme);
@@ -209,7 +209,7 @@ export async function initializeThemeSystem() {
     
     // Listen for settings changes
     eventSystem.on(EVENTS.SETTINGS_CHANGED, (data) => {
-      if (data.path === 'display.theme' && data.value !== currentTheme) {
+      if (data.path === 'interface.theme' && data.value !== currentTheme) {
         logger.info('Theme change from settings detected');
         switchTheme(data.value);
       }

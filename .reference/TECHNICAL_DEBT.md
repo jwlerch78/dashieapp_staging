@@ -224,7 +224,7 @@ This prevents us from supporting multiple login providers (Amazon, Email/Passwor
 **Issue:** Services have implicit dependencies on specific settings fields:
 - JWT service depends on `settings.tokenAccounts`
 - Calendar service depends on `settings.calendar`
-- Theme system depends on `settings.display.theme`
+- Theme system depends on `settings.interface.theme`
 
 None of these dependencies are explicit or enforced.
 

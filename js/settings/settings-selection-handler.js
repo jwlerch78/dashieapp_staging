@@ -1,5 +1,4 @@
 // js/settings/settings-selection-handler.js
-// v1.1 - 10/12/25 4:32pm - Updated displayMap to use interface.* paths instead of display.* and added sidebarMode mapping
 // CHANGE SUMMARY: Updated highlightCurrentSelections to use sync highlightPhotoSettings for photos screen instead of async populatePhotoStats
 
 import { TimeSelectionHandler } from './time-selection-handler.js';
@@ -38,7 +37,7 @@ export class SettingsSelectionHandler {
 
   /**
    * Update the parent display value when a setting changes
-   * @param {string} setting - Setting path (e.g., 'display.theme')
+   * @param {string} setting - Setting path (e.g., 'interface.theme')
    * @param {string} value - New value
    * @param {HTMLElement} overlay - The settings overlay element
    */
@@ -47,7 +46,6 @@ export class SettingsSelectionHandler {
       'interface.theme': { id: 'mobile-theme-value', format: (v) => v === 'dark' ? 'Dark' : 'Light' },
       'interface.sleepTime': { id: 'mobile-sleep-time-value', format: (v) => this.timeHandler.formatTime(v) },
       'interface.wakeTime': { id: 'mobile-wake-time-value', format: (v) => this.timeHandler.formatTime(v) },
-      'interface.sidebarMode': { id: 'mobile-sidebar-mode-value', format: (v) => v === 'core' ? 'Core' : 'Plus' },
       'photos.source': { 
         id: 'mobile-photo-album-value', 
         format: (v) => ({ recent: 'Recent Photos', family: 'Family Album', vacation: 'Vacation 2024' }[v] || v)

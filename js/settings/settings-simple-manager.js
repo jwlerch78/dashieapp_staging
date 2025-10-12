@@ -600,6 +600,8 @@ export class SimplifiedSettings {
     
     // Reload settings to update display values
     this.loadCurrentSettings();
+    handleScreenEnter(screenId, this.overlay, this);
+
     
     this.selectionHandler.highlightCurrentSelections(this.overlay, this.getCurrentScreenId());
   }, 300);
@@ -699,7 +701,7 @@ export class SimplifiedSettings {
 
   handleThemeChange(theme) {
     console.log(`⚙️ Theme changed to: ${theme}`);
-    this.handleSettingChange('display.theme', theme);
+    this.handleSettingChange('interface.theme', theme);
     
     if (theme === 'dark') {
       document.body.classList.remove('theme-light');
@@ -749,7 +751,7 @@ export class SimplifiedSettings {
 
   /**
    * Get a setting value by path
-   * @param {string} path - Dot-notation path (e.g., 'display.theme')
+   * @param {string} path - Dot-notation path (e.g., 'interface.theme')
    * @param {*} defaultValue - Value to return if setting not found
    * @returns {*} Setting value or defaultValue
    */
@@ -763,7 +765,7 @@ export class SimplifiedSettings {
 
   /**
    * Set a setting value by path
-   * @param {string} path - Dot-notation path (e.g., 'display.theme')
+   * @param {string} path - Dot-notation path (e.g., 'interface.theme')
    * @param {*} value - Value to set
    * @returns {boolean} Success status
    */

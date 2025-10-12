@@ -108,7 +108,7 @@ class ConsoleCommands {
   getSettings()             - Get all settings
   getSetting('path.name')   - Get specific setting
     Examples:
-      getSetting('display.theme')
+      getSetting('interface.theme')
       getSetting('family.familyName')
 
 🔐 AUTH & JWT STATUS:

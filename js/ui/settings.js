@@ -181,7 +181,7 @@ function isTimeInSleepPeriod() {
 function isSleepTimerEnabled() {
   // Check modern settings system first
   if (window.settingsInstance?.controller) {
-    const enabled = window.settingsInstance.controller.getSetting('display.sleepTimerEnabled');
+    const enabled = window.settingsInstance.controller.getSetting('interface.sleepTimerEnabled');
     // Default to true if not set (backwards compatibility)
     return enabled !== false;
   }
