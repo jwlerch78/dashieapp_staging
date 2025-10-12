@@ -639,28 +639,35 @@ export class DeviceFlowProvider {
         font-weight: 600;
       }
       
-      /* QR Code */
-      .qr-wrapper {
-        margin: 0 auto 8px;
-      }
-      
-      #qr-code-container {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 8px;
-        background: #fff;
-        border-radius: 8px;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        margin: 0 auto 6px;
-      }
-      
-      #qr-code-container img,
-      #qr-code-container canvas {
-        display: block !important;
-        width: 120px !important;
-        height: 120px !important;
-      }
+     /* QR Code */
+    .qr-wrapper {
+      display: flex;
+      flex-direction: column;     /* Stack the QR and text vertically */
+      align-items: center;        /* Center horizontally */
+      justify-content: center;
+      margin: 0 auto 8px;
+      text-align: center;
+    }
+
+    #qr-code-container {
+      display: flex;              /* Let contents center inside the box */
+      align-items: center;
+      justify-content: center;
+      padding: 8px;
+      background: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      margin-bottom: 6px;
+      box-sizing: border-box;
+    }
+
+    #qr-code-container img,
+    #qr-code-container canvas {
+      display: block !important;
+      width: 120px !important;
+      height: 120px !important;
+    }
+
       
       .qr-instruction {
         margin: 6px 0 0 0;
