@@ -1049,37 +1049,34 @@ async handleRemoveAccountConfirm() {
     const calendarsToRemove = Object.keys(account.calendars || {});
     delete this.calendarSettings.accounts[accountType];
     
-    // 3. CRITICAL FIX: Only remove calendars that are EXCLUSIVELY in this account
-    // Shared calendars that exist in other accounts should NOT be removed
-    const calendarsExclusiveToAccount = calendarsToRemove.filter(calId => {
-      // Check if this calendar exists in any OTHER account
-      for (const [otherAccountType, otherAccount] of Object.entries(this.calendarSettings.accounts)) {
-        if (otherAccountType !== accountType && otherAccount.calendars?.[calId]) {
-          console.log(`📅 Keeping calendar ${calId} - also exists in ${otherAccountType}`);
-          return false; // Calendar exists in another account, don't remove
-        }
-      }
-      return true; // Calendar only exists in removed account, safe to remove
+    // 3. IMPROVED FIX: Use calendarAccountMap to identify which calendars belong to this account
+    // This correctly handles shared calendars by checking which account has them enabled
+    const calendarsToRemoveFromActive = this.calendarSettings.activeCalendarIds.filter(calId => {
+      return this.calendarSettings.calendarAccountMap?.[calId] === accountType;
     });
     
-    // Remove only exclusive calendars from activeCalendarIds
+    console.log(`📅 Found ${calendarsToRemoveFromActive.length} calendars to remove based on calendarAccountMap:`, {
+      calendarsInRemovedAccount: calendarsToRemove,
+      calendarsActiveInThisAccount: calendarsToRemoveFromActive,
+      calendarAccountMapSnapshot: {...this.calendarSettings.calendarAccountMap}
+    });
+    
+    // Remove calendars from activeCalendarIds
     this.calendarSettings.activeCalendarIds = this.calendarSettings.activeCalendarIds.filter(
-      calId => !calendarsExclusiveToAccount.includes(calId)
+      calId => !calendarsToRemoveFromActive.includes(calId)
     );
     
-    console.log(`📅 Removed ${calendarsExclusiveToAccount.length} exclusive calendars from activeCalendarIds`, {
-      totalCalendarsInAccount: calendarsToRemove.length,
-      calendarsExclusiveToAccount,
-      calendarsKeptInOtherAccounts: calendarsToRemove.filter(c => !calendarsExclusiveToAccount.includes(c)),
+    console.log(`📅 Removed ${calendarsToRemoveFromActive.length} calendars from activeCalendarIds`, {
+      removed: calendarsToRemoveFromActive,
       activeCalendarsRemaining: this.calendarSettings.activeCalendarIds
     });
     
-    // 4. Update calendar account map - only remove exclusive calendars
+    // 4. Update calendar account map - remove all calendars that belonged to this account
     if (this.calendarSettings.calendarAccountMap) {
-      for (const calId of calendarsExclusiveToAccount) {
+      for (const calId of calendarsToRemoveFromActive) {
         delete this.calendarSettings.calendarAccountMap[calId];
       }
-      console.log(`📅 Updated calendarAccountMap - removed ${calendarsExclusiveToAccount.length} mappings`);
+      console.log(`📅 Updated calendarAccountMap - removed ${calendarsToRemoveFromActive.length} mappings`);
     }
     
     // 5. Save settings and trigger calendar refresh

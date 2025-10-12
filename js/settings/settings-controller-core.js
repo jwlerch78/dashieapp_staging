@@ -1,4 +1,5 @@
 // js/settings/settings-controller-core.js
+// v1.8 - 10/12/25 9:15pm - CRITICAL FIX: Calendar settings now replace (not merge) to prevent stale data overwrite
 // v1.7 - 10/12/25 7:45pm - CRITICAL: Added user mismatch validation to prevent Account A settings being used by Account B after logout/login
 // v1.6 - 10/10/25 4:10pm - Changed default reSleepDelay to 10 minutes (was 30)
 // v1.5 - 10/10/25 4:00pm - Changed default sleepTimerEnabled to false (disabled by default)
@@ -495,7 +496,16 @@ export class SettingsControllerCore {
       return false;
     }
 
-    this.currentSettings[categoryId] = { ...this.currentSettings[categoryId], ...settings };
+    // ✅ CRITICAL FIX: For calendar, REPLACE completely (don't merge)
+    // Calendar settings manager maintains the full state including all accounts.
+    // Merging with stale currentSettings.calendar would lose newly added accounts.
+    if (categoryId === 'calendar') {
+      console.log('⚙️ 📅 Replacing calendar settings completely (not merging) to preserve new accounts');
+      this.currentSettings[categoryId] = settings;
+    } else {
+      // For other categories, merge as before
+      this.currentSettings[categoryId] = { ...this.currentSettings[categoryId], ...settings };
+    }
 
     this.isDirty = true;
     this.currentSettings.lastModified = Date.now();

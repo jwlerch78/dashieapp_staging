@@ -1,6 +1,6 @@
 # Dashie Technical Debt Backlog
 
-**Last Updated:** October 9, 2025
+**Last Updated:** October 12, 2025
 
 This document tracks known technical debt, architectural improvements, and refactoring tasks that should be addressed in future development cycles.
 
@@ -79,6 +79,90 @@ This prevents us from supporting multiple login providers (Amazon, Email/Passwor
 - `supabase/functions/database-operations/index.ts`
 
 **Workaround in place:** Lines 255-264 in `settings-controller-core.js` preserve `tokenAccounts` when using default settings.
+
+### 2. Shared Calendar Identification Architecture Issue
+**Issue:** Calendar IDs are not unique when the same calendar is shared across multiple accounts. The current system uses raw calendar IDs (typically email addresses like `jwlerch@gmail.com`) as identifiers in `activeCalendarIds` and keys in `calendarAccountMap`. When the same calendar exists in multiple accounts, the system cannot distinguish which account's version is enabled.
+
+**Example Scenario:**
+- User has `jwlerch@gmail.com` calendar in both `primary` and `account2`
+- User enables it only in `account2`
+- When `account2` is removed, the calendar should be removed from `activeCalendarIds`
+- But the system can't tell if `jwlerch@gmail.com` in `activeCalendarIds` came from `primary` or `account2`
+
+**Current Workaround (as of October 12, 2025):**
+- Uses `calendarAccountMap` to track which account each active calendar belongs to
+- When removing an account, filters `activeCalendarIds` by checking `calendarAccountMap[calId] === accountType`
+- This works but is fragile and doesn't solve the fundamental architecture issue
+
+**Root Cause:**
+The UI level correctly tracks account association (via `data-account` attribute on calendar items), but the data level (`activeCalendarIds`, event fetching) loses this information by using raw calendar IDs.
+
+**Impact:**
+- Cannot properly remove calendars when an account is deleted
+- Users may see events from wrong account's version of a shared calendar
+- Calendar account map can become inconsistent
+- Difficult to debug calendar-related issues
+- Users confused when "disabled" calendars still show events
+
+**Proper Solution:**
+Implement account-prefixed calendar IDs throughout the system:
+- Format: `{accountType}-{calendarId}` (e.g., `primary-jwlerch@gmail.com`, `account2-jwlerch@gmail.com`)
+- Makes each calendar globally unique even when shared
+- Eliminates need for separate `calendarAccountMap` tracking
+- Simplifies removal logic significantly
+
+**Files Requiring Changes:**
+1. `widgets/dcal/dcal-settings/dcal-settings-manager.js`
+   - `toggleCalendar()`: Generate prefixed IDs when adding to `activeCalendarIds`
+   - `createCalendarItem()`: Use prefixed IDs in data attributes
+   - `saveCalendarSettings()`: Build `activeCalendarIds` with prefixes
+   - `handleRemoveAccountConfirm()`: Simple removal by prefix matching
+
+2. `js/services/calendar-service.js`
+   - `loadActiveCalendarIds()`: Parse prefixed IDs
+   - `fetchAllCalendarsMetadata()`: Handle prefixed IDs
+   - Event rendering: Strip prefix to get actual calendar ID for API calls
+
+3. `js/apis/google/google-client.js`
+   - `getAllCalendarEvents()`: Parse prefixed IDs to extract account + calendar
+   - `getCalendarEvents()`: Accept both prefixed and raw IDs
+
+4. `js/utils/calendar-sync-helper.js`
+   - Auto-enable logic: Generate prefixed IDs
+   - Calendar initialization: Use consistent ID format
+
+5. All calendar widgets
+   - Event rendering: Handle prefixed calendar IDs
+   - Color mapping: Update to use prefixed IDs
+
+**Migration Strategy:**
+1. Add backward compatibility layer that detects old format
+2. Automatically convert old `activeCalendarIds` on load
+3. Maintain dual support for 1-2 versions
+4. Remove old format support after migration period
+
+**Effort:** Medium-Large (3-5 days)
+- Design and implement prefix system (1 day)
+- Update all files listed above (2 days)
+- Testing with multiple accounts and shared calendars (1 day)
+- Migration logic and backward compatibility (1 day)
+
+**Priority:** Medium - Current workaround is functional but fragile
+**Date Added:** October 12, 2025
+**Current Status:** Interim fix in place using `calendarAccountMap`, proper solution awaiting scheduling
+
+**Related Code:**
+- `widgets/dcal/dcal-settings/dcal-settings-manager.js` (lines 750-800, 1000-1100)
+- `js/services/calendar-service.js` (event fetching logic)
+- `js/apis/google/google-client.js` (getAllCalendarEvents)
+
+**Testing Checklist (when implementing proper solution):**
+- [ ] Calendar shared between 2 accounts shows correctly in both
+- [ ] Enabling calendar in account A doesn't affect account B
+- [ ] Removing account A removes only its version from activeCalendarIds
+- [ ] Events continue to load correctly after account removal
+- [ ] Migration from old format to new format works seamlessly
+- [ ] Backward compatibility with old localStorage data
 
 ---
 

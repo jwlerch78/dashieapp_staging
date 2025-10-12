@@ -1,7 +1,8 @@
 // widgets/dcal/dcal.js - Main Dashie Calendar Widget Class
+// v1.14 - 10/12/25 9:45pm - FIXED: D-pad left navigation now only returns to menu when AT home position
 // v1.13 - 10/12/25 9:25pm - FIXED: Added scroll tracking reset on "Go to Today" and view mode switch
 // v1.12 - 10/11/25 - Updated to 3-state messaging protocol
-// CHANGE SUMMARY: Reset scroll tracking on intentional navigation (today/view change) to enable auto-scroll
+// CHANGE SUMMARY: Fixed left navigation to check home status BEFORE and AFTER navigation, both directions now update home status
 
 import { createLogger } from '../../js/utils/logger.js';
 import { DCalConfig } from './dcal-config.js';
@@ -178,25 +179,29 @@ export class DCalWidget {
   
   switch (action) {
     case 'left':
-      // NEW: Check if at home position and menu is not active
-      if (this.isAtHome && !this.menuActive) {
-        // At boundary - request return to menu
-        this.requestReturnToMenu();
-        return;
-      }
+      // ✅ FIXED: Check if at home position BEFORE navigating
+      const wasAtHome = this.isAtHome;
       
-      // EXISTING: Navigate backward
+      // Navigate backward first
       this.navigateCalendar('previous');
       
-      // NEW: Update home status after navigation
+      // Update home status after navigation
       this.updateHomeStatus();
+      
+      // If we STARTED at home AND menu is not active AND still at home after navigation,
+      // we're at the boundary and should return to menu
+      if (wasAtHome && !this.menuActive && this.isAtHome) {
+        // Still at home after attempting to navigate - at boundary
+        this.requestReturnToMenu();
+      }
       break;
+      
     case 'right':
-      // EXISTING: Navigate forward
+      // Navigate forward
       this.navigateCalendar('next');
       
-      // NEW: Moving away from home
-      this.isAtHome = false;
+      // ✅ FIXED: Update home status after navigation (instead of just setting false)
+      this.updateHomeStatus();
       break;
     case 'up':
       this.scrollCalendar('up');

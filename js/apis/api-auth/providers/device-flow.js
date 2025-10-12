@@ -242,7 +242,7 @@ generateQRCode(container, url) {
     container.innerHTML = '<p style="color: #999; font-size: 14px;">Failed to generate QR code</p>';
   }
 };
-
+  
 
   // Load QRCode library if needed
   if (typeof QRCode === 'undefined') {

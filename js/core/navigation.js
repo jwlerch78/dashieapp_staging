@@ -1,7 +1,8 @@
 // js/core/navigation.js - Navigation Logic & Focus Management with Timeout System
+// v2.2 - 10/12/25 10:15pm - FIXED: LEFT sends command to widget first, widget decides when to return to menu
 // v2.1 - 10/12/25 8:15pm - WIDGET-FIRST WITH VISIBLE MENU: Widget is active and large, menu visible but dimmed, press LEFT/ESC to focus menu
 // v2.0 - 10/11/25 - Updated messaging protocol to 3-state model
-// CHANGE SUMMARY: Widget starts active (large, scale 1.08) with dimmed menu visible. LEFT/ESC focuses menu (un-dims it), RIGHT returns to active widget
+// CHANGE SUMMARY: LEFT command is now always sent to widget, widget uses return-to-menu message to trigger menu focus
 
 import { state, elements, findWidget, setFocus, setFocusedWidget, setCurrentMain } from './state.js';
 import { isFeatureEnabled } from './feature-flags.js';
@@ -546,53 +547,11 @@ export function moveFocus(dir) {
       console.log('📋 Left pressed in menu, ignoring');
       return;
     } 
-    // If in widget content and LEFT is pressed, focus the menu
+    // If in widget content, send all commands to widget
+    // Widget will send 'return-to-menu' message if it wants to go back to menu
     else {
-      if (dir === 'left') {
-        // FOCUS MENU when user presses LEFT from widget (menu already visible, just dimmed)
-        setWidgetActive(false);
-        
-        // Un-dim the menu to show it's now focused
-        undimFocusMenu();
-        
-        // Remove widget-active class and restore smaller scale
-        if (state.focusedWidget) {
-          console.log('🔵 BEFORE removing widget-active:', state.focusedWidget.className);
-          state.focusedWidget.classList.remove('widget-active');
-          
-          // Restore scale back to 1.05 (focused state)
-          const currentTransform = state.focusedWidget.style.transform;
-          if (currentTransform && currentTransform.includes('translate')) {
-            const translateMatch = currentTransform.match(/translate\(([^)]+)\)/);
-            if (translateMatch) {
-              const restoredTransform = `${translateMatch[0]} scale(1.05)`;
-              state.focusedWidget.style.transform = restoredTransform;
-              console.log('🔵 Restored transform to:', restoredTransform);
-            }
-          }
-          
-          console.log('🔵 AFTER removing widget-active:', state.focusedWidget.className);
-        }
-        
-        // Update controls guide to menu mode
-        updateControlsGuide(true);
-        
-        // Notify widget it exited active mode
-        sendToWidget({ action: 'exit-active' });
-        
-        // Send menu-active to notify widget which item is selected
-        const widgetId = getWidgetIdFromElement(state.focusedWidget);
-        const menuConfig = getWidgetMenuConfig(widgetId);
-        sendToWidget({
-          action: 'menu-active',
-          selectedItem: menuConfig.items[menuConfig.defaultIndex || 0].id
-        });
-        
-        console.log('← Focused menu (un-dimmed) - moved from widget to menu');
-        return;
-      }
-      
-      // Other directions: send to widget
+      // ✅ FIXED: Always send command to widget (including LEFT)
+      // Widget decides whether to return to menu via 'return-to-menu' message
       console.log('📋 User is IN WIDGET, sending command to widget');
       sendToWidget(dir);
       return;
