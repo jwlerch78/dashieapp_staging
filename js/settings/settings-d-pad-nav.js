@@ -329,16 +329,16 @@ export class SimplifiedNavigation {
           this.callbacks.onSettingChange(action.setting, action.value);
           this.selectionHandler.updateParentDisplayValue(action.setting, action.value, this.overlay);
           
-          // Store focus memory for Display screen
+          // Store focus memory for Interface screen
           const cellIndex = this.timeHandler.getDisplayScreenCellIndex(this.overlay, action.timeSettingName);
           if (cellIndex !== -1) {
-            this.screenFocusMemory['display'] = cellIndex;
-            console.log(`⚙️ Set focus memory for display screen to index ${cellIndex} (${action.timeSettingName})`);
+            this.screenFocusMemory['interface'] = cellIndex;
+            console.log(`⚙️ Set focus memory for interface screen to index ${cellIndex} (${action.timeSettingName})`);
           }
           
-          // Navigate directly back to Display screen
+          // Navigate directly back to Interface screen
           setTimeout(() => {
-            this.navigateDirectToScreen('display');
+            this.navigateDirectToScreen('interface');
           }, 300);
           break;
           
