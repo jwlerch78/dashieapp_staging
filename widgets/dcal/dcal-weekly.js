@@ -1,6 +1,7 @@
 // widgets/dcal/dcal-weekly.js - Weekly View Rendering Module
+// v1.7 - 10/12/25 9:20pm - FIXED: Added user scroll detection to prevent auto-scroll from overwriting manual scrolls
 // v1.6 - 10/10/25 5:30pm - Added n-day view mode support with settings integration
-// CHANGE SUMMARY: Added setTimeout to scroll positioning, event borders, collision detection for 2-3 events, dynamic text wrapping, n-day view support
+// CHANGE SUMMARY: User scroll tracking prevents auto-scroll conflicts; reset on initialize/updateSettings/resetScrollTracking
 
 import { createLogger } from '../../js/utils/logger.js';
 
@@ -15,6 +16,7 @@ export class DCalWeekly {
     this.isFocused = false;
     this.selectedEventId = null;
     this.savedScrollPosition = null; // Track scroll position across week changes
+    this.userHasScrolled = false; // Track if user manually scrolled
     
     // Settings for n-day view mode
     this.dayCount = settings.viewMode === 'week' ? 7 : parseInt(settings.viewMode) || 7;
@@ -40,6 +42,7 @@ export class DCalWeekly {
 
   initialize(date) {
     this.currentDate = date;
+    this.userHasScrolled = false; // Reset - fresh load
     this.calculateWeekDates();
     this.render();
     this.setOptimalScrollPosition();
@@ -609,6 +612,20 @@ export class DCalWeekly {
       return;
     }
 
+    // Don't auto-scroll if user has already scrolled manually
+    if (this.userHasScrolled) {
+      logger.debug('User has scrolled manually - skipping auto-scroll');
+      return;
+    }
+
+    // Add scroll listener to detect user interaction
+    const scrollListener = () => {
+      this.userHasScrolled = true;
+      timeGrid.removeEventListener('scroll', scrollListener);
+      logger.debug('User scroll detected - disabling future auto-scroll');
+    };
+    timeGrid.addEventListener('scroll', scrollListener);
+
     // Poll with reasonable delay until content is rendered
     let checkCount = 0;
     const maxChecks = 20; // Max 5 seconds (20 * 250ms)
@@ -616,13 +633,34 @@ export class DCalWeekly {
     const scrollWhenReady = () => {
       checkCount++;
       
-      // Check if content has been rendered (scrollHeight > 0)
-      if (timeGrid.scrollHeight > 0) {
+      // Check if user scrolled during polling - cancel immediately
+      if (this.userHasScrolled) {
+        timeGrid.removeEventListener('scroll', scrollListener);
+        logger.debug('Cancelling auto-scroll - user scrolled during poll');
+        return;
+      }
+      
+      // Check if content has been rendered (scrollHeight > 0 AND events exist)
+      const hasEvents = timeGrid.querySelectorAll('.event').length > 0 || 
+                        document.querySelectorAll('.allday-event').length > 0;
+      const hasContent = timeGrid.scrollHeight > 0;
+      
+      if (hasContent && (hasEvents || checkCount > 8)) {
         // Use scrollTime setting (default 8 AM)
+        // Allow scroll after 2 seconds (8 checks) even without events
         const targetHour = this.scrollTime;
         const targetScroll = targetHour * this.hourHeight;
         
+        // Remove listener before programmatic scroll to avoid triggering flag
+        timeGrid.removeEventListener('scroll', scrollListener);
         timeGrid.scrollTop = targetScroll;
+        
+        // Re-add listener after brief delay to catch subsequent user scrolls
+        setTimeout(() => {
+          if (!this.userHasScrolled) {
+            timeGrid.addEventListener('scroll', scrollListener);
+          }
+        }, 100);
         
         logger.debug('Set optimal scroll position', { 
           targetHour, 
@@ -636,6 +674,7 @@ export class DCalWeekly {
         // Content not ready yet, check again in 250ms
         setTimeout(scrollWhenReady, 250);
       } else {
+        timeGrid.removeEventListener('scroll', scrollListener);
         logger.warn('Failed to scroll - content not rendered after 5 seconds');
       }
     };
@@ -739,6 +778,8 @@ export class DCalWeekly {
     this.scrollTime = settings.scrollTime || 8;
     
     if (needsRerender) {
+      this.userHasScrolled = false; // Reset - settings changed
+      
       logger.info('Settings changed, re-rendering view', {
         dayCount: this.dayCount,
         startWeekOn: this.startWeekOn,
@@ -747,9 +788,17 @@ export class DCalWeekly {
       
       this.calculateWeekDates();
       this.render();
-      this.setOptimalScrollPosition();
+      this.setOptimalScrollPosition(); // Re-scroll with new settings
       this.updateNowIndicator();
     }
+  }
+
+  /**
+   * Reset scroll flag to allow auto-scroll (used when returning to today)
+   */
+  resetScrollTracking() {
+    this.userHasScrolled = false;
+    logger.debug('Scroll tracking reset - auto-scroll enabled');
   }
 
   /**

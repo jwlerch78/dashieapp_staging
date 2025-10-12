@@ -1,9 +1,10 @@
 // js/settings/settings-simple-manager.js - Auto-save implementation
+// v1.5 - 10/12/25 9:15pm - FIXED: Removed modal stack check in customHandler to let modal manager handle stacked modals
 // v1.4 - 10/11/25 3:30pm - Added public API methods to standardize on window.settingsInstance
 // v1.3 - 10/11/25 3:15pm - Fixed calendar settings save by detecting category-level updates
 // v1.2 - 10/9/25 - Fixed default theme fallback from dark to light
 // Version: 1.1 | Last Updated: 2025-01-09 20:45 EST
-// CHANGE SUMMARY: Added account deletion handlers and modal management
+// CHANGE SUMMARY: Fixed photos modal back button by letting modal manager handle priority naturally
 
 import { SimplifiedNavigation } from './settings-d-pad-nav.js';
 import { setupEventHandlers } from './settings-event-handler.js';
@@ -204,12 +205,8 @@ export class SimplifiedSettings {
       this.modalNavigation = createModalNavigation(this.overlay, [], {
         onEscape: () => this.handleCancel(),
         customHandler: (action) => {
-          // CRITICAL: Check if another modal is on top of settings
-          if (window.dashieModalManager.modalStack.length > 1) {
-            console.log('⚙️ 🔧 Another modal is active on top of settings, letting it handle');
-            console.log('⚙️ 🔧 Modal stack depth:', window.dashieModalManager.modalStack.length);
-            return false; // Explicitly return false so modal can handle it
-          }
+          // Let modal manager handle priority for stacked modals (e.g. photos modal on top)
+          // Modal manager automatically calls handleAction on top-most modal first
           
           console.log('⚙️ 🔧 CustomHandler called with action:', action);
           console.log('⚙️ 🔧 this.navigation exists?', !!this.navigation);

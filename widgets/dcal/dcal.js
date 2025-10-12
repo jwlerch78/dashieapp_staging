@@ -1,6 +1,7 @@
 // widgets/dcal/dcal.js - Main Dashie Calendar Widget Class
+// v1.13 - 10/12/25 9:25pm - FIXED: Added scroll tracking reset on "Go to Today" and view mode switch
 // v1.12 - 10/11/25 - Updated to 3-state messaging protocol
-// CHANGE SUMMARY: Updated handleMenuAction to use enter-focus/enter-active/exit-active/exit-focus
+// CHANGE SUMMARY: Reset scroll tracking on intentional navigation (today/view change) to enable auto-scroll
 
 import { createLogger } from '../../js/utils/logger.js';
 import { DCalConfig } from './dcal-config.js';
@@ -578,6 +579,9 @@ export class DCalWidget {
           this.homeDate.setHours(0, 0, 0, 0);
           this.isAtHome = true;
           
+          // Reset scroll tracking to enable auto-scroll
+          this.weekly.resetScrollTracking();
+          
           // Update weekly view
           this.weekly.setDate(this.currentDate);
           this.updateCalendarHeader();
@@ -587,7 +591,7 @@ export class DCalWidget {
             this.weekly.renderEvents(this.calendarData);
           }
           
-          logger.info('📅 Returned to today');
+          logger.info('📅 Returned to today - scroll tracking reset');
         } else {
           // View mode change (1, 2, 3, 5, week)
           this.switchViewMode(data.itemId);
@@ -724,13 +728,16 @@ export class DCalWidget {
       
       // Update weekly renderer with new settings
       const settings = this.loadSettings();
-      this.weekly.updateSettings(settings);
+      this.weekly.updateSettings(settings); // This calls resetScrollTracking internally
       
       // Reset to today when changing views
       this.currentDate = new Date();
       this.homeDate = new Date();
       this.homeDate.setHours(0, 0, 0, 0);
       this.isAtHome = true;
+      
+      // Reset scroll tracking for fresh view
+      this.weekly.resetScrollTracking();
       
       this.weekly.setDate(this.currentDate);
       
