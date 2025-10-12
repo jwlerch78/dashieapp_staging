@@ -9,6 +9,13 @@ const APP_VERSION = {
 };
 window.APP_VERSION = APP_VERSION;
 
+// ==========================================
+// TEMPORARY: Force dev database for Amazon testing
+// Set to true to use dev database on prod site
+// Set to false to use normal auto-detection
+// ==========================================
+const FORCE_DEV_DATABASE = true;  // ← Change this to false when prod DB is ready
+// ==========================================
 
 // Brand tagline (shared between loading overlay and login screens)
 const TAGLINE = "Manage the chaos";
@@ -35,6 +42,12 @@ const dbConfig = {
 
 // Auto-detect environment based on domain
 const getCurrentDbConfig = () => {
+    // TEMPORARY: Check override flag first
+    if (typeof FORCE_DEV_DATABASE !== 'undefined' && FORCE_DEV_DATABASE === true) {
+        console.warn('⚠️ OVERRIDE: Using DEV database on PROD site (FORCE_DEV_DATABASE=true)');
+        return dbConfig.development;
+    }
+    
     const host = window.location.hostname; // <— add this line
     if (host.includes('dev.') || host === 'localhost' || host.startsWith('localhost')) {
         return dbConfig.development;
