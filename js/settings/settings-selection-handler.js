@@ -95,7 +95,7 @@ export class SettingsSelectionHandler {
     return 5;
   }
 
-  /**
+/**
    * Highlight current selections on active screen
    * @param {HTMLElement} overlay - The settings overlay element
    * @param {string} currentScreenId - Current screen ID from navigation stack
@@ -127,40 +127,32 @@ export class SettingsSelectionHandler {
       return; // Exit early - photos handled separately
     }
     
+    // Handle ALL selectable cells generically (theme, sidebar mode, calendar settings, etc.)
+    const settings = window.settingsInstance?.controller?.getSettings() || {};
     const selectableCells = activeScreen.querySelectorAll('.settings-cell.selectable[data-setting]');
     
     selectableCells.forEach(cell => {
       const setting = cell.dataset.setting;
       const value = cell.dataset.value;
       
-      let isCurrentValue = false;
+      if (!setting || !value) return;
       
-      if (setting === 'display.theme') {
-        const themeValue = overlay.querySelector('#mobile-theme-value')?.textContent.toLowerCase();
-        isCurrentValue = (value === 'dark' && themeValue === 'dark') || 
-                        (value === 'light' && themeValue === 'light');
-      } else if (setting === 'photos.transitionTime') {
-        const transitionValue = overlay.querySelector('#mobile-photo-transition-value')?.textContent;
-        const currentSeconds = this.parseTransitionTime(transitionValue);
-        isCurrentValue = parseInt(value) === currentSeconds;
-      } else if (setting === 'photos.source') {
-        const albumValue = overlay.querySelector('#mobile-photo-album-value')?.textContent;
-        const albumMap = {
-          'Recent Photos': 'recent',
-          'Family Album': 'family',
-          'Vacation 2024': 'vacation'
-        };
-        isCurrentValue = value === albumMap[albumValue];
+      // Get the current value from settings using dot notation
+      const keys = setting.split('.');
+      let currentValue = settings;
+      for (const key of keys) {
+        currentValue = currentValue?.[key];
       }
       
-      if (isCurrentValue) {
+      // Add 'selected' class if this cell's value matches the current setting
+      if (currentValue === value) {
         cell.classList.add('selected');
       } else {
         cell.classList.remove('selected');
       }
     });
   }
-
+  
   /**
    * Update navigation bar with current screen info
    * @param {HTMLElement} overlay - The settings overlay element

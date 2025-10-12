@@ -595,11 +595,13 @@ export class SimplifiedSettings {
 
     
     setTimeout(() => {
-      currentScreen.classList.remove('sliding-out-left');
-      nextScreen.classList.remove('sliding-in-right');
+      currentScreen.classList.remove('sliding-out-right');
+      previousScreen.classList.remove('sliding-in-left');
       
-      // Handle screen-specific initialization (SHARED HELPER)
-      handleScreenEnter(screenId, this.overlay, this.navigation);
+      // Reload settings to update display values
+      this.loadCurrentSettings();
+      
+      this.selectionHandler.highlightCurrentSelections(this.overlay, this.getCurrentScreenId());
     }, 300);
     
     this.selectionHandler.updateNavBar(this.overlay, this.getCurrentScreenId(), this.navigationStack);
