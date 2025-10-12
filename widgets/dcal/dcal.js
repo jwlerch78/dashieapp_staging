@@ -1,8 +1,10 @@
 // widgets/dcal/dcal.js - Main Dashie Calendar Widget Class
+// v1.16 - 10/12/25 10:30pm - FIXED: LEFT at home returns to menu without navigating (prevents going into past)
+// v1.15 - 10/12/25 10:25pm - FIXED: Simplified left navigation - returns to menu when arriving at home position
 // v1.14 - 10/12/25 9:45pm - FIXED: D-pad left navigation now only returns to menu when AT home position
 // v1.13 - 10/12/25 9:25pm - FIXED: Added scroll tracking reset on "Go to Today" and view mode switch
 // v1.12 - 10/11/25 - Updated to 3-state messaging protocol
-// CHANGE SUMMARY: Fixed left navigation to check home status BEFORE and AFTER navigation, both directions now update home status
+// CHANGE SUMMARY: Check isAtHome AFTER navigation, not wasAtHome before - simpler and correct
 
 import { createLogger } from '../../js/utils/logger.js';
 import { DCalConfig } from './dcal-config.js';
@@ -179,28 +181,25 @@ export class DCalWidget {
   
   switch (action) {
     case 'left':
-      // ✅ FIXED: Check if at home position BEFORE navigating
-      const wasAtHome = this.isAtHome;
+      // ✅ FIXED: If at home position, don't navigate - return to menu instead
+      if (this.isAtHome && !this.menuActive) {
+        logger.info('📍 At home position - returning to menu instead of navigating past');
+        this.requestReturnToMenu();
+        break;
+      }
       
-      // Navigate backward first
+      // Navigate backward
       this.navigateCalendar('previous');
       
       // Update home status after navigation
       this.updateHomeStatus();
-      
-      // If we STARTED at home AND menu is not active AND still at home after navigation,
-      // we're at the boundary and should return to menu
-      if (wasAtHome && !this.menuActive && this.isAtHome) {
-        // Still at home after attempting to navigate - at boundary
-        this.requestReturnToMenu();
-      }
       break;
       
     case 'right':
       // Navigate forward
       this.navigateCalendar('next');
       
-      // ✅ FIXED: Update home status after navigation (instead of just setting false)
+      // Update home status after navigation
       this.updateHomeStatus();
       break;
     case 'up':
