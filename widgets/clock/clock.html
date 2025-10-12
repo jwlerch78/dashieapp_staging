@@ -237,38 +237,68 @@
        * Initialize location from zip code (for testing)
        * @param {string} zipCode - US zip code
        */
-      async initializeLocationFromZip(zipCode) {
-        if (!zipCode) {
-          logger.warn('No zip code provided, using default location');
-          return;
-        }
-        
-        logger.debug('Initializing location from zip code', { zipCode });
-        
-        try {
-          const coords = await geocodeZipCodeCached(zipCode);
-          
-          if (coords) {
-            this.latitude = coords.latitude;
-            this.longitude = coords.longitude;
-            this.isLocationSet = true;
-            
-            logger.debug('Location set from zip code', { 
-              zipCode, 
-              latitude: this.latitude, 
-              longitude: this.longitude 
-            });
-          } else {
-            logger.warn('Failed to geocode zip code, using default location', { zipCode });
-          }
-        } catch (error) {
-          logger.error('Error initializing location from zip code', { 
-            zipCode, 
-            error: error.message 
-          });
-        }
-      }
+ /**
+ * Initialize location from zip code
+ * @param {string} zipCode - US zip code
+ */
+async initializeLocationFromZip(zipCode) {
+  if (!zipCode) {
+    logger.warn('No zip code provided, using default location');
+    return;
+  }
+  
+  logger.debug('Initializing location from zip code', { zipCode });
+  
+  try {
+    // FIRST: Check if we have cached coordinates from settings
+    // This avoids the Nominatim API call entirely
+    let coords = null;
+    
+    // Try to get cached coordinates from parent settings
+    if (window.parent?.settingsInstance?.controller) {
+      const latitude = window.parent.settingsInstance.controller.getSetting('family.latitude');
+      const longitude = window.parent.settingsInstance.controller.getSetting('family.longitude');
       
+      if (latitude && longitude) {
+        coords = { latitude, longitude };
+        logger.info('Using cached coordinates from settings', { zipCode, ...coords });
+      }
+    }
+    
+    // FALLBACK: If no cached coords, try geocoding (may fail on Fire TV)
+    if (!coords) {
+      logger.debug('No cached coordinates, attempting to geocode', { zipCode });
+      
+      coords = await geocodeZipCodeCached(zipCode);
+      
+      if (coords) {
+        logger.info('Zip code geocoded successfully', { zipCode, ...coords });
+      }
+    }
+    
+    // Use coords if we have them
+    if (coords) {
+      this.latitude = coords.latitude;
+      this.longitude = coords.longitude;
+      this.isLocationSet = true;
+      
+      logger.debug('Location set from zip code', { 
+        zipCode, 
+        latitude: this.latitude, 
+        longitude: this.longitude 
+      });
+    } else {
+      logger.warn('Failed to get coordinates, using default location', { zipCode });
+    }
+    
+  } catch (error) {
+    logger.error('Error initializing location from zip code', { 
+      zipCode, 
+      error: error.message 
+    });
+  }
+}
+
       /**
        * Handle location updates from parent (for future settings integration)
        * @param {Object} payload - { zipCode: string } or { latitude: number, longitude: number }

@@ -349,7 +349,9 @@ export class SettingsControllerCore {
       family: {
         familyName: 'Dashie',
         members: [],
-        zipCode: ''
+        zipCode: '',
+        latitude: null,
+        longitude: null
       },
       system: {
         refreshInterval: 30,

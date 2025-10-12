@@ -258,14 +258,46 @@ async saveSettings() {
     }
   }
   
-  // Apply zip code immediately when setting changes
-  async applyZipCodeImmediate(zipCode) {
-    try {
-      await this.applyZipCodeToClockWidget(zipCode);
-    } catch (error) {
-      console.warn('Failed to apply zip code immediately:', error);
+// Apply zip code immediately when setting changes
+async applyZipCodeImmediate(zipCode) {
+  try {
+    // Check if we already have cached coordinates for ANY zip code
+    const cachedZip = this.currentSettings.family?.zipCode;
+    const hasCoords = this.currentSettings.family?.latitude && this.currentSettings.family?.longitude;
+    
+    // If zip code changed OR we don't have coordinates, geocode it
+    if (zipCode !== cachedZip || !hasCoords) {
+      console.log('⚙️ Geocoding new zip code and caching coordinates...');
+      
+      try {
+        const { geocodeZipCode } = await import('../utils/geocoding-helper.js');
+        const coords = await geocodeZipCode(zipCode);
+        
+        if (coords) {
+          // Save coordinates with the zip code
+          this.currentSettings.family.latitude = coords.latitude;
+          this.currentSettings.family.longitude = coords.longitude;
+          this.isDirty = true;
+          await this.saveSettings();
+          console.log('⚙️ ✅ Cached coordinates for zip code:', { zipCode, ...coords });
+        } else {
+          console.warn('⚙️ ⚠️ Geocoding returned no results for zip code:', zipCode);
+        }
+      } catch (error) {
+        console.error('⚙️ ❌ Failed to geocode zip code:', error);
+        console.warn('⚙️ Weather features may not work until zip is geocoded on web interface');
+      }
+    } else {
+      console.log('⚙️ Using cached coordinates for zip code:', cachedZip);
     }
+    
+    // Always broadcast to clock widget (will use cached coords if available)
+    await this.applyZipCodeToClockWidget(zipCode);
+    
+  } catch (error) {
+    console.warn('Failed to apply zip code immediately:', error);
   }
+}
   
   // Apply sidebar mode immediately when setting changes
   async applySidebarModeImmediate(mode) {
