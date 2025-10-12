@@ -411,7 +411,7 @@ export class DCalWeekly {
     eventElement.className = 'event';
     eventElement.style.top = `${top}px`;
     eventElement.style.height = `${height}px`;
-    eventElement.title = `${event.summary || 'Untitled Event'} (${this.formatTime(eventStart)} - ${this.formatTime(eventEnd)})`;
+    eventElement.title = `${event.summary || 'Untitled Event'} (${this.formatTimeRange(eventStart, eventEnd)})`;
     eventElement.dataset.eventId = event.id;
     eventElement.dataset.calendarId = event.calendarId || '';
     eventElement.dataset.startMinutes = startMinutes;
@@ -422,7 +422,7 @@ export class DCalWeekly {
       // Long event: wrap text and show time
       eventElement.innerHTML = `
         <div class="event-title">${event.summary || 'Untitled Event'}</div>
-        <div class="event-time">${this.formatTime(eventStart)} - ${this.formatTime(eventEnd)}</div>
+        <div class="event-time">${this.formatTimeRange(eventStart, eventEnd)}</div>
       `;
       eventElement.style.whiteSpace = 'normal';
       eventElement.style.padding = '2px 4px';
@@ -570,6 +570,49 @@ export class DCalWeekly {
       this.selectedEventId = eventId;
       logger.info('Event selected', { eventId });
     }
+  }
+
+  /**
+   * Format time range with smart AM/PM and :00 handling
+   * Rules:
+   * - Hide :00 for on-the-hour times (12:00pm → 12pm)
+   * - Show first AM/PM only if event spans AM/PM (11:30am-1:00pm → 11:30am-1pm)
+   * - Hide first AM/PM if within same period (12:00pm-1:00pm → 12-1pm)
+   */
+  formatTimeRange(startDate, endDate) {
+    const startHour = startDate.getHours();
+    const startMin = startDate.getMinutes();
+    const endHour = endDate.getHours();
+    const endMin = endDate.getMinutes();
+    
+    // Determine AM/PM for start and end
+    const startIsPM = startHour >= 12;
+    const endIsPM = endHour >= 12;
+    const spansPeriod = startIsPM !== endIsPM;
+    
+    // Convert to 12-hour format
+    const start12Hour = startHour === 0 ? 12 : (startHour > 12 ? startHour - 12 : startHour);
+    const end12Hour = endHour === 0 ? 12 : (endHour > 12 ? endHour - 12 : endHour);
+    
+    // Format start time
+    let startStr = start12Hour.toString();
+    if (startMin > 0) {
+      startStr += `:${startMin.toString().padStart(2, '0')}`;
+    }
+    // Add AM/PM to start only if spans periods
+    if (spansPeriod) {
+      startStr += startIsPM ? 'pm' : 'am';
+    }
+    
+    // Format end time
+    let endStr = end12Hour.toString();
+    if (endMin > 0) {
+      endStr += `:${endMin.toString().padStart(2, '0')}`;
+    }
+    // Always add AM/PM to end
+    endStr += endIsPM ? 'pm' : 'am';
+    
+    return `${startStr}-${endStr}`;
   }
 
   formatTime(date) {
