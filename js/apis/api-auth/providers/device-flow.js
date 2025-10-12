@@ -244,7 +244,7 @@ generateQRCode(container, url) {
   // Load QRCode library if not present
   if (typeof QRCode === 'undefined') {
 
-        if (DeviceFlowProvider.isQRCodeScriptLoading) {
+        if (this.isQRCodeScriptLoading) {
             // Wait for the already-loading script to call createInstance
             // A more robust solution might use Promises to queue the next action,
             // but simply returning here prevents creating the second script tag.
