@@ -3,6 +3,8 @@
 
 import { createLogger } from '../utils/logger.js';
 import { events as eventSystem, EVENTS } from '../utils/event-emitter.js';
+import { DEFAULT_THEME } from '../../js/core/theme.js';
+
 
 const logger = createLogger('WidgetMessenger');
 
@@ -23,7 +25,7 @@ export class WidgetMessenger {
       calendar: null,
       photos: null,
       auth: { ready: false, user: null },
-      theme: 'dark'
+      theme: DEFAULT_THEME
     };
     
     this.checkExistingAuthState();
@@ -43,11 +45,11 @@ export class WidgetMessenger {
 
     // Also check for current theme
     try {
-      const currentTheme = localStorage.getItem('dashie-theme') || 'dark';
+      const currentTheme = localStorage.getItem('dashie-theme') || DEFAULT_THEME;
       this.currentState.theme = currentTheme;
       logger.debug('Initial theme state set', { theme: currentTheme });
     } catch (error) {
-      this.currentState.theme = 'dark';
+      this.currentState.theme = DEFAULT_THEME;
     }
   }
 
@@ -375,7 +377,7 @@ export class WidgetMessenger {
       calendar: null,
       photos: null,
       auth: { ready: false, user: null },
-      theme: 'dark'
+      theme: DEFAULT_THEME
     };
   }
 
