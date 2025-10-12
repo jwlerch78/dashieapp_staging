@@ -272,6 +272,8 @@ export class DeviceFlowProvider {
    */
   generateQRCode(url) {
     const container = document.querySelector('#qr-code-container .qr-inner-wrapper');
+    if (container.querySelector('canvas')) return; // Already generated
+
     if (!container) {
       logger.warn('QR code container not found');
       return;
