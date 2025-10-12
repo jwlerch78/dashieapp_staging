@@ -211,71 +211,75 @@ createDeviceCodeOverlay(deviceData) {
 }
 
 /**
-* Generate QR code on a specific container
-* @param {HTMLElement} container - QR container inside the overlay
-* @param {string} url - URL to encode in QR code
-*/
+ * Generate a single QR code in a specific container
+ * @param {HTMLElement} container - QR container inside the overlay
+ * @param {string} url - URL to encode in QR code
+ */
 generateQRCode(container, url) {
-  if (!container) {
-   logger.warn('QR code container not found');
-    return;
-  }
+  if (!container) {
+    logger.warn('QR code container not found');
+    return;
+  }
 
-  if (container.querySelector('canvas')) return; // Already generated
+  // Remove any existing QR codes (canvas or img) before generating
+  const existingQR = container.querySelector('canvas, img');
+  if (existingQR) {
+    existingQR.remove();
+    logger.debug('Removed existing QR code from container');
+  }
 
-  // Clear container
-  container.innerHTML = '';
-
-  const createInstance = () => {
-    
-    // Reset the STATIC flag once creation starts (either success or failure)
-    if (DeviceFlowProvider.isQRCodeScriptLoading) {
-        DeviceFlowProvider.isQRCodeScriptLoading = false; 
+  // Internal function to create QR
+  const createInstance = () => {
+    try {
+      new QRCode(container, {
+        text: url,
+        width: 120,
+        height: 120,
+        colorDark: '#EE9828',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+      logger.debug('QR code generated', { url });
+    } catch (error) {
+      logger.error('Error generating QR code', error);
+      container.innerHTML = '<p style="color: #999; font-size: 14px;">Failed to generate QR code</p>';
     }
-    
-    try {
-        // 👇 RESTORED: Your original QR code creation logic
-      new QRCode(container, {
-        text: url,
-        width: 120,
-        height: 120,
-        colorDark: '#EE9828',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.H
-      });
-      logger.debug('QR code generated', { url });
-    } catch (error) {
-      logger.error('Error generating QR code', error);
-      container.innerHTML = '<p style="color: #999; font-size: 14px;">Failed to generate QR code</p>';
-    }
-  };
+  };
 
-  // Load QRCode library if not present
-  if (typeof QRCode === 'undefined') {
+  // Load QRCode library if needed
+  if (typeof QRCode === 'undefined') {
+    if (DeviceFlowProvider.isQRCodeScriptLoading) {
+      logger.debug('QRCode library already loading, waiting...');
+      // Poll until QRCode is available
+      const checkInterval = setInterval(() => {
+        if (typeof QRCode !== 'undefined') {
+          clearInterval(checkInterval);
+          createInstance();
+        }
+      }, 50);
+      return;
+    }
 
-    // Check the STATIC flag to prevent multiple script tags
-    if (DeviceFlowProvider.isQRCodeScriptLoading) {
-        return; 
-    }
+    // Mark as loading
+    DeviceFlowProvider.isQRCodeScriptLoading = true;
 
-    // Set the STATIC flag
-    DeviceFlowProvider.isQRCodeScriptLoading = true; 
-
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-    script.onload = createInstance;
-    
-    script.onerror = () => {
-        // Reset the STATIC flag on error
-        DeviceFlowProvider.isQRCodeScriptLoading = false;
-      logger.error('Failed to load QR code library');
-      container.innerHTML = '<p style="color: #999; font-size: 14px;">QR code unavailable</p>';
-    };
-    document.head.appendChild(script);
-  } else {
-    createInstance();
-  }
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    script.onload = () => {
+      DeviceFlowProvider.isQRCodeScriptLoading = false;
+      createInstance();
+    };
+    script.onerror = () => {
+      DeviceFlowProvider.isQRCodeScriptLoading = false;
+      logger.error('Failed to load QR code library');
+      container.innerHTML = '<p style="color: #999; font-size: 14px;">QR code unavailable</p>';
+    };
+    document.head.appendChild(script);
+  } else {
+    createInstance();
+  }
 }
+
 
 
   /**
