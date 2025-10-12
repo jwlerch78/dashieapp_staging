@@ -505,22 +505,25 @@ function generateQRCode(containerId, url) {
  */
 function createQRCode(container, url) {
   const logger = window.createLogger ? window.createLogger('QRModal') : console;
-  
+
   // Clear container
   container.innerHTML = '';
-  
-  try {
-    new QRCode(container, {
-      text: url,
-      width: 100,
-      height: 100,
-      colorDark: "#EE9828",
-      colorLight: "#ffffff",
-      correctLevel: QRCode.CorrectLevel.H
-    });
-    logger.info?.('QR code generated', { url });
-  } catch (error) {
-    logger.error?.('Failed to create QR code', error);
-    container.innerHTML = '<p style="color: #ff3b30;">Failed to generate QR code</p>';
-  }
+
+  // ✅ Wait for next frame so layout is ready
+  requestAnimationFrame(() => {
+    try {
+      new QRCode(container, {
+        text: url,
+        width: 120,
+        height: 120,
+        colorDark: '#EE9828',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+      logger.info?.('QR code generated', { url });
+    } catch (error) {
+      logger.error?.('Failed to create QR code', error);
+      container.innerHTML = '<p style="color: #ff3b30;">Failed to generate QR code</p>';
+    }
+  });
 }
