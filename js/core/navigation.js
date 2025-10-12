@@ -1,6 +1,7 @@
 // js/core/navigation.js - Navigation Logic & Focus Management with Timeout System
+// v2.1 - 10/12/25 8:15pm - WIDGET-FIRST WITH VISIBLE MENU: Widget is active and large, menu visible but dimmed, press LEFT/ESC to focus menu
 // v2.0 - 10/11/25 - Updated messaging protocol to 3-state model
-// CHANGE SUMMARY: Replaced 'focus'/'blur'/'escape' with 'enter-focus'/'enter-active'/'exit-active'/'exit-focus'
+// CHANGE SUMMARY: Widget starts active (large, scale 1.08) with dimmed menu visible. LEFT/ESC focuses menu (un-dims it), RIGHT returns to active widget
 
 import { state, elements, findWidget, setFocus, setFocusedWidget, setCurrentMain } from './state.js';
 import { isFeatureEnabled } from './feature-flags.js';
@@ -150,26 +151,44 @@ function showFocusOverlay() {
       if (hasFocusMenu) {
         const menuConfig = getWidgetMenuConfig(widgetId);
         
-        // Initialize focus menu state (starts in menu, not widget)
+        // WIDGET-FIRST WITH VISIBLE MENU: Show menu immediately but widget is active
+        // Widget starts in ACTIVE mode (larger, ready for input) with menu visible
+        // User can navigate widget or use LEFT to focus menu
         setFocusMenuActive(widgetId, menuConfig);
         
-        // Show menu BEFORE widget moves (at initial position)
+        // Start in WIDGET mode (not menu mode) - widget receives input
+        setWidgetActive(true);
+        
+        // Show menu immediately (visible but not focused)
         showFocusMenu(state.focusedWidget, menuConfig);
         
-        // Now center the widget (this will also move the menu)
+        // Center the widget (menu will move with it)
         centerFocusedWidget(state.focusedWidget);
         
-        // Send menu-active message to widget after animation completes
-        // Widget should NOT accept navigation yet (user is in menu)
+        // Add widget-active class for larger scale
+        state.focusedWidget.classList.add('widget-active');
+        
+        // Apply larger scale (1.08) for active state
+        const currentTransform = state.focusedWidget.style.transform;
+        if (currentTransform && currentTransform.includes('translate')) {
+          const translateMatch = currentTransform.match(/translate\(([^)]+)\)/);
+          if (translateMatch) {
+            const newTransform = `${translateMatch[0]} scale(1.08)`;
+            state.focusedWidget.style.transform = newTransform;
+          }
+        }
+        
+        // Dim menu to show it's not focused (widget is focused)
+        dimFocusMenu();
+        
+        // Send ACTIVE message to widget (widget is ready for input)
         setTimeout(() => {
-          sendToWidget({
-            action: 'menu-active',
-            selectedItem: menuConfig.items[menuConfig.defaultIndex || 0].id
-          });
-          console.log('📋 Widget notified of menu activation (not focused yet)');
+          sendToWidget({ action: 'enter-focus' });
+          sendToWidget({ action: 'enter-active' });
+          console.log('📋 Widget entered ACTIVE mode with menu visible (dimmed)');
         }, 450);
         
-        console.log('✓ Focus menu activated for', widgetId, '- user starts in MENU');
+        console.log('✓ Widget-first with visible menu - widget is ACTIVE, menu is visible but dimmed');
       } else {
         // No menu - center and send BOTH messages
         centerFocusedWidget(state.focusedWidget);
@@ -527,8 +546,53 @@ export function moveFocus(dir) {
       console.log('📋 Left pressed in menu, ignoring');
       return;
     } 
-    // If in widget content, send to widget
+    // If in widget content and LEFT is pressed, focus the menu
     else {
+      if (dir === 'left') {
+        // FOCUS MENU when user presses LEFT from widget (menu already visible, just dimmed)
+        setWidgetActive(false);
+        
+        // Un-dim the menu to show it's now focused
+        undimFocusMenu();
+        
+        // Remove widget-active class and restore smaller scale
+        if (state.focusedWidget) {
+          console.log('🔵 BEFORE removing widget-active:', state.focusedWidget.className);
+          state.focusedWidget.classList.remove('widget-active');
+          
+          // Restore scale back to 1.05 (focused state)
+          const currentTransform = state.focusedWidget.style.transform;
+          if (currentTransform && currentTransform.includes('translate')) {
+            const translateMatch = currentTransform.match(/translate\(([^)]+)\)/);
+            if (translateMatch) {
+              const restoredTransform = `${translateMatch[0]} scale(1.05)`;
+              state.focusedWidget.style.transform = restoredTransform;
+              console.log('🔵 Restored transform to:', restoredTransform);
+            }
+          }
+          
+          console.log('🔵 AFTER removing widget-active:', state.focusedWidget.className);
+        }
+        
+        // Update controls guide to menu mode
+        updateControlsGuide(true);
+        
+        // Notify widget it exited active mode
+        sendToWidget({ action: 'exit-active' });
+        
+        // Send menu-active to notify widget which item is selected
+        const widgetId = getWidgetIdFromElement(state.focusedWidget);
+        const menuConfig = getWidgetMenuConfig(widgetId);
+        sendToWidget({
+          action: 'menu-active',
+          selectedItem: menuConfig.items[menuConfig.defaultIndex || 0].id
+        });
+        
+        console.log('← Focused menu (un-dimmed) - moved from widget to menu');
+        return;
+      }
+      
+      // Other directions: send to widget
       console.log('📋 User is IN WIDGET, sending command to widget');
       sendToWidget(dir);
       return;
@@ -719,9 +783,11 @@ export function handleBack() {
     // NEW: Handle focus menu back navigation
     if (state.focusMenuState.active) {
       
-      // If in widget content, return to menu
+      // If in widget content (menu visible but dimmed), focus menu on first ESC/BACK
       if (!state.focusMenuState.inMenu) {
         setWidgetActive(false);
+        
+        // Un-dim the menu to show it's now focused
         undimFocusMenu();
         
         // Remove visual indicator that widget was active AND restore scale
@@ -747,7 +813,16 @@ export function handleBack() {
         updateControlsGuide(true);
         
         sendToWidget({ action: 'exit-active' });
-        console.log('← Returned to menu from widget');
+        
+        // Send menu-active to notify widget which item is selected
+        const widgetId = getWidgetIdFromElement(state.focusedWidget);
+        const widgetMenuConfig = getWidgetMenuConfig(widgetId);
+        sendToWidget({
+          action: 'menu-active',
+          selectedItem: widgetMenuConfig.items[widgetMenuConfig.defaultIndex || 0].id
+        });
+        
+        console.log('← Focused menu (un-dimmed) from widget (ESC/BACK pressed)');
         return;
       }
       

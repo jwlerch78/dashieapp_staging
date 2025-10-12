@@ -1,5 +1,6 @@
 // widgets/photos/photos-settings-manager.js
-// CHANGE SUMMARY: Fixed modal unregistration - removed conditional check that prevented proper cleanup
+// v1.1 - 10/12/25 8:30pm - FIXED: Register with modal manager to forward Fire TV back button (keycode 4) to iframe
+// CHANGE SUMMARY: Added modal manager registration with handleAction forwarding to iframe via postMessage, fixes back button not working
 
 import { createLogger } from '../../js/utils/logger.js';
 
@@ -71,9 +72,28 @@ export class PhotosSettingsManager {
     // Create modal container and iframe
     this.createModal();
 
-    // DO NOT register iframe container with modal manager
-    // The iframe handles its own navigation internally
-    // Only confirmation modals created in parent need registration
+    // Register with modal manager to receive navigation actions
+    if (window.dashieModalManager) {
+      window.dashieModalManager.registerModal(this.modalContainer, {
+        handleAction: (action) => {
+          logger.debug('Modal manager forwarding action to iframe', { action });
+          
+          // Forward action to iframe via postMessage
+          if (this.modalIframe && this.modalIframe.contentWindow) {
+            this.modalIframe.contentWindow.postMessage({ action }, '*');
+            return true; // Action handled
+          }
+          
+          return false; // Action not handled
+        },
+        onEscape: () => {
+          logger.debug('Modal manager escape - closing modal');
+          this.close();
+        }
+      });
+      
+      logger.debug('Registered photos modal with modal manager');
+    }
   }
 
   /**

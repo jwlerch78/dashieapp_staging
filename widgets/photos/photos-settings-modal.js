@@ -1,5 +1,6 @@
 // widgets/photos/photos-settings-modal.js
-// CHANGE SUMMARY: Refactored QR code functionality to photos-modal-overlays.js for better code organization
+// v1.1 - 10/12/25 8:30pm - FIXED: Added message listener for navigation actions from modal manager (Fire TV back button)
+// CHANGE SUMMARY: Added handler for {action} postMessages from parent to enable Fire TV remote navigation
 
 import { createLogger } from '../../js/utils/logger.js';
 import { PhotoStorageService } from '../../js/supabase/photo-storage-service.js';
@@ -51,6 +52,33 @@ export class PhotosSettingsModal {
         const fileInput = document.getElementById('file-input');
         if (fileInput) {
           fileInput.click();
+        }
+      } else if (event.data?.action) {
+        // Handle navigation actions from modal manager (Fire TV remote, etc.)
+        const action = event.data.action;
+        logger.debug('Received action from parent', { action });
+        
+        // Check if confirmation modal is active IN PARENT DOCUMENT
+        const confirmModal = window.parent?.document.getElementById('delete-confirmation-overlay');
+        if (confirmModal) {
+          logger.debug('Confirmation modal active in parent, ignoring action');
+          return; // Let modal navigation handle it
+        }
+        
+        switch (action) {
+          case 'up':
+            this.moveFocus(-1);
+            break;
+          case 'down':
+            this.moveFocus(1);
+            break;
+          case 'enter':
+            this.activateCurrentElement();
+            break;
+          case 'escape':
+          case 'back':
+            this.handleBack();
+            break;
         }
       }
     });
