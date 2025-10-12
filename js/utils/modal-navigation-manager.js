@@ -130,6 +130,11 @@ class ModalNavigationManager {
    * @param {Object} config - Modal configuration
    */
   registerModal(modal, config) {
+    // Safety: Ensure buttons array exists
+    if (!config.buttons) {
+      config.buttons = [];
+    }
+    
     logger.debug('Registering modal', {
       modalClass: modal.className,
       stackDepth: this.modalStack.length,

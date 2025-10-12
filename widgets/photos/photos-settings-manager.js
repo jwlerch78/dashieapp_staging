@@ -73,28 +73,31 @@ export class PhotosSettingsManager {
     // Create modal container and iframe
     this.createModal();
 
-    // Register with modal manager to receive navigation actions
-    if (window.dashieModalManager) {
-      window.dashieModalManager.registerModal(this.modalContainer, {
-        customHandler: (action) => {
-          logger.debug('Modal manager forwarding action to iframe', { action });
-          
-          // Forward action to iframe via postMessage
-          if (this.modalIframe && this.modalIframe.contentWindow) {
-            this.modalIframe.contentWindow.postMessage({ action }, '*');
-            return true; // Action handled
+    // Register with modal manager AFTER next paint to ensure DOM is ready (critical for slow devices)
+    requestAnimationFrame(() => {
+      if (window.dashieModalManager) {
+        window.dashieModalManager.registerModal(this.modalContainer, {
+          buttons: [], // No buttons in container, iframe handles its own navigation
+          customHandler: (action) => {
+            logger.debug('Modal manager forwarding action to iframe', { action });
+            
+            // Forward action to iframe via postMessage
+            if (this.modalIframe && this.modalIframe.contentWindow) {
+              this.modalIframe.contentWindow.postMessage({ action }, '*');
+              return true; // Action handled
+            }
+            
+            return false; // Action not handled
+          },
+          onEscape: () => {
+            logger.debug('Modal manager escape - closing modal');
+            this.close();
           }
-          
-          return false; // Action not handled
-        },
-        onEscape: () => {
-          logger.debug('Modal manager escape - closing modal');
-          this.close();
-        }
-      });
-      
-      logger.debug('Registered photos modal with modal manager');
-    }
+        });
+        
+        logger.debug('Registered photos modal with modal manager');
+      }
+    });
   }
 
   /**
