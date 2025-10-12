@@ -1,6 +1,7 @@
 // widgets/photos/photos-settings-manager.js
+// v1.2 - 10/12/25 9:35pm - FIXED: Changed handleAction to customHandler for proper modal manager integration
 // v1.1 - 10/12/25 8:30pm - FIXED: Register with modal manager to forward Fire TV back button (keycode 4) to iframe
-// CHANGE SUMMARY: Added modal manager registration with handleAction forwarding to iframe via postMessage, fixes back button not working
+// CHANGE SUMMARY: Fixed property name from handleAction to customHandler to match modal manager API
 
 import { createLogger } from '../../js/utils/logger.js';
 
@@ -75,7 +76,7 @@ export class PhotosSettingsManager {
     // Register with modal manager to receive navigation actions
     if (window.dashieModalManager) {
       window.dashieModalManager.registerModal(this.modalContainer, {
-        handleAction: (action) => {
+        customHandler: (action) => {
           logger.debug('Modal manager forwarding action to iframe', { action });
           
           // Forward action to iframe via postMessage
