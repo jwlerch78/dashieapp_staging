@@ -221,12 +221,7 @@ generateQRCode(container, url) {
     return;
   }
 
-  // Remove any existing QR codes (canvas or img) before generating
-  const existingQR = container.querySelector('canvas, img');
-  if (existingQR) {
-    existingQR.remove();
-    logger.debug('Removed existing QR code from container');
-  }
+    container.querySelectorAll('canvas, img').forEach(el => el.remove());
 
   // Internal function to create QR
   const createInstance = () => {
