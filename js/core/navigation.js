@@ -360,7 +360,8 @@ export function updateFocus() {
   
   // clear all highlights
   document.querySelectorAll(".widget, .menu-item")
-    .forEach(el => el.classList.remove("selected", "focused"));
+  .forEach(el => el.classList.remove("widget-selected", "widget-focused"));
+
 
   // grid focus
   if (state.focus.type === "grid") {
