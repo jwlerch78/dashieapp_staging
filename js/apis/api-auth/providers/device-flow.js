@@ -174,9 +174,12 @@ export class DeviceFlowProvider {
         
         <!-- QR Code -->
         <div class="qr-wrapper">
-          <div id="qr-code-container"></div>
+          <div id="qr-code-container">
+            <div class="qr-inner-wrapper"></div>
+          </div>
           <p class="qr-instruction">or go to <span class="device-url">google.com/device</span></p>
         </div>
+
         
         <!-- Code Entry -->
         <div class="code-entry">
@@ -263,7 +266,7 @@ export class DeviceFlowProvider {
    * @param {string} url - URL to encode in QR code
    */
   generateQRCode(url) {
-    const container = document.getElementById('qr-code-container');
+    const container = document.querySelector('#qr-code-container .qr-inner-wrapper');
     if (!container) {
       logger.warn('QR code container not found');
       return;
@@ -650,7 +653,7 @@ export class DeviceFlowProvider {
     }
 
     #qr-code-container {
-      display: flex;              /* Let contents center inside the box */
+      display: flex;              /* keep flex */
       align-items: center;
       justify-content: center;
       padding: 8px;
@@ -659,13 +662,23 @@ export class DeviceFlowProvider {
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
       margin-bottom: 6px;
       box-sizing: border-box;
+      flex-direction: column;     /* ensure vertical stacking if anything else added */
     }
+
 
     #qr-code-container img,
     #qr-code-container canvas {
       display: block !important;
       width: 120px !important;
       height: 120px !important;
+    }
+
+    .qr-inner-wrapper {
+      width: 120px;
+      height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
       
