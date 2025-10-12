@@ -30,6 +30,7 @@ export class DeviceFlowProvider {
       scope: 'openid email profile https://www.googleapis.com/auth/calendar.readonly'
     };
     
+    this.isQRCodeScriptLoading = false; 
     this.pollInterval = null;
     this.countdownInterval = null;
     this.currentTokens = null;
@@ -242,6 +243,17 @@ generateQRCode(container, url) {
 
   // Load QRCode library if not present
   if (typeof QRCode === 'undefined') {
+
+        if (DeviceFlowProvider.isQRCodeScriptLoading) {
+            // Wait for the already-loading script to call createInstance
+            // A more robust solution might use Promises to queue the next action,
+            // but simply returning here prevents creating the second script tag.
+            return; 
+        }
+
+    this.isQRCodeScriptLoading = true; // Set flag before creating script
+
+
     const script = document.createElement('script');
     script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
     script.onload = createInstance;
