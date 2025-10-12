@@ -82,6 +82,9 @@
     // Import logger for structured logging
     import { createLogger } from '../../js/utils/logger.js';
     import { geocodeZipCodeCached } from '../../js/utils/geocoding-helper.js';
+    import { DEFAULT_THEME } from '../../js/core/theme.js';
+
+    
     const logger = createLogger('ClockWidget');
 
     class ClockWidget {
@@ -128,7 +131,7 @@
 
       // Detect initial theme from DOM or localStorage
       detectAndApplyInitialTheme() {
-        let initialTheme = 'dark'; // fallback
+        let initialTheme = DEFAULT_THEME; // fallback
 
         // Try to detect theme from body class (applied by early theme loading)
         if (document.body.classList.contains('theme-light')) {

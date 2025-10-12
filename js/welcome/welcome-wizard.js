@@ -485,18 +485,23 @@ export class WelcomeWizard {
       await this.reverseGeocode(latitude, longitude);
       
     } catch (error) {
-      logger.error('Geolocation failed', { error: error.message });
+      // v2.1 - 10/12/25 11:55pm - FIXED: Log entire error object for better debugging
+      logger.error('Geolocation failed', error);
       
       this.hideLoadingSpinner();
       
-      if (error.code === 1) {
+      // Handle geolocation errors
+      const errorCode = error?.code;
+      const errorMessage = error?.message || error?.error || 'Unknown error';
+      
+      if (errorCode === 1) {
         alert('Location access denied. You can enter your zip code manually instead.');
-      } else if (error.code === 2) {
+      } else if (errorCode === 2) {
         alert('Location unavailable. Please try entering your zip code manually.');
-      } else if (error.code === 3) {
+      } else if (errorCode === 3) {
         alert('Location request timed out. Please try entering your zip code manually.');
       } else {
-        alert('Failed to get location. You can enter your zip code manually instead.');
+        alert(`Failed to get location: ${errorMessage}. You can enter your zip code manually instead.`);
       }
     }
   }

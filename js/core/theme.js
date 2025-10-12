@@ -16,6 +16,11 @@ export const THEMES = {
   LIGHT: 'light'
 };
 
+
+// SINGLE SOURCE OF TRUTH for default theme
+export const DEFAULT_THEME = THEMES.LIGHT;
+
+
 const THEME_CONFIG = {
   [THEMES.DARK]: {
     name: 'Dark Theme',
@@ -27,11 +32,13 @@ const THEME_CONFIG = {
   }
 };
 
+
+
 // ---------------------
 // THEME STATE
 // ---------------------
 
-let currentTheme = THEMES.DARK; // Default fallback
+let currentTheme = DEFAULT_THEME; // Use centralized default
 let settingsSystem = null;
 
 // ---------------------
@@ -74,8 +81,9 @@ async function loadTheme() {
   }
 
   // Only use default if no localStorage (no double-loading)
-  logger.debug('Using default theme:', THEMES.DARK);
-  return THEMES.DARK;
+  logger.debug('Using default theme:', DEFAULT_THEME);
+  return DEFAULT_THEME;
+
 }
 
 async function saveTheme(theme) {
@@ -220,7 +228,7 @@ export async function initializeThemeSystem() {
   } catch (error) {
     logger.error('Theme system initialization failed:', error);
     // Apply safe fallback
-    currentTheme = THEMES.DARK;
+    currentTheme = DEFAULT_THEME;
     applyThemeToBody(currentTheme);
   }
 }
@@ -239,8 +247,8 @@ export async function applyEarlyTheme() {
     logger.debug('Early theme applied:', theme);
   } catch (error) {
     logger.debug('Early theme failed, using default');
-    currentTheme = THEMES.DARK;
-    applyThemeToBody(THEMES.DARK);
+    currentTheme = DEFAULT_THEME;
+    applyThemeToBody(DEFAULT_THEME);
   }
 }
 

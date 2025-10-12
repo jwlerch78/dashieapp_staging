@@ -4,6 +4,8 @@
 
 import { createLogger } from '../../js/utils/logger.js';
 import { AgendaEventModal } from './agenda_event.js';
+import { DEFAULT_THEME } from '../../js/core/theme.js';
+
 
 const logger = createLogger('AgendaWidget');
 
@@ -45,7 +47,7 @@ export class AgendaWidget {
    * Detect initial theme from DOM or localStorage
    */
   detectAndApplyInitialTheme() {
-    let initialTheme = 'dark'; // fallback
+    let initialTheme = DEFAULT_THEME; // fallback
 
     // Try to detect theme from body class (applied by early theme loading)
     if (document.body.classList.contains('theme-light')) {

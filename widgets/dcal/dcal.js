@@ -9,6 +9,8 @@ import { DCalEvents } from './dcal-events.js';
 import { DCalWeekly } from './dcal-weekly.js';
 import { DCalMonthly } from './dcal-monthly.js';
 import { showToast } from '../../js/ui/toast.js';
+import { DEFAULT_THEME } from '../../js/core/theme.js';
+
 
 const logger = createLogger('DCalWidget');
 
@@ -103,10 +105,10 @@ export class DCalWidget {
       // Apply to both html and body to ensure CSS variables work
       this.applyThemeToElements(detectedTheme);
       logger.info('Initial theme detected', { theme: detectedTheme });
-    } else {
-      this.applyTheme('dark');
-      logger.info('No initial theme detected, defaulting to dark');
-    }
+      } else {
+        this.applyTheme(DEFAULT_THEME);
+        logger.info('No initial theme detected, using default', { theme: DEFAULT_THEME });
+      }
   }
 
   setupKeyboardControls() {
@@ -353,6 +355,11 @@ export class DCalWidget {
    
     // Render events in weekly view
     this.weekly.renderEvents(this.calendarData);
+    
+    // v1.14 - 10/13/25 12:00am - FIXED: Trigger scroll positioning after first data load
+    // On first render (after welcome wizard), events weren't present during initialize,
+    // so we need to scroll again now that events have been loaded
+    this.weekly.setOptimalScrollPosition();
     
     this.showCalendar();
     this.updateCalendarHeader();

@@ -3,6 +3,8 @@
 // CHANGE SUMMARY: Added proper state transition handling (enter-focus/enter-active/exit-active/exit-focus)
 
 import { createLogger } from '../../js/utils/logger.js';
+import { DEFAULT_THEME } from '../../js/core/theme.js';
+
 
 const logger = createLogger('PhotosWidget');
 

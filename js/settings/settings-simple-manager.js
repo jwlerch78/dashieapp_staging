@@ -17,6 +17,7 @@ import { handleScreenEnter, handleScreenExit, handleSettingsCleanup } from './se
 import { setupFeatureToggles } from './settings-features-controller.js';
 import { AccountDeletionService } from '../services/account-deletion-service.js';
 import { createLogger } from '../utils/logger.js';
+import { DEFAULT_THEME } from '../../js/core/theme.js';
 
 const logger = createLogger('SimplifiedSettings');
 
@@ -682,7 +683,7 @@ export class SimplifiedSettings {
       
       populateFormFields(this.overlay, settings);
       
-      const theme = settings.interface?.theme || 'dark';
+      const theme = settings.interface?.theme || DEFAULT_THEME;
       if (theme === 'dark') {
         document.body.classList.remove('theme-light');
         document.body.classList.add('theme-dark');
