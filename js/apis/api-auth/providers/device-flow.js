@@ -209,64 +209,70 @@ createDeviceCodeOverlay(deviceData) {
 }
 
 /**
- * Generate QR code on a specific container
- * @param {HTMLElement} container - QR container inside the overlay
- * @param {string} url - URL to encode in QR code
- */
+* Generate QR code on a specific container
+* @param {HTMLElement} container - QR container inside the overlay
+* @param {string} url - URL to encode in QR code
+*/
 generateQRCode(container, url) {
-    if (!container) {
-        logger.warn('QR code container not found');
-        return;
+  if (!container) {
+   logger.warn('QR code container not found');
+    return;
+  }
+
+  if (container.querySelector('canvas')) return; // Already generated
+
+  // Clear container
+  container.innerHTML = '';
+
+  const createInstance = () => {
+    
+    // Reset the STATIC flag once creation starts (either success or failure)
+    if (DeviceFlowProvider.isQRCodeScriptLoading) {
+        DeviceFlowProvider.isQRCodeScriptLoading = false; 
     }
+    
+    try {
+        // 👇 RESTORED: Your original QR code creation logic
+      new QRCode(container, {
+        text: url,
+        width: 120,
+        height: 120,
+        colorDark: '#EE9828',
+        colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H
+      });
+      logger.debug('QR code generated', { url });
+    } catch (error) {
+      logger.error('Error generating QR code', error);
+      container.innerHTML = '<p style="color: #999; font-size: 14px;">Failed to generate QR code</p>';
+    }
+  };
 
-    if (container.querySelector('canvas')) return; // Already generated
+  // Load QRCode library if not present
+  if (typeof QRCode === 'undefined') {
 
-    // Clear container
-    container.innerHTML = '';
+    // Check the STATIC flag to prevent multiple script tags
+    if (DeviceFlowProvider.isQRCodeScriptLoading) {
+        return; 
+    }
 
-    const createInstance = () => {
-        // 👇 Add the reset logic here for the success path
-        if (this.isQRCodeScriptLoading) {
-            this.isQRCodeScriptLoading = false; 
-        }
+    // Set the STATIC flag
+    DeviceFlowProvider.isQRCodeScriptLoading = true; 
 
-        try {
-            new QRCode(container, {
-                // ... rest of QR code config
-            });
-            logger.debug('QR code generated', { url });
-        } catch (error) {
-            logger.error('Error generating QR code', error);
-            container.innerHTML = '<p style="color: #999; font-size: 14px;">Failed to generate QR code</p>';
-        }
-    };
-
-    // Load QRCode library if not present
-    if (typeof QRCode === 'undefined') {
-
-        if (this.isQRCodeScriptLoading) {
-            // Already loading, do nothing.
-            return; 
-        }
-
-        this.isQRCodeScriptLoading = true; // Set flag to prevent double-loading
-
-        const script = document.createElement('script');
-        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-        
-        // Pass the function reference (which now contains the reset logic)
-        script.onload = createInstance; 
-        
-        script.onerror = () => {
-            // 👇 CRITICAL FIX: Reset the flag on error too
-            this.isQRCodeScriptLoading = false; 
-            logger.error('Failed to load QR code library');
-            container.innerHTML = '<p style="color: #999; font-size: 14px;">QR code unavailable</p>';
-        };
-        document.head.appendChild(script);
-    } else {
-        createInstance();
-    }
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+    script.onload = createInstance;
+    
+    script.onerror = () => {
+        // Reset the STATIC flag on error
+        DeviceFlowProvider.isQRCodeScriptLoading = false;
+      logger.error('Failed to load QR code library');
+      container.innerHTML = '<p style="color: #999; font-size: 14px;">QR code unavailable</p>';
+    };
+    document.head.appendChild(script);
+  } else {
+    createInstance();
+  }
 }
 
 
