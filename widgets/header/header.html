@@ -43,7 +43,8 @@
   <div id="family-name">The Dashie Family</div>
 
   <script type="module">
-    // v1.2 - 10/10/25 2:20pm - Updated to use getAllGreetings for cycling through complete greeting pool
+    // v2.0 - 10/11/25 - Updated to 3-state messaging protocol
+    // CHANGE SUMMARY: Added proper state transition handling (enter-focus/enter-active/exit-active/exit-focus)
     // Import logger for structured logging
     import { createLogger } from '../../js/utils/logger.js';
     import { getGreeting, getStaticGreeting, getAllGreetings } from '../../js/services/greeting-service.js';
@@ -58,6 +59,10 @@
         this.greetingRefreshInterval = null;
         this.greetingVariations = []; // Store multiple greeting options
         this.currentVariationIndex = 0; // Track which variation is showing
+        
+        // NEW: Two-part state model
+        this.hasFocus = false;  // FOCUSED state (widget centered, has attention)
+        this.isActive = false;  // ACTIVE state (receiving commands)
         
         this.init();
       }
@@ -138,7 +143,40 @@
 
       // Handle navigation commands
       handleCommand(action) {
-        logger.debug('Header widget received command', { action });
+        logger.debug('Header widget received command', { 
+          action,
+          hasFocus: this.hasFocus,
+          isActive: this.isActive 
+        });
+        
+        // STEP 1: Handle state transition messages
+        switch (action) {
+          case 'enter-focus':
+            // Widget is now FOCUSED (centered, has attention)
+            this.handleEnterFocus();
+            return;
+
+          case 'enter-active':
+            // Widget is now ACTIVE (can receive navigation)
+            this.handleEnterActive();
+            return;
+
+          case 'exit-active':
+            // Widget no longer active (shouldn't happen for widgets without menus)
+            this.handleExitActive();
+            return;
+
+          case 'exit-focus':
+            // Leave centered view entirely
+            this.handleExitFocus();
+            return;
+        }
+        
+        // STEP 2: Handle navigation ONLY if ACTIVE
+        if (!this.isActive) {
+          logger.debug('Navigation command ignored - widget not active', { action });
+          return;
+        }
         
         // If dynamic greeting is enabled and we have variations, allow cycling
         if (this.dynamicGreetingEnabled && this.greetingVariations.length > 0) {
@@ -389,12 +427,35 @@
         }
         
         logger.info('Family name updated with greeting variations', { 
-          baseName,
-          dynamic: useDynamic,
-          variationCount: this.greetingVariations.length
+        baseName,
+        dynamic: useDynamic,
+        variationCount: this.greetingVariations.length
         });
+        }
+          
+        // State transition handlers
+        handleEnterFocus() {
+          logger.info('Header entered FOCUSED state');
+          this.hasFocus = true;
+          this.isActive = false;
+        }
+
+        handleEnterActive() {
+          logger.info('Header entered ACTIVE state');
+          this.isActive = true;
+        }
+
+        handleExitActive() {
+          logger.info('Header exited ACTIVE state');
+          this.isActive = false;
+        }
+
+        handleExitFocus() {
+          logger.info('Header exited FOCUSED state');
+          this.hasFocus = false;
+          this.isActive = false;
+        }
       }
-    }
 
     // Initialize the widget
     new HeaderWidget();

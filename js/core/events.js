@@ -1,6 +1,6 @@
 // js/core/events.js - Unified Input Handling System
-// v1.2 - 10/11/25 - Updated to read new state variables
-// CHANGE SUMMARY: Now reads state.focusedWidget instead of state.selectedCell
+// v2.0 - 10/11/25 - Fixed Enter key handling when widget is focused
+// CHANGE SUMMARY: Enter now sends to widget instead of re-focusing it
 
 import { state, elements, setFocus, setWidgetReady } from './state.js';
 import { moveFocus, handleEnter, handleBack, openMenuWithCurrentSelection, updateFocus } from './navigation.js';
@@ -193,14 +193,13 @@ async function handleUnifiedInput(action, originalEvent = null) {
           console.log('✓ Menu item selected:', selectedItem.label);
           // IMPORTANT: return here to prevent handleEnter from being called
           return;
-        } else if (state.focusMenuState.active && !state.focusMenuState.inMenu) {
-          // User is IN WIDGET - send enter command to widget
+        } else {
+          // Widget is focused (either in menu or active) - send enter to widget
+          // Do NOT call handleEnter() as that will re-focus and recenter the widget
           const { sendToWidget } = await import('./navigation.js');
           sendToWidget('enter');
+          console.log('✓ Sent enter to focused widget');
           return;
-        } else {
-          // Regular enter handling (grid selection or widget action)
-          handleEnter();
         }
         break;
       default:

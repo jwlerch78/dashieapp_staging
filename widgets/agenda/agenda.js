@@ -1,5 +1,6 @@
 // widgets/agenda/agenda.js - Agenda Widget Implementation
-// CHANGE SUMMARY: Fixed theme change detection in applyTheme() to prevent redundant applications, simplified logging to reduce noise - only logs relevant updates
+// v2.0 - 10/11/25 - Updated to 3-state messaging protocol
+// CHANGE SUMMARY: Added proper state transition handling (enter-focus/enter-active/exit-active/exit-focus)
 
 import { createLogger } from '../../js/utils/logger.js';
 import { AgendaEventModal } from './agenda_event.js';
@@ -13,8 +14,9 @@ export class AgendaWidget {
     this.connectionStatus = 'connecting';
     this.currentTheme = null;
 
-    // Event selection state - now auto-enters selection mode when focused
-    this.isFocused = false;
+    // Event selection state - NEW: Two-part state model
+    this.hasFocus = false;  // FOCUSED state (widget centered, has attention)
+    this.isActive = false;  // ACTIVE state (receiving commands)
     this.selectedEventIndex = -1;
     this.chronologicalEvents = []; // Flattened list for navigation
     this.eventElements = []; // DOM elements for highlighting
@@ -92,7 +94,7 @@ export class AgendaWidget {
 
     // Listen for modal closed event to restore focus
     window.addEventListener('modal-closed', () => {
-      if (this.isFocused) {
+      if (this.isActive) {
         this.updateSelectionHighlight();
       }
     });
@@ -100,41 +102,61 @@ export class AgendaWidget {
 
   // Handle navigation commands (following calendar.js pattern)
   handleCommand(action) {
-    logger.debug('Agenda widget received command', { action, isFocused: this.isFocused });
+    logger.debug('Agenda widget received command', { 
+      action, 
+      hasFocus: this.hasFocus,
+      isActive: this.isActive 
+    });
 
-    // Receiving any command means we're focused - auto-enter selection if not already
-    if (!this.isFocused) {
-      this.handleFocusChange(true);
+    // STEP 1: Handle state transition messages
+    switch (action) {
+      case 'enter-focus':
+        // Widget is now FOCUSED (centered, has attention)
+        this.handleEnterFocus();
+        return;
+
+      case 'enter-active':
+        // Widget is now ACTIVE (can receive navigation)
+        this.handleEnterActive();
+        return;
+
+      case 'exit-active':
+        // Widget no longer active (shouldn't happen for widgets without menus)
+        this.handleExitActive();
+        return;
+
+      case 'exit-focus':
+        // Leave centered view entirely
+        this.handleExitFocus();
+        return;
+    }
+
+    // STEP 2: Handle navigation ONLY if ACTIVE
+    if (!this.isActive) {
+      logger.debug('Navigation command ignored - widget not active', { action });
+      return;
     }
 
     // Handle agenda navigation commands
     switch (action) {
       case 'right':
-        if (this.isFocused) {
-          this.navigateToNextDay();
-        }
+        this.navigateToNextDay();
         break;
 
       case 'left':
-        if (this.isFocused) {
-          this.navigateToPrevDay();
-        }
+        this.navigateToPrevDay();
         break;
 
       case 'up':
-        if (this.isFocused) {
-          this.navigateSelection(-1);
-        }
+        this.navigateSelection(-1);
         break;
 
       case 'down':
-        if (this.isFocused) {
-          this.navigateSelection(1);
-        }
+        this.navigateSelection(1);
         break;
 
       case 'enter':
-        if (this.isFocused && this.selectedEventIndex >= 0) {
+        if (this.selectedEventIndex >= 0) {
           this.showSelectedEventModal();
         }
         break;
@@ -147,7 +169,7 @@ export class AgendaWidget {
         if (container) {
           container.scrollTop = 0;
         }
-        this.selectedEventIndex = -1; // Reset index
+        this.selectedEventIndex = -1;
         break;
 
       default:
@@ -278,8 +300,8 @@ export class AgendaWidget {
     // Cache event elements for selection highlighting
     this.cacheEventElements();
 
-    // If widget is focused, auto-select first event
-    if (this.isFocused && this.chronologicalEvents.length > 0) {
+    // If widget is active, auto-select first event
+    if (this.isActive && this.chronologicalEvents.length > 0) {
       this.selectedEventIndex = 0;
       this.updateSelectionHighlight();
     }
@@ -543,28 +565,43 @@ export class AgendaWidget {
 
   // ==================== FOCUS AND SELECTION METHODS ====================
 
-  handleFocusChange(focused) {
-    const wasFocused = this.isFocused;
-    this.isFocused = focused;
+  handleEnterFocus() {
+    logger.info('Agenda entered FOCUSED state');
+    this.hasFocus = true;
+    this.isActive = false;
+  }
 
-    if (focused && !wasFocused) {
-      // Widget gained focus - auto-select first event if available
-      if (this.chronologicalEvents.length > 0) {
-        this.selectedEventIndex = 0; // Always start at first event
-        this.updateSelectionHighlight();
-        this.scrollToSelectedEvent();
-      }
-    } else if (!focused && wasFocused) {
-      // Widget lost focus - clear selection, reset scroll and index
-      this.selectedEventIndex = -1; // Reset index
-      this.clearSelectionHighlight();
-      
-      // Reset scroll to top
-      const container = document.getElementById('agendaContent');
-      if (container) {
-        container.scrollTop = 0;
-      }
-      
+  handleEnterActive() {
+    logger.info('Agenda entered ACTIVE state');
+    this.isActive = true;
+    
+    // Auto-select first event if available
+    if (this.chronologicalEvents.length > 0 && this.selectedEventIndex === -1) {
+      this.selectedEventIndex = 0;
+      this.updateSelectionHighlight();
+      this.scrollToSelectedEvent();
+    }
+  }
+
+  handleExitActive() {
+    logger.info('Agenda exited ACTIVE state');
+    this.isActive = false;
+    this.clearSelectionHighlight();
+  }
+
+  handleExitFocus() {
+    logger.info('Agenda exited FOCUSED state');
+    this.hasFocus = false;
+    this.isActive = false;
+    
+    // Full cleanup
+    this.selectedEventIndex = -1;
+    this.clearSelectionHighlight();
+    
+    // Reset scroll to top
+    const container = document.getElementById('agendaContent');
+    if (container) {
+      container.scrollTop = 0;
     }
   }
 
@@ -574,7 +611,7 @@ export class AgendaWidget {
   }
 
   navigateSelection(direction) {
-    if (!this.isFocused || this.chronologicalEvents.length === 0) return;
+    if (!this.isActive || this.chronologicalEvents.length === 0) return;
 
     const oldIndex = this.selectedEventIndex;
     const newIndex = this.selectedEventIndex + direction;
@@ -618,7 +655,7 @@ export class AgendaWidget {
   }
 
   navigateToNextDay() {
-    if (!this.isFocused || this.chronologicalEvents.length === 0) return;
+    if (!this.isActive || this.chronologicalEvents.length === 0) return;
 
     const currentEvent = this.chronologicalEvents[this.selectedEventIndex];
     if (!currentEvent) return;
@@ -643,7 +680,7 @@ export class AgendaWidget {
   }
 
   navigateToPrevDay() {
-    if (!this.isFocused || this.chronologicalEvents.length === 0) return;
+    if (!this.isActive || this.chronologicalEvents.length === 0) return;
 
     const currentEvent = this.chronologicalEvents[this.selectedEventIndex];
     if (!currentEvent) return;
@@ -687,7 +724,7 @@ export class AgendaWidget {
     // Clear previous highlights
     this.clearSelectionHighlight();
 
-    if (this.isFocused && this.selectedEventIndex >= 0 && this.selectedEventIndex < this.chronologicalEvents.length) {
+    if (this.isActive && this.selectedEventIndex >= 0 && this.selectedEventIndex < this.chronologicalEvents.length) {
       const selectedEvent = this.chronologicalEvents[this.selectedEventIndex];
       const eventElement = this.findEventElementById(selectedEvent.id);
       

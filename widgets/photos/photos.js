@@ -1,5 +1,6 @@
 // widgets/photos/photos.js
-// CHANGE SUMMARY: Added empty state click handler to open photos settings and trigger file picker
+// v2.0 - 10/11/25 - Updated to 3-state messaging protocol
+// CHANGE SUMMARY: Added proper state transition handling (enter-focus/enter-active/exit-active/exit-focus)
 
 import { createLogger } from '../../js/utils/logger.js';
 
@@ -14,7 +15,10 @@ export class PhotosWidget {
     this.currentFolder = null;
     this.isTransitioning = false;
     this.currentTheme = null;
-    this.isFocused = false;
+    
+    // NEW: Two-part state model
+    this.hasFocus = false;  // FOCUSED state (widget centered, has attention)
+    this.isActive = false;  // ACTIVE state (receiving commands)
     
     this.photoContainer = document.getElementById('photo-container');
     this.loadingDiv = document.getElementById('loading');
@@ -75,15 +79,6 @@ export class PhotosWidget {
       const data = event.data;
       
       if (!data) return;
-
-      // Handle focus/blur actions FIRST (before other commands)
-      if (data.action === 'focus') {
-        this.handleFocusChange(true);
-        return;
-      } else if (data.action === 'blur') {
-        this.handleFocusChange(false);
-        return;
-      }
 
       // Handle navigation commands (action without type)
       if (data.action && typeof data.action === 'string' && !data.type) {
@@ -215,7 +210,40 @@ export class PhotosWidget {
    * Handle navigation commands
    */
   handleCommand(action) {
-    logger.debug('Photos widget received command', { action });
+    logger.debug('Photos widget received command', { 
+      action,
+      hasFocus: this.hasFocus,
+      isActive: this.isActive 
+    });
+
+    // STEP 1: Handle state transition messages
+    switch (action) {
+      case 'enter-focus':
+        // Widget is now FOCUSED (centered, has attention)
+        this.handleEnterFocus();
+        return;
+
+      case 'enter-active':
+        // Widget is now ACTIVE (can receive navigation)
+        this.handleEnterActive();
+        return;
+
+      case 'exit-active':
+        // Widget no longer active (shouldn't happen for widgets without menus)
+        this.handleExitActive();
+        return;
+
+      case 'exit-focus':
+        // Leave centered view entirely
+        this.handleExitFocus();
+        return;
+    }
+
+    // STEP 2: Handle navigation ONLY if ACTIVE
+    if (!this.isActive) {
+      logger.debug('Navigation command ignored - widget not active', { action });
+      return;
+    }
 
     switch (action) {
       case 'left':
@@ -249,27 +277,36 @@ export class PhotosWidget {
   }
 
   /**
-   * Handle focus change
+   * State transition handlers
    */
-  handleFocusChange(focused) {
-    const wasFocused = this.isFocused;
-    this.isFocused = focused;
+  handleEnterFocus() {
+    logger.info('Photos entered FOCUSED state');
+    this.hasFocus = true;
+    this.isActive = false;
+    document.body.classList.add('widget-focused');
+  }
 
-    if (focused && !wasFocused) {
-      // Widget gained focus
-      document.body.classList.add('widget-focused');
-      logger.debug('Photos widget gained focus');
-      
-      // If focused and no photos, open settings immediately
-      if (this.photoUrls.length === 0) {
-        logger.info('Widget focused with no photos - opening settings');
-        this.handleEmptyStateClick();
-      }
-    } else if (!focused && wasFocused) {
-      // Widget lost focus
-      document.body.classList.remove('widget-focused');
-      logger.debug('Photos widget lost focus');
+  handleEnterActive() {
+    logger.info('Photos entered ACTIVE state');
+    this.isActive = true;
+    
+    // If focused and no photos, open settings immediately
+    if (this.photoUrls.length === 0) {
+      logger.info('Widget active with no photos - opening settings');
+      this.handleEmptyStateClick();
     }
+  }
+
+  handleExitActive() {
+    logger.info('Photos exited ACTIVE state');
+    this.isActive = false;
+  }
+
+  handleExitFocus() {
+    logger.info('Photos exited FOCUSED state');
+    this.hasFocus = false;
+    this.isActive = false;
+    document.body.classList.remove('widget-focused');
   }
 
   /**

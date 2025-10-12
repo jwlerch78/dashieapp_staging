@@ -1,6 +1,6 @@
 // widgets/dcal/dcal.js - Main Dashie Calendar Widget Class
-// v1.11 - 10/10/25 8:10pm - Swapped Day and 3-Day menu positions
-// CHANGE SUMMARY: Menu order now: Month, Week, 3-Day, Day
+// v1.12 - 10/11/25 - Updated to 3-state messaging protocol
+// CHANGE SUMMARY: Updated handleMenuAction to use enter-focus/enter-active/exit-active/exit-focus
 
 import { createLogger } from '../../js/utils/logger.js';
 import { DCalConfig } from './dcal-config.js';
@@ -138,7 +138,7 @@ export class DCalWidget {
       // NEW: Handle menu-related messages first
       if (event.data && event.data.action) {
         // Check if it's a menu action
-        const menuActions = ['menu-active', 'menu-selection-changed', 'menu-item-selected', 'focus', 'blur'];
+        const menuActions = ['menu-active', 'menu-selection-changed', 'menu-item-selected', 'enter-focus', 'enter-active', 'exit-active', 'exit-focus'];
         if (menuActions.includes(event.data.action)) {
           this.handleMenuAction(event.data);
           return; // Don't process as command
@@ -594,8 +594,15 @@ export class DCalWidget {
         }
         break;
         
-      case 'focus':
-        // User moved from menu to widget content
+      case 'enter-focus':
+        // Widget is now FOCUSED (centered, has attention)
+        // If no menu: auto-enter active
+        // If has menu: user starts in menu
+        logger.info('DCal entered FOCUSED state');
+        break;
+        
+      case 'enter-active':
+        // Widget now ACTIVE (user pressed → from menu or auto-entry)
         this.menuActive = false;
         this.isFocused = true;
         
@@ -604,14 +611,24 @@ export class DCalWidget {
         this.homeDate.setHours(0, 0, 0, 0);
         this.isAtHome = true;
         
-        logger.info('📍 Calendar gained focus from menu, home set to today');
+        logger.info('DCal entered ACTIVE state (can receive commands)');
+        logger.info('📍 Calendar home set to today');
         break;
         
-      case 'blur':
-        // User returned to menu from widget
+      case 'exit-active':
+        // Menu regained control (user pressed ← from widget)
         this.menuActive = true;
         this.isFocused = false;
-        logger.info('📋 Calendar returned to menu');
+        logger.info('DCal exited ACTIVE state (returned to menu)');
+        break;
+        
+      case 'exit-focus':
+        // Leaving focused view entirely (back to grid)
+        this.menuActive = true;
+        this.isFocused = false;
+        this.isAtHome = true;
+        this.homeDate = null;
+        logger.info('DCal exited FOCUSED state (returned to grid)');
         break;
     }
   }

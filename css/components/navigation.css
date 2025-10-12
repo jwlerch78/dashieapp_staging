@@ -1,6 +1,6 @@
 /* css/components/navigation.css - Focus & Selection States */
-/* v1.9 - 10/10/25 8:15pm - Updated sidebar menu styling to match focus menu */
-/* CHANGE SUMMARY: Sidebar now uses thick left border for active, shading for selected (no outline) */
+/* v2.0 - 10/11/25 - Added scale animation for widget-active state */
+/* CHANGE SUMMARY: Widgets now scale to 108% when active, sidebar menu styling matches focus menu */
 
 /* ENHANCED MODE (default) - Silver/grey border with gradient and rounded corners */
 .widget.widget-selected {
@@ -176,13 +176,20 @@ body.legacy-focus .menu-item.widget-focused {
 /* IMPORTANT: Gray border when centered but NOT widget-active (in menu) */
 .widget.widget-focused.centered:not(.widget-active)::before {
   background: var(--widget-border-gradient) !important;
-  transition: background 0.3s ease !important; /* CRITICAL: Ensure transition works */
+  transition: background 0.3s ease !important;
 }
 
 /* Blue gradient border when user is actively controlling the widget (not in menu) */
+/* Also scale up the widget to 108% for better visual feedback */
+.widget.widget-focused.centered.widget-active {
+  /* CSS custom property will be set by JS with the translate values */
+  /* We append scale(1.08) to whatever translate is already there */
+  transition: transform 0.3s ease !important;
+}
+
 .widget.widget-focused.centered.widget-active::before {
   background: var(--widget-border-gradient-active) !important;
-  transition: background 0.3s ease !important; /* CRITICAL: Ensure transition works */
+  transition: background 0.3s ease !important;
 }
 
 /* Ensure smooth transition back to grid position */

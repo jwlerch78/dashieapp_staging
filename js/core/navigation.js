@@ -1,6 +1,6 @@
 // js/core/navigation.js - Navigation Logic & Focus Management with Timeout System
-// v1.9 - 10/11/25 - Updated to use new state setter functions
-// CHANGE SUMMARY: Replaced setSelectedCell with setFocusedWidget and setFocusMenuInWidget with setWidgetActive
+// v2.0 - 10/11/25 - Updated messaging protocol to 3-state model
+// CHANGE SUMMARY: Replaced 'focus'/'blur'/'escape' with 'enter-focus'/'enter-active'/'exit-active'/'exit-focus'
 
 import { state, elements, findWidget, setFocus, setFocusedWidget, setCurrentMain } from './state.js';
 import { isFeatureEnabled } from './feature-flags.js';
@@ -171,9 +171,17 @@ function showFocusOverlay() {
         
         console.log('✓ Focus menu activated for', widgetId, '- user starts in MENU');
       } else {
-        // No menu - just center and send focus
+        // No menu - center and send BOTH messages
         centerFocusedWidget(state.focusedWidget);
-        sendToWidget({ action: 'focus' });
+        
+        // First: Widget enters FOCUSED state (centered, has attention)
+        sendToWidget({ action: 'enter-focus' });
+        
+        // Then immediately: Widget enters ACTIVE state (can receive commands)
+        // No delay needed - widgets without menus auto-activate
+        sendToWidget({ action: 'enter-active' });
+        
+        console.log('✓ Widget auto-entered ACTIVE (no menu)');
       }
     }, 50);
   }
@@ -510,7 +518,7 @@ export function moveFocus(dir) {
           selectLabel: ''
         });
         
-        sendToWidget({ action: 'focus' });
+        sendToWidget({ action: 'enter-active' });
         console.log('→ Moved from menu to widget content');
         return;
       }
@@ -658,14 +666,14 @@ export function handleEnter() {
         setFocusedWidget(widgetElement);
         console.log(`Selected widget element:`, widgetElement);
         
-        // ADDED: Send focus message to the widget iframe
+        // ADDED: Send enter-focus message to the widget iframe
         const iframe = widgetElement.querySelector("iframe");
         if (iframe && iframe.contentWindow) {
           try {
-            iframe.contentWindow.postMessage({ action: "focus" }, "*");
-            console.log("✓ Sent 'focus' message to widget iframe");
+            iframe.contentWindow.postMessage({ action: "enter-focus" }, "*");
+            console.log("✓ Sent 'enter-focus' message to widget iframe");
           } catch (error) {
-            console.warn("Failed to send focus message to widget:", error);
+            console.warn("Failed to send enter-focus message to widget:", error);
           }
         }
         
@@ -716,17 +724,29 @@ export function handleBack() {
         setWidgetActive(false);
         undimFocusMenu();
         
-        // Remove visual indicator that widget was active
+        // Remove visual indicator that widget was active AND restore scale
         if (state.focusedWidget) {
           console.log('🔵 BEFORE removing widget-active:', state.focusedWidget.className);
           state.focusedWidget.classList.remove('widget-active');
+          
+          // Restore scale back to 1.05 (focused state)
+          const currentTransform = state.focusedWidget.style.transform;
+          if (currentTransform && currentTransform.includes('translate')) {
+            const translateMatch = currentTransform.match(/translate\(([^)]+)\)/);
+            if (translateMatch) {
+              const restoredTransform = `${translateMatch[0]} scale(1.05)`;
+              state.focusedWidget.style.transform = restoredTransform;
+              console.log('🔵 Restored transform to:', restoredTransform);
+            }
+          }
+          
           console.log('🔵 AFTER removing widget-active:', state.focusedWidget.className);
         }
         
         // Update controls guide back to menu mode
         updateControlsGuide(true);
         
-        sendToWidget({ action: 'blur' });
+        sendToWidget({ action: 'exit-active' });
         console.log('← Returned to menu from widget');
         return;
       }
@@ -738,8 +758,8 @@ export function handleBack() {
         const iframe = widgetToCleanup.querySelector("iframe");
         if (iframe && iframe.contentWindow) {
           try {
-            iframe.contentWindow.postMessage({ action: "escape" }, "*");
-            console.log("  ✓ Sent 'escape' to widget");
+            iframe.contentWindow.postMessage({ action: "exit-focus" }, "*");
+            console.log("  ✓ Sent 'exit-focus' to widget");
           } catch (error) {
             console.warn("  ⚠️ Failed to send escape to widget:", error);
           }
@@ -970,17 +990,29 @@ window.addEventListener('message', (event) => {
       setWidgetActive(false);
       undimFocusMenu();
       
-      // Remove visual indicator that widget was active
+      // Remove visual indicator that widget was active AND restore scale
       if (state.focusedWidget) {
         console.log('🔵 [return-to-menu] BEFORE removing widget-active:', state.focusedWidget.className);
         state.focusedWidget.classList.remove('widget-active');
+        
+        // Restore scale back to 1.05 (focused state)
+        const currentTransform = state.focusedWidget.style.transform;
+        if (currentTransform && currentTransform.includes('translate')) {
+          const translateMatch = currentTransform.match(/translate\(([^)]+)\)/);
+          if (translateMatch) {
+            const restoredTransform = `${translateMatch[0]} scale(1.05)`;
+            state.focusedWidget.style.transform = restoredTransform;
+            console.log('🔵 [return-to-menu] Restored transform to:', restoredTransform);
+          }
+        }
+        
         console.log('🔵 [return-to-menu] AFTER removing widget-active:', state.focusedWidget.className);
       }
       
       // Update controls guide back to menu mode
       updateControlsGuide(true);
       
-      sendToWidget({ action: 'blur' });
+      sendToWidget({ action: 'exit-active' });
       console.log('← Widget requested return to menu');
     }
   }

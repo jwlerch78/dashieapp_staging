@@ -1,6 +1,6 @@
 /* css/components/focus-menu.css - Focus Menu Styling */
-/* v1.8 - 10/10/25 8:15pm - Removed checkmark from active items */
-/* CHANGE SUMMARY: Active items now only show thick left border (no checkmark) */
+/* v1.9 - 10/11/25 - Added scale animation when entering/exiting active mode */
+/* CHANGE SUMMARY: Menu scales down to 95% when widget is active, restores to 100% when returning to menu */
 
 /* Focus Menu Container */
 .focus-menu {
@@ -18,7 +18,7 @@
   pointer-events: auto; /* CRITICAL: Allow menu to capture mouse events */
   
   /* Smooth transform animation - matches widget centering animation */
-  transition: transform 0.4s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.3s ease;
+  transition: transform 0.4s cubic-bezier(0.4, 0.0, 0.2, 1), opacity 0.3s ease, scale 0.3s ease;
 }
 
 /* Blue gradient border when menu is active (user is navigating menu, not widget) */
@@ -40,10 +40,11 @@
   display: none; /* DISABLED: Remove blue border around menu */
 }
 
-/* Dimmed state when user is in widget content - scale down and gray out */
+/* Dimmed state when user is in widget content - scale down 5% and slightly reduce opacity */
 .focus-menu.dimmed {
-  opacity: 0.9;
-  transition: opacity 0.3s ease;
+  scale: 0.95;
+  opacity: 0.85;
+  transition: scale 0.3s ease, opacity 0.3s ease;
 }
 
 /* Menu Item */
