@@ -21,6 +21,9 @@ const logger = createLogger('DeviceFlowAuth');
  * Implements Google OAuth Device Flow for Fire TV, Android TV, etc.
  */
 export class DeviceFlowProvider {
+
+static isQRCodeScriptLoading = false; 
+
   constructor() {
     this.config = {
       client_id: '221142210647-m9vf7t0qgm6nlc6gggfsqefmjrak1mo9.apps.googleusercontent.com',
@@ -30,7 +33,6 @@ export class DeviceFlowProvider {
       scope: 'openid email profile https://www.googleapis.com/auth/calendar.readonly'
     };
     
-    this.isQRCodeScriptLoading = false; 
     this.pollInterval = null;
     this.countdownInterval = null;
     this.currentTokens = null;
