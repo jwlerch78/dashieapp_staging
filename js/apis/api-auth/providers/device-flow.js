@@ -645,7 +645,9 @@ export class DeviceFlowProvider {
       }
       
       #qr-code-container {
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         padding: 8px;
         background: #fff;
         border-radius: 8px;
@@ -653,7 +655,8 @@ export class DeviceFlowProvider {
         margin: 0 auto 6px;
       }
       
-      #qr-code-container img {
+      #qr-code-container img,
+      #qr-code-container canvas {
         display: block !important;
         width: 120px !important;
         height: 120px !important;
