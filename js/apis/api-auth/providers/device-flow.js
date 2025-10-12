@@ -214,57 +214,59 @@ createDeviceCodeOverlay(deviceData) {
  * @param {string} url - URL to encode in QR code
  */
 generateQRCode(container, url) {
-  if (!container) {
-    logger.warn('QR code container not found');
-    return;
-  }
-
-  if (container.querySelector('canvas')) return; // Already generated
-
-  // Clear container
-  container.innerHTML = '';
-
-  const createInstance = () => {
-    try {
-      new QRCode(container, {
-        text: url,
-        width: 120,
-        height: 120,
-        colorDark: '#EE9828',
-        colorLight: '#ffffff',
-        correctLevel: QRCode.CorrectLevel.H
-      });
-      logger.debug('QR code generated', { url });
-    } catch (error) {
-      logger.error('Error generating QR code', error);
-      container.innerHTML = '<p style="color: #999; font-size: 14px;">Failed to generate QR code</p>';
+    if (!container) {
+        logger.warn('QR code container not found');
+        return;
     }
-  };
 
-  // Load QRCode library if not present
-  if (typeof QRCode === 'undefined') {
+    if (container.querySelector('canvas')) return; // Already generated
+
+    // Clear container
+    container.innerHTML = '';
+
+    const createInstance = () => {
+        // 👇 Add the reset logic here for the success path
+        if (this.isQRCodeScriptLoading) {
+            this.isQRCodeScriptLoading = false; 
+        }
+
+        try {
+            new QRCode(container, {
+                // ... rest of QR code config
+            });
+            logger.debug('QR code generated', { url });
+        } catch (error) {
+            logger.error('Error generating QR code', error);
+            container.innerHTML = '<p style="color: #999; font-size: 14px;">Failed to generate QR code</p>';
+        }
+    };
+
+    // Load QRCode library if not present
+    if (typeof QRCode === 'undefined') {
 
         if (this.isQRCodeScriptLoading) {
-            // Wait for the already-loading script to call createInstance
-            // A more robust solution might use Promises to queue the next action,
-            // but simply returning here prevents creating the second script tag.
+            // Already loading, do nothing.
             return; 
         }
 
-    this.isQRCodeScriptLoading = true; // Set flag before creating script
+        this.isQRCodeScriptLoading = true; // Set flag to prevent double-loading
 
-
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-    script.onload = createInstance;
-    script.onerror = () => {
-      logger.error('Failed to load QR code library');
-      container.innerHTML = '<p style="color: #999; font-size: 14px;">QR code unavailable</p>';
-    };
-    document.head.appendChild(script);
-  } else {
-    createInstance();
-  }
+        const script = document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+        
+        // Pass the function reference (which now contains the reset logic)
+        script.onload = createInstance; 
+        
+        script.onerror = () => {
+            // 👇 CRITICAL FIX: Reset the flag on error too
+            this.isQRCodeScriptLoading = false; 
+            logger.error('Failed to load QR code library');
+            container.innerHTML = '<p style="color: #999; font-size: 14px;">QR code unavailable</p>';
+        };
+        document.head.appendChild(script);
+    } else {
+        createInstance();
+    }
 }
 
 
