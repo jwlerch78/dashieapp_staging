@@ -55,7 +55,7 @@
   font-size: 16px; /* Increased from 13px */
   font-weight: 700; /* Increased from 600 */
   padding: 16px 16px 8px 16px; /* Increased top padding from 12px */
-  color: var(--text-primary, #fff); /* Changed from text-secondary to make it stand out */
+  color: #333; /* FIXED COLOR - always dark gray, works on light settings background */
   text-transform: none; /* Changed from uppercase for better readability */
   letter-spacing: 0px; /* Reduced from 0.5px */
   display: flex;
@@ -68,16 +68,6 @@
   font-weight: 400;
   color: var(--text-secondary, #999);
   opacity: 0.8;
-}
-
-/* Dark theme adjustments */
-.theme-dark .calendar-account-header {
-  color: #fff; /* Changed from #999 */
-}
-
-/* Light theme adjustments */
-.theme-light .calendar-account-header {
-  color: #000; /* Changed from #666 */
 }
 
 /* Focus state (orange highlight for d-pad navigation) - CRITICAL */

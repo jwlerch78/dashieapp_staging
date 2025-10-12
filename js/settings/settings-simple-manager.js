@@ -685,7 +685,7 @@ export class SimplifiedSettings {
       
       populateFormFields(this.overlay, settings);
       
-      const theme = settings.display?.theme || 'dark';
+      const theme = settings.interface?.theme || 'dark';
       if (theme === 'dark') {
         document.body.classList.remove('theme-light');
         document.body.classList.add('theme-dark');

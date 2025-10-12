@@ -216,6 +216,22 @@ async saveSettings() {
       }
     }
     
+
+      // **NEW: Apply calendar settings to localStorage**
+      const calendarSettings = this.currentSettings.calendar;
+      if (calendarSettings) {
+        try {
+          console.log('⚙️ Syncing calendar settings from database to localStorage');
+          localStorage.setItem('dashie-calendar-settings', JSON.stringify(calendarSettings));
+          console.log('⚙️ ✅ Calendar settings synced to localStorage', {
+            accounts: Object.keys(calendarSettings.accounts || {}).length,
+            activeCalendars: (calendarSettings.activeCalendarIds || []).length
+          });
+        } catch (error) {
+          console.warn('Failed to sync calendar settings to localStorage:', error);
+        }
+      }
+
     // Apply family name to header widgets (only if not redirecting)
     const familyName = this.currentSettings.family?.familyName;
     if (familyName) {
