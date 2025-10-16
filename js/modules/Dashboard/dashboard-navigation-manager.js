@@ -1,0 +1,372 @@
+// js/modules/Dashboard/dashboard-navigation-manager.js
+// Dashboard navigation logic - Grid, menu, and widget focus
+// v1.0 - 10/16/25 - Initial implementation for Phase 2
+
+import { createLogger } from '../../utils/logger.js';
+import DashboardStateManager from './dashboard-state-manager.js';
+import UIRenderer from './dashboard-ui-renderer.js';
+import { getWidgetAtPosition, canWidgetCenter } from './dashboard-widget-config.js';
+
+const logger = createLogger('DashboardNav');
+
+/**
+ * Navigation Manager
+ *
+ * Handles all Dashboard navigation:
+ * - Grid navigation (3 rows × 2 columns)
+ * - Sidebar menu navigation (7 items)
+ * - Widget focus/defocus
+ *
+ * Grid Layout (1-indexed to match config):
+ *   Row 1: [Header][Clock]           (10% height)
+ *   Row 2: [Calendar][Agenda]        (45% height)
+ *   Row 3: [Calendar][Photos]        (45% height - Calendar spans rows 2-3)
+ *
+ * Columns: 70% / 30% width split
+ *
+ * Menu Items (0-6):
+ *   0: Calendar
+ *   1: Map
+ *   2: Camera
+ *   3: Reload
+ *   4: Sleep
+ *   5: Settings
+ *   6: Exit
+ */
+class NavigationManager {
+  /**
+   * Move up in grid or menu
+   * @returns {boolean} True if handled
+   */
+  static moveUp() {
+    const state = DashboardStateManager.getState();
+
+    // If widget is focused, don't handle navigation
+    if (state.focusedWidget) {
+      logger.debug('Widget focused, ignoring navigation');
+      return false;
+    }
+
+    // If menu is open, navigate menu up
+    if (state.menuOpen) {
+      return this.navigateMenuUp();
+    }
+
+    // Navigate grid up
+    const { row, col } = state.gridPosition;
+
+    if (row > 1) { // Row 1 is top
+      const newRow = row - 1;
+      DashboardStateManager.setGridPosition(newRow, col);
+      UIRenderer.updateFocus();
+
+      logger.debug('Moved grid up', { from: [row, col], to: [newRow, col] });
+      return true;
+    }
+
+    logger.debug('Already at top row');
+    return true; // Still handled (prevents default)
+  }
+
+  /**
+   * Move down in grid or menu
+   * @returns {boolean} True if handled
+   */
+  static moveDown() {
+    const state = DashboardStateManager.getState();
+
+    // If widget is focused, don't handle navigation
+    if (state.focusedWidget) {
+      return false;
+    }
+
+    // If menu is open, navigate menu down
+    if (state.menuOpen) {
+      return this.navigateMenuDown();
+    }
+
+    // Navigate grid down
+    const { row, col } = state.gridPosition;
+
+    if (row < 3) { // Row 3 is bottom
+      const newRow = row + 1;
+      DashboardStateManager.setGridPosition(newRow, col);
+      UIRenderer.updateFocus();
+
+      logger.debug('Moved grid down', { from: [row, col], to: [newRow, col] });
+      return true;
+    }
+
+    logger.debug('Already at bottom row');
+    return true; // Still handled (prevents default)
+  }
+
+  /**
+   * Move left in grid or open menu
+   * @returns {boolean} True if handled
+   */
+  static moveLeft() {
+    const state = DashboardStateManager.getState();
+
+    // If widget is focused, don't handle navigation
+    if (state.focusedWidget) {
+      return false;
+    }
+
+    // If menu is open, close it
+    if (state.menuOpen) {
+      this.closeMenu();
+      return true;
+    }
+
+    // Navigate grid left
+    const { row, col } = state.gridPosition;
+
+    if (col > 1) { // Col 1 is leftmost
+      const newCol = col - 1;
+      DashboardStateManager.setGridPosition(row, newCol);
+      UIRenderer.updateFocus();
+
+      logger.debug('Moved grid left', { from: [row, col], to: [row, newCol] });
+      return true;
+    }
+
+    // At leftmost column (col 1) - open menu
+    logger.debug('At leftmost column, opening menu');
+    this.openMenu();
+    return true;
+  }
+
+  /**
+   * Move right in grid or close menu
+   * @returns {boolean} True if handled
+   */
+  static moveRight() {
+    const state = DashboardStateManager.getState();
+
+    // If widget is focused, don't handle navigation
+    if (state.focusedWidget) {
+      return false;
+    }
+
+    // If menu is open, close it
+    if (state.menuOpen) {
+      this.closeMenu();
+      return true;
+    }
+
+    // Navigate grid right
+    const { row, col } = state.gridPosition;
+
+    if (col < 2) { // Col 2 is rightmost
+      const newCol = col + 1;
+      DashboardStateManager.setGridPosition(row, newCol);
+      UIRenderer.updateFocus();
+
+      logger.debug('Moved grid right', { from: [row, col], to: [row, newCol] });
+      return true;
+    }
+
+    logger.debug('Already at rightmost column');
+    return true; // Still handled (prevents default)
+  }
+
+  /**
+   * Handle ENTER action
+   * @returns {boolean} True if handled
+   */
+  static handleEnter() {
+    const state = DashboardStateManager.getState();
+
+    // If menu is open, select menu item
+    if (state.menuOpen) {
+      return this.selectMenuItem(state.selectedMenuItem);
+    }
+
+    // If widget is focused, defocus it
+    if (state.focusedWidget) {
+      this.defocusWidget();
+      return true;
+    }
+
+    // Focus current widget
+    this.focusWidget();
+    return true;
+  }
+
+  /**
+   * Handle ESCAPE action
+   * @returns {boolean} True if handled
+   */
+  static handleEscape() {
+    const state = DashboardStateManager.getState();
+
+    // If widget is focused, defocus it
+    if (state.focusedWidget) {
+      this.defocusWidget();
+      return true;
+    }
+
+    // If menu is open, close it
+    if (state.menuOpen) {
+      this.closeMenu();
+      return true;
+    }
+
+    return false; // Not handled
+  }
+
+  /**
+   * Navigate menu up
+   * @private
+   * @returns {boolean} True if handled
+   */
+  static navigateMenuUp() {
+    const state = DashboardStateManager.getState();
+    const currentItem = state.selectedMenuItem;
+
+    // Wrap around: if at top (0), go to bottom (6)
+    const newItem = currentItem > 0 ? currentItem - 1 : 6;
+
+    DashboardStateManager.setMenuState(true, newItem);
+    UIRenderer.updateMenuSelection();
+
+    logger.debug('Menu navigate up', { from: currentItem, to: newItem });
+    return true;
+  }
+
+  /**
+   * Navigate menu down
+   * @private
+   * @returns {boolean} True if handled
+   */
+  static navigateMenuDown() {
+    const state = DashboardStateManager.getState();
+    const currentItem = state.selectedMenuItem;
+
+    // Wrap around: if at bottom (6), go to top (0)
+    const newItem = currentItem < 6 ? currentItem + 1 : 0;
+
+    DashboardStateManager.setMenuState(true, newItem);
+    UIRenderer.updateMenuSelection();
+
+    logger.debug('Menu navigate down', { from: currentItem, to: newItem });
+    return true;
+  }
+
+  /**
+   * Open sidebar menu
+   */
+  static openMenu() {
+    DashboardStateManager.setMenuState(true);
+    UIRenderer.showMenu();
+
+    logger.info('Menu opened');
+  }
+
+  /**
+   * Close sidebar menu
+   */
+  static closeMenu() {
+    DashboardStateManager.setMenuState(false);
+    UIRenderer.hideMenu();
+
+    // Update grid focus to show which cell is selected
+    UIRenderer.updateFocus();
+
+    logger.info('Menu closed');
+  }
+
+  /**
+   * Select menu item
+   * @param {number} itemIndex - Menu item index (0-6)
+   * @returns {boolean} True if handled
+   */
+  static selectMenuItem(itemIndex) {
+    const menuItems = [
+      'calendar',
+      'map',
+      'camera',
+      'reload',
+      'sleep',
+      'settings',
+      'exit'
+    ];
+
+    const menuItem = menuItems[itemIndex];
+
+    if (!menuItem) {
+      logger.error('Invalid menu item index', { itemIndex });
+      return false;
+    }
+
+    logger.info('Menu item selected', { item: menuItem, index: itemIndex });
+
+    // TODO: Implement menu actions in future phases
+    console.log(`[Dashboard] Menu action: ${menuItem}`);
+
+    // Close menu after selection
+    this.closeMenu();
+
+    return true;
+  }
+
+  /**
+   * Focus current widget
+   */
+  static focusWidget() {
+    const state = DashboardStateManager.getState();
+    const { row, col } = state.gridPosition;
+
+    // Get widget at current position
+    const widget = getWidgetAtPosition(row, col);
+
+    if (!widget) {
+      logger.warn('No widget at position', { row, col });
+      return;
+    }
+
+    // Check if widget can be centered
+    if (!canWidgetCenter(widget.id)) {
+      logger.info('Widget cannot be centered', { widgetId: widget.id });
+      return;
+    }
+
+    DashboardStateManager.setFocusedWidget(widget.id);
+    UIRenderer.focusWidget(widget.id);
+
+    logger.info('Widget focused', { widgetId: widget.id, position: [row, col] });
+  }
+
+  /**
+   * Defocus current widget
+   */
+  static defocusWidget() {
+    const state = DashboardStateManager.getState();
+    const widgetId = state.focusedWidget;
+
+    if (!widgetId) {
+      logger.warn('No widget to defocus');
+      return;
+    }
+
+    DashboardStateManager.setFocusedWidget(null);
+    UIRenderer.defocusWidget();
+
+    logger.info('Widget defocused', { widgetId });
+  }
+}
+
+// =============================================================================
+// EXPOSE GLOBALLY FOR DEBUGGING
+// =============================================================================
+
+if (typeof window !== 'undefined') {
+  window.NavigationManager = NavigationManager;
+}
+
+// =============================================================================
+// EXPORT
+// =============================================================================
+
+export default NavigationManager;

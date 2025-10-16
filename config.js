@@ -197,7 +197,8 @@ export const STORAGE_KEYS = {
 
   // State
   APP_STATE: 'dashie-app-state',
-  LAST_MODULE: 'dashie-last-module'
+  LAST_MODULE: 'dashie-last-module',
+  DASHBOARD_STATE: 'dashie-dashboard-state'
 };
 
 // =============================================================================

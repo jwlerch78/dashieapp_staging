@@ -1503,31 +1503,31 @@ The Dashboard module is the main view showing the 2x3 widget grid, sidebar menu,
 
 ```
 js/modules/Dashboard/
-├── index.js                    # Public API
-├── input-handler.js            # Routes D-pad to navigation-manager
-├── state-manager.js            # Dashboard state
-│                               # - Grid position (row, col)
-│                               # - Focused widget
-│                               # - Menu state
+├── dashboard.js                       # Public API
+├── dashboard-input-handler.js         # Routes D-pad to navigation-manager
+├── dashboard-state-manager.js         # Dashboard state
+│                                      # - Grid position (row, col)
+│                                      # - Focused widget
+│                                      # - Menu state
 │
-├── navigation-manager.js       # Grid + menu + focus navigation (~350 lines)
-│                               # - Grid movement (2x3)
-│                               # - Menu navigation (7 items)
-│                               # - Widget focus/defocus
-│                               # - Timeout management (20s selection, 60s focus)
+├── dashboard-navigation-manager.js    # Grid + menu + focus navigation (~350 lines)
+│                                      # - Grid movement (2x3)
+│                                      # - Menu navigation (7 items)
+│                                      # - Widget focus/defocus
+│                                      # - Timeout management (20s selection, 60s focus)
 │
-├── ui-renderer.js              # Dashboard UI (~350 lines)
-│                               # - Grid rendering
-│                               # - Sidebar rendering
-│                               # - Focus menu display
-│                               # - Widget centering & overlay
-│                               # - Highlight show/hide
-│                               # (Absorbs grid.js, focus-menu.js from legacy)
+├── dashboard-ui-renderer.js           # Dashboard UI (~350 lines)
+│                                      # - Grid rendering
+│                                      # - Sidebar rendering
+│                                      # - Focus menu display
+│                                      # - Widget centering & overlay
+│                                      # - Highlight show/hide
+│                                      # (Absorbs grid.js, focus-menu.js from legacy)
 │
-└── focus-menu-manager.js       # Focus menu system (~150 lines)
-                                # - Menu item tracking
-                                # - Selection state
-                                # - Active/inactive transitions
+└── dashboard-focus-menu-manager.js    # Focus menu system (~150 lines)
+                                       # - Menu item tracking
+                                       # - Selection state
+                                       # - Active/inactive transitions
 ```
 
 ### Navigation Consolidation
@@ -1544,12 +1544,12 @@ js/modules/Dashboard/
 
 | Functionality | Goes To |
 |--------------|---------|
-| Grid navigation (2x3 movement) | `Dashboard/navigation-manager.js` |
-| Menu navigation | `Dashboard/navigation-manager.js` |
-| Widget focus/defocus | `Dashboard/navigation-manager.js` |
-| Widget centering & overlay | `Dashboard/ui-renderer.js` |
-| Focus menu display | `Dashboard/ui-renderer.js` |
-| Timeout management | `Dashboard/navigation-manager.js` |
+| Grid navigation (2x3 movement) | `Dashboard/dashboard-navigation-manager.js` |
+| Menu navigation | `Dashboard/dashboard-navigation-manager.js` |
+| Widget focus/defocus | `Dashboard/dashboard-navigation-manager.js` |
+| Widget centering & overlay | `Dashboard/dashboard-ui-renderer.js` |
+| Focus menu display | `Dashboard/dashboard-ui-renderer.js` |
+| Timeout management | `Dashboard/dashboard-navigation-manager.js` |
 | Widget postMessage | `core/widget-messenger.js` (already exists) |
 
 ---

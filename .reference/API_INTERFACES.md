@@ -11,9 +11,10 @@
 2. [Core Layer Interfaces](#core-layer-interfaces)
 3. [Module Layer Interfaces](#module-layer-interfaces)
 4. [Data Layer Interfaces](#data-layer-interfaces)
-5. [Widget Communication Protocol](#widget-communication-protocol)
-6. [Event System](#event-system)
-7. [Type Definitions](#type-definitions)
+5. [Widget Layer Interface](#widget-layer-interface)
+6. [Widget Communication Protocol](#widget-communication-protocol)
+7. [Event System](#event-system)
+8. [Type Definitions](#type-definitions)
 
 ---
 
@@ -1559,6 +1560,480 @@ class DataCache {
 
 ---
 
+## Widget Layer Interface
+
+### Widget Lifecycle Contract
+
+**Every widget must implement this lifecycle:**
+
+```javascript
+/**
+ * Widget Lifecycle (runs in iframe)
+ * Each widget is an isolated HTML page loaded in an iframe
+ */
+
+// 1. On page load - Signal ready to parent
+window.addEventListener('load', () => {
+    if (window.parent !== window) {
+        window.parent.postMessage({
+            type: 'widget-ready',
+            widget: 'widgetId'
+        }, '*');
+    }
+});
+
+// 2. Listen for messages from parent
+window.addEventListener('message', (event) => {
+    const data = event.data;
+
+    if (!data) return;
+
+    // Handle commands (navigation actions)
+    if (data.action && !data.type) {
+        handleCommand(data.action);
+    }
+
+    // Handle system messages (data updates, theme changes)
+    if (data.type) {
+        handleSystemMessage(data);
+    }
+});
+
+// 3. Handle state transitions and navigation
+function handleCommand(action) {
+    // State transitions FIRST
+    if (action === 'enter-focus') {
+        // Widget is now FOCUSED (centered, has attention)
+        this.hasFocus = true;
+        showFocusIndicator();
+        return;
+    }
+
+    if (action === 'enter-active') {
+        // Widget is now ACTIVE (receiving navigation)
+        this.isActive = true;
+        dimFocusMenu(); // If widget has focus menu
+        return;
+    }
+
+    if (action === 'exit-active') {
+        // Widget no longer active
+        this.isActive = false;
+        restoreFocusMenu(); // If widget has focus menu
+        return;
+    }
+
+    if (action === 'exit-focus') {
+        // Widget is defocused
+        this.hasFocus = false;
+        hideFocusIndicator();
+        return;
+    }
+
+    // Navigation ONLY if active
+    if (!this.isActive) return;
+
+    switch (action) {
+        case 'up': navigateUp(); break;
+        case 'down': navigateDown(); break;
+        case 'left': navigateLeft(); break;
+        case 'right': navigateRight(); break;
+        case 'enter': handleEnter(); break;
+    }
+}
+```
+
+---
+
+### Widget States (3-State Model)
+
+Widgets transition through 3 distinct states:
+
+```
+UNFOCUSED → FOCUSED → ACTIVE
+
+State 1: UNFOCUSED
+- Widget in grid, not centered
+- No attention, no commands
+- Default visual state
+
+State 2: FOCUSED
+- Widget is centered
+- Has visual attention
+- Focus menu shown (if configured)
+- NOT yet receiving navigation commands
+
+State 3: ACTIVE
+- User inside widget content
+- Receiving navigation commands
+- Focus menu dimmed (if present)
+- Widget controls navigation
+```
+
+**State Transitions:**
+
+```javascript
+// Grid → Focused
+App sends: { action: 'enter-focus' }
+Widget: this.hasFocus = true
+Widget: Show focus indicator
+Widget: Display focus menu (if configured)
+
+// Focused → Active
+App sends: { action: 'enter-active' }
+Widget: this.isActive = true
+Widget: Dim focus menu (scale to 95%)
+Widget: Begin accepting navigation commands
+
+// Active → Focused (return to menu)
+Widget sends: { type: 'return-to-menu' }
+App sends: { action: 'exit-active' }
+Widget: this.isActive = false
+Widget: Restore focus menu (scale to 100%)
+Widget: Stop accepting navigation commands
+
+// Focused → Grid
+App sends: { action: 'exit-focus' }
+Widget: this.hasFocus = false
+Widget: Hide focus indicator
+Widget: Hide focus menu
+```
+
+---
+
+### Focus Menu System (Optional)
+
+Widgets can optionally provide a focus menu with navigation shortcuts, view options, or actions.
+
+**Focus Menu Configuration:**
+
+```javascript
+// Widget sends menu config on init
+window.parent.postMessage({
+    type: 'widget-config',
+    widget: 'calendar',
+    config: {
+        hasFocusMenu: true,
+        menuItems: [
+            {
+                id: 'view-week',
+                label: 'Week View',
+                icon: '📅',
+                type: 'view', // 'view' | 'action' | 'setting'
+                active: true  // Currently selected
+            },
+            {
+                id: 'view-month',
+                label: 'Month View',
+                icon: '📆',
+                type: 'view',
+                active: false
+            },
+            {
+                id: 'action-today',
+                label: 'Go to Today',
+                icon: '🏠',
+                type: 'action'
+            }
+        ]
+    }
+}, '*');
+```
+
+**Menu Item Types:**
+
+1. **View Items** - Mutually exclusive options (radio button style)
+   - Only one active at a time
+   - Shown with left border when active
+   - Used for: Week/Day/Month views, display modes
+
+2. **Action Items** - One-time actions
+   - No active state
+   - Shown with icon only
+   - Used for: "Go to Today", "Refresh", "Settings"
+
+3. **Setting Items** - Toggle settings
+   - Can be active/inactive independently
+   - Used for: Show weekends, Show all-day events
+
+**Focus Menu Messages:**
+
+```javascript
+// App → Widget: Menu navigation
+{
+    action: 'menu-selection-changed',
+    selectedIndex: 2 // Which menu item is highlighted
+}
+
+// App → Widget: Menu item selected
+{
+    action: 'menu-item-selected',
+    itemId: 'view-month'
+}
+
+// App → Widget: Menu active state
+{
+    action: 'menu-active',
+    active: true // User navigating menu vs. widget content
+}
+```
+
+**Widget Handling Menu Actions:**
+
+```javascript
+function handleMenuAction(data) {
+    if (data.action === 'menu-selection-changed') {
+        // Update visual highlight (optional - parent handles this)
+        // Just track for debugging
+        this.currentMenuSelection = data.selectedIndex;
+    }
+
+    if (data.action === 'menu-item-selected') {
+        const item = this.menuConfig.menuItems.find(i => i.id === data.itemId);
+
+        if (item.type === 'view') {
+            // Switch view mode
+            this.switchView(data.itemId);
+
+            // Update menu config
+            this.updateMenuActiveItem(data.itemId);
+        }
+
+        if (item.type === 'action') {
+            // Execute action
+            if (data.itemId === 'action-today') {
+                this.goToToday();
+            }
+        }
+    }
+}
+```
+
+---
+
+### "Home Position" Pattern
+
+Widgets with navigation (calendar, map) use a "home position" to decide when to return control to the focus menu.
+
+**Pattern:**
+
+```javascript
+class WidgetWithNavigation {
+    constructor() {
+        this.homeDate = null;        // Home position
+        this.isAtHome = true;         // Currently at home?
+    }
+
+    handleEnterActive() {
+        // Remember starting position as "home"
+        this.homeDate = new Date(this.currentDate);
+        this.isAtHome = true;
+        this.isActive = true;
+    }
+
+    handleLeft() {
+        if (!this.isActive) return;
+
+        // If already at home, don't navigate - return to menu
+        if (this.isAtHome) {
+            this.requestReturnToMenu();
+            return;
+        }
+
+        // Navigate backward
+        this.navigatePrevious();
+
+        // Check if we arrived at home
+        this.updateHomeStatus();
+    }
+
+    updateHomeStatus() {
+        // Check if current position matches home
+        this.isAtHome = this.isSamePosition(this.currentDate, this.homeDate);
+    }
+
+    requestReturnToMenu() {
+        // Tell parent we're done
+        window.parent.postMessage({
+            type: 'return-to-menu'
+        }, '*');
+    }
+}
+```
+
+**Why this pattern:**
+- Prevents user from accidentally navigating into the past
+- Provides clear "exit point" back to focus menu
+- Works for calendar (date navigation), map (pan/zoom), etc.
+
+---
+
+### Widget Message Handling Pattern
+
+**Recommended structure:**
+
+```javascript
+function setupMessageListener() {
+    window.addEventListener('message', (event) => {
+        const data = event.data;
+        if (!data) return;
+
+        // STEP 1: Check for menu actions FIRST
+        const menuActions = ['menu-active', 'menu-selection-changed', 'menu-item-selected'];
+        if (menuActions.includes(data.action)) {
+            handleMenuAction(data);
+            return; // Don't process as navigation command
+        }
+
+        // STEP 2: Handle state transitions
+        if (['enter-focus', 'enter-active', 'exit-active', 'exit-focus'].includes(data.action)) {
+            handleStateTransition(data.action);
+            return;
+        }
+
+        // STEP 3: Handle navigation (only if active)
+        if (data.action && !data.type) {
+            if (!this.isActive) return; // Ignore if not active
+            handleNavigation(data.action);
+            return;
+        }
+
+        // STEP 4: Handle system messages
+        if (data.type) {
+            handleSystemMessage(data);
+        }
+    });
+}
+```
+
+---
+
+### Required Widget Methods
+
+**Every widget must implement:**
+
+```javascript
+class Widget {
+    constructor() {
+        this.hasFocus = false;   // FOCUSED state
+        this.isActive = false;   // ACTIVE state
+        this.currentTheme = null;
+        this.widgetId = 'unique-id';
+    }
+
+    // REQUIRED: Signal ready
+    signalReady() {
+        window.parent.postMessage({
+            type: 'widget-ready',
+            widget: this.widgetId
+        }, '*');
+    }
+
+    // REQUIRED: Handle state transitions
+    handleEnterFocus() {
+        this.hasFocus = true;
+        // Show focus indicator, display menu
+    }
+
+    handleEnterActive() {
+        this.isActive = true;
+        // Dim menu, start accepting navigation
+    }
+
+    handleExitActive() {
+        this.isActive = false;
+        // Restore menu, stop navigation
+    }
+
+    handleExitFocus() {
+        this.hasFocus = false;
+        // Hide focus indicator, hide menu
+    }
+
+    // REQUIRED: Handle navigation (if isActive)
+    handleUp() {}
+    handleDown() {}
+    handleLeft() {}
+    handleRight() {}
+    handleEnter() {}
+    handleEscape() {}
+
+    // REQUIRED: Handle system messages
+    handleThemeChange(theme) {
+        this.currentTheme = theme;
+        this.applyTheme(theme);
+    }
+
+    handleDataUpdate(payload) {
+        // Update with fresh data
+    }
+
+    // OPTIONAL: Send menu config (if has focus menu)
+    sendMenuConfig() {
+        window.parent.postMessage({
+            type: 'widget-config',
+            widget: this.widgetId,
+            config: {
+                hasFocusMenu: true,
+                menuItems: [/* ... */]
+            }
+        }, '*');
+    }
+
+    // OPTIONAL: Request return to menu
+    requestReturnToMenu() {
+        window.parent.postMessage({
+            type: 'return-to-menu'
+        }, '*');
+    }
+}
+```
+
+---
+
+### Widget-Specific Interfaces
+
+**Calendar Widget:**
+```javascript
+class CalendarWidget extends Widget {
+    constructor() {
+        super();
+        this.currentView = 'week'; // 'week' | 'month' | 'day'
+        this.currentDate = new Date();
+        this.homeDate = null;
+        this.isAtHome = true;
+    }
+
+    // Calendar-specific
+    switchView(viewMode) {}
+    navigatePrevious() {}  // Left arrow - previous week/month
+    navigateNext() {}      // Right arrow - next week/month
+    scrollUp() {}          // Up arrow - scroll calendar up
+    scrollDown() {}        // Down arrow - scroll calendar down
+    goToToday() {}         // Menu action - jump to today
+}
+```
+
+**Photos Widget:**
+```javascript
+class PhotosWidget extends Widget {
+    constructor() {
+        super();
+        this.currentPhotoIndex = 0;
+        this.autoAdvanceInterval = null;
+        this.transitionTime = 5000;
+    }
+
+    // Photos-specific
+    showNext() {}          // Right arrow - next photo
+    showPrevious() {}      // Left arrow - previous photo
+    pauseSlideshow() {}    // Space - pause/resume
+    openSettings() {}      // Enter - open photo settings
+}
+```
+
+---
+
 ## Widget Communication Protocol
 
 ### Messages: App → Widget
@@ -1934,6 +2409,14 @@ describe('InputHandler', () => {
 
 ## Version History
 
+- **v2.3** (2025-10-16) - Added Widget Layer Interface documentation
+  - NEW: Widget Layer Interface section (complete widget contracts)
+  - Documented 3-state model (UNFOCUSED → FOCUSED → ACTIVE)
+  - Documented Focus Menu System (optional widget feature)
+  - Documented "Home Position" pattern for navigation widgets
+  - Documented widget message handling patterns
+  - Added widget-specific interfaces (Calendar, Photos)
+  - Updated Table of Contents
 - **v2.2** (2025-10-15) - Integrated high-priority technical debt fixes
   - Added TokenStore interface (separate auth token storage)
   - Added BaseAccountAuth and BaseCalendarAuth (two-layer auth architecture)

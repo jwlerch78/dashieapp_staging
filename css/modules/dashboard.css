@@ -1,0 +1,284 @@
+/**
+ * Dashboard Module Styles
+ * v1.0 - 10/16/25 - Initial implementation for Phase 2
+ *
+ * Architecture:
+ * - BEM naming convention
+ * - Fire TV compatible (no webkit-mask, viewport units with transforms, complex filters)
+ * - Zero !important declarations
+ * - CSS variables for dynamic values
+ * - Simple transitions only (opacity, border-color, width)
+ *
+ * Blocks:
+ * - .dashboard - Main container
+ * - .dashboard-sidebar - Left sidebar
+ * - .dashboard-menu - Menu within sidebar
+ * - .dashboard-grid - 2×3 widget grid
+ */
+
+/* =============================================================================
+   DASHBOARD CONTAINER
+   ============================================================================= */
+
+.dashboard {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+  background-color: var(--color-background, #1a1a1a);
+  color: var(--color-text, #ffffff);
+  overflow: hidden;
+}
+
+.dashboard--hidden {
+  display: none;
+}
+
+.dashboard--widget-focused {
+  /* State when a widget is focused (centered/overlay) */
+}
+
+/* =============================================================================
+   SIDEBAR
+   ============================================================================= */
+
+.dashboard-sidebar {
+  width: 60px;
+  height: 100vh;
+  background-color: var(--color-sidebar-bg, #2a2a2a);
+  border-right: 1px solid var(--color-border, #3a3a3a);
+  transition: width 0.3s ease;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.dashboard-sidebar--expanded {
+  width: 200px;
+}
+
+/* =============================================================================
+   MENU
+   ============================================================================= */
+
+.dashboard-menu {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0;
+  height: 100%;
+}
+
+.dashboard-menu__item {
+  display: flex;
+  align-items: center;
+  padding: 16px 12px;
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  margin: 4px 8px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+  color: var(--color-text, #ffffff);
+  font-size: 14px;
+  font-family: inherit;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.dashboard-menu__item:hover {
+  background-color: var(--color-hover-bg, rgba(255, 255, 255, 0.05));
+}
+
+.dashboard-menu__item--selected {
+  border-color: var(--color-accent, #667eea);
+  background-color: var(--color-selected-bg, rgba(102, 126, 234, 0.1));
+}
+
+.dashboard-menu__icon {
+  font-size: 20px;
+  min-width: 24px;
+  display: inline-block;
+  text-align: center;
+}
+
+.dashboard-menu__label {
+  margin-left: 12px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.dashboard-sidebar--expanded .dashboard-menu__label {
+  opacity: 1;
+}
+
+/* =============================================================================
+   GRID
+   ============================================================================= */
+
+.dashboard-grid {
+  flex: 1;
+  display: grid;
+  /* Legacy layout: 3 rows × 2 columns, 70/30 width split */
+  grid-template-columns: 70% 30%;
+  grid-template-rows: 10% 45% 45%;
+  gap: 16px;
+  padding: 16px;
+  height: 100vh;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.dashboard-grid__cell {
+  background-color: var(--color-cell-bg, #2a2a2a);
+  border: 3px solid transparent;
+  border-radius: 12px;
+  padding: 16px;
+  transition: border-color 0.2s ease, transform 0.2s ease;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Support for cells that span multiple rows/columns */
+.dashboard-grid__cell--rowspan-2 {
+  grid-row: span 2;
+}
+
+.dashboard-grid__cell--colspan-2 {
+  grid-column: span 2;
+}
+
+.dashboard-grid__cell--focused {
+  border-color: var(--color-focus-border, #ffd700);
+  transform: scale(1.02);
+}
+
+.dashboard-grid__cell--widget-focused {
+  /* When widget is in focused/centered state */
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  /* Use CSS variable for scale, will be set per-widget based on focusScale property */
+  transform: translate(-50%, -50%) scale(var(--widget-focus-scale, 1.2));
+  z-index: 100;
+  border-color: var(--color-focus-border, #ffd700);
+
+  /* Maintain dimensions - calculate based on grid cell size */
+  /* These will be set dynamically via inline CSS variable */
+  width: var(--cell-width);
+  height: var(--cell-height);
+
+  /* Ensure smooth transition */
+  transition: transform 0.4s cubic-bezier(0.4, 0.0, 0.2, 1),
+              border-color 0.2s ease,
+              width 0.4s cubic-bezier(0.4, 0.0, 0.2, 1),
+              height 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+}
+
+.dashboard-grid__placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  font-size: 18px;
+  color: var(--color-text-muted, #888888);
+  text-align: center;
+}
+
+/* =============================================================================
+   FOCUS OVERLAY
+   ============================================================================= */
+
+/* Darken background when widget is focused */
+.dashboard--widget-focused::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 50;
+  pointer-events: none;
+}
+
+/* =============================================================================
+   FIRE TV OPTIMIZATIONS
+   ============================================================================= */
+
+/* High contrast focus indicators for TV viewing */
+@media (min-width: 1280px) {
+  .dashboard-grid__cell--focused {
+    border-width: 4px;
+    border-color: var(--color-focus-border, #ffd700);
+  }
+
+  .dashboard-menu__item--selected {
+    border-width: 3px;
+  }
+}
+
+/* =============================================================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================================================= */
+
+/* Mobile/Tablet - Stack vertically */
+@media (max-width: 768px) {
+  .dashboard {
+    flex-direction: column;
+  }
+
+  .dashboard-sidebar {
+    width: 100%;
+    height: 60px;
+  }
+
+  .dashboard-sidebar--expanded {
+    height: auto;
+  }
+
+  .dashboard-menu {
+    flex-direction: row;
+    overflow-x: auto;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: repeat(6, 1fr);
+  }
+}
+
+/* =============================================================================
+   CSS VARIABLES (Can be overridden by themes)
+   ============================================================================= */
+
+:root {
+  --color-background: #1a1a1a;
+  --color-text: #ffffff;
+  --color-text-muted: #888888;
+  --color-sidebar-bg: #2a2a2a;
+  --color-cell-bg: #2a2a2a;
+  --color-border: #3a3a3a;
+  --color-hover-bg: rgba(255, 255, 255, 0.05);
+  --color-selected-bg: rgba(102, 126, 234, 0.1);
+  --color-accent: #667eea;
+  --color-focus-border: #ffd700;
+}
+
+/* =============================================================================
+   ACCESSIBILITY
+   ============================================================================= */
+
+/* Ensure focus is visible for keyboard navigation */
+.dashboard-menu__item:focus,
+.dashboard-grid__cell:focus {
+  outline: 2px solid var(--color-accent, #667eea);
+  outline-offset: 2px;
+}
+
+/* Reduce motion for users who prefer it */
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-sidebar,
+  .dashboard-menu__item,
+  .dashboard-grid__cell,
+  .dashboard-menu__label {
+    transition: none;
+  }
+}

@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashie Dashboard - Core Test</title>
+
+  <!-- Dashboard Module CSS -->
+  <link rel="stylesheet" href="./css/modules/dashboard.css">
+
   <style>
     * {
       margin: 0;
@@ -15,10 +19,48 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
       background: #1a1a1a;
       color: #ffffff;
-      padding: 20px;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
     }
 
-    .container {
+    /* Test UI Container - Fixed at bottom */
+    .test-container {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: rgba(26, 26, 26, 0.95);
+      backdrop-filter: blur(10px);
+      border-top: 2px solid #667eea;
+      z-index: 10000;
+      max-height: 300px;
+      overflow-y: auto;
+      transition: transform 0.3s ease;
+    }
+
+    .test-container.collapsed {
+      transform: translateY(calc(100% - 40px));
+    }
+
+    .test-toggle {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      cursor: pointer;
+      width: 100%;
+      text-align: center;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .test-toggle:hover {
+      background: #5568d3;
+    }
+
+    .test-content {
+      padding: 20px;
       max-width: 1200px;
       margin: 0 auto;
     }
@@ -189,13 +231,15 @@
   </style>
 </head>
 <body>
-  <div class="container">
-    <header>
-      <h1>🏠 Dashie Dashboard</h1>
-      <p class="subtitle">Core Architecture Test Page - v2.0</p>
-    </header>
+  <!-- Dashboard renders here full-screen -->
 
-    <div class="instructions">
+  <!-- Test UI - Collapsible at bottom -->
+  <div class="test-container collapsed" id="testContainer">
+    <button class="test-toggle" onclick="toggleTestUI()">
+      🧪 Test UI (Click to Toggle)
+    </button>
+    <div class="test-content">
+      <div class="instructions">
       <h3>💡 Testing Instructions</h3>
       <ul>
         <li><strong>Open Browser Console:</strong> Press <code>F12</code> or <code>Ctrl+Shift+I</code> (Windows) / <code>Cmd+Option+I</code> (Mac)</li>
@@ -250,8 +294,16 @@
         <div class="log-entry">Ready. Open browser console (F12) for detailed logs.</div>
         <div class="log-entry">Try: <code>help()</code> for available commands</div>
       </div>
+      </div>
     </div>
   </div>
+
+  <script>
+    function toggleTestUI() {
+      const container = document.getElementById('testContainer');
+      container.classList.toggle('collapsed');
+    }
+  </script>
 
   <!-- Core JavaScript Modules -->
   <script type="module">
@@ -263,6 +315,8 @@
     import ActionRouter from './js/core/action-router.js';
     import WidgetMessenger from './js/core/widget-messenger.js';
     import { getPlatformDetector } from './js/utils/platform-detector.js';
+    import Dashboard from './js/modules/Dashboard/dashboard.js';
+    import DashboardInputHandler from './js/modules/Dashboard/dashboard-input-handler.js';
 
     const logger = createLogger('TestPage');
 
@@ -314,6 +368,22 @@
         updateStatus('status-messenger', '✅ Initialized', true);
         logger.success('WidgetMessenger initialized');
 
+        // Initialize Dashboard module
+        await Dashboard.initialize();
+        logger.success('Dashboard module initialized');
+
+        // Register Dashboard with ActionRouter
+        ActionRouter.registerModule('dashboard', DashboardInputHandler);
+        logger.success('Dashboard module registered with ActionRouter');
+
+        // Set Dashboard as active module
+        AppStateManager.setCurrentModule('dashboard');
+        logger.success('Dashboard set as current module');
+
+        // Activate Dashboard
+        Dashboard.activate();
+        logger.success('Dashboard activated');
+
         // Check AppComms (already initialized)
         updateStatus('status-comms', '✅ Ready', true);
 
@@ -323,6 +393,7 @@
         logger.info('Platform detected', { platform: platform.platform });
 
         logToPage('All core components initialized successfully!');
+        logToPage('Dashboard module loaded and activated!');
         logger.success('Core initialization complete');
 
         // Subscribe to state changes
