@@ -1,8 +1,7 @@
 // js/utils/console-commands.js
-// v1.2 - 10/15/25 - Updated for refactored architecture
 // v1.1 - 10/11/25 11:45pm - Added telemetry upload and status commands
 // v1.0 - 10/11/25 3:35pm - Console debugging helper commands
-// CHANGE SUMMARY: Updated for new modular architecture
+// CHANGE SUMMARY: Added uploadLogs() and getTelemetryStatus() commands
 
 /**
  * Console Commands Helper
@@ -23,65 +22,62 @@ class ConsoleCommands {
     window.listCommands = this.listCommands.bind(this);
     window.Help = this.listCommands.bind(this);
     window.help = this.listCommands.bind(this);
-
+    
     // Crash Logger Shortcuts
     window.GetSummary = () => window.DashieDebug?.getSummary();
     window.getSummary = () => window.DashieDebug?.getSummary();
-
+    
     window.GetLogs = () => window.DashieDebug?.getLogs();
     window.getLogs = () => window.DashieDebug?.getLogs();
-
+    
     window.GetErrors = () => window.DashieDebug?.getErrors();
     window.getErrors = () => window.DashieDebug?.getErrors();
-
+    
     window.ExportLogs = () => window.DashieDebug?.exportLogs();
     window.exportLogs = () => window.DashieDebug?.exportLogs();
-
+    
     window.ClearLogs = () => window.DashieDebug?.clearLogs();
     window.clearLogs = () => window.DashieDebug?.clearLogs();
-
+    
     // Logger Level Controls
     window.SetLogLevel = this.setLogLevel.bind(this);
     window.setLogLevel = this.setLogLevel.bind(this);
-
+    
     window.GetLogLevel = this.getLogLevel.bind(this);
     window.getLogLevel = this.getLogLevel.bind(this);
-
+    
     // Settings Shortcuts
     window.GetSettings = () => window.settingsInstance?.controller?.getSettings();
     window.getSettings = () => window.settingsInstance?.controller?.getSettings();
-
+    
     window.GetSetting = (path) => window.settingsInstance?.controller?.getSetting(path);
     window.getSetting = (path) => window.settingsInstance?.controller?.getSetting(path);
-
+    
     // Auth & JWT Info
     window.GetAuthStatus = this.getAuthStatus.bind(this);
     window.getAuthStatus = this.getAuthStatus.bind(this);
-
+    
     window.GetJWTStatus = this.getJWTStatus.bind(this);
     window.getJWTStatus = this.getJWTStatus.bind(this);
-
+    
     // Performance & Memory
     window.CheckMemory = this.checkMemory.bind(this);
     window.checkMemory = this.checkMemory.bind(this);
-
+    
     window.GetPerformance = this.getPerformance.bind(this);
     window.getPerformance = this.getPerformance.bind(this);
-
+    
     // Widget Info
     window.ListWidgets = this.listWidgets.bind(this);
     window.listWidgets = this.listWidgets.bind(this);
-
+    
     // Telemetry Commands
     window.UploadLogs = this.uploadLogs.bind(this);
     window.uploadLogs = this.uploadLogs.bind(this);
-
+    
     window.GetTelemetryStatus = this.getTelemetryStatus.bind(this);
     window.getTelemetryStatus = this.getTelemetryStatus.bind(this);
-
-    window.GetAppState = this.getAppState.bind(this);
-    window.getAppState = this.getAppState.bind(this);
-
+    
     console.log('✅ Console commands loaded! Type help() or Help() to see available commands.');
   }
 
@@ -126,9 +122,6 @@ class ConsoleCommands {
 🎨 WIDGET MANAGEMENT:
   listWidgets()             - List all registered widgets
 
-🏗️  APPLICATION STATE:
-  getAppState()             - Get current application state
-
 📡 TELEMETRY COMMANDS (BETA):
   uploadLogs()              - Manually upload crash logs to Supabase
   getTelemetryStatus()      - Check telemetry service status
@@ -144,7 +137,7 @@ class ConsoleCommands {
    */
   setLogLevel(level) {
     const validLevels = ['debug', 'info', 'warn', 'error'];
-
+    
     if (!validLevels.includes(level)) {
       console.error(`Invalid log level. Use one of: ${validLevels.join(', ')}`);
       return;
@@ -152,10 +145,10 @@ class ConsoleCommands {
 
     // Store in localStorage
     localStorage.setItem('dashie-log-level', level);
-
+    
     console.log(`✅ Log level set to: ${level}`);
     console.log('⚠️  Reload page for changes to take effect');
-
+    
     return level;
   }
 
@@ -179,7 +172,7 @@ class ConsoleCommands {
       userEmail: window.dashieAuth?.currentUser?.email || 'Not available',
       authMethod: window.authMethod || 'Unknown'
     };
-
+    
     console.table(status);
     return status;
   }
@@ -200,7 +193,7 @@ class ConsoleCommands {
       userEmail: window.jwtAuth.currentUser?.email || 'N/A',
       accountCount: window.jwtAuth.listAccounts?.()?.length || 0
     };
-
+    
     console.table(status);
     return status;
   }
@@ -221,14 +214,14 @@ class ConsoleCommands {
       limitMB: (memory.jsHeapSizeLimit / 1048576).toFixed(2),
       usedPercent: ((memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100).toFixed(2) + '%'
     };
-
+    
     console.table(info);
-
+    
     // Warning if high
     if (parseFloat(info.usedPercent) > 80) {
       console.warn('⚠️  Memory usage is high! Consider reloading.');
     }
-
+    
     return info;
   }
 
@@ -239,21 +232,21 @@ class ConsoleCommands {
     const metrics = {
       // Crash logger metrics
       crashMonitor: window.DashieDebug?.getSummary()?.performance || {},
-
+      
       // Page timing
       loadTime: performance.timing.loadEventEnd - performance.timing.navigationStart + 'ms',
       domReady: performance.timing.domContentLoadedEventEnd - performance.timing.navigationStart + 'ms',
-
+      
       // Current uptime
       uptime: this.formatDuration(Date.now() - performance.timing.navigationStart)
     };
-
+    
     console.log('Performance Metrics:');
     console.table(metrics.crashMonitor);
     console.log(`Page Load Time: ${metrics.loadTime}`);
     console.log(`DOM Ready: ${metrics.domReady}`);
     console.log(`Uptime: ${metrics.uptime}`);
-
+    
     return metrics;
   }
 
@@ -262,7 +255,7 @@ class ConsoleCommands {
    */
   listWidgets() {
     const widgets = [];
-
+    
     // Check for widget coordinator
     if (window.widgetCoordinator) {
       const registered = window.widgetCoordinator.getRegisteredWidgets?.() || [];
@@ -274,29 +267,14 @@ class ConsoleCommands {
         });
       });
     }
-
+    
     if (widgets.length === 0) {
       console.warn('No widgets found or widget coordinator not initialized');
       return [];
     }
-
+    
     console.table(widgets);
     return widgets;
-  }
-
-  /**
-   * Get current application state
-   */
-  getAppState() {
-    if (!window.AppStateManager) {
-      console.warn('AppStateManager not initialized');
-      return null;
-    }
-
-    const state = window.AppStateManager.getState();
-    console.log('Current Application State:');
-    console.log(JSON.stringify(state, null, 2));
-    return state;
   }
 
   /**
@@ -306,7 +284,7 @@ class ConsoleCommands {
     const seconds = Math.floor(ms / 1000);
     const minutes = Math.floor(seconds / 60);
     const hours = Math.floor(minutes / 60);
-
+    
     if (hours > 0) {
       return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
     } else if (minutes > 0) {
@@ -327,10 +305,10 @@ class ConsoleCommands {
     }
 
     console.log('📤 Uploading logs to Supabase...');
-
+    
     try {
       const result = await window.telemetryService.uploadLogs(true); // Force upload
-
+      
       if (result.success) {
         console.log(`✅ Successfully uploaded ${result.uploaded} log entries`);
         if (result.timestamp) {
@@ -339,9 +317,9 @@ class ConsoleCommands {
       } else {
         console.error(`❌ Upload failed: ${result.error}`);
       }
-
+      
       return result;
-
+      
     } catch (error) {
       console.error('❌ Upload error:', error);
       return { success: false, error: error.message };
@@ -358,7 +336,7 @@ class ConsoleCommands {
     }
 
     const status = window.telemetryService.getStatus();
-
+    
     console.log('📊 Telemetry Service Status:');
     console.log(`  Enabled: ${status.enabled ? '✅ Yes' : '❌ No (Enable in Settings → System → Privacy)'}`);
     console.log(`  Currently Uploading: ${status.uploading ? '⏳ Yes' : 'No'}`);
@@ -366,7 +344,7 @@ class ConsoleCommands {
     console.log(`  Upload Frequency: ${status.uploadFrequency}`);
     console.log(`  Platform: ${status.platform?.name || 'Unknown'}`);
     console.log(`  Edge Function: ${status.edgeFunctionUrl}`);
-
+    
     return status;
   }
 }

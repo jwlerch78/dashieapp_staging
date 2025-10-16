@@ -1,7 +1,6 @@
 // js/utils/logger.js - Structured Logging System for Dashie
-// v1.2 - 10/15/25 - Updated for refactored architecture
 // v1.1 - 1/9/25 8:10pm - Added debug mode toggle via logger-config
-// CHANGE SUMMARY: Cleaned up for new architecture, maintained all functionality
+// CHANGE SUMMARY: Added log buffer with localStorage persistence and file save capability
 
 /**
  * Centralized logging system for Dashie Dashboard
@@ -71,12 +70,12 @@ function saveLogConfig() {
 function addToLogBuffer(entry) {
   // Add to buffer
   logBuffer.push(entry);
-
+  
   // Trim buffer if exceeds max size (circular buffer)
   if (logBuffer.length > MAX_LOG_BUFFER_SIZE) {
     logBuffer = logBuffer.slice(-MAX_LOG_BUFFER_SIZE);
   }
-
+  
   // Debounce localStorage saves - only save every 2 seconds
   if (bufferSaveTimeout) {
     clearTimeout(bufferSaveTimeout);
@@ -176,7 +175,7 @@ export async function saveLogsToFile() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const filename = `dashie-logs-${timestamp}.txt`;
     const content = formatLogsForFile();
-
+    
     // Create blob and trigger download
     const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -187,7 +186,7 @@ export async function saveLogsToFile() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-
+    
     return {
       success: true,
       filename,
@@ -214,11 +213,11 @@ Total Entries: ${logBuffer.length}
 ${'='.repeat(80)}
 
 `;
-
+  
   const logs = logBuffer.map(entry => {
     return `[${entry.timestamp}] [${entry.level}] [${entry.module}] ${entry.message}${entry.data ? '\n  Data: ' + JSON.stringify(entry.data) : ''}`;
   }).join('\n');
-
+  
   return header + logs;
 }
 
@@ -262,7 +261,7 @@ export class Logger {
   constructor(moduleName, moduleConfig = {}) {
     this.moduleName = moduleName;
     this.moduleConfig = moduleConfig;
-
+    
     // Module-specific overrides
     this.isApiModule = moduleName.toLowerCase().includes('api');
     this.isAuthModule = moduleName.toLowerCase().includes('auth');
@@ -307,7 +306,7 @@ export class Logger {
    */
   formatMessage(level, message, data = null) {
     const parts = [];
-
+    
     // Add timestamp if enabled
     const timestamp = new Date().toISOString();
     if (GLOBAL_LOG_CONFIG.enableTimestamps) {
@@ -327,7 +326,7 @@ export class Logger {
     if (GLOBAL_LOG_CONFIG.enableBuffering) {
       const levelNames = ['DEBUG', 'INFO', 'WARN', 'ERROR', 'SILENT'];
       const levelName = levelNames[level] || 'UNKNOWN';
-
+      
       // Only store data if it's small enough (< 50 chars when stringified)
       let dataToStore = undefined;
       if (data !== null && data !== undefined) {
@@ -342,7 +341,7 @@ export class Logger {
           dataToStore = '[Unstringifiable data]';
         }
       }
-
+      
       addToLogBuffer({
         timestamp,
         level: levelName,
@@ -354,7 +353,7 @@ export class Logger {
 
     // Return formatted parts
     const formattedMessage = parts.join(' ');
-
+    
     if (data !== null && data !== undefined) {
       return [formattedMessage, data];
     } else {
@@ -373,9 +372,9 @@ export class Logger {
     if (!LoggerConfig.enableDebugLogs) {
       return; // Silently skip debug logs in production mode
     }
-
+    
     if (!this.shouldLog(LOG_LEVELS.DEBUG)) return;
-
+    
     const args = this.formatMessage(LOG_LEVELS.DEBUG, `🔍 ${message}`, data);
     console.log(...args);
   }
@@ -387,7 +386,7 @@ export class Logger {
    */
   info(message, data = null) {
     if (!this.shouldLog(LOG_LEVELS.INFO)) return;
-
+    
     const args = this.formatMessage(LOG_LEVELS.INFO, `ℹ️ ${message}`, data);
     console.log(...args);
   }
@@ -399,7 +398,7 @@ export class Logger {
    */
   warn(message, data = null) {
     if (!this.shouldLog(LOG_LEVELS.WARN)) return;
-
+    
     const args = this.formatMessage(LOG_LEVELS.WARN, `⚠️ ${message}`, data);
     console.warn(...args);
   }
@@ -411,7 +410,7 @@ export class Logger {
    */
   error(message, error = null) {
     if (!this.shouldLog(LOG_LEVELS.ERROR)) return;
-
+    
     const args = this.formatMessage(LOG_LEVELS.ERROR, `❌ ${message}`, error);
     console.error(...args);
   }
@@ -423,7 +422,7 @@ export class Logger {
    */
   success(message, data = null) {
     if (!this.shouldLog(LOG_LEVELS.INFO)) return;
-
+    
     const args = this.formatMessage(LOG_LEVELS.INFO, `✅ ${message}`, data);
     console.log(...args);
   }
@@ -437,7 +436,7 @@ export class Logger {
    */
   apiCall(method, endpoint, status, duration) {
     if (!this.shouldLog(LOG_LEVELS.INFO) || !GLOBAL_LOG_CONFIG.enableApiLogging) return;
-
+    
     const statusIcon = status >= 200 && status < 300 ? '✅' : '❌';
     const message = `${statusIcon} API ${method} ${endpoint} - ${status} (${duration}ms)`;
     const args = this.formatMessage(LOG_LEVELS.INFO, message);
@@ -453,11 +452,11 @@ export class Logger {
    */
   auth(flow, stage, status, details = null) {
     if (!this.shouldLog(LOG_LEVELS.INFO) || !GLOBAL_LOG_CONFIG.enableAuthLogging) return;
-
-    const statusIcon = status === 'success' ? '✅' :
-                      status === 'error' ? '❌' :
+    
+    const statusIcon = status === 'success' ? '✅' : 
+                      status === 'error' ? '❌' : 
                       status === 'pending' ? '⏳' : 'ℹ️';
-
+    
     const message = `${statusIcon} Auth [${flow}] ${stage}: ${status}`;
     const args = this.formatMessage(LOG_LEVELS.INFO, message, details);
     console.log(...args);
@@ -472,11 +471,11 @@ export class Logger {
    */
   data(operation, dataType, status, details = null) {
     if (!this.shouldLog(LOG_LEVELS.INFO) || !GLOBAL_LOG_CONFIG.enableDataLogging) return;
-
-    const statusIcon = status === 'success' ? '✅' :
-                      status === 'error' ? '❌' :
+    
+    const statusIcon = status === 'success' ? '✅' : 
+                      status === 'error' ? '❌' : 
                       status === 'cached' ? '💾' : 'ℹ️';
-
+    
     const message = `${statusIcon} Data [${dataType}] ${operation}: ${status}`;
     const args = this.formatMessage(LOG_LEVELS.INFO, message, details);
     console.log(...args);
@@ -491,7 +490,7 @@ export class Logger {
    */
   widget(direction, messageType, widgetName, details = null) {
     if (!this.shouldLog(LOG_LEVELS.INFO) || !GLOBAL_LOG_CONFIG.enableWidgetLogging) return;
-
+    
     const directionIcon = direction === 'send' ? '📤' : '📥';
     const message = `${directionIcon} Widget [${widgetName}] ${messageType}`;
     const args = this.formatMessage(LOG_LEVELS.INFO, message, details);
@@ -506,7 +505,7 @@ export class Logger {
    */
   perf(operation, duration, metadata = null) {
     if (!this.shouldLog(LOG_LEVELS.DEBUG)) return;
-
+    
     const message = `⏱️ Performance [${operation}]: ${duration}ms`;
     const args = this.formatMessage(LOG_LEVELS.DEBUG, message, metadata);
     console.log(...args);
@@ -519,7 +518,7 @@ export class Logger {
    */
   startTimer(operation) {
     const startTime = performance.now();
-
+    
     return (metadata = null) => {
       const duration = Math.round(performance.now() - startTime);
       this.perf(operation, duration, metadata);

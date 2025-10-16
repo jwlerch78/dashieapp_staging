@@ -1,89 +1,416 @@
-<!-- index.html for Dashie -->
-<!-- CHANGE SUMMARY: Added mobile loading bar between logo and Settings button for inline initialization progress -->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <!-- FIXED: Corrected AWS Amplify CDN and setup for Cognito integration -->
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashie - Family Dashboard</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashie Dashboard - Core Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
-    <!-- Dynamic base tag -->
-      <script>
-        const hostname = window.location.hostname;
-        if (hostname === 'jwlerch78.github.io') {
-          document.write('<base href="/dashie_staging/">');
-        }
-      </script>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      background: #1a1a1a;
+      color: #ffffff;
+      padding: 20px;
+    }
 
-    
-    <link rel="icon" type="image/x-icon" href="/icons/favicon.ico">
-    
-    <!-- CSS imports (FIXED: All paths now absolute, added redirect-modal.css + mobile-landing.css) -->
-    <link rel="stylesheet" href="/css/core/variables.css">
-    <link rel="stylesheet" href="/css/core/base.css">
-    <link rel="stylesheet" href="/css/components/sidebar.css">
-    <link rel="stylesheet" href="/css/components/grid.css">
-    <link rel="stylesheet" href="/css/components/widgets.css">
-    <link rel="stylesheet" href="/css/components/modals.css">
-    <link rel="stylesheet" href="/css/components/navigation.css">
-    <link rel="stylesheet" href="/css/components/focus-menu.css">
-    <link rel="stylesheet" href="/css/components/auth-ui.css">
-    <link rel="stylesheet" href="/css/components/redirect-modal.css">
-    <link rel="stylesheet" href="/js/settings/simplified-settings.css">
-    <link rel="stylesheet" href="/css/components/loading-overlay.css">
-    <link rel="stylesheet" href="/css/components/mobile-landing.css">
-    <link rel="stylesheet" href="css/components/welcome-wizard.css">
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
 
+    header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      padding: 30px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+      box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+    }
 
+    h1 {
+      font-size: 36px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
 
-    
+    .subtitle {
+      font-size: 16px;
+      opacity: 0.9;
+    }
+
+    .test-section {
+      background: #2a2a2a;
+      padding: 24px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+      border: 1px solid #3a3a3a;
+    }
+
+    .test-section h2 {
+      font-size: 20px;
+      margin-bottom: 16px;
+      color: #667eea;
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin-bottom: 20px;
+    }
+
+    .status-item {
+      background: #1a1a1a;
+      padding: 16px;
+      border-radius: 8px;
+      border-left: 4px solid #667eea;
+    }
+
+    .status-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      opacity: 0.6;
+      margin-bottom: 4px;
+    }
+
+    .status-value {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .status-value.success {
+      color: #48bb78;
+    }
+
+    .status-value.error {
+      color: #f56565;
+    }
+
+    .test-button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-right: 12px;
+      margin-bottom: 12px;
+      transition: all 0.2s;
+    }
+
+    .test-button:hover {
+      background: #5568d3;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+
+    .test-button:active {
+      transform: translateY(0);
+    }
+
+    .log-output {
+      background: #0d0d0d;
+      padding: 16px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      max-height: 300px;
+      overflow-y: auto;
+      border: 1px solid #3a3a3a;
+    }
+
+    .log-entry {
+      margin-bottom: 4px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .instructions {
+      background: #2a2a2a;
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #3a3a3a;
+      margin-bottom: 20px;
+    }
+
+    .instructions h3 {
+      margin-bottom: 12px;
+      color: #667eea;
+    }
+
+    .instructions ul {
+      margin-left: 20px;
+    }
+
+    .instructions li {
+      margin-bottom: 8px;
+      line-height: 1.6;
+    }
+
+    code {
+      background: #1a1a1a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      color: #48bb78;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 12px;
+    }
+
+    .badge.success {
+      background: rgba(72, 187, 120, 0.2);
+      color: #48bb78;
+    }
+
+    .badge.error {
+      background: rgba(245, 101, 101, 0.2);
+      color: #f56565;
+    }
+
+    .badge.pending {
+      background: rgba(237, 137, 54, 0.2);
+      color: #ed8936;
+    }
+  </style>
 </head>
 <body>
-    <!-- Desktop/TV Dashboard (hidden on mobile) -->
-    <div id="app">
-        <div id="sidebar-wrapper">
-            <div id="sidebar"></div>
-        </div>
-        <div id="grid"></div>
-        <div id="focus-overlay" class="focus-overlay"></div>  <!-- NEW: Focus mode overlay -->
+  <div class="container">
+    <header>
+      <h1>🏠 Dashie Dashboard</h1>
+      <p class="subtitle">Core Architecture Test Page - v2.0</p>
+    </header>
 
+    <div class="instructions">
+      <h3>💡 Testing Instructions</h3>
+      <ul>
+        <li><strong>Open Browser Console:</strong> Press <code>F12</code> or <code>Ctrl+Shift+I</code> (Windows) / <code>Cmd+Option+I</code> (Mac)</li>
+        <li><strong>Try Commands:</strong> Type <code>help()</code> in the console to see available commands</li>
+        <li><strong>Test Input:</strong> Press arrow keys, Enter, Escape to test input handling</li>
+        <li><strong>Check Status:</strong> Use buttons below to test core components</li>
+      </ul>
     </div>
-    
-    <!-- Mobile Landing Page (hidden on desktop/TV) -->
-    <div id="mobile-container" class="mobile-mode" style="display: none;">
-        <div class="mobile-header">
-            <span class="family-name"></span>
-            <img class="profile-pic" src="" alt="Profile" style="display: none;">
+
+    <div class="test-section">
+      <h2>📊 Core Components Status</h2>
+      <div class="status-grid">
+        <div class="status-item">
+          <div class="status-label">AppComms</div>
+          <div class="status-value" id="status-comms">⏳ Loading...</div>
         </div>
-        
-        <div class="mobile-content">
-            <img class="dashie-logo" src="/icons/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie">
-            
-            <!-- Mobile Loading Bar (appears during initialization) -->
-            <div class="mobile-loading-bar" id="mobile-loading-bar">
-                <div class="mobile-progress-container">
-                    <div class="mobile-progress-bar">
-                        <div class="mobile-progress-fill" id="mobile-progress-fill"></div>
-                    </div>
-                </div>
-                <div class="mobile-progress-text" id="mobile-progress-text">Starting up...</div>
-            </div>
-            
-            <button id="mobile-settings-btn" class="orange-button" disabled>Settings</button>
+        <div class="status-item">
+          <div class="status-label">AppStateManager</div>
+          <div class="status-value" id="status-state">⏳ Loading...</div>
         </div>
+        <div class="status-item">
+          <div class="status-label">InputHandler</div>
+          <div class="status-value" id="status-input">⏳ Loading...</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">ActionRouter</div>
+          <div class="status-value" id="status-router">⏳ Loading...</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">WidgetMessenger</div>
+          <div class="status-value" id="status-messenger">⏳ Loading...</div>
+        </div>
+        <div class="status-item">
+          <div class="status-label">Platform</div>
+          <div class="status-value" id="status-platform">⏳ Loading...</div>
+        </div>
+      </div>
     </div>
-    
-      <!-- Configuration (keep this) -->
-      <script src="/js/config.js"></script>
-    
-    <!-- Preload auth system (FIXED: Absolute path) -->
-    <script type="module" src="/js/auth/simple-auth.js"></script>
-    
-<!-- Main application entry point -->
-<script type="module" src="/js/main.js"></script>
 
+    <div class="test-section">
+      <h2>🧪 Core Tests</h2>
+      <button class="test-button" onclick="testPubSub()">Test Pub/Sub</button>
+      <button class="test-button" onclick="testState()">Test State Manager</button>
+      <button class="test-button" onclick="testInput()">Test Input Handler</button>
+      <button class="test-button" onclick="testRouter()">Test Action Router</button>
+      <button class="test-button" onclick="clearLog()">Clear Log</button>
+    </div>
 
+    <div class="test-section">
+      <h2>📝 Test Log</h2>
+      <div class="log-output" id="test-log">
+        <div class="log-entry">Ready. Open browser console (F12) for detailed logs.</div>
+        <div class="log-entry">Try: <code>help()</code> for available commands</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Core JavaScript Modules -->
+  <script type="module">
+    import { createLogger } from './js/utils/logger.js';
+    import consoleCommands from './js/utils/console-commands.js';
+    import AppComms from './js/core/app-comms.js';
+    import AppStateManager from './js/core/app-state-manager.js';
+    import InputHandler from './js/core/input-handler.js';
+    import ActionRouter from './js/core/action-router.js';
+    import WidgetMessenger from './js/core/widget-messenger.js';
+    import { getPlatformDetector } from './js/utils/platform-detector.js';
+
+    const logger = createLogger('TestPage');
+
+    // Initialize console commands
+    consoleCommands.initialize();
+
+    // Log output helper
+    function logToPage(message, type = 'info') {
+      const logDiv = document.getElementById('test-log');
+      const entry = document.createElement('div');
+      entry.className = 'log-entry';
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logDiv.appendChild(entry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    // Update status helper
+    function updateStatus(id, status, isSuccess) {
+      const element = document.getElementById(id);
+      if (element) {
+        element.textContent = status;
+        element.className = 'status-value ' + (isSuccess ? 'success' : 'error');
+      }
+    }
+
+    // Initialize core components
+    async function initializeCore() {
+      try {
+        logger.info('Starting core initialization...');
+        logToPage('Initializing core components...');
+
+        // Initialize AppStateManager
+        await AppStateManager.initialize();
+        updateStatus('status-state', '✅ Initialized', true);
+        logger.success('AppStateManager initialized');
+
+        // Initialize InputHandler
+        await InputHandler.initialize();
+        updateStatus('status-input', '✅ Initialized', true);
+        logger.success('InputHandler initialized');
+
+        // Initialize ActionRouter
+        await ActionRouter.initialize();
+        updateStatus('status-router', '✅ Initialized', true);
+        logger.success('ActionRouter initialized');
+
+        // Initialize WidgetMessenger
+        await WidgetMessenger.initialize();
+        updateStatus('status-messenger', '✅ Initialized', true);
+        logger.success('WidgetMessenger initialized');
+
+        // Check AppComms (already initialized)
+        updateStatus('status-comms', '✅ Ready', true);
+
+        // Detect platform
+        const platform = getPlatformDetector();
+        updateStatus('status-platform', `✅ ${platform.getPlatformDescription()}`, true);
+        logger.info('Platform detected', { platform: platform.platform });
+
+        logToPage('All core components initialized successfully!');
+        logger.success('Core initialization complete');
+
+        // Subscribe to state changes
+        AppStateManager.subscribe((newState, oldState) => {
+          logger.debug('State changed', { newState, oldState });
+          logToPage(`State changed: ${JSON.stringify(newState)}`);
+        });
+
+      } catch (error) {
+        logger.error('Core initialization failed', error);
+        logToPage(`ERROR: ${error.message}`, 'error');
+      }
+    }
+
+    // Test functions
+    window.testPubSub = function() {
+      logToPage('Testing AppComms pub/sub...');
+
+      const unsubscribe = AppComms.subscribe('test:event', (data) => {
+        logToPage(`✓ Received test event: ${JSON.stringify(data)}`);
+      });
+
+      AppComms.publish('test:event', { message: 'Hello from pub/sub!' });
+
+      setTimeout(() => {
+        unsubscribe();
+        logToPage('✓ Unsubscribed from test event');
+      }, 1000);
+    };
+
+    window.testState = function() {
+      logToPage('Testing AppStateManager...');
+
+      const oldState = AppStateManager.getState();
+      logToPage(`Current state: ${JSON.stringify(oldState)}`);
+
+      AppStateManager.setState({
+        currentModule: 'dashboard',
+        theme: 'dark'
+      });
+
+      const newState = AppStateManager.getState();
+      logToPage(`✓ State updated: ${JSON.stringify(newState)}`);
+    };
+
+    window.testInput = function() {
+      logToPage('Testing InputHandler...');
+      logToPage('Press arrow keys, Enter, or Escape...');
+      logToPage('Check browser console for input events');
+
+      const unsubscribe = AppComms.subscribe('input:action', (data) => {
+        logToPage(`✓ Input action: ${data.action}`);
+      });
+
+      setTimeout(() => {
+        unsubscribe();
+        logToPage('✓ Input test complete');
+      }, 10000);
+    };
+
+    window.testRouter = function() {
+      logToPage('Testing ActionRouter...');
+
+      // Create a test module input handler
+      const testModule = {
+        handleUp: () => { logToPage('✓ Test module handled UP'); return true; },
+        handleDown: () => { logToPage('✓ Test module handled DOWN'); return true; },
+        handleEnter: () => { logToPage('✓ Test module handled ENTER'); return true; }
+      };
+
+      ActionRouter.registerModule('test', testModule);
+      AppStateManager.setCurrentModule('test');
+
+      logToPage('Test module registered. Press arrow keys or Enter...');
+
+      setTimeout(() => {
+        ActionRouter.unregisterModule('test');
+        logToPage('✓ Test complete');
+      }, 10000);
+    };
+
+    window.clearLog = function() {
+      const logDiv = document.getElementById('test-log');
+      logDiv.innerHTML = '<div class="log-entry">Log cleared.</div>';
+    };
+
+    // Initialize on page load
+    window.addEventListener('DOMContentLoaded', initializeCore);
+  </script>
 </body>
 </html>

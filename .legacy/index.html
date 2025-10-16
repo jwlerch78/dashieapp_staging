@@ -1,0 +1,89 @@
+<!-- index.html for Dashie -->
+<!-- CHANGE SUMMARY: Added mobile loading bar between logo and Settings button for inline initialization progress -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- FIXED: Corrected AWS Amplify CDN and setup for Cognito integration -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashie - Family Dashboard</title>
+
+    <!-- Dynamic base tag -->
+      <script>
+        const hostname = window.location.hostname;
+        if (hostname === 'jwlerch78.github.io') {
+          document.write('<base href="/dashie_staging/">');
+        }
+      </script>
+
+    
+    <link rel="icon" type="image/x-icon" href="/icons/favicon.ico">
+    
+    <!-- CSS imports (FIXED: All paths now absolute, added redirect-modal.css + mobile-landing.css) -->
+    <link rel="stylesheet" href="/css/core/variables.css">
+    <link rel="stylesheet" href="/css/core/base.css">
+    <link rel="stylesheet" href="/css/components/sidebar.css">
+    <link rel="stylesheet" href="/css/components/grid.css">
+    <link rel="stylesheet" href="/css/components/widgets.css">
+    <link rel="stylesheet" href="/css/components/modals.css">
+    <link rel="stylesheet" href="/css/components/navigation.css">
+    <link rel="stylesheet" href="/css/components/focus-menu.css">
+    <link rel="stylesheet" href="/css/components/auth-ui.css">
+    <link rel="stylesheet" href="/css/components/redirect-modal.css">
+    <link rel="stylesheet" href="/js/settings/simplified-settings.css">
+    <link rel="stylesheet" href="/css/components/loading-overlay.css">
+    <link rel="stylesheet" href="/css/components/mobile-landing.css">
+    <link rel="stylesheet" href="css/components/welcome-wizard.css">
+
+
+
+    
+</head>
+<body>
+    <!-- Desktop/TV Dashboard (hidden on mobile) -->
+    <div id="app">
+        <div id="sidebar-wrapper">
+            <div id="sidebar"></div>
+        </div>
+        <div id="grid"></div>
+        <div id="focus-overlay" class="focus-overlay"></div>  <!-- NEW: Focus mode overlay -->
+
+    </div>
+    
+    <!-- Mobile Landing Page (hidden on desktop/TV) -->
+    <div id="mobile-container" class="mobile-mode" style="display: none;">
+        <div class="mobile-header">
+            <span class="family-name"></span>
+            <img class="profile-pic" src="" alt="Profile" style="display: none;">
+        </div>
+        
+        <div class="mobile-content">
+            <img class="dashie-logo" src="/icons/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie">
+            
+            <!-- Mobile Loading Bar (appears during initialization) -->
+            <div class="mobile-loading-bar" id="mobile-loading-bar">
+                <div class="mobile-progress-container">
+                    <div class="mobile-progress-bar">
+                        <div class="mobile-progress-fill" id="mobile-progress-fill"></div>
+                    </div>
+                </div>
+                <div class="mobile-progress-text" id="mobile-progress-text">Starting up...</div>
+            </div>
+            
+            <button id="mobile-settings-btn" class="orange-button" disabled>Settings</button>
+        </div>
+    </div>
+    
+      <!-- Configuration (keep this) -->
+      <script src="/js/config.js"></script>
+    
+    <!-- Preload auth system (FIXED: Absolute path) -->
+    <script type="module" src="/js/auth/simple-auth.js"></script>
+    
+<!-- Main application entry point -->
+<script type="module" src="/js/main.js"></script>
+
+
+</body>
+</html>

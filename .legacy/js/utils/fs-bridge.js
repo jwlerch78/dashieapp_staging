@@ -1,5 +1,4 @@
-// js/utils/fs-bridge.js
-// Expose MCP filesystem to window.fs for logger
+// fs-bridge.js - Expose MCP filesystem to window.fs for logger
 // This allows the logger to save files directly to the codebase
 
 // Note: This will only work when running in an environment with MCP access

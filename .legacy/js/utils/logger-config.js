@@ -12,7 +12,7 @@ export const LoggerConfig = {
   get enableDebugLogs() {
     return localStorage.getItem('dashie-debug') === 'true';
   },
-
+  
   /**
    * Enable debug logging
    * All logger.debug() calls will be visible after page reload
@@ -21,7 +21,7 @@ export const LoggerConfig = {
     localStorage.setItem('dashie-debug', 'true');
     console.log('🐛 Debug logging ENABLED - reload page to see all debug logs');
   },
-
+  
   /**
    * Disable debug logging (production mode)
    * Only INFO, SUCCESS, WARN, and ERROR logs will be visible after reload
@@ -30,7 +30,7 @@ export const LoggerConfig = {
     localStorage.removeItem('dashie-debug');
     console.log('🐛 Debug logging DISABLED - reload page for clean logs');
   },
-
+  
   /**
    * Check current debug status
    */
@@ -46,7 +46,7 @@ export const LoggerConfig = {
  * Expose debug controls globally for easy console access
  * Usage:
  *   dashieDebug.enable()   - Turn on debug logs
- *   dashieDebug.disable()  - Turn off debug logs
+ *   dashieDebug.disable()  - Turn off debug logs  
  *   dashieDebug.status()   - Check current status
  */
 if (typeof window !== 'undefined') {
@@ -61,12 +61,12 @@ if (typeof window !== 'undefined') {
   dashieDebug.enable()   - Turn on debug logs (verbose)
   dashieDebug.disable()  - Turn off debug logs (clean)
   dashieDebug.status()   - Check current mode
-
+  
 After enabling/disabling, reload the page to see changes.
       `);
     }
   };
-
+  
   // Show helpful message on load if in debug mode
   if (LoggerConfig.enableDebugLogs) {
     console.log('🐛 Debug mode is ENABLED - use dashieDebug.disable() to reduce log noise');
