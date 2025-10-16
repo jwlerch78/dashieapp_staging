@@ -37,7 +37,7 @@ export const widgetConfig = [
     label: 'Header',
     url: null, // No iframe for header (native widget)
     noCenter: true,
-    focusScale: 1.0,
+    focusScale: 1.05,
     selectable: true
   },
   {

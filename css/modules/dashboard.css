@@ -41,18 +41,40 @@
    SIDEBAR
    ============================================================================= */
 
+/* Sidebar wrapper - maintains space for collapsed sidebar in flex layout */
+.dashboard-sidebar-wrapper {
+  width: 60px;
+  height: 100vh;
+  position: relative;
+  flex-shrink: 0;
+  z-index: 10; /* Sidebar's stacking context */
+}
+
+/* Sidebar - overlays grid when expanded */
 .dashboard-sidebar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
   width: 60px;
   height: 100vh;
   background-color: var(--color-sidebar-bg, #2a2a2a);
   border-right: 1px solid var(--color-border, #3a3a3a);
-  transition: width 0.3s ease;
+  transition: width 0.3s ease, background 0.3s ease;
   overflow: hidden;
-  flex-shrink: 0;
+  /* z-index managed by wrapper */
 }
 
 .dashboard-sidebar--expanded {
   width: 200px;
+  /* Semi-transparent gradient on right side when expanded */
+  background: linear-gradient(
+    to right,
+    var(--color-sidebar-bg, #2a2a2a) 0%,
+    var(--color-sidebar-bg, #2a2a2a) 70%,
+    rgba(42, 42, 42, 0.95) 100%
+  );
+  /* z-index managed by wrapper */
 }
 
 /* =============================================================================
@@ -71,11 +93,13 @@
   align-items: center;
   padding: 16px 12px;
   background: transparent;
-  border: 2px solid transparent;
-  border-radius: 8px;
-  margin: 4px 8px;
+  border: none;
+  border-left: 6px solid transparent; /* Thick left border for selection indicator */
+  border-radius: 0; /* No rounded corners for menu items */
+  margin: 4px 0;
+  padding-left: 6px; /* Reduced padding to compensate for border */
   cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease, padding-left 0.2s ease;
   color: var(--color-text, #ffffff);
   font-size: 14px;
   font-family: inherit;
@@ -83,13 +107,10 @@
   white-space: nowrap;
 }
 
-.dashboard-menu__item:hover {
-  background-color: var(--color-hover-bg, rgba(255, 255, 255, 0.05));
-}
-
 .dashboard-menu__item--selected {
-  border-color: var(--color-accent, #667eea);
+  border-left-color: var(--color-accent, #667eea); /* Thick left border only */
   background-color: var(--color-selected-bg, rgba(102, 126, 234, 0.1));
+  font-weight: 600;
 }
 
 .dashboard-menu__icon {
@@ -122,18 +143,30 @@
   gap: 16px;
   padding: 16px;
   height: 100vh;
-  overflow: hidden;
+  max-height: 100vh;
+  overflow: visible; /* Allow cells to overflow and appear above sidebar */
   box-sizing: border-box;
+  position: relative;
+  z-index: 5; /* Below sidebar wrapper (10) by default */
+}
+
+/* When any cell is focused, increase grid z-index to appear above sidebar */
+.dashboard-grid:has(.dashboard-grid__cell--focused) {
+  z-index: 20; /* Above sidebar wrapper (10) when cell is selected */
 }
 
 .dashboard-grid__cell {
   background-color: var(--color-cell-bg, #2a2a2a);
-  border: 3px solid transparent;
+  border: none; /* No border - focus states use box-shadow instead */
   border-radius: 12px;
   padding: 16px;
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  transition: box-shadow 0.2s ease, transform 0.2s ease, z-index 0s;
   overflow: hidden;
   position: relative;
+  z-index: 1; /* Base z-index for cells */
+  /* Ensure cells don't overflow their grid area */
+  min-height: 0;
+  min-width: 0;
 }
 
 /* Support for cells that span multiple rows/columns */
@@ -145,31 +178,65 @@
   grid-column: span 2;
 }
 
+/* =============================================================================
+   ENHANCED FOCUS MODE - SELECTED STATE (Grid Navigation)
+   ============================================================================= */
+
 .dashboard-grid__cell--focused {
-  border-color: var(--color-focus-border, #ffd700);
-  transform: scale(1.02);
+  /* State 1: Selected (navigating grid with arrow keys) */
+  border-radius: 8px;
+  box-shadow: var(--glow-selected),
+              inset 0 0 0 var(--border-width-selected) var(--color-selected-silver);
+  transform: scale(1.05); /* 105% scale for enhanced mode */
+  transition: all var(--transition-fast);
+  z-index: 1000; /* Much higher to break out of grid's stacking context and appear above sidebar wrapper (10) */
 }
 
-.dashboard-grid__cell--widget-focused {
-  /* When widget is in focused/centered state */
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  /* Use CSS variable for scale, will be set per-widget based on focusScale property */
-  transform: translate(-50%, -50%) scale(var(--widget-focus-scale, 1.2));
-  z-index: 100;
-  border-color: var(--color-focus-border, #ffd700);
+/* =============================================================================
+   ENHANCED FOCUS MODE - FOCUSED STATE (Widget Centered with Overlay)
+   ============================================================================= */
 
-  /* Maintain dimensions - calculate based on grid cell size */
-  /* These will be set dynamically via inline CSS variable */
-  width: var(--cell-width);
-  height: var(--cell-height);
+.dashboard-grid__cell--widget-focused {
+  /* State 2: Focused (ENTER pressed, widget centered, overlay visible) */
+  /* Don't use position: fixed - keep in normal flow and translate from current position */
+  position: relative;
+  z-index: 100;
+
+  /* Silver border and glow */
+  border-radius: 8px;
+  box-shadow: var(--glow-selected),
+              inset 0 0 0 var(--border-width-selected) var(--color-selected-silver);
+
+  /* Transform will be set via inline style with calculated translate values */
+  /* Example: transform: translate(100px, 50px) scale(1.05) */
 
   /* Ensure smooth transition */
   transition: transform 0.4s cubic-bezier(0.4, 0.0, 0.2, 1),
-              border-color 0.2s ease,
-              width 0.4s cubic-bezier(0.4, 0.0, 0.2, 1),
-              height 0.4s cubic-bezier(0.4, 0.0, 0.2, 1);
+              box-shadow var(--transition-fast),
+              border-radius var(--transition-fast);
+}
+
+/* =============================================================================
+   ENHANCED FOCUS MODE - ACTIVE STATE (Controlling Widget)
+   ============================================================================= */
+
+.dashboard-grid__cell--widget-active {
+  /* State 3: Active (RIGHT pressed from focused, controlling widget, menu dimmed) */
+  position: relative;
+  z-index: 100;
+
+  /* Blue border and glow */
+  border-radius: 8px;
+  box-shadow: var(--glow-focused),
+              inset 0 0 0 var(--border-width-active) var(--color-active-blue);
+
+  /* Transform includes 108% scale (set via inline style) */
+  /* Example: transform: translate(100px, 50px) scale(1.08) */
+
+  /* Smooth transition to blue border */
+  transition: transform 0.3s ease,
+              box-shadow 0.3s ease,
+              border-radius var(--transition-fast);
 }
 
 .dashboard-grid__placeholder {
@@ -186,7 +253,7 @@
    FOCUS OVERLAY
    ============================================================================= */
 
-/* Darken background when widget is focused */
+/* Darken background when widget is focused (50% opacity for enhanced mode) */
 .dashboard--widget-focused::before {
   content: '';
   position: fixed;
@@ -194,25 +261,26 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: var(--color-overlay-bg, rgba(0, 0, 0, 0.5));
   z-index: 50;
+  pointer-events: auto; /* Clickable - allows defocus when clicking overlay */
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity var(--transition-normal);
+}
+
+.dashboard--widget-focused.overlay-visible::before {
+  opacity: 1;
+}
+
+/* Prevent clicks on unfocused widgets when overlay is visible */
+.dashboard--widget-focused .dashboard-grid__cell:not(.dashboard-grid__cell--widget-focused):not(.dashboard-grid__cell--widget-active) {
   pointer-events: none;
 }
 
-/* =============================================================================
-   FIRE TV OPTIMIZATIONS
-   ============================================================================= */
-
-/* High contrast focus indicators for TV viewing */
-@media (min-width: 1280px) {
-  .dashboard-grid__cell--focused {
-    border-width: 4px;
-    border-color: var(--color-focus-border, #ffd700);
-  }
-
-  .dashboard-menu__item--selected {
-    border-width: 3px;
-  }
+/* Prevent clicks on sidebar when overlay is visible */
+.dashboard--widget-focused .dashboard-sidebar {
+  pointer-events: none;
 }
 
 /* =============================================================================
@@ -260,6 +328,23 @@
   --color-selected-bg: rgba(102, 126, 234, 0.1);
   --color-accent: #667eea;
   --color-focus-border: #ffd700;
+
+  /* Enhanced Focus Mode Colors */
+  --color-selected-silver: #a8b0b8;
+  --color-active-blue: #00aaff;
+  --color-overlay-bg: rgba(0, 0, 0, 0.5);
+
+  /* Enhanced Focus Mode Glows */
+  --glow-selected: 0 0 20px rgba(168, 176, 184, 0.6), 0 0 45px rgba(168, 176, 184, 0.3);
+  --glow-focused: 0 0 25px rgba(0, 170, 255, 0.9), 0 0 55px rgba(0, 170, 255, 0.5);
+
+  /* Border widths */
+  --border-width-selected: 6px;
+  --border-width-active: 6px;
+
+  /* Transitions */
+  --transition-normal: 0.3s ease;
+  --transition-fast: 0.2s ease;
 }
 
 /* =============================================================================

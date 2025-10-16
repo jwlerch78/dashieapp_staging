@@ -47,6 +47,11 @@ class NavigationManager {
       return false;
     }
 
+    // Wake from idle state on any navigation
+    if (state.isIdle) {
+      DashboardStateManager.setState({ isIdle: false });
+    }
+
     // If menu is open, navigate menu up
     if (state.menuOpen) {
       return this.navigateMenuUp();
@@ -64,6 +69,8 @@ class NavigationManager {
       return true;
     }
 
+    // At top row, but still show selection (not idle anymore)
+    UIRenderer.updateFocus();
     logger.debug('Already at top row');
     return true; // Still handled (prevents default)
   }
@@ -78,6 +85,11 @@ class NavigationManager {
     // If widget is focused, don't handle navigation
     if (state.focusedWidget) {
       return false;
+    }
+
+    // Wake from idle state on any navigation
+    if (state.isIdle) {
+      DashboardStateManager.setState({ isIdle: false });
     }
 
     // If menu is open, navigate menu down
@@ -97,6 +109,8 @@ class NavigationManager {
       return true;
     }
 
+    // At bottom row, but still show selection (not idle anymore)
+    UIRenderer.updateFocus();
     logger.debug('Already at bottom row');
     return true; // Still handled (prevents default)
   }
@@ -108,9 +122,18 @@ class NavigationManager {
   static moveLeft() {
     const state = DashboardStateManager.getState();
 
-    // If widget is focused, don't handle navigation
+    // If widget is focused/active, handle LEFT arrow for widget states
     if (state.focusedWidget) {
+      // TODO: When focus menus are implemented, LEFT will:
+      // - If active (controlling widget): return to focused (menu visible)
+      // - If focused (menu visible): stay in menu
+      // For now, LEFT arrow is not handled (widget handles it)
       return false;
+    }
+
+    // Wake from idle state on any navigation
+    if (state.isIdle) {
+      DashboardStateManager.setState({ isIdle: false });
     }
 
     // If menu is open, close it
@@ -144,9 +167,18 @@ class NavigationManager {
   static moveRight() {
     const state = DashboardStateManager.getState();
 
-    // If widget is focused, don't handle navigation
+    // If widget is focused/active, handle RIGHT arrow for widget states
     if (state.focusedWidget) {
+      // TODO: When focus menus are implemented, RIGHT will:
+      // - If focused (menu visible): activate widget (menu dims, scale 1.08)
+      // - If active: stay active
+      // For now, RIGHT arrow is not handled (widget handles it)
       return false;
+    }
+
+    // Wake from idle state on any navigation
+    if (state.isIdle) {
+      DashboardStateManager.setState({ isIdle: false });
     }
 
     // If menu is open, close it
@@ -167,6 +199,8 @@ class NavigationManager {
       return true;
     }
 
+    // At rightmost column, but still show selection (not idle anymore)
+    UIRenderer.updateFocus();
     logger.debug('Already at rightmost column');
     return true; // Still handled (prevents default)
   }
@@ -213,7 +247,12 @@ class NavigationManager {
       return true;
     }
 
-    return false; // Not handled
+    // NEW: If nothing focused or open, return to idle state (no visual selection)
+    logger.info('Escape pressed with nothing focused - returning to idle state');
+    DashboardStateManager.setState({ isIdle: true });
+    UIRenderer.updateFocus(); // Update to show no selection
+
+    return true; // Handled
   }
 
   /**
@@ -258,6 +297,9 @@ class NavigationManager {
    * Open sidebar menu
    */
   static openMenu() {
+    // Clear grid focus when moving to sidebar
+    UIRenderer.clearGridFocus();
+
     DashboardStateManager.setMenuState(true);
     UIRenderer.showMenu();
 
@@ -269,6 +311,9 @@ class NavigationManager {
    */
   static closeMenu() {
     DashboardStateManager.setMenuState(false);
+
+    // Clear sidebar focus when moving to grid
+    UIRenderer.clearMenuFocus();
     UIRenderer.hideMenu();
 
     // Update grid focus to show which cell is selected
@@ -326,16 +371,18 @@ class NavigationManager {
       return;
     }
 
-    // Check if widget can be centered
-    if (!canWidgetCenter(widget.id)) {
-      logger.info('Widget cannot be centered', { widgetId: widget.id });
-      return;
-    }
+    // All widgets can be focused (show overlay, border)
+    // Only widgets with canWidgetCenter=true will be moved/centered
+    const shouldCenter = canWidgetCenter(widget.id);
 
     DashboardStateManager.setFocusedWidget(widget.id);
-    UIRenderer.focusWidget(widget.id);
+    UIRenderer.focusWidget(widget.id, false, shouldCenter);
 
-    logger.info('Widget focused', { widgetId: widget.id, position: [row, col] });
+    logger.info('Widget focused', {
+      widgetId: widget.id,
+      position: [row, col],
+      centered: shouldCenter
+    });
   }
 
   /**
@@ -352,6 +399,9 @@ class NavigationManager {
 
     DashboardStateManager.setFocusedWidget(null);
     UIRenderer.defocusWidget();
+
+    // Restore grid selection highlighting
+    UIRenderer.updateFocus();
 
     logger.info('Widget defocused', { widgetId });
   }

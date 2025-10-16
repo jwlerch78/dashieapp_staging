@@ -21,11 +21,12 @@ const logger = createLogger('DashboardState');
  */
 class DashboardStateManager {
   static state = {
-    gridPosition: { row: 1, col: 1 }, // 1-indexed: rows 1-3, cols 1-2
+    gridPosition: { row: 1, col: 1 }, // Current position (always set): rows 1-3, cols 1-2
     focusedWidget: null,
     menuOpen: false,
     selectedMenuItem: 0,
-    isActive: false
+    isActive: false,
+    isIdle: true // true = no visual selection (widget-idle), false = show selection
   };
 
   static isInitialized = false;

@@ -4,6 +4,7 @@
 
 import { createLogger } from '../../utils/logger.js';
 import NavigationManager from './dashboard-navigation-manager.js';
+import DashboardTimers from './dashboard-timers.js';
 
 const logger = createLogger('DashboardInput');
 
@@ -53,6 +54,7 @@ class DashboardInputHandler {
     if (!this.enabled) return false;
 
     logger.debug('Handling UP action');
+    DashboardTimers.reset(); // Reset timer on any input
     return NavigationManager.moveUp();
   }
 
@@ -65,6 +67,7 @@ class DashboardInputHandler {
     if (!this.enabled) return false;
 
     logger.debug('Handling DOWN action');
+    DashboardTimers.reset(); // Reset timer on any input
     return NavigationManager.moveDown();
   }
 
@@ -77,6 +80,7 @@ class DashboardInputHandler {
     if (!this.enabled) return false;
 
     logger.debug('Handling LEFT action');
+    DashboardTimers.reset(); // Reset timer on any input
     return NavigationManager.moveLeft();
   }
 
@@ -89,6 +93,7 @@ class DashboardInputHandler {
     if (!this.enabled) return false;
 
     logger.debug('Handling RIGHT action');
+    DashboardTimers.reset(); // Reset timer on any input
     return NavigationManager.moveRight();
   }
 
@@ -101,6 +106,7 @@ class DashboardInputHandler {
     if (!this.enabled) return false;
 
     logger.debug('Handling ENTER action');
+    DashboardTimers.reset(); // Reset timer on any input
     return NavigationManager.handleEnter();
   }
 
@@ -113,6 +119,7 @@ class DashboardInputHandler {
     if (!this.enabled) return false;
 
     logger.debug('Handling ESCAPE action');
+    DashboardTimers.reset(); // Reset timer on any input
     return NavigationManager.handleEscape();
   }
 

@@ -7,6 +7,7 @@ import AppComms from '../../core/app-comms.js';
 import DashboardStateManager from './dashboard-state-manager.js';
 import DashboardInputHandler from './dashboard-input-handler.js';
 import UIRenderer from './dashboard-ui-renderer.js';
+import DashboardTimers from './dashboard-timers.js';
 
 const logger = createLogger('Dashboard');
 
@@ -51,6 +52,10 @@ class Dashboard {
       // Initialize UI renderer
       await UIRenderer.initialize();
       logger.debug('UI renderer initialized');
+
+      // Initialize timer system
+      DashboardTimers.initialize();
+      logger.debug('Timer system initialized');
 
       this.isInitialized = true;
 
@@ -101,6 +106,9 @@ class Dashboard {
     }
 
     logger.info('Deactivating Dashboard...');
+
+    // Stop timer
+    DashboardTimers.stop();
 
     // Disable input handler
     DashboardInputHandler.disable();

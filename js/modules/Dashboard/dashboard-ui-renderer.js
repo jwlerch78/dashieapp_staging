@@ -1,32 +1,44 @@
 // js/modules/Dashboard/dashboard-ui-renderer.js
 // Dashboard UI rendering and visual updates
-// v1.0 - 10/16/25 - Initial implementation for Phase 2
+// v2.0 - 10/16/25 - Refactored into modular architecture
 
 import { createLogger } from '../../utils/logger.js';
-import DashboardStateManager from './dashboard-state-manager.js';
-import { widgetConfig, getWidgetFocusScale } from './dashboard-widget-config.js';
+import DOMBuilder from './dashboard-dom-builder.js';
+import VisualEffects from './dashboard-visual-effects.js';
+import {
+  GridEventHandler,
+  MenuEventHandler,
+  SidebarEventHandler,
+  OverlayEventHandler
+} from './dashboard-event-handlers.js';
 
 const logger = createLogger('DashboardUI');
 
 /**
- * UI Renderer
+ * UI Renderer (Orchestration Layer)
  *
- * Handles all Dashboard DOM rendering and visual updates:
- * - Create initial DOM structure
- * - Update focus indicators
- * - Show/hide menu
- * - Update menu selection
- * - Focus/defocus widgets
+ * Thin coordination layer that delegates to specialized modules:
+ * - DOMBuilder: Creates DOM structure
+ * - VisualEffects: Manipulates CSS classes and animations
+ * - EventHandlers: Attaches and handles user interactions
  *
- * Uses CSS classes + CSS variables (no inline styles)
- * Follows BEM naming convention
+ * Responsibilities:
+ * - Initialize modules
+ * - Coordinate render lifecycle (render, hide, destroy)
+ * - Maintain container reference
+ * - Expose public API for navigation manager
+ *
+ * Does NOT:
+ * - Create DOM directly (uses DOMBuilder)
+ * - Manipulate CSS classes directly (uses VisualEffects)
+ * - Handle events directly (uses EventHandlers)
  */
 class UIRenderer {
   static container = null;
   static isInitialized = false;
 
   /**
-   * Initialize UI renderer
+   * Initialize UI renderer and all modules
    * @returns {Promise<boolean>} Success status
    */
   static async initialize() {
@@ -45,7 +57,7 @@ class UIRenderer {
 
   /**
    * Render Dashboard UI
-   * Creates DOM structure and attaches to document
+   * Creates DOM structure and attaches event listeners
    */
   static render() {
     if (this.container) {
@@ -57,24 +69,72 @@ class UIRenderer {
     logger.info('Rendering Dashboard UI...');
 
     // Create main container
-    this.container = document.createElement('div');
-    this.container.className = 'dashboard';
+    this.container = DOMBuilder.createContainer();
 
-    // Create sidebar
-    const sidebar = this.createSidebar();
-    this.container.appendChild(sidebar);
+    // Create sidebar wrapper (maintains 60px space in flex layout)
+    const sidebarWrapper = DOMBuilder.createSidebarWrapper();
+
+    // Create sidebar (position absolute, overlays grid when expanded)
+    const sidebar = DOMBuilder.createSidebar();
+    sidebarWrapper.appendChild(sidebar);
+    this.container.appendChild(sidebarWrapper);
 
     // Create grid
-    const grid = this.createGrid();
+    const grid = DOMBuilder.createGrid();
     this.container.appendChild(grid);
 
     // Attach to document
     document.body.appendChild(this.container);
 
+    // Initialize visual effects module with container reference
+    VisualEffects.initialize(this.container);
+
+    // Initialize event handlers with UI renderer reference
+    GridEventHandler.initialize(this);
+    MenuEventHandler.initialize(this);
+
+    // Attach event listeners
+    this.attachEventListeners(sidebar, grid);
+
     // Update focus to initial position
-    this.updateFocus();
+    VisualEffects.updateFocus();
 
     logger.success('Dashboard UI rendered');
+  }
+
+  /**
+   * Attach all event listeners
+   * @private
+   * @param {HTMLElement} sidebar - Sidebar element
+   * @param {HTMLElement} grid - Grid element
+   */
+  static attachEventListeners(sidebar, grid) {
+    // Attach sidebar event listeners
+    SidebarEventHandler.attach(sidebar);
+
+    // Attach grid event listeners
+    GridEventHandler.attach(grid);
+
+    // Attach menu item event listeners
+    const menuItems = sidebar.querySelectorAll('.dashboard-menu__item');
+    menuItems.forEach((button) => {
+      const index = parseInt(button.dataset.menuIndex);
+      const itemId = button.dataset.menuId;
+
+      // Reconstruct item object (needed by event handler)
+      const item = {
+        id: itemId,
+        label: button.querySelector('.dashboard-menu__label')?.textContent || itemId,
+        icon: button.querySelector('.dashboard-menu__icon')?.textContent || ''
+      };
+
+      MenuEventHandler.attach(button, item, index, this.container);
+    });
+
+    // Attach overlay event listeners
+    OverlayEventHandler.attach(this.container);
+
+    logger.debug('All event listeners attached');
   }
 
   /**
@@ -100,225 +160,107 @@ class UIRenderer {
     logger.info('Dashboard UI destroyed');
   }
 
-  /**
-   * Create sidebar with menu
-   * @private
-   * @returns {HTMLElement} Sidebar element
-   */
-  static createSidebar() {
-    const sidebar = document.createElement('aside');
-    sidebar.className = 'dashboard-sidebar';
-
-    const menu = document.createElement('div');
-    menu.className = 'dashboard-menu';
-
-    // Menu items
-    const menuItems = [
-      { id: 'calendar', label: 'Calendar', icon: '📅' },
-      { id: 'map', label: 'Map', icon: '🗺️' },
-      { id: 'camera', label: 'Camera', icon: '📷' },
-      { id: 'reload', label: 'Reload', icon: '🔄' },
-      { id: 'sleep', label: 'Sleep', icon: '😴' },
-      { id: 'settings', label: 'Settings', icon: '⚙️' },
-      { id: 'exit', label: 'Exit', icon: '🚪' }
-    ];
-
-    menuItems.forEach((item, index) => {
-      const button = document.createElement('button');
-      button.className = 'dashboard-menu__item';
-      button.dataset.menuIndex = index;
-      button.dataset.menuId = item.id;
-      button.innerHTML = `
-        <span class="dashboard-menu__icon">${item.icon}</span>
-        <span class="dashboard-menu__label">${item.label}</span>
-      `;
-      menu.appendChild(button);
-    });
-
-    sidebar.appendChild(menu);
-
-    return sidebar;
-  }
-
-  /**
-   * Create widget grid
-   * @private
-   * @returns {HTMLElement} Grid element
-   */
-  static createGrid() {
-    const grid = document.createElement('main');
-    grid.className = 'dashboard-grid';
-
-    // Create widgets from configuration (3 rows × 2 columns with varying spans)
-    widgetConfig.forEach(widget => {
-      const cell = document.createElement('div');
-      cell.className = 'dashboard-grid__cell';
-
-      // Add span classes if needed
-      if (widget.rowSpan > 1) {
-        cell.classList.add(`dashboard-grid__cell--rowspan-${widget.rowSpan}`);
-      }
-      if (widget.colSpan > 1) {
-        cell.classList.add(`dashboard-grid__cell--colspan-${widget.colSpan}`);
-      }
-
-      // Set data attributes
-      cell.dataset.row = widget.row;
-      cell.dataset.col = widget.col;
-      cell.dataset.widgetId = widget.id;
-      cell.dataset.rowSpan = widget.rowSpan;
-      cell.dataset.colSpan = widget.colSpan;
-      cell.dataset.noCenter = widget.noCenter || false;
-      cell.dataset.focusScale = widget.focusScale || 1.2;
-      cell.dataset.selectable = widget.selectable !== false;
-
-      // Placeholder content
-      const placeholder = document.createElement('div');
-      placeholder.className = 'dashboard-grid__placeholder';
-      placeholder.textContent = widget.label || widget.id;
-
-      cell.appendChild(placeholder);
-      grid.appendChild(cell);
-    });
-
-    return grid;
-  }
+  // =============================================================================
+  // PUBLIC API - Delegated to VisualEffects module
+  // =============================================================================
 
   /**
    * Update focus indicator
-   * Highlights the currently focused grid cell
+   * @see VisualEffects.updateFocus()
    */
   static updateFocus() {
-    if (!this.container) return;
+    VisualEffects.updateFocus();
+  }
 
-    const state = DashboardStateManager.getState();
-    const { row, col } = state.gridPosition;
+  /**
+   * Clear grid focus
+   * @see VisualEffects.clearGridFocus()
+   */
+  static clearGridFocus() {
+    VisualEffects.clearGridFocus();
+  }
 
-    // Remove focus from all cells
-    const cells = this.container.querySelectorAll('.dashboard-grid__cell');
-    cells.forEach(cell => {
-      cell.classList.remove('dashboard-grid__cell--focused');
-    });
-
-    // Add focus to current cell
-    const focusedCell = this.container.querySelector(
-      `.dashboard-grid__cell[data-row="${row}"][data-col="${col}"]`
-    );
-
-    if (focusedCell) {
-      focusedCell.classList.add('dashboard-grid__cell--focused');
-      logger.debug('Focus updated', { row, col });
-    }
+  /**
+   * Clear menu focus
+   * @see VisualEffects.clearMenuFocus()
+   */
+  static clearMenuFocus() {
+    VisualEffects.clearMenuFocus();
   }
 
   /**
    * Show sidebar menu (expand)
+   * @see VisualEffects.showMenu()
    */
   static showMenu() {
-    if (!this.container) return;
-
-    const sidebar = this.container.querySelector('.dashboard-sidebar');
-    if (sidebar) {
-      sidebar.classList.add('dashboard-sidebar--expanded');
-      logger.debug('Menu shown');
-    }
-
-    // Update menu selection
-    this.updateMenuSelection();
+    VisualEffects.showMenu();
   }
 
   /**
    * Hide sidebar menu (collapse)
+   * @see VisualEffects.hideMenu()
    */
   static hideMenu() {
-    if (!this.container) return;
-
-    const sidebar = this.container.querySelector('.dashboard-sidebar');
-    if (sidebar) {
-      sidebar.classList.remove('dashboard-sidebar--expanded');
-      logger.debug('Menu hidden');
-    }
+    VisualEffects.hideMenu();
   }
 
   /**
    * Update menu selection highlight
+   * @see VisualEffects.updateMenuSelection()
    */
   static updateMenuSelection() {
-    if (!this.container) return;
-
-    const state = DashboardStateManager.getState();
-    const selectedIndex = state.selectedMenuItem;
-
-    // Remove selection from all menu items
-    const menuItems = this.container.querySelectorAll('.dashboard-menu__item');
-    menuItems.forEach(item => {
-      item.classList.remove('dashboard-menu__item--selected');
-    });
-
-    // Add selection to current item
-    const selectedItem = this.container.querySelector(
-      `.dashboard-menu__item[data-menu-index="${selectedIndex}"]`
-    );
-
-    if (selectedItem) {
-      selectedItem.classList.add('dashboard-menu__item--selected');
-      logger.debug('Menu selection updated', { index: selectedIndex });
-    }
+    VisualEffects.updateMenuSelection();
   }
 
   /**
    * Focus a widget (center and overlay)
    * @param {string} widgetId - Widget ID to focus
+   * @param {boolean} hasFocusMenu - True if widget has focus menu
+   * @param {boolean} shouldCenter - True if widget should be centered
+   * @see VisualEffects.focusWidget()
    */
-  static focusWidget(widgetId) {
-    if (!this.container) return;
-
-    const cell = this.container.querySelector(
-      `.dashboard-grid__cell[data-widget-id="${widgetId}"]`
-    );
-
-    if (cell) {
-      // Capture the cell's current dimensions BEFORE centering
-      const rect = cell.getBoundingClientRect();
-      const width = rect.width;
-      const height = rect.height;
-
-      // Get focusScale from widget configuration
-      const focusScale = getWidgetFocusScale(widgetId) || parseFloat(cell.dataset.focusScale) || 1.2;
-
-      // Set dimensions and scale as CSS variables
-      cell.style.setProperty('--cell-width', `${width}px`);
-      cell.style.setProperty('--cell-height', `${height}px`);
-      cell.style.setProperty('--widget-focus-scale', focusScale.toString());
-
-      // Add focused class (will trigger centering animation)
-      cell.classList.add('dashboard-grid__cell--widget-focused');
-      this.container.classList.add('dashboard--widget-focused');
-
-      logger.info('Widget focused in UI', { widgetId, width, height });
-    }
+  static focusWidget(widgetId, hasFocusMenu = false, shouldCenter = true) {
+    VisualEffects.focusWidget(widgetId, hasFocusMenu, shouldCenter);
   }
 
   /**
    * Defocus widget (return to grid view)
+   * @see VisualEffects.defocusWidget()
    */
   static defocusWidget() {
-    if (!this.container) return;
+    VisualEffects.defocusWidget();
+  }
 
-    // Remove widget focus from all cells
-    const cells = this.container.querySelectorAll('.dashboard-grid__cell');
-    cells.forEach(cell => {
-      cell.classList.remove('dashboard-grid__cell--widget-focused');
+  /**
+   * Set widget to active state
+   * @see VisualEffects.setWidgetActive()
+   */
+  static setWidgetActive() {
+    VisualEffects.setWidgetActive();
+  }
 
-      // Clear CSS variables
-      cell.style.removeProperty('--cell-width');
-      cell.style.removeProperty('--cell-height');
-      cell.style.removeProperty('--widget-focus-scale');
-    });
+  /**
+   * Set widget back to focused state
+   * @see VisualEffects.setWidgetFocused()
+   */
+  static setWidgetFocused() {
+    VisualEffects.setWidgetFocused();
+  }
 
-    this.container.classList.remove('dashboard--widget-focused');
+  /**
+   * Send escape message to focused widget
+   * @see VisualEffects.sendEscapeToFocusedWidget()
+   */
+  static sendEscapeToFocusedWidget() {
+    VisualEffects.sendEscapeToFocusedWidget();
+  }
 
-    logger.info('Widget defocused in UI');
+  /**
+   * Close sidebar menu
+   * @see VisualEffects.closeMenu()
+   */
+  static closeMenu() {
+    VisualEffects.closeMenu();
   }
 
   /**
@@ -340,6 +282,8 @@ class UIRenderer {
 
 if (typeof window !== 'undefined') {
   window.DashboardUIRenderer = UIRenderer;
+  window.DashboardVisualEffects = VisualEffects;
+  window.DashboardDOMBuilder = DOMBuilder;
 }
 
 // =============================================================================
