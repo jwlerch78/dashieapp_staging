@@ -65,7 +65,7 @@ js/data/auth/
 │   ├── edge-client.js
 │   ├── jwt-manager.js
 │   ├── settings-integration.js
-│   └── index.js
+│   └── jwt.js
 └── providers/
     ├── device-flow.js          # (copy from legacy)
     ├── web-oauth.js            # (copy from legacy)
@@ -408,7 +408,7 @@ class CalendarService {
 3. `edge-client.js` - Supabase edge function client
 4. `jwt-manager.js` - Main JWT orchestration
 5. `settings-integration.js` - Settings sync (updated to exclude tokens)
-6. `index.js` - Public API
+6. `jwt.js` - Public API
 
 **Token cache fixes (from technical debt):**
 - Fix: Cache not updating after refresh

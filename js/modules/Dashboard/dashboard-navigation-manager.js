@@ -264,8 +264,8 @@ class NavigationManager {
     const state = DashboardStateManager.getState();
     const currentItem = state.selectedMenuItem;
 
-    // Wrap around: if at top (0), go to bottom (6)
-    const newItem = currentItem > 0 ? currentItem - 1 : 6;
+    // Wrap around: if at top (0), go to bottom (3) - only 4 items now
+    const newItem = currentItem > 0 ? currentItem - 1 : 3;
 
     DashboardStateManager.setMenuState(true, newItem);
     UIRenderer.updateMenuSelection();
@@ -283,8 +283,8 @@ class NavigationManager {
     const state = DashboardStateManager.getState();
     const currentItem = state.selectedMenuItem;
 
-    // Wrap around: if at bottom (6), go to top (0)
-    const newItem = currentItem < 6 ? currentItem + 1 : 0;
+    // Wrap around: if at bottom (3), go to top (0) - only 4 items now
+    const newItem = currentItem < 3 ? currentItem + 1 : 0;
 
     DashboardStateManager.setMenuState(true, newItem);
     UIRenderer.updateMenuSelection();
@@ -316,22 +316,20 @@ class NavigationManager {
     UIRenderer.clearMenuFocus();
     UIRenderer.hideMenu();
 
-    // Update grid focus to show which cell is selected
-    UIRenderer.updateFocus();
+    // Return to idle state (no visual selection)
+    DashboardStateManager.setState({ isIdle: true });
+    UIRenderer.updateFocus(); // This will skip applying CSS because isIdle=true
 
     logger.info('Menu closed');
   }
 
   /**
    * Select menu item
-   * @param {number} itemIndex - Menu item index (0-6)
+   * @param {number} itemIndex - Menu item index (0-3)
    * @returns {boolean} True if handled
    */
   static selectMenuItem(itemIndex) {
     const menuItems = [
-      'calendar',
-      'map',
-      'camera',
       'reload',
       'sleep',
       'settings',

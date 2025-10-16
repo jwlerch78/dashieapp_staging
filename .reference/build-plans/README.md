@@ -23,14 +23,14 @@ Each phase has a dedicated quick start guide that contains **only** what you nee
 Phase 1: Core Infrastructure ✅ COMPLETE
   └─ Already built in previous session
 
-Phase 2: Dashboard Module (1-2 days)
+Phase 2: Dashboard Module (1-2 days) ✅ COMPLETE
   └─ Validates architecture with first real feature
-
-Phase 2.5: Widget Integration (1-2 days)
-  └─ Fire TV CSS fixes, widget loading, focus menu system
 
 Phase 3: Data Layer (1-2 days)
   └─ Auth, JWT, Services + High-priority technical debt
+
+Phase 3.5: Widget Integration (1-2 days)
+  └─ Fire TV CSS fixes, widget loading, focus menu system (test with live data)
 
 Phase 4: Remaining Modules (2-3 days)
   └─ Settings, Login, Modals, Welcome
@@ -60,19 +60,6 @@ Total estimate: 6-10 days
 
 ---
 
-### [Phase 2.5: Widget Integration](./Phase%202.5%20-%20Widget%20Integration.md)
-Integrate and refactor existing widgets
-- Copy 8 widgets from legacy
-- Fire TV CSS fixes (webkit-mask, backdrop-filter, scale)
-- Focus menu system integration
-- Widget loading and registration
-- Hardware testing
-
-**Prerequisites:** Phase 2 complete
-**Estimated time:** 1-2 days
-
----
-
 ### [Phase 3: Data Layer](./Phase%203%20-%20Data%20Layer.md)
 Build authentication and data infrastructure
 - Multi-provider auth architecture (2-layer design)
@@ -82,6 +69,19 @@ Build authentication and data infrastructure
 - **High-priority technical debt fixes included**
 
 **Prerequisites:** Phase 2 complete
+**Estimated time:** 1-2 days
+
+---
+
+### [Phase 3.5: Widget Integration](./Phase%203.5%20-%20Widget%20Integration.md)
+Integrate and refactor existing widgets
+- Copy 8 widgets from legacy
+- Fire TV CSS fixes (webkit-mask, backdrop-filter, scale)
+- Focus menu system integration
+- Widget loading and registration
+- Hardware testing **with live data**
+
+**Prerequisites:** Phase 3 complete (so widgets can test with real calendar/photo data)
 **Estimated time:** 1-2 days
 
 ---

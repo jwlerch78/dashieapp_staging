@@ -32,18 +32,22 @@ class DOMBuilder {
     const sidebar = document.createElement('aside');
     sidebar.className = 'dashboard-sidebar';
 
+    // Add Dashie logo at top
+    const logo = document.createElement('img');
+    logo.className = 'dashie-logo';
+    logo.src = '/artwork/Dashie_Full_Logo_White_Transparent.png'; // Will be set dynamically by theme
+    logo.alt = 'Dashie';
+    sidebar.appendChild(logo);
+
     const menu = document.createElement('div');
     menu.className = 'dashboard-menu';
 
-    // Menu items configuration
+    // Menu items configuration (reduced to 4 system functions only)
     const menuItems = [
-      { id: 'calendar', label: 'Calendar', icon: '📅' },
-      { id: 'map', label: 'Map', icon: '🗺️' },
-      { id: 'camera', label: 'Camera', icon: '📷' },
-      { id: 'reload', label: 'Reload', icon: '🔄' },
-      { id: 'sleep', label: 'Sleep', icon: '😴' },
-      { id: 'settings', label: 'Settings', icon: '⚙️' },
-      { id: 'exit', label: 'Exit', icon: '🚪' }
+      { id: 'reload', label: 'Reload', iconPath: '/artwork/icon-reload.svg' },
+      { id: 'sleep', label: 'Sleep', iconPath: '/artwork/icon-sleep.svg' },
+      { id: 'settings', label: 'Settings', iconPath: '/artwork/icon-settings.svg' },
+      { id: 'exit', label: 'Exit', iconPath: '/artwork/icon-exit.svg' }
     ];
 
     // Create menu item buttons
@@ -60,7 +64,7 @@ class DOMBuilder {
 
   /**
    * Create a single menu item button
-   * @param {Object} item - Menu item config (id, label, icon)
+   * @param {Object} item - Menu item config (id, label, iconPath)
    * @param {number} index - Menu item index
    * @returns {HTMLElement} Button element
    */
@@ -69,10 +73,20 @@ class DOMBuilder {
     button.className = 'dashboard-menu__item';
     button.dataset.menuIndex = index;
     button.dataset.menuId = item.id;
-    button.innerHTML = `
-      <span class="dashboard-menu__icon">${item.icon}</span>
-      <span class="dashboard-menu__label">${item.label}</span>
-    `;
+
+    // Create icon image element
+    const icon = document.createElement('img');
+    icon.className = 'dashboard-menu__icon';
+    icon.src = item.iconPath;
+    icon.alt = item.label;
+
+    // Create label span
+    const label = document.createElement('span');
+    label.className = 'dashboard-menu__label';
+    label.textContent = item.label;
+
+    button.appendChild(icon);
+    button.appendChild(label);
 
     return button;
   }

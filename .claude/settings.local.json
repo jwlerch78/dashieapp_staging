@@ -2,7 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(find:*)",
-      "Bash(python -m http.server:*)"
+      "Bash(python -m http.server:*)",
+      "Read(//c/Users/**)",
+      "Bash(cat:*)",
+      "Bash(xargs cat:*)",
+      "Bash(code --list-extensions)"
     ],
     "deny": [],
     "ask": []

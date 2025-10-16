@@ -173,7 +173,7 @@ dashieapp_staging/
 │   │
 │   ├── modules/                        # Feature modules
 │   │   ├── Dashboard/
-│   │   │   ├── index.js                # Public API (dashboard.js)
+│   │   │   ├── dashboard.js            # Public API (module interface)
 │   │   │   ├── input-handler.js        # Input routing
 │   │   │   ├── state-manager.js        # Dashboard state (grid, menu, focus)
 │   │   │   ├── navigation-manager.js   # Navigation logic
@@ -186,13 +186,13 @@ dashieapp_staging/
 │   │   │   └── focus-menu-manager.js   # Focus menu system
 │   │   │
 │   │   ├── Settings/
-│   │   │   ├── index.js
-│   │   │   ├── orchestrator.js
-│   │   │   ├── config.js
-│   │   │   ├── input-handler.js
-│   │   │   ├── state-manager.js
-│   │   │   ├── navigation-manager.js
-│   │   │   ├── ui-renderer.js
+│   │   │   ├── settings.js                # Public API (module interface)
+│   │   │   ├── settings-orchestrator.js
+│   │   │   ├── settings-config.js
+│   │   │   ├── settings-input-handler.js
+│   │   │   ├── settings-state-manager.js
+│   │   │   ├── settings-navigation-manager.js
+│   │   │   ├── settings-ui-renderer.js
 │   │   │   ├── core/
 │   │   │   │   ├── settings-store.js
 │   │   │   │   ├── broadcast-manager.js
@@ -207,20 +207,20 @@ dashieapp_staging/
 │   │   │   └── shared/
 │   │   │
 │   │   ├── Login/
-│   │   │   ├── index.js
-│   │   │   ├── input-handler.js
-│   │   │   ├── state-manager.js
-│   │   │   └── ui-renderer.js          # Absorbs auth-ui.js
+│   │   │   ├── login.js                   # Public API (module interface)
+│   │   │   ├── login-input-handler.js
+│   │   │   ├── login-state-manager.js
+│   │   │   └── login-ui-renderer.js       # Absorbs auth-ui.js
 │   │   │
 │   │   ├── Modals/
-│   │   │   ├── index.js
-│   │   │   ├── input-handler.js
-│   │   │   ├── state-manager.js
-│   │   │   └── ui-renderer.js
+│   │   │   ├── modals.js                  # Public API (module interface)
+│   │   │   ├── modals-input-handler.js
+│   │   │   ├── modals-state-manager.js
+│   │   │   └── modals-ui-renderer.js
 │   │   │
 │   │   └── Welcome/
-│   │       ├── index.js
-│   │       ├── wizard-controller.js
+│   │       ├── welcome.js                 # Public API (module interface)
+│   │       ├── welcome-wizard-controller.js
 │   │       └── screens/
 │   │
 │   ├── data/                           # Data layer
@@ -231,7 +231,7 @@ dashieapp_staging/
 │   │   │   ├── account-manager.js
 │   │   │   │
 │   │   │   ├── jwt/                    # JWT Service (REFACTORED)
-│   │   │   │   ├── index.js            # Public API & coordinator
+│   │   │   │   ├── jwt.js              # Public API & coordinator
 │   │   │   │   ├── jwt-manager.js      # JWT lifecycle (~250 lines)
 │   │   │   │   ├── jwt-storage.js      # localStorage (~100 lines)
 │   │   │   │   ├── token-cache.js      # OAuth caching (~150 lines)
@@ -391,17 +391,17 @@ Every module follows this structure:
 
 ```
 js/modules/[ModuleName]/
-├── index.js                # Public API
-├── input-handler.js        # Input processing
-├── state-manager.js        # Module-specific state
-├── navigation-manager.js   # Internal navigation
-└── ui-renderer.js          # DOM rendering
+├── [module-name].js                 # Public API (module interface)
+├── [module-name]-input-handler.js   # Input processing
+├── [module-name]-state-manager.js   # Module-specific state
+├── [module-name]-navigation-manager.js   # Internal navigation
+└── [module-name]-ui-renderer.js     # DOM rendering
 ```
 
 ### Module Interface
 
 ```javascript
-// Every module's index.js exports:
+// Every module's main file (e.g., dashboard.js, settings.js) exports:
 {
     // Lifecycle
     initialize: async () => {},
@@ -1161,7 +1161,7 @@ js/data/auth/
 ├── token-store.js              # Secure credential storage (SEPARATE from settings)
 │
 ├── jwt/                        # JWT Service (REFACTORED)
-│   ├── index.js                # Public API & coordinator (~150 lines)
+│   ├── jwt.js                  # Public API & coordinator (~150 lines)
 │   ├── jwt-manager.js          # JWT lifecycle (~250 lines)
 │   │                           # - Auto-refresh at 24hr threshold
 │   │                           # - Token expiry management
@@ -1220,7 +1220,7 @@ jwt-token-operations.js (687 lines)
 
 **New Structure (Refactored):**
 ```
-JWT Service (index.js)
+JWT Service (jwt.js)
     ├── JWTManager         - JWT lifecycle & refresh
     ├── JWTStorage         - localStorage operations
     ├── TokenCache         - OAuth token caching
@@ -1425,13 +1425,13 @@ async function fetchCalendarEvents(prefixedId) {
 
 ```
 js/modules/Settings/
-├── index.js                    # Public API
-├── orchestrator.js             # Main coordinator (~400 lines)
-├── config.js                   # Page registry (~100 lines)
-├── input-handler.js            # D-pad navigation
-├── state-manager.js            # Settings state
-├── navigation-manager.js       # Screen transitions & nav stack
-├── ui-renderer.js              # Modal building
+├── settings.js                        # Public API (module interface)
+├── settings-orchestrator.js           # Main coordinator (~400 lines)
+├── settings-config.js                 # Page registry (~100 lines)
+├── settings-input-handler.js          # D-pad navigation
+├── settings-state-manager.js          # Settings state
+├── settings-navigation-manager.js     # Screen transitions & nav stack
+├── settings-ui-renderer.js            # Modal building
 │
 ├── core/
 │   ├── settings-store.js       # Persistence (~300 lines)
@@ -1447,16 +1447,16 @@ js/modules/Settings/
 │
 ├── pages/                      # Domain-based settings pages
 │   ├── family/
-│   │   ├── index.js            # Page registration (~30 lines)
-│   │   ├── template.js         # HTML template (~100 lines)
-│   │   ├── handlers.js         # Page logic (~150 lines)
-│   │   └── applicator.js       # Apply settings (~80 lines)
+│   │   ├── settings-family-page.js        # Page registration (~30 lines)
+│   │   ├── settings-family-template.js    # HTML template (~100 lines)
+│   │   ├── settings-family-handlers.js    # Page logic (~150 lines)
+│   │   └── settings-family-applicator.js  # Apply settings (~80 lines)
 │   │
 │   ├── interface/
-│   │   ├── index.js
-│   │   ├── template.js
-│   │   ├── time-selection-handler.js
-│   │   └── applicator.js
+│   │   ├── settings-interface-page.js
+│   │   ├── settings-interface-template.js
+│   │   ├── settings-interface-time-handler.js
+│   │   └── settings-interface-applicator.js
 │   │
 │   ├── calendar/
 │   ├── photos/
@@ -1482,7 +1482,7 @@ Each page is self-contained:
 // 1. Create page folder
 js/modules/Settings/pages/my-page/
 
-// 2. Create index.js
+// 2. Create settings-my-page.js
 export default {
     id: 'my-page',
     title: 'My Page Settings',
@@ -1491,8 +1491,8 @@ export default {
     applicator: MyPageApplicator
 }
 
-// 3. Register in config.js
-import MyPage from './pages/my-page/index.js';
+// 3. Register in settings-config.js
+import MyPage from './pages/my-page/settings-my-page.js';
 SettingsConfig.registerPage(MyPage);
 ```
 
@@ -1892,7 +1892,7 @@ jwt-token-operations.js (687 lines)
 **New Structure:**
 ```
 jwt/
-├── index.js                    (~150 lines)
+├── jwt.js                      (~150 lines)
 ├── jwt-manager.js              (~250 lines)
 ├── jwt-storage.js              (~100 lines)
 ├── token-cache.js              (~150 lines)
@@ -1927,7 +1927,7 @@ jwt/
 - Settings save/load bridge
 - Token refresh notifications
 
-#### 6. index.js (Coordinator)
+#### 6. jwt.js (Coordinator)
 - Initializes all subsystems
 - Exposes unified API
 - Delegates to appropriate subsystem

@@ -62,6 +62,8 @@
   border-right: 1px solid var(--color-border, #3a3a3a);
   transition: width 0.3s ease, background 0.3s ease;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
   /* z-index managed by wrapper */
 }
 
@@ -78,33 +80,55 @@
 }
 
 /* =============================================================================
+   LOGO
+   ============================================================================= */
+
+.dashie-logo {
+  width: 100px;
+  height: auto;
+  margin: 8px auto 20px auto;
+  opacity: 0;
+  object-fit: contain;
+  transition: opacity var(--transition-normal);
+  display: block;
+}
+
+.dashboard-sidebar--expanded .dashie-logo {
+  opacity: 1;
+}
+
+/* =============================================================================
    MENU
    ============================================================================= */
 
 .dashboard-menu {
   display: flex;
   flex-direction: column;
-  padding: 12px 0;
-  height: 100%;
+  padding: 0;
+  margin-top: auto; /* Push menu to bottom of sidebar */
+  padding-bottom: 20px;
 }
 
 .dashboard-menu__item {
+  position: relative;
   display: flex;
   align-items: center;
-  padding: 16px 12px;
+  justify-content: flex-start;
+  padding: 4px 8px;
   background: transparent;
   border: none;
   border-left: 6px solid transparent; /* Thick left border for selection indicator */
-  border-radius: 0; /* No rounded corners for menu items */
-  margin: 4px 0;
-  padding-left: 6px; /* Reduced padding to compensate for border */
+  border-radius: 0;
+  margin: 0;
   cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease, padding-left 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
   color: var(--color-text, #ffffff);
   font-size: 14px;
   font-family: inherit;
   text-align: left;
   white-space: nowrap;
+  height: 28px;
+  line-height: 1.2;
 }
 
 .dashboard-menu__item--selected {
@@ -114,15 +138,20 @@
 }
 
 .dashboard-menu__icon {
-  font-size: 20px;
-  min-width: 24px;
-  display: inline-block;
-  text-align: center;
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  flex-shrink: 0;
+  /* Make SVG icons white (assuming black SVGs) */
+  filter: brightness(0) invert(1);
+  transition: transform 0.2s ease;
 }
 
 .dashboard-menu__label {
+  font-size: 14px;
   margin-left: 12px;
   opacity: 0;
+  white-space: nowrap;
   transition: opacity 0.3s ease;
 }
 

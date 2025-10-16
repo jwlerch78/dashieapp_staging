@@ -1,8 +1,8 @@
-# Phase 2.5: Widget Integration - Quick Start Guide
+# Phase 3.5: Widget Integration - Quick Start Guide
 
 **Estimated Time:** 1-2 days
-**Status:** Ready after Phase 2 complete
-**Prerequisites:** Phase 2 (Dashboard Module) complete
+**Status:** Ready after Phase 3 complete
+**Prerequisites:** Phase 3 (Data Layer) complete - so widgets can test with live calendar/photo data
 
 ---
 
@@ -15,7 +15,7 @@ Integration and refactoring of **8 existing widgets** into the new Dashboard:
 - **agenda** - Upcoming events list
 - **location** - Location info
 - **map** - Map display
-- **camera** - Camera Feed
+- **camera** - Photo capture
 - **header** - Header bar
 
 **Focus:** Fire TV CSS fixes, widget registration, focus menu integration, testing
@@ -376,7 +376,7 @@ class DashboardUIRenderer {
 
 ---
 
-### Step 5: Test Focus Menu System
+### Step 5: Test Focus Menu System with Live Data
 
 **Test Calendar Widget (dcal) - Has Focus Menu:**
 
@@ -384,6 +384,7 @@ class DashboardUIRenderer {
    - Press Enter to focus widget
    - Calendar should center
    - Focus menu should appear on the right
+   - **NEW: Verify live calendar events display** (from Phase 3 auth/data)
 
 2. **Test menu navigation**
    - Up/down arrows navigate menu items
@@ -394,11 +395,13 @@ class DashboardUIRenderer {
    - Press Enter on menu item (e.g., "Month View")
    - Widget should switch to month view
    - Menu item should update (Month becomes active)
+   - **NEW: Verify events display in month view**
 
 4. **Test widget → menu transition**
    - Press Enter again to enter widget (ACTIVE state)
    - Focus menu should dim and scale to 95%
    - Left/right arrows now navigate calendar
+   - **NEW: Events should be clickable/visible in detail**
 
 5. **Test return to menu**
    - Navigate calendar to past/future
@@ -406,12 +409,14 @@ class DashboardUIRenderer {
    - Press left at home → Should return to focus menu
    - Focus menu should restore to 100% scale
 
-**Test Photos Widget (No Focus Menu):**
+**Test Photos Widget with Live Data (No Focus Menu):**
 
 1. Navigate to photos widget
 2. Press Enter → Should go straight to ACTIVE state
-3. Left/right arrows change photos
-4. Press Escape → Should exit to grid
+3. **NEW: Verify actual photos load from Google Photos** (from Phase 3 photo service)
+4. Left/right arrows change photos
+5. Verify photo metadata displays
+6. Press Escape → Should exit to grid
 
 **Success criteria:**
 - [ ] Focus menu appears for dcal widget
@@ -420,6 +425,8 @@ class DashboardUIRenderer {
 - [ ] Menu dims when entering ACTIVE state
 - [ ] Return-to-menu works at home position
 - [ ] Widgets without menu work correctly
+- [ ] **Live calendar events display correctly**
+- [ ] **Live photos load and display correctly**
 
 ---
 
