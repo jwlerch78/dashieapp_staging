@@ -107,7 +107,7 @@ class ActionRouter {
     const state = AppStateManager.getState();
 
     // PRIORITY 1: Special actions that bypass normal routing
-    if (action === 'sleep-toggle') {
+    if (action === 'play-pause') {
       return this.handleSleepToggle(state);
     }
 
@@ -209,8 +209,8 @@ class ActionRouter {
       'escape': 'handleEscape',
       'menu': 'handleMenu',
       'space': 'handleSpace',
-      'prev-view': 'handlePrevView',
-      'next-view': 'handleNextView'
+      'prev': 'handlePrev',
+      'next': 'handleNext'
     };
 
     return methodMap[action] || null;

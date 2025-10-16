@@ -73,7 +73,7 @@ class InputHandler {
 
     /**
      * Get list of supported actions
-     * @returns {Array<string>} ['up', 'down', 'left', 'right', 'enter', 'escape', 'menu', 'space', 'prev-view', 'next-view', 'sleep-toggle']
+     * @returns {Array<string>} ['up', 'down', 'left', 'right', 'enter', 'escape', 'menu', 'space', 'prev', 'next', 'play-pause']
      */
     getSupportedActions() {}
 
@@ -783,18 +783,25 @@ class ModuleInputHandler {
     handleSpace(originalEvent) {}
 
     /**
-     * Handle prev-view action (optional)
+     * Handle prev action (optional) - Previous view/page
      * @param {Event|null} originalEvent - Original DOM event
      * @returns {boolean} True if handled
      */
-    handlePrevView(originalEvent) {}
+    handlePrev(originalEvent) {}
 
     /**
-     * Handle next-view action (optional)
+     * Handle next action (optional) - Next view/page
      * @param {Event|null} originalEvent - Original DOM event
      * @returns {boolean} True if handled
      */
-    handleNextView(originalEvent) {}
+    handleNext(originalEvent) {}
+
+    /**
+     * Handle play-pause action (optional) - Play/pause media or toggle sleep
+     * @param {Event|null} originalEvent - Original DOM event
+     * @returns {boolean} True if handled
+     */
+    handlePlayPause(originalEvent) {}
 }
 ```
 

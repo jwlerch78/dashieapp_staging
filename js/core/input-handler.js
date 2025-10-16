@@ -22,8 +22,8 @@ const logger = createLogger('InputHandler');
  * Supported Actions:
  *   - Navigation: 'up', 'down', 'left', 'right'
  *   - Selection: 'enter', 'escape'
- *   - Special: 'menu', 'space', 'sleep-toggle'
- *   - View cycling: 'prev-view', 'next-view'
+ *   - Special: 'menu', 'space', 'play-pause'
+ *   - View cycling: 'prev', 'next'
  */
 class InputHandler {
   constructor() {
@@ -236,8 +236,8 @@ class InputHandler {
       ' ': 'space',
 
       // View cycling
-      ',': 'prev-view',
-      '.': 'next-view'
+      ',': 'prev',
+      '.': 'next'
     };
 
     return keyMap[event.key] || null;
@@ -264,16 +264,16 @@ class InputHandler {
       77: 'menu',         // M key for menu
 
       // Media keys for view cycling
-      227: 'prev-view',   // KEYCODE_MEDIA_REWIND
-      228: 'next-view',   // KEYCODE_MEDIA_FAST_FORWARD
-      188: 'prev-view',   // Alternative comma key
-      190: 'next-view',   // Alternative period key
-      87: 'next-view',    // KEYCODE_MEDIA_NEXT
-      88: 'prev-view',    // KEYCODE_MEDIA_PREVIOUS
+      227: 'prev',   // KEYCODE_MEDIA_REWIND
+      228: 'next',   // KEYCODE_MEDIA_FAST_FORWARD
+      188: 'prev',   // Alternative comma key
+      190: 'next',   // Alternative period key
+      87: 'next',    // KEYCODE_MEDIA_NEXT
+      88: 'prev',    // KEYCODE_MEDIA_PREVIOUS
 
       // Sleep toggle
-      179: 'sleep-toggle', // KEYCODE_MEDIA_PLAY_PAUSE
-      85: 'sleep-toggle'   // Alternative play/pause
+      179: 'play-pause', // KEYCODE_MEDIA_PLAY_PAUSE
+      85: 'play-pause'   // Alternative play/pause
     };
 
     return keyMap[keyCode] || null;
@@ -328,8 +328,8 @@ class InputHandler {
       'up', 'down', 'left', 'right',
       'enter', 'escape',
       'menu', 'space',
-      'prev-view', 'next-view',
-      'sleep-toggle'
+      'prev', 'next',
+      'play-pause'
     ];
   }
 }

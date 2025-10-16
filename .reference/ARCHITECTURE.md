@@ -496,6 +496,617 @@ Widgets are iframe-isolated and communicate via postMessage. See [Widget Communi
 
 ---
 
+## CSS/Styling Architecture
+
+### Overview
+
+Dashie uses vanilla CSS with a component-based architecture aligned to the JavaScript module structure. The styling system prioritizes **Fire TV WebView compatibility** and **performance** over modern CSS features.
+
+### Design Principles
+
+1. **CSS-First Approach** - All styling in CSS files, minimal inline styles
+2. **Component Alignment** - CSS structure matches JavaScript module structure
+3. **WebView Compatibility** - Avoid features that break on older Chromium (v25-40)
+4. **Performance First** - Minimize transforms, animations, and file size
+5. **Maintainable Specificity** - No `!important` except for utility overrides
+6. **Progressive Enhancement** - Base styles work everywhere, layer on enhancements
+
+### Why Vanilla CSS (No Preprocessor)
+
+**Decision: Use vanilla CSS**
+
+**Rationale:**
+- ✅ **Zero build complexity** - No compilation step, works immediately
+- ✅ **Native CSS variables** - Modern browsers support custom properties
+- ✅ **Simple debugging** - What you write is what runs
+- ✅ **Fire TV compatibility** - Preprocessor features don't guarantee WebView support
+- ✅ **Small team** - Preprocessor adds complexity without significant benefit
+- ⚠️ **CSS nesting** - Not supported on older WebView, avoid even in preprocessor
+
+**When to Reconsider:**
+- Team grows beyond 3 developers
+- Need advanced mixins or functions
+- Multi-theme system becomes complex
+
+### CSS File Organization
+
+```
+css/
+├── core/
+│   ├── reset.css              # Browser normalization
+│   ├── variables.css          # CSS custom properties (theme, spacing, typography)
+│   ├── base.css               # Base element styles (body, html, h1-h6, etc.)
+│   └── utilities.css          # Utility classes (.text-center, .mt-2, etc.)
+│
+├── components/                # Reusable UI components
+│   ├── button.css             # All button styles
+│   ├── input.css              # Form input styles
+│   ├── modal.css              # Modal dialog styles
+│   ├── toast.css              # Toast notification styles
+│   └── widget-container.css   # Widget iframe container styles
+│
+├── modules/                   # Module-specific styles (aligned with JS)
+│   ├── dashboard.css          # Dashboard module (absorbs navigation.css)
+│   ├── settings.css           # Settings module
+│   ├── login.css              # Login module
+│   ├── welcome.css            # Welcome wizard
+│   └── modals.css             # Modal system styles
+│
+└── themes/
+    ├── light.css              # Light theme variable overrides
+    └── dark.css               # Dark theme variable overrides
+```
+
+### Naming Convention: Component-Based BEM
+
+**Pattern:** `.module-component__element--modifier`
+
+**Examples:**
+```css
+/* Dashboard module */
+.dashboard-grid { }                          /* Block */
+.dashboard-grid__cell { }                    /* Element */
+.dashboard-grid__cell--focused { }           /* Modifier */
+
+.dashboard-menu { }                          /* Block */
+.dashboard-menu__item { }                    /* Element */
+.dashboard-menu__item--selected { }          /* Modifier */
+.dashboard-menu__item--centered { }          /* Modifier */
+
+/* Settings module */
+.settings-modal { }                          /* Block */
+.settings-modal__header { }                  /* Element */
+.settings-modal__page { }                    /* Element */
+.settings-modal__page--active { }            /* Modifier */
+
+/* Reusable component */
+.btn { }                                     /* Block */
+.btn--primary { }                            /* Modifier */
+.btn--large { }                              /* Modifier */
+```
+
+**Benefits:**
+- Clear ownership (dashboard-menu belongs to Dashboard module)
+- No specificity wars
+- No need for `!important`
+- Easy to understand and maintain
+- Self-documenting
+
+### State Management Pattern
+
+**Use CSS classes for states, CSS variables for dynamic values**
+
+```css
+/* Default state */
+.dashboard-menu__item {
+    transform: translateX(0) scale(1);
+    opacity: 0.7;
+    transition: all 0.3s ease;
+}
+
+/* Focused state */
+.dashboard-menu__item--focused {
+    opacity: 1;
+}
+
+/* Selected state */
+.dashboard-menu__item--selected {
+    transform: scale(1.05);
+    opacity: 1;
+}
+
+/* Centered state (uses CSS variable for dynamic offset) */
+.dashboard-menu__item--centered {
+    transform: translateX(var(--center-offset, 0px)) scale(1.1);
+}
+```
+
+```javascript
+// JavaScript only toggles classes and sets CSS variables
+function selectMenuItem(element, offset) {
+    // Remove previous states
+    element.classList.remove('focused');
+
+    // Add new states
+    element.classList.add('selected', 'centered');
+
+    // Set dynamic values via CSS variables
+    element.style.setProperty('--center-offset', `${offset}px`);
+}
+```
+
+**Benefits:**
+- All styling logic in CSS (themeable, maintainable)
+- JavaScript only manages state
+- No inline styles to override
+- Performance: browser can optimize CSS transitions
+
+### Fire TV WebView Constraints
+
+**Critical Rules for Fire TV Compatibility:**
+
+#### 1. Viewport Units + Transform Bug
+```css
+/* ❌ AVOID: Viewport units with translate() */
+.element {
+    width: 50vw;
+    transform: translate(-50%, 0);  /* May not work on Chromium v25 */
+}
+
+/* ✅ SAFE: Use percentages instead */
+.element {
+    width: 50%;
+    transform: translate(-50%, 0);
+}
+```
+
+#### 2. TranslateZ() Performance
+```css
+/* ❌ AVOID: Overuse of translateZ() */
+.many-elements {
+    transform: translateZ(0);  /* Each creates composited layer = GPU memory */
+}
+
+/* ✅ SAFE: Use sparingly, only for elements that need hardware acceleration */
+.animated-element {
+    will-change: transform;  /* Modern alternative */
+    /* or sparingly: transform: translateZ(0); */
+}
+```
+
+#### 3. CSS Animations and Filters
+```css
+/* ❌ AVOID: Complex filters on older hardware */
+.element {
+    filter: blur(10px) drop-shadow(0 0 10px rgba(0,0,0,0.5));
+}
+
+/* ✅ SAFE: Simple opacity and transform only */
+.element {
+    opacity: 0.8;
+    transform: scale(1.05);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+```
+
+#### 4. Webkit-Mask Compatibility
+```css
+/* ❌ AVOID: -webkit-mask may not render on Amazon WebView */
+.element::before {
+    -webkit-mask: linear-gradient(90deg, transparent, black);
+}
+
+/* ✅ SAFE: Use alternative approaches */
+.element::before {
+    /* Option 1: Box-shadow gradient */
+    box-shadow: 0 0 20px rgba(0,0,0,0.5);
+
+    /* Option 2: Layered divs with overflow:hidden */
+    /* (implement in HTML structure) */
+}
+```
+
+#### 5. CSS File Size
+```css
+/* Target: < 50KB compressed per CSS file */
+/* Use GZIP/Brotli compression */
+/* Remove unused styles regularly */
+```
+
+### CSS Variable System
+
+**css/core/variables.css:**
+```css
+:root {
+    /* Colors - Light Theme (Default) */
+    --color-bg-primary: #f5f5f5;
+    --color-bg-secondary: #ffffff;
+    --color-text-primary: #333333;
+    --color-text-secondary: #666666;
+    --color-accent: #007bff;
+    --color-accent-hover: #0056b3;
+    --color-error: #dc3545;
+    --color-success: #28a745;
+
+    /* Spacing */
+    --spacing-xs: 4px;
+    --spacing-sm: 8px;
+    --spacing-md: 16px;
+    --spacing-lg: 24px;
+    --spacing-xl: 32px;
+    --spacing-2xl: 48px;
+
+    /* Typography */
+    --font-family-base: Arial, sans-serif;
+    --font-family-heading: Arial, sans-serif;
+    --font-size-sm: 12px;
+    --font-size-base: 14px;
+    --font-size-lg: 16px;
+    --font-size-xl: 20px;
+    --font-size-2xl: 24px;
+    --font-weight-normal: 400;
+    --font-weight-bold: 700;
+
+    /* Layout */
+    --border-radius-sm: 4px;
+    --border-radius-md: 8px;
+    --border-radius-lg: 12px;
+
+    /* Transitions */
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.3s ease;
+    --transition-slow: 0.5s ease;
+
+    /* Z-index layers */
+    --z-base: 0;
+    --z-widgets: 10;
+    --z-menu: 20;
+    --z-modal: 30;
+    --z-toast: 40;
+    --z-overlay: 50;
+}
+
+/* Dark theme overrides */
+[data-theme="dark"] {
+    --color-bg-primary: #1a1a1a;
+    --color-bg-secondary: #2a2a2a;
+    --color-text-primary: #e0e0e0;
+    --color-text-secondary: #a0a0a0;
+    --color-accent: #4a9eff;
+    --color-accent-hover: #357abd;
+}
+```
+
+### Utility Classes
+
+**css/core/utilities.css:**
+```css
+/* Layout */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.hidden { display: none !important; }  /* Only !important for utilities */
+
+/* Spacing */
+.m-0 { margin: 0; }
+.mt-1 { margin-top: var(--spacing-sm); }
+.mt-2 { margin-top: var(--spacing-md); }
+.mb-2 { margin-bottom: var(--spacing-md); }
+.p-2 { padding: var(--spacing-md); }
+
+/* Text */
+.text-center { text-align: center; }
+.text-bold { font-weight: var(--font-weight-bold); }
+.text-sm { font-size: var(--font-size-sm); }
+.text-lg { font-size: var(--font-size-lg); }
+
+/* Note: Keep utilities minimal, prefer semantic classes */
+```
+
+### Eliminating !important
+
+**Problem (Legacy):**
+```css
+/* Fighting specificity with !important */
+.menu-item::before {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.highlights-hidden .menu-item::before {
+    opacity: 0 !important;      /* Fighting specificity */
+    transform: scale(0.95) !important;
+}
+```
+
+**Solution (New):**
+```css
+/* Proper specificity without !important */
+.menu-item::before {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.menu-item.highlights-hidden::before {
+    opacity: 0;                 /* No !important needed */
+    transform: scale(0.95);
+}
+
+/* Or better: use modifier class */
+.dashboard-menu__item::before {
+    opacity: 1;
+    transform: scale(1);
+}
+
+.dashboard-menu__item--hidden::before {
+    opacity: 0;
+    transform: scale(0.95);
+}
+```
+
+### Eliminating Inline Styles
+
+**Problem (Legacy navigation.js):**
+```javascript
+// Runtime overhead, hard to theme, high specificity
+function centerMenuItem(element) {
+    const rect = element.getBoundingClientRect();
+    const offset = calculateOffset(rect);
+
+    element.style.transform = `translateX(${offset}px) scale(1.1)`;  // ❌
+    element.style.opacity = '1';  // ❌
+}
+```
+
+**Solution (New Dashboard module):**
+```javascript
+// CSS manages presentation, JS manages state
+function centerMenuItem(element, offset) {
+    // Set CSS variable for dynamic value
+    element.style.setProperty('--center-offset', `${offset}px`);
+
+    // Toggle classes for states
+    element.classList.add('dashboard-menu__item--centered');
+    element.classList.remove('dashboard-menu__item--focused');
+}
+```
+
+```css
+/* All styling logic in CSS */
+.dashboard-menu__item {
+    transform: translateX(0) scale(1);
+    opacity: 0.7;
+    transition: all var(--transition-normal);
+}
+
+.dashboard-menu__item--focused {
+    opacity: 1;
+}
+
+.dashboard-menu__item--centered {
+    transform: translateX(var(--center-offset, 0px)) scale(1.1);
+    opacity: 1;
+}
+```
+
+### Performance Optimization
+
+#### 1. Batch Layout Reads/Writes
+
+**Bad (Causes multiple reflows):**
+```javascript
+// Read
+const rect1 = el1.getBoundingClientRect();
+el1.style.left = `${rect1.left + 10}px`;  // Write (forces reflow)
+
+// Read again (forces another reflow!)
+const rect2 = el2.getBoundingClientRect();
+el2.style.left = `${rect2.left + 10}px`;
+```
+
+**Good (Single reflow):**
+```javascript
+// Read phase
+const rect1 = el1.getBoundingClientRect();
+const rect2 = el2.getBoundingClientRect();
+
+// Write phase (single reflow)
+el1.style.left = `${rect1.left + 10}px`;
+el2.style.left = `${rect2.left + 10}px`;
+```
+
+#### 2. Minimize Transform Usage
+
+```css
+/* ✅ Good: Limit to active elements */
+.dashboard-grid__cell--focused {
+    transform: scale(1.05);
+}
+
+/* ❌ Bad: Every element transformed */
+.dashboard-grid__cell {
+    transform: scale(1);  /* Unnecessary, default is no transform */
+}
+```
+
+#### 3. Use `will-change` Sparingly
+
+```css
+/* ✅ Good: Only on elements that will animate */
+.dashboard-menu__item--selected {
+    will-change: transform;  /* Signals browser to optimize */
+    transform: scale(1.1);
+}
+
+/* ❌ Bad: All elements */
+.dashboard-menu__item {
+    will-change: transform;  /* Creates layers unnecessarily */
+}
+```
+
+### Loading Strategy
+
+**index.html load order:**
+```html
+<head>
+    <!-- 1. Reset first -->
+    <link rel="stylesheet" href="css/core/reset.css">
+
+    <!-- 2. Variables -->
+    <link rel="stylesheet" href="css/core/variables.css">
+
+    <!-- 3. Base styles -->
+    <link rel="stylesheet" href="css/core/base.css">
+
+    <!-- 4. Utilities -->
+    <link rel="stylesheet" href="css/core/utilities.css">
+
+    <!-- 5. Components -->
+    <link rel="stylesheet" href="css/components/button.css">
+    <link rel="stylesheet" href="css/components/modal.css">
+    <!-- ... other components ... -->
+
+    <!-- 6. Modules -->
+    <link rel="stylesheet" href="css/modules/dashboard.css">
+    <link rel="stylesheet" href="css/modules/settings.css">
+    <!-- ... other modules ... -->
+
+    <!-- 7. Theme (loaded dynamically based on user preference) -->
+    <link rel="stylesheet" href="css/themes/dark.css" id="theme-stylesheet">
+</head>
+```
+
+### CSS Linting Setup
+
+**Tool:** Stylelint
+
+**Why Stylelint:**
+- Industry standard for CSS linting
+- Catches errors (invalid properties, syntax errors)
+- Enforces conventions (naming, ordering, specificity)
+- Integrates with VSCode
+- Configurable rules
+
+**Installation:**
+```bash
+npm install --save-dev stylelint stylelint-config-standard
+```
+
+**Configuration (.stylelintrc.json):**
+```json
+{
+  "extends": "stylelint-config-standard",
+  "rules": {
+    "selector-class-pattern": "^[a-z]+(-[a-z]+)*((__[a-z]+(-[a-z]+)*)|(--[a-z]+(-[a-z]+)*))?$",
+    "declaration-no-important": true,
+    "max-nesting-depth": 3,
+    "selector-max-id": 0,
+    "selector-max-type": 2,
+    "color-hex-length": "short",
+    "indentation": 2,
+    "no-duplicate-selectors": true,
+    "font-weight-notation": "numeric",
+    "comment-empty-line-before": "always",
+    "rule-empty-line-before": "always",
+    "at-rule-no-unknown": [true, {
+      "ignoreAtRules": ["supports"]
+    }]
+  },
+  "customSyntax": "postcss-html",
+  "ignoreFiles": [".legacy/**/*.css"]
+}
+```
+
+**VSCode Integration (.vscode/settings.json):**
+```json
+{
+  "stylelint.enable": true,
+  "css.validate": false,
+  "stylelint.validate": ["css"],
+  "editor.codeActionsOnSave": {
+    "source.fixAll.stylelint": true
+  }
+}
+```
+
+**NPM Scripts (package.json):**
+```json
+{
+  "scripts": {
+    "lint:css": "stylelint \"css/**/*.css\"",
+    "lint:css:fix": "stylelint \"css/**/*.css\" --fix",
+    "lint": "npm run lint:css"
+  }
+}
+```
+
+**Usage:**
+```bash
+# Check for issues
+npm run lint:css
+
+# Auto-fix fixable issues
+npm run lint:css:fix
+```
+
+### Migration from Legacy CSS
+
+**Phase 1: Core Styles (Week 1)**
+- Copy variables.css → refactor to use CSS custom properties
+- Copy base.css → minimal changes needed
+- Create utilities.css (new)
+
+**Phase 2: Component Styles (Week 2)**
+- Migrate button styles from legacy
+- Migrate modal styles from legacy
+- Create new component files
+
+**Phase 3: Module Styles (Week 2-5)**
+- **Dashboard (Week 2):** Rewrite navigation.css as dashboard.css
+  - Eliminate 13 `!important` declarations
+  - Replace `-webkit-mask` with compatible alternative
+  - Simplify transforms
+  - Use BEM naming
+
+- **Settings (Week 4):** Migrate settings CSS
+  - Modular page styles
+  - Form component styles
+
+- **Login/Welcome (Week 5):** Migrate remaining module CSS
+
+**Phase 4: Testing & Optimization (Week 6-7)**
+- Test on Fire TV hardware
+- Performance profiling
+- Remove unused styles
+- Compress assets
+
+### Testing Checklist
+
+**Fire TV WebView Compatibility:**
+- [ ] Visual rendering matches design (no missing masks/gradients)
+- [ ] Transforms work correctly (no viewport unit issues)
+- [ ] Animations are smooth (30+ FPS during navigation)
+- [ ] Theme switching works (light/dark)
+- [ ] No layout shifts or glitches
+- [ ] Focus states are visible and correct
+
+**Performance Targets:**
+- [ ] CSS file size < 50KB per file (compressed)
+- [ ] Initial render < 100ms
+- [ ] Navigation transitions 30+ FPS
+- [ ] No forced reflows in hot paths
+- [ ] Memory usage stable
+
+**Code Quality:**
+- [ ] Zero `!important` declarations (except utility overrides)
+- [ ] Zero inline styles in JavaScript (except CSS variable sets)
+- [ ] All styles in CSS files
+- [ ] Consistent naming convention (BEM)
+- [ ] CSS passes linter (stylelint)
+
+---
+
 # Part III: Detailed Systems
 
 ## Authentication & JWT System
