@@ -173,11 +173,16 @@ dashieapp_staging/
 │   │
 │   ├── modules/                        # Feature modules
 │   │   ├── Dashboard/
-│   │   │   ├── index.js                # Public API
-│   │   │   ├── input-handler.js
-│   │   │   ├── state-manager.js
-│   │   │   ├── navigation-manager.js   # Grid + menu + focus navigation
-│   │   │   ├── ui-renderer.js          # Absorbs grid.js, focus-menu.js
+│   │   │   ├── index.js                # Public API (dashboard.js)
+│   │   │   ├── input-handler.js        # Input routing
+│   │   │   ├── state-manager.js        # Dashboard state (grid, menu, focus)
+│   │   │   ├── navigation-manager.js   # Navigation logic
+│   │   │   ├── timers.js               # Timeout management
+│   │   │   ├── widget-config.js        # Widget configuration
+│   │   │   ├── ui-renderer.js          # Orchestration layer (REFACTORED v2.0)
+│   │   │   ├── dom-builder.js          # DOM creation (NEW v2.0)
+│   │   │   ├── event-handlers.js       # Event handling (NEW v2.0)
+│   │   │   ├── visual-effects.js       # Visual updates (NEW v2.0)
 │   │   │   └── focus-menu-manager.js   # Focus menu system
 │   │   │
 │   │   ├── Settings/
@@ -1499,36 +1504,87 @@ SettingsConfig.registerPage(MyPage);
 
 The Dashboard module is the main view showing the 2x3 widget grid, sidebar menu, and focus navigation.
 
-### Architecture
+### Architecture (Refactored v2.0 - October 2025)
 
 ```
 js/modules/Dashboard/
 ├── dashboard.js                       # Public API
-├── dashboard-input-handler.js         # Routes D-pad to navigation-manager
-├── dashboard-state-manager.js         # Dashboard state
+├── dashboard-input-handler.js         # Routes D-pad/keyboard input to navigation-manager
+├── dashboard-state-manager.js         # Dashboard state (~100 lines)
 │                                      # - Grid position (row, col)
 │                                      # - Focused widget
-│                                      # - Menu state
+│                                      # - Menu state (open/closed, selected item)
+│                                      # - isIdle flag (visual state vs position)
 │
-├── dashboard-navigation-manager.js    # Grid + menu + focus navigation (~350 lines)
-│                                      # - Grid movement (2x3)
+├── dashboard-navigation-manager.js    # Navigation logic (~400 lines)
+│                                      # - Grid movement (3 rows × 2 columns)
 │                                      # - Menu navigation (7 items)
 │                                      # - Widget focus/defocus
-│                                      # - Timeout management (20s selection, 60s focus)
+│                                      # - ESCAPE handling
+│                                      # - Delegates visual updates to ui-renderer
 │
-├── dashboard-ui-renderer.js           # Dashboard UI (~350 lines)
-│                                      # - Grid rendering
-│                                      # - Sidebar rendering
-│                                      # - Focus menu display
-│                                      # - Widget centering & overlay
-│                                      # - Highlight show/hide
-│                                      # (Absorbs grid.js, focus-menu.js from legacy)
+├── dashboard-timers.js                # Timeout management (~150 lines)
+│                                      # - 20s selection timeout
+│                                      # - 60s focus timeout
+│                                      # - Auto-hide system
+│
+├── dashboard-widget-config.js         # Widget configuration (~100 lines)
+│                                      # - Grid layout (row, col, span)
+│                                      # - Per-widget focusScale
+│                                      # - Centerability flags
+│
+├── dashboard-ui-renderer.js           # Orchestration layer (~295 lines)
+│   (REFACTORED v2.0)                  # - Thin coordinator (65% size reduction!)
+│                                      # - Initializes sub-modules
+│                                      # - Delegates to specialized modules
+│                                      # - Manages lifecycle (render, hide, destroy)
+│                                      # - Pass-through API for backward compatibility
+│
+├── dashboard-dom-builder.js           # DOM creation (~155 lines)
+│   (NEW - Extracted from ui-renderer) # - createContainer()
+│                                      # - createSidebarWrapper()
+│                                      # - createSidebar() + createMenuItem()
+│                                      # - createGrid() + createGridCell()
+│                                      # - Pure functions, no side effects
+│
+├── dashboard-event-handlers.js        # Event handling (~470 lines)
+│   (NEW - Extracted from ui-renderer) # - GridEventHandler (hover/click/leave)
+│                                      # - MenuEventHandler (hover/click/touch)
+│                                      # - SidebarEventHandler (expand/collapse)
+│                                      # - OverlayEventHandler (click-to-defocus)
+│                                      # - Mouse/touch/d-pad integration
+│
+├── dashboard-visual-effects.js        # Visual updates (~420 lines)
+│   (NEW - Extracted from ui-renderer) # - updateFocus() / clearGridFocus()
+│                                      # - updateMenuSelection() / clearMenuFocus()
+│                                      # - showMenu() / hideMenu()
+│                                      # - focusWidget() / defocusWidget()
+│                                      # - setWidgetActive() / setWidgetFocused()
+│                                      # - All CSS class manipulation
+│                                      # - No event handling logic
 │
 └── dashboard-focus-menu-manager.js    # Focus menu system (~150 lines)
                                        # - Menu item tracking
                                        # - Selection state
                                        # - Active/inactive transitions
 ```
+
+### Refactoring Summary (October 2025)
+
+**Before:** Monolithic `dashboard-ui-renderer.js` (853 lines)
+
+**After:** Modular architecture (4 files)
+- **dashboard-ui-renderer.js** (295 lines) - Orchestration only
+- **dashboard-dom-builder.js** (155 lines) - DOM creation
+- **dashboard-event-handlers.js** (470 lines) - Event handling
+- **dashboard-visual-effects.js** (420 lines) - Visual updates
+
+**Benefits:**
+- ✅ Clear separation of concerns (DOM, Events, Visual, Orchestration)
+- ✅ 65% reduction in core renderer size
+- ✅ Easier to maintain and test
+- ✅ Reusable components (event handlers can be tested in isolation)
+- ✅ No breaking changes to public API
 
 ### Navigation Consolidation
 
