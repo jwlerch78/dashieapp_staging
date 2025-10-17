@@ -232,15 +232,19 @@
         logger.info('🔐 Initializing authentication...');
         updateLoginStatus('Setting up authentication system...');
 
-        // 1. Initialize EdgeClient FIRST (without JWT - will be set during bootstrap)
-        // We need this to load tokens from Supabase
+        // 1. Initialize EdgeClient FIRST
+        // Constructor automatically loads JWT from localStorage if available
         edgeClient = new EdgeClient();
-        logger.success('EdgeClient initialized (no JWT yet)');
+        if (edgeClient.jwtToken) {
+          logger.success('EdgeClient initialized - JWT loaded from localStorage');
+        } else {
+          logger.success('EdgeClient initialized - no JWT found');
+        }
 
-        // 2. Initialize TokenStore WITH EdgeClient so it can load from Supabase
+        // 2. Initialize TokenStore WITH EdgeClient
         tokenStore = new TokenStore();
-        await tokenStore.initialize(edgeClient); // Pass edgeClient for Supabase loading
-        logger.success('TokenStore initialized (dual-read: Supabase + localStorage)');
+        await tokenStore.initialize(edgeClient);
+        logger.success('TokenStore initialized');
 
         // 3. Detect platform and initialize appropriate OAuth providers
         const platform = getPlatformDetector();
@@ -334,87 +338,71 @@
           }
         }
 
-        // 6. Try to restore session from stored tokens
-        logger.info('Checking for stored tokens...');
+        // 6. Try to restore session from JWT (already loaded by EdgeClient)
+        logger.info('Checking for stored JWT...');
         updateLoginStatus('Checking for saved session...');
 
-        try {
-          // Get the appropriate account type for current device
-          const accountType = isFireTV ? 'primary-tv' : 'primary';
-          const storedTokens = await tokenStore.getAccountTokens('google', accountType);
+        if (edgeClient.jwtToken) {
+          try {
+            logger.info('Found JWT, checking if valid and refreshing if needed');
 
-          if (storedTokens && storedTokens.refresh_token) {
-            logger.info('Found stored tokens, attempting session restoration', {
-              accountType,
-              email: storedTokens.email,
-              hasRefreshToken: true
-            });
+            // Check if JWT is expired or expiring soon (< 60 min remaining)
+            if (edgeClient.isJWTExpired(60)) {
+              logger.info('JWT expired or expiring soon, refreshing...');
+              updateLoginStatus('Refreshing your session...');
 
-            updateLoginStatus('Restoring your session...');
-
-            // Bootstrap JWT from stored access token (or refresh if expired)
-            try {
-              let accessToken = storedTokens.access_token;
-
-              // Check if access token is expired
-              const expiresAt = new Date(storedTokens.expires_at);
-              const now = new Date();
-              const isExpired = now >= expiresAt;
-
-              if (isExpired) {
-                logger.info('Access token expired, refreshing...', {
-                  expiresAt: storedTokens.expires_at
-                });
-
-                // TODO: Implement token refresh via edge function
-                // For now, we'll need to re-authenticate
-                logger.warn('Token refresh not implemented yet - user must re-authenticate');
+              try {
+                await edgeClient.refreshJWT();
+                logger.success('JWT refreshed successfully');
+              } catch (refreshError) {
+                logger.error('JWT refresh failed', refreshError);
+                // Clear invalid JWT
+                edgeClient.clearJWT();
+                logger.info('JWT cleared - user must re-authenticate');
                 throw new Error('Session expired - please sign in again');
               }
-
-              // Bootstrap JWT from stored access token
-              const jwtResult = await edgeClient.bootstrapJWT('google', accessToken);
-
-              logger.success('Session restored successfully', {
-                userId: jwtResult.user?.id,
-                email: jwtResult.user?.email,
-                tier: jwtResult.access?.tier
-              });
-
-              // Update TokenStore with JWT-authenticated EdgeClient
-              tokenStore.edgeClient = edgeClient;
-
-              // Set user in GoogleAccountAuth
-              googleAccountAuth.user = {
-                id: jwtResult.user.email,
-                email: jwtResult.user.email,
-                name: jwtResult.user.name,
-                picture: jwtResult.user.picture,
-                provider: 'google',
-                authMethod: storedTokens.provider_info?.type || 'unknown',
-                signedInAt: Date.now()
-              };
-
-              updateLoginStatus(`Welcome back, ${jwtResult.user.name}!`);
-              isAuthenticated = true;
-
-              setTimeout(() => {
-                hideLoginScreen();
-                initializeCore();
-              }, 1000);
-
-              return true;
-
-            } catch (jwtError) {
-              logger.error('JWT bootstrap from stored tokens failed', jwtError);
-              // Fall through to show login button
             }
-          } else {
-            logger.info('No stored tokens found for current device', { accountType });
+
+            // JWT is valid! Restore session
+            updateLoginStatus('Restoring your session...');
+
+            logger.success('Session restored from JWT', {
+              userId: edgeClient.jwtUserId,
+              email: edgeClient.jwtUserEmail
+            });
+
+            // Update TokenStore with authenticated EdgeClient
+            tokenStore.edgeClient = edgeClient;
+
+            // Set user in GoogleAccountAuth
+            // Note: We don't have full user details (name, picture) from JWT
+            // Those will be loaded when needed
+            googleAccountAuth.user = {
+              id: edgeClient.jwtUserId,
+              email: edgeClient.jwtUserEmail,
+              name: edgeClient.jwtUserEmail.split('@')[0], // Use email prefix as fallback
+              picture: null,
+              provider: 'google',
+              authMethod: 'jwt_restoration',
+              signedInAt: Date.now()
+            };
+
+            updateLoginStatus(`Welcome back!`);
+            isAuthenticated = true;
+
+            setTimeout(() => {
+              hideLoginScreen();
+              initializeCore();
+            }, 500);
+
+            return true;
+
+          } catch (sessionError) {
+            logger.error('Session restoration failed', sessionError);
+            // Fall through to show login button
           }
-        } catch (error) {
-          logger.error('Failed to check stored tokens', error);
-          // Fall through to show login button
+        } else {
+          logger.info('No JWT found - user must sign in');
         }
 
         // 7. No authentication - show sign in button

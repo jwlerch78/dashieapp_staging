@@ -14,8 +14,84 @@ const logger = createLogger('EdgeClient');
 export class EdgeClient {
     constructor(jwtToken = null) {
         this.jwtToken = jwtToken;
+        this.jwtExpiry = null;
+        this.jwtUserId = null;
+        this.jwtUserEmail = null;
         this.edgeFunctionUrl = SUPABASE_CONFIG.edgeFunctionUrl;
         this.anonKey = SUPABASE_CONFIG.anonKey;
+
+        // Try to load JWT from localStorage
+        if (!jwtToken) {
+            this._loadJWTFromStorage();
+        }
+    }
+
+    /**
+     * Load JWT from localStorage
+     * @private
+     */
+    _loadJWTFromStorage() {
+        try {
+            const stored = localStorage.getItem('dashie-supabase-jwt');
+            if (!stored) {
+                logger.debug('No JWT found in localStorage');
+                return;
+            }
+
+            const data = JSON.parse(stored);
+
+            // Check if expired
+            if (Date.now() >= data.expiry) {
+                logger.debug('Stored JWT expired, removing');
+                localStorage.removeItem('dashie-supabase-jwt');
+                return;
+            }
+
+            this.jwtToken = data.jwt;
+            this.jwtExpiry = data.expiry;
+            this.jwtUserId = data.userId;
+            this.jwtUserEmail = data.userEmail;
+
+            const minutesRemaining = Math.round((data.expiry - Date.now()) / 1000 / 60);
+            logger.info('JWT loaded from localStorage', {
+                expiresIn: `${minutesRemaining} minutes`,
+                userId: data.userId,
+                userEmail: data.userEmail
+            });
+
+        } catch (error) {
+            logger.error('Failed to load JWT from localStorage', error);
+            localStorage.removeItem('dashie-supabase-jwt');
+        }
+    }
+
+    /**
+     * Save JWT to localStorage
+     * @private
+     */
+    _saveJWTToStorage() {
+        try {
+            if (!this.jwtToken || !this.jwtExpiry) {
+                logger.warn('Cannot save JWT - missing token or expiry');
+                return;
+            }
+
+            const data = {
+                jwt: this.jwtToken,
+                expiry: this.jwtExpiry,
+                userId: this.jwtUserId,
+                userEmail: this.jwtUserEmail,
+                savedAt: Date.now()
+            };
+
+            localStorage.setItem('dashie-supabase-jwt', JSON.stringify(data));
+            logger.debug('JWT saved to localStorage', {
+                expiresIn: `${Math.round((this.jwtExpiry - Date.now()) / 1000 / 60)} minutes`
+            });
+
+        } catch (error) {
+            logger.error('Failed to save JWT to localStorage', error);
+        }
     }
 
     /**
@@ -24,7 +100,26 @@ export class EdgeClient {
      */
     setJWT(token) {
         this.jwtToken = token;
-        logger.debug('JWT token updated');
+
+        // Parse JWT to extract expiry and user info
+        try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            this.jwtExpiry = payload.exp ? payload.exp * 1000 : null;
+            this.jwtUserId = payload.sub;
+            this.jwtUserEmail = payload.email;
+
+            logger.debug('JWT token updated', {
+                userId: this.jwtUserId,
+                userEmail: this.jwtUserEmail,
+                expiresAt: this.jwtExpiry ? new Date(this.jwtExpiry).toISOString() : 'unknown'
+            });
+
+            // Save to localStorage
+            this._saveJWTToStorage();
+
+        } catch (error) {
+            logger.error('Failed to parse JWT', error);
+        }
     }
 
     /**
@@ -88,6 +183,83 @@ export class EdgeClient {
         } catch (error) {
             logger.error('JWT bootstrap failed', error);
             throw error;
+        }
+    }
+
+    /**
+     * Check if JWT is expired or expiring soon
+     * @param {number} bufferMinutes - Minutes of buffer before expiry (default: 60)
+     * @returns {boolean} True if expired or expiring soon
+     */
+    isJWTExpired(bufferMinutes = 60) {
+        if (!this.jwtToken || !this.jwtExpiry) {
+            return true;
+        }
+
+        const bufferMs = bufferMinutes * 60 * 1000;
+        const isExpired = Date.now() >= (this.jwtExpiry - bufferMs);
+
+        if (isExpired) {
+            const minutesRemaining = Math.round((this.jwtExpiry - Date.now()) / 1000 / 60);
+            logger.debug('JWT expired or expiring soon', {
+                minutesRemaining,
+                bufferMinutes
+            });
+        }
+
+        return isExpired;
+    }
+
+    /**
+     * Refresh Supabase JWT using current JWT
+     * @returns {Promise<string>} New JWT token
+     */
+    async refreshJWT() {
+        if (!this.jwtToken) {
+            throw new Error('No JWT to refresh - must authenticate first');
+        }
+
+        logger.info('Refreshing Supabase JWT');
+
+        try {
+            const response = await this.request({
+                operation: 'refresh_jwt'
+            });
+
+            if (!response.jwtToken) {
+                throw new Error('No JWT returned from refresh operation');
+            }
+
+            // Update JWT (this also saves to localStorage)
+            this.setJWT(response.jwtToken);
+
+            logger.success('JWT refreshed successfully', {
+                userId: this.jwtUserId,
+                expiresIn: `${Math.round((this.jwtExpiry - Date.now()) / 1000 / 60)} minutes`
+            });
+
+            return response.jwtToken;
+
+        } catch (error) {
+            logger.error('JWT refresh failed', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Clear JWT from memory and localStorage
+     */
+    clearJWT() {
+        this.jwtToken = null;
+        this.jwtExpiry = null;
+        this.jwtUserId = null;
+        this.jwtUserEmail = null;
+
+        try {
+            localStorage.removeItem('dashie-supabase-jwt');
+            logger.info('JWT cleared from localStorage');
+        } catch (error) {
+            logger.error('Failed to clear JWT from localStorage', error);
         }
     }
 

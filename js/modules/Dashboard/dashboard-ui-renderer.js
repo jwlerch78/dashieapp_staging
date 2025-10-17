@@ -83,8 +83,15 @@ class UIRenderer {
     const grid = DOMBuilder.createGrid();
     this.container.appendChild(grid);
 
-    // Attach to document
-    document.body.appendChild(this.container);
+    // Attach to dashboard container (not body)
+    const dashboardContainer = document.getElementById('dashboard-container');
+    if (dashboardContainer) {
+      dashboardContainer.appendChild(this.container);
+    } else {
+      // Fallback to body if container not found
+      logger.warn('dashboard-container not found, appending to body');
+      document.body.appendChild(this.container);
+    }
 
     // Initialize visual effects module with container reference
     VisualEffects.initialize(this.container);

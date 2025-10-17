@@ -9,12 +9,13 @@ const logger = createLogger('TokenStore');
 /**
  * TokenStore - Secure storage for OAuth tokens and authentication credentials
  *
- * Storage Strategy:
- * - Primary: Supabase user_auth_tokens table
- * - Cache: localStorage (separate key from settings)
- * - Sync: Dual-write to both locations
+ * Storage Strategy (UPDATED for JWT-based architecture):
+ * - Primary: Supabase user_auth_tokens table (ONLY storage for Google tokens)
+ * - Browser: NO Google tokens in localStorage (security best practice)
+ * - JWT: Browser only stores Supabase JWT in localStorage (managed by EdgeClient)
+ * - Dual-write code kept for future use but localStorage writes are disabled
  *
- * Token Structure:
+ * Token Structure (in Supabase only):
  * {
  *   "google": {
  *     "primary": {
@@ -63,54 +64,44 @@ export class TokenStore {
 
     /**
      * Load tokens from storage
-     * DUAL-READ PATTERN: Reads from Supabase (authoritative) with localStorage fallback
-     * - Supabase: Authoritative source of truth (persists across devices)
-     * - localStorage: Fast cache fallback if Supabase unavailable
+     * UPDATED: Only reads from Supabase (JWT-based architecture)
+     * - Supabase: ONLY source of truth (requires JWT)
+     * - localStorage: DISABLED (no Google tokens in browser storage)
+     * - Metadata tracking: Keeps in-memory cache of account metadata only
      */
     async loadTokens() {
         try {
-            let loadedFromSupabase = false;
-
-            // STRATEGY 1: Try loading from Supabase (authoritative)
-            // Only attempt if edgeClient has JWT token (can't load without auth)
+            // Load from Supabase ONLY (requires JWT)
             if (this.edgeClient && this.edgeClient.jwtToken) {
                 try {
                     const supabaseTokens = await this.loadFromSupabase();
                     if (supabaseTokens && Object.keys(supabaseTokens).length > 0) {
                         this.tokens = supabaseTokens;
-                        loadedFromSupabase = true;
-                        logger.info('Loaded tokens from Supabase', {
+                        logger.info('Loaded token metadata from Supabase', {
                             providers: Object.keys(this.tokens),
                             accountCount: this.countAccounts()
                         });
 
-                        // Sync to localStorage for offline access
-                        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.tokens));
+                        // DISABLED: No localStorage sync (keeping code for future use)
+                        // localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.tokens));
+                    } else {
+                        this.tokens = {};
+                        logger.debug('No tokens found in Supabase');
                     }
                 } catch (supabaseError) {
-                    logger.warn('Failed to load from Supabase, falling back to localStorage', supabaseError);
+                    logger.error('Failed to load from Supabase', supabaseError);
+                    this.tokens = {}; // No fallback - Supabase is the only source
                 }
             } else if (this.edgeClient && !this.edgeClient.jwtToken) {
-                logger.debug('EdgeClient has no JWT yet, skipping Supabase load (will use localStorage)');
-            }
-
-            // STRATEGY 2: Fallback to localStorage if Supabase unavailable or empty
-            if (!loadedFromSupabase) {
-                const stored = localStorage.getItem(this.STORAGE_KEY);
-                if (stored) {
-                    this.tokens = JSON.parse(stored);
-                    logger.info('Loaded tokens from localStorage (Supabase unavailable)', {
-                        providers: Object.keys(this.tokens),
-                        accountCount: this.countAccounts()
-                    });
-                } else {
-                    this.tokens = {};
-                    logger.debug('No tokens found in any storage location');
-                }
+                logger.debug('EdgeClient has no JWT yet, cannot load tokens from Supabase');
+                this.tokens = {};
+            } else {
+                logger.debug('No EdgeClient available, cannot load tokens');
+                this.tokens = {};
             }
 
         } catch (error) {
-            logger.error('Error loading tokens from all sources', error);
+            logger.error('Error loading tokens', error);
             this.tokens = {};
         }
     }
@@ -271,36 +262,36 @@ export class TokenStore {
 
     /**
      * Save tokens to storage
-     * DUAL-WRITE PATTERN: Writes to both localStorage and Supabase
-     * - localStorage: Fast local cache
-     * - Supabase: Persistent, authoritative source of truth
+     * UPDATED: Only writes to Supabase (JWT-based architecture)
+     * - localStorage writes DISABLED for security (Google tokens never in browser storage)
+     * - Supabase: ONLY storage location for Google tokens
+     * - Dual-write code kept commented for future use if needed
      */
     async save() {
         try {
-            // WRITE 1: Save to localStorage (fast, always succeeds)
-            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.tokens));
-            logger.debug('Saved tokens to localStorage', {
-                providers: Object.keys(this.tokens)
-            });
+            // DISABLED: Save to localStorage (keeping code for future use)
+            // localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.tokens));
+            // logger.debug('Saved tokens to localStorage', {
+            //     providers: Object.keys(this.tokens)
+            // });
 
-            // WRITE 2: Save to Supabase (authoritative, may fail)
+            // WRITE: Save to Supabase ONLY (authoritative storage)
             if (this.edgeClient) {
                 try {
                     // Store entire token structure to database
                     // Edge function will update user_auth_tokens table
                     await this.syncToSupabase();
-                    logger.debug('Synced tokens to Supabase');
+                    logger.debug('Synced tokens to Supabase (ONLY storage location)');
                 } catch (supabaseError) {
-                    // Don't fail the save if Supabase is down
-                    // Tokens are in localStorage, will sync on next successful connection
-                    logger.warn('Failed to sync tokens to Supabase (will retry later)', supabaseError);
+                    logger.error('Failed to save tokens to Supabase', supabaseError);
+                    throw supabaseError; // Fail fast - Supabase is the only storage
                 }
             } else {
-                logger.debug('No edgeClient available, skipping Supabase sync');
+                throw new Error('No edgeClient available - cannot save tokens without Supabase connection');
             }
 
         } catch (error) {
-            logger.error('Error saving tokens to localStorage', error);
+            logger.error('Error saving tokens', error);
             throw error;
         }
     }
