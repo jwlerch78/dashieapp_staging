@@ -25,7 +25,7 @@ const logger = createLogger('GoogleCalendarAuth');
 export class GoogleCalendarAuth extends BaseCalendarAuth {
     constructor(tokenStore, googleAPIClient, webOAuthProvider) {
         super(tokenStore);
-        this.providerName = 'google-calendar';
+        this.providerName = 'google'; // Match token storage key
         this.googleAPIClient = googleAPIClient;
         this.webOAuthProvider = webOAuthProvider; // For OAuth flow
     }

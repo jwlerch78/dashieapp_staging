@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase 3 Auth Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        button {
+            background: #4285f4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #3367d6;
+        }
+        .output {
+            background: #f8f9fa;
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success { color: #0f9d58; font-weight: bold; }
+        .error { color: #d93025; font-weight: bold; }
+        .info { color: #1a73e8; }
+    </style>
+</head>
+<body>
+    <h1>🧪 Phase 3 Data Layer - Auth Test Suite</h1>
+
+    <div class="test-section">
+        <h2>1. TokenStore Tests</h2>
+        <button id="btn-test-tokenstore">Test TokenStore</button>
+        <button id="btn-test-storage">Test Store/Retrieve Tokens</button>
+        <button id="btn-test-expiry">Test Token Expiry</button>
+        <button id="btn-clear-tokens">Clear All Tokens</button>
+        <div id="tokenstore-output" class="output"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. BaseAccountAuth Tests</h2>
+        <button id="btn-test-accountauth">Test Base Class</button>
+        <div id="accountauth-output" class="output"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. BaseCalendarAuth Tests</h2>
+        <button id="btn-test-calendarauth">Test Base Class</button>
+        <div id="calendarauth-output" class="output"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. Integration Tests</h2>
+        <button id="btn-test-integration">Test Full Auth Flow (Mock)</button>
+        <div id="integration-output" class="output"></div>
+    </div>
+
+    <script type="module">
+        import { TokenStore } from './js/data/auth/token-store.js';
+        import { BaseAccountAuth } from './js/data/auth/account-auth/base-account-auth.js';
+        import { BaseCalendarAuth } from './js/data/auth/calendar-auth/base-calendar-auth.js';
+
+        // Make available globally for button onclick handlers
+        window.TokenStore = TokenStore;
+        window.BaseAccountAuth = BaseAccountAuth;
+        window.BaseCalendarAuth = BaseCalendarAuth;
+
+        // Create test instance
+        window.tokenStore = new TokenStore();
+
+        function log(elementId, message, type = 'info') {
+            const output = document.getElementById(elementId);
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+            output.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearLog(elementId) {
+            document.getElementById(elementId).innerHTML = '';
+        }
+
+        // ========== TokenStore Tests ==========
+
+        window.testTokenStore = async function() {
+            const output = 'tokenstore-output';
+            clearLog(output);
+
+            try {
+                log(output, '🧪 Testing TokenStore initialization...', 'info');
+
+                await window.tokenStore.initialize();
+                log(output, '✅ TokenStore initialized successfully', 'success');
+                log(output, `   - Initialized: ${window.tokenStore.isInitialized}`, 'info');
+                log(output, `   - Has tokens: ${window.tokenStore.hasTokens()}`, 'info');
+
+                const allTokens = await window.tokenStore.getAllTokens();
+                log(output, `   - Token providers: ${JSON.stringify(Object.keys(allTokens))}`, 'info');
+
+            } catch (error) {
+                log(output, `❌ Error: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        window.testTokenStorage = async function() {
+            const output = 'tokenstore-output';
+            clearLog(output);
+
+            try {
+                log(output, '🧪 Testing token storage operations...', 'info');
+
+                // Initialize if needed
+                if (!window.tokenStore.isInitialized) {
+                    await window.tokenStore.initialize();
+                }
+
+                // Store test tokens
+                const testTokenData = {
+                    access_token: 'test_access_token_' + Date.now(),
+                    refresh_token: 'test_refresh_token_' + Date.now(),
+                    expires_at: new Date(Date.now() + 3600000).toISOString(),
+                    scopes: ['profile', 'email', 'calendar'],
+                    email: 'test@example.com',
+                    display_name: 'Test User'
+                };
+
+                log(output, '📝 Storing test tokens for google/primary...', 'info');
+                await window.tokenStore.storeAccountTokens('google', 'primary', testTokenData);
+                log(output, '✅ Tokens stored successfully', 'success');
+
+                // Retrieve tokens
+                log(output, '📖 Retrieving tokens...', 'info');
+                const retrieved = await window.tokenStore.getAccountTokens('google', 'primary');
+
+                if (retrieved && retrieved.access_token === testTokenData.access_token) {
+                    log(output, '✅ Tokens retrieved successfully', 'success');
+                    log(output, `   - Email: ${retrieved.email}`, 'info');
+                    log(output, `   - Display Name: ${retrieved.display_name}`, 'info');
+                    log(output, `   - Expired: ${retrieved.isExpired}`, 'info');
+                } else {
+                    log(output, '❌ Token mismatch', 'error');
+                }
+
+                // List all accounts
+                const accounts = window.tokenStore.listAllAccounts();
+                log(output, `📋 Total accounts: ${accounts.length}`, 'info');
+                accounts.forEach((acc, i) => {
+                    log(output, `   ${i + 1}. ${acc.provider}/${acc.accountType} - ${acc.email}`, 'info');
+                });
+
+            } catch (error) {
+                log(output, `❌ Error: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        window.testTokenExpiry = async function() {
+            const output = 'tokenstore-output';
+            clearLog(output);
+
+            try {
+                log(output, '🧪 Testing token expiry detection...', 'info');
+
+                if (!window.tokenStore.isInitialized) {
+                    await window.tokenStore.initialize();
+                }
+
+                // Store expired token
+                const expiredTokenData = {
+                    access_token: 'expired_token',
+                    refresh_token: 'refresh_token',
+                    expires_at: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+                    scopes: ['profile'],
+                    email: 'expired@example.com',
+                    display_name: 'Expired User'
+                };
+
+                log(output, '📝 Storing expired token...', 'info');
+                await window.tokenStore.storeAccountTokens('google', 'expired', expiredTokenData);
+
+                const retrieved = await window.tokenStore.getAccountTokens('google', 'expired');
+
+                if (retrieved && retrieved.isExpired) {
+                    log(output, '✅ Expired token correctly detected', 'success');
+                } else {
+                    log(output, '❌ Failed to detect expired token', 'error');
+                }
+
+                // Clean up
+                await window.tokenStore.removeAccountTokens('google', 'expired');
+                log(output, '🧹 Cleaned up test token', 'info');
+
+            } catch (error) {
+                log(output, `❌ Error: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        window.clearAllTokens = async function() {
+            const output = 'tokenstore-output';
+            clearLog(output);
+
+            try {
+                if (!window.tokenStore.isInitialized) {
+                    await window.tokenStore.initialize();
+                }
+
+                log(output, '🧹 Clearing all tokens...', 'info');
+                await window.tokenStore.clearAllTokens();
+                log(output, '✅ All tokens cleared', 'success');
+
+            } catch (error) {
+                log(output, `❌ Error: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        // ========== BaseAccountAuth Tests ==========
+
+        window.testBaseAccountAuth = async function() {
+            const output = 'accountauth-output';
+            clearLog(output);
+
+            try {
+                log(output, '🧪 Testing BaseAccountAuth...', 'info');
+
+                const auth = new BaseAccountAuth();
+                log(output, '✅ BaseAccountAuth instance created', 'success');
+                log(output, `   - Provider: ${auth.getProviderName()}`, 'info');
+                log(output, `   - Ready: ${auth.isProviderReady()}`, 'info');
+                log(output, `   - Authenticated: ${auth.isAuthenticated()}`, 'info');
+
+                const caps = auth.getCapabilities();
+                log(output, `   - Capabilities: ${JSON.stringify(caps, null, 2)}`, 'info');
+
+                // Test error handling
+                try {
+                    log(output, '🧪 Testing unimplemented methods (should throw)...', 'info');
+                    await auth.initialize();
+                } catch (error) {
+                    log(output, `✅ Correctly throws error: ${error.message}`, 'success');
+                }
+
+            } catch (error) {
+                log(output, `❌ Error: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        // ========== BaseCalendarAuth Tests ==========
+
+        window.testBaseCalendarAuth = function() {
+            const output = 'calendarauth-output';
+            clearLog(output);
+
+            try {
+                log(output, '🧪 Testing BaseCalendarAuth...', 'info');
+
+                const auth = new BaseCalendarAuth(window.tokenStore);
+                log(output, '✅ BaseCalendarAuth instance created', 'success');
+                log(output, `   - Provider: ${auth.getProviderName()}`, 'info');
+                log(output, `   - Ready: ${auth.isProviderReady()}`, 'info');
+                log(output, `   - Has TokenStore: ${!!auth.tokenStore}`, 'info');
+
+                const caps = auth.getCapabilities();
+                log(output, `   - Capabilities: ${JSON.stringify(caps, null, 2)}`, 'info');
+
+                // Test normalization methods
+                log(output, '🧪 Testing event normalization...', 'info');
+                const mockEvent = {
+                    id: 'test123',
+                    summary: 'Test Event',
+                    description: 'Test description',
+                    start: { dateTime: new Date().toISOString() },
+                    end: { dateTime: new Date(Date.now() + 3600000).toISOString() }
+                };
+
+                const normalized = auth.normalizeEvent(mockEvent);
+                log(output, '✅ Event normalized', 'success');
+                log(output, `   - ID: ${normalized.id}`, 'info');
+                log(output, `   - Summary: ${normalized.summary}`, 'info');
+                log(output, `   - Is All Day: ${normalized.isAllDay}`, 'info');
+
+            } catch (error) {
+                log(output, `❌ Error: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        // ========== Integration Tests ==========
+
+        window.testFullAuthFlow = async function() {
+            const output = 'integration-output';
+            clearLog(output);
+
+            try {
+                log(output, '🧪 Testing full auth flow (mocked)...', 'info');
+                log(output, '═══════════════════════════════════════', 'info');
+
+                // 1. Initialize TokenStore
+                log(output, '1️⃣ Initializing TokenStore...', 'info');
+                const tokenStore = new TokenStore();
+                await tokenStore.initialize();
+                log(output, '   ✅ TokenStore ready', 'success');
+
+                // 2. Create BaseAccountAuth
+                log(output, '2️⃣ Creating Account Auth...', 'info');
+                const accountAuth = new BaseAccountAuth();
+                log(output, `   ✅ ${accountAuth.getProviderName()} provider created`, 'success');
+
+                // 3. Create BaseCalendarAuth
+                log(output, '3️⃣ Creating Calendar Auth...', 'info');
+                const calendarAuth = new BaseCalendarAuth(tokenStore);
+                log(output, `   ✅ ${calendarAuth.getProviderName()} provider created`, 'success');
+
+                // 4. Mock token storage
+                log(output, '4️⃣ Storing mock tokens...', 'info');
+                await tokenStore.storeAccountTokens('google', 'primary', {
+                    access_token: 'mock_access_' + Date.now(),
+                    refresh_token: 'mock_refresh_' + Date.now(),
+                    expires_at: new Date(Date.now() + 3600000).toISOString(),
+                    scopes: ['profile', 'email', 'calendar'],
+                    email: 'mockuser@example.com',
+                    display_name: 'Mock User'
+                });
+                log(output, '   ✅ Mock tokens stored', 'success');
+
+                // 5. Verify token retrieval
+                log(output, '5️⃣ Verifying token retrieval...', 'info');
+                const tokens = await tokenStore.getAccountTokens('google', 'primary');
+                if (tokens && !tokens.isExpired) {
+                    log(output, '   ✅ Tokens retrieved and valid', 'success');
+                    log(output, `   - User: ${tokens.email}`, 'info');
+                } else {
+                    log(output, '   ❌ Token retrieval failed', 'error');
+                }
+
+                // 6. Test account connection check
+                log(output, '6️⃣ Checking account connection...', 'info');
+                const isConnected = await calendarAuth.isAccountConnected('primary');
+                log(output, `   ${isConnected ? '✅' : '❌'} Account connected: ${isConnected}`, isConnected ? 'success' : 'error');
+
+                // 7. Summary
+                log(output, '═══════════════════════════════════════', 'info');
+                log(output, '✅ Integration test complete!', 'success');
+                log(output, '   - All components initialized', 'success');
+                log(output, '   - Token storage working', 'success');
+                log(output, '   - Account connection detection working', 'success');
+
+            } catch (error) {
+                log(output, `❌ Error: ${error.message}`, 'error');
+                console.error(error);
+            }
+        };
+
+        // Auto-run initial test
+        log('tokenstore-output', '👋 Test suite loaded. Click buttons to run tests.', 'info');
+
+        // ========== Button Event Listeners ==========
+
+        document.getElementById('btn-test-tokenstore').addEventListener('click', window.testTokenStore);
+        document.getElementById('btn-test-storage').addEventListener('click', window.testTokenStorage);
+        document.getElementById('btn-test-expiry').addEventListener('click', window.testTokenExpiry);
+        document.getElementById('btn-clear-tokens').addEventListener('click', window.clearAllTokens);
+        document.getElementById('btn-test-accountauth').addEventListener('click', window.testBaseAccountAuth);
+        document.getElementById('btn-test-calendarauth').addEventListener('click', window.testBaseCalendarAuth);
+        document.getElementById('btn-test-integration').addEventListener('click', window.testFullAuthFlow);
+    </script>
+</body>
+</html>

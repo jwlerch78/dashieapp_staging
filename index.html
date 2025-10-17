@@ -23,10 +23,154 @@
       padding: 0;
       overflow: hidden;
     }
+
+    /* OAuth Login Screen */
+    #oauth-login-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      transition: opacity 0.3s ease;
+    }
+
+    #oauth-login-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .login-container {
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 16px;
+      padding: 48px;
+      max-width: 450px;
+      text-align: center;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    }
+
+    .login-logo {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .login-title {
+      font-size: 32px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .login-subtitle {
+      font-size: 16px;
+      color: rgba(255, 255, 255, 0.6);
+      margin-bottom: 32px;
+    }
+
+    .login-status {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.7);
+    }
+
+    .login-button {
+      background: #1a73e8;
+      color: white;
+      border: none;
+      padding: 14px 32px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+
+    .login-button:hover {
+      background: #1557b0;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3);
+    }
+
+    .login-button:disabled {
+      background: rgba(255, 255, 255, 0.1);
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .login-error {
+      background: rgba(217, 48, 37, 0.1);
+      border: 1px solid rgba(217, 48, 37, 0.3);
+      color: #f28b82;
+      padding: 12px;
+      border-radius: 8px;
+      margin-top: 16px;
+      font-size: 14px;
+    }
+
+    .dashboard-container {
+      opacity: 0;
+      transition: opacity 0.5s ease;
+    }
+
+    .dashboard-container.visible {
+      opacity: 1;
+    }
   </style>
 </head>
 <body>
-  <!-- Dashboard renders here full-screen -->
+  <!-- OAuth Login Screen -->
+  <div id="oauth-login-screen">
+    <div class="login-container">
+      <div class="login-logo">🎯</div>
+      <h1 class="login-title">Dashie</h1>
+      <p class="login-subtitle">Your Personal Dashboard</p>
+
+      <div class="login-status" id="login-status">
+        Initializing authentication system...
+      </div>
+
+      <button class="login-button" id="login-button" disabled>
+        <span class="spinner"></span>
+        <span>Loading...</span>
+      </button>
+
+      <div class="login-error" id="login-error" style="display: none;"></div>
+    </div>
+  </div>
+
+  <!-- Dashboard Container (hidden until authenticated) -->
+  <div id="dashboard-container" class="dashboard-container">
+    <!-- Dashboard renders here full-screen -->
+  </div>
 
   <!-- Core JavaScript Modules -->
   <script type="module">
@@ -41,10 +185,143 @@
     import Dashboard from './js/modules/Dashboard/dashboard.js';
     import DashboardInputHandler from './js/modules/Dashboard/dashboard-input-handler.js';
 
+    // Phase 3 - Auth imports
+    import { TokenStore } from './js/data/auth/token-store.js';
+    import { GoogleAccountAuth } from './js/data/auth/account-auth/google-account-auth.js';
+    import { WebOAuthProvider } from './js/data/auth/providers/web-oauth.js';
+
     const logger = createLogger('Main');
 
     // Initialize console commands (for debugging)
     consoleCommands.initialize();
+
+    // Global auth references
+    let tokenStore = null;
+    let googleAccountAuth = null;
+    let isAuthenticated = false;
+
+    // UI Helper functions
+    function updateLoginStatus(message) {
+      document.getElementById('login-status').textContent = message;
+    }
+
+    function updateLoginButton(text, enabled = true, showSpinner = false) {
+      const button = document.getElementById('login-button');
+      button.disabled = !enabled;
+      button.innerHTML = showSpinner
+        ? `<span class="spinner"></span><span>${text}</span>`
+        : `<span>${text}</span>`;
+    }
+
+    function showLoginError(message) {
+      const errorEl = document.getElementById('login-error');
+      errorEl.textContent = message;
+      errorEl.style.display = 'block';
+    }
+
+    function hideLoginScreen() {
+      document.getElementById('oauth-login-screen').classList.add('hidden');
+      document.getElementById('dashboard-container').classList.add('visible');
+    }
+
+    // Initialize authentication
+    async function initializeAuth() {
+      try {
+        logger.info('🔐 Initializing authentication...');
+        updateLoginStatus('Setting up authentication system...');
+
+        // 1. Initialize TokenStore
+        tokenStore = new TokenStore();
+        await tokenStore.initialize();
+        logger.success('TokenStore initialized');
+
+        // 2. Initialize WebOAuthProvider
+        const webOAuthProvider = new WebOAuthProvider();
+        const oauthResult = await webOAuthProvider.init();
+        logger.success('WebOAuthProvider initialized');
+
+        // 3. Initialize GoogleAccountAuth
+        googleAccountAuth = new GoogleAccountAuth(webOAuthProvider, null);
+        await googleAccountAuth.initialize();
+        logger.success('GoogleAccountAuth initialized');
+
+        // 4. Check if OAuth callback returned a user
+        if (oauthResult && oauthResult.success && oauthResult.user) {
+          logger.success('OAuth callback detected! User authenticated', {
+            email: oauthResult.user.email
+          });
+
+          // Store tokens
+          const tokenData = {
+            access_token: oauthResult.tokens.access_token,
+            refresh_token: oauthResult.tokens.refresh_token,
+            expires_at: new Date(Date.now() + (oauthResult.tokens.expires_in * 1000)).toISOString(),
+            scopes: oauthResult.tokens.scope?.split(' ') || [],
+            email: oauthResult.user.email,
+            display_name: oauthResult.user.name
+          };
+
+          await tokenStore.storeAccountTokens('google', 'primary', tokenData);
+          logger.success('Tokens stored successfully');
+
+          updateLoginStatus(`Welcome back, ${oauthResult.user.name}!`);
+          isAuthenticated = true;
+
+          // Hide login screen and proceed to dashboard
+          setTimeout(() => {
+            hideLoginScreen();
+            initializeCore();
+          }, 1000);
+
+          return true;
+        }
+
+        // 5. Check if user was previously authenticated
+        if (googleAccountAuth.isAuthenticated()) {
+          const user = googleAccountAuth.getUser();
+          logger.success('User session restored', { email: user.email });
+          updateLoginStatus(`Welcome back, ${user.name}!`);
+          isAuthenticated = true;
+
+          setTimeout(() => {
+            hideLoginScreen();
+            initializeCore();
+          }, 1000);
+
+          return true;
+        }
+
+        // 6. No authentication - show sign in button
+        logger.info('No user authenticated');
+        updateLoginStatus('Ready to sign in');
+        updateLoginButton('Sign in with Google', true, false);
+
+        // Attach sign-in handler
+        document.getElementById('login-button').onclick = async () => {
+          try {
+            updateLoginButton('Redirecting to Google...', false, true);
+            await googleAccountAuth.signIn();
+          } catch (error) {
+            logger.error('Sign-in failed', error);
+            showLoginError(`Sign-in failed: ${error.message}`);
+            updateLoginButton('Sign in with Google', true, false);
+          }
+        };
+
+        return false;
+
+      } catch (error) {
+        logger.error('Auth initialization failed', error);
+        showLoginError(`Authentication error: ${error.message}`);
+        updateLoginButton('Retry', true, false);
+
+        document.getElementById('login-button').onclick = () => {
+          window.location.reload();
+        };
+
+        return false;
+      }
+    }
 
     // Initialize core components
     async function initializeCore() {
@@ -94,8 +371,8 @@
       }
     }
 
-    // Initialize on page load
-    window.addEventListener('DOMContentLoaded', initializeCore);
+    // Initialize on page load - start with auth
+    window.addEventListener('DOMContentLoaded', initializeAuth);
   </script>
 </body>
 </html>

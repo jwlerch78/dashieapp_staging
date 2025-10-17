@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar Auth Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1000px;
+            margin: 40px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 { color: #333; margin-top: 0; }
+        button {
+            background: #1a73e8;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            margin: 10px 10px 10px 0;
+        }
+        button:hover { background: #1557b0; }
+        button:disabled { background: #dadce0; cursor: not-allowed; }
+        .log {
+            background: #202124;
+            color: #e8eaed;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+            white-space: pre-wrap;
+        }
+        .calendar-list {
+            margin-top: 20px;
+        }
+        .calendar-item {
+            background: #f8f9fa;
+            border: 1px solid #dadce0;
+            border-radius: 4px;
+            padding: 12px;
+            margin: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .calendar-color {
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            flex-shrink: 0;
+        }
+        .calendar-info {
+            flex: 1;
+        }
+        .calendar-name {
+            font-weight: 500;
+            color: #202124;
+        }
+        .calendar-id {
+            font-size: 12px;
+            color: #5f6368;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📅 Google Calendar Auth Test</h1>
+        <p>Test GoogleCalendarAuth + GoogleAPIClient integration</p>
+
+        <div>
+            <button id="btn-init">Initialize</button>
+            <button id="btn-fetch-calendars" disabled>Fetch Calendar List</button>
+            <button id="btn-clear">Clear Log</button>
+        </div>
+
+        <div id="calendar-list" class="calendar-list"></div>
+        <div class="log" id="log"></div>
+    </div>
+
+    <script type="module">
+        import { TokenStore } from './js/data/auth/token-store.js';
+        import { GoogleCalendarAuth } from './js/data/auth/calendar-auth/google-calendar-auth.js';
+        import { GoogleAPIClient } from './js/data/services/google/google-api-client.js';
+        import { WebOAuthProvider } from './js/data/auth/providers/web-oauth.js';
+
+        let tokenStore = null;
+        let googleAPIClient = null;
+        let googleCalendarAuth = null;
+
+        function log(message, type = 'info') {
+            const logEl = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const colors = {
+                info: '#e8eaed',
+                success: '#81c995',
+                error: '#f28b82',
+                warning: '#fdd663'
+            };
+            const color = colors[type] || colors.info;
+            logEl.innerHTML += `<span style="color: ${color}">[${timestamp}] ${message}</span>\n`;
+            logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        function displayCalendars(calendars) {
+            const container = document.getElementById('calendar-list');
+            container.innerHTML = '<h3>📅 Your Calendars</h3>';
+
+            calendars.forEach(cal => {
+                const item = document.createElement('div');
+                item.className = 'calendar-item';
+                item.innerHTML = `
+                    <div class="calendar-color" style="background-color: ${cal.backgroundColor || '#3F51B5'}"></div>
+                    <div class="calendar-info">
+                        <div class="calendar-name">${cal.summary || 'Untitled Calendar'}</div>
+                        <div class="calendar-id">${cal.id}</div>
+                    </div>
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        async function initialize() {
+            try {
+                log('🚀 Initializing calendar auth system...', 'info');
+
+                // 1. Initialize TokenStore
+                log('1️⃣ Initializing TokenStore...', 'info');
+                tokenStore = new TokenStore();
+                await tokenStore.initialize();
+                log('   ✅ TokenStore ready', 'success');
+
+                // Check if we have tokens
+                const tokens = await tokenStore.getAccountTokens('google', 'primary');
+                if (!tokens) {
+                    log('   ⚠️ No tokens found! Please sign in via index.html first', 'warning');
+                    return;
+                }
+                log(`   ✅ Found tokens for ${tokens.email}`, 'success');
+
+                // 2. Initialize GoogleAPIClient
+                log('2️⃣ Initializing GoogleAPIClient...', 'info');
+                googleAPIClient = new GoogleAPIClient(tokenStore);
+                log('   ✅ GoogleAPIClient ready', 'success');
+
+                // 3. Initialize GoogleCalendarAuth
+                log('3️⃣ Initializing GoogleCalendarAuth...', 'info');
+                const webOAuthProvider = new WebOAuthProvider();
+                googleCalendarAuth = new GoogleCalendarAuth(tokenStore, googleAPIClient, webOAuthProvider);
+                await googleCalendarAuth.initialize();
+                log('   ✅ GoogleCalendarAuth ready', 'success');
+
+                // 4. Check connection
+                const isConnected = await googleCalendarAuth.isAccountConnected('primary');
+                log(`4️⃣ Account connection check: ${isConnected ? '✅ Connected' : '❌ Not connected'}`, isConnected ? 'success' : 'error');
+
+                log('═══════════════════════════════════════', 'info');
+                log('✅ Calendar auth system ready!', 'success');
+
+                document.getElementById('btn-fetch-calendars').disabled = false;
+
+            } catch (error) {
+                log(`❌ Initialization error: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        async function fetchCalendars() {
+            try {
+                log('📅 Fetching calendar list...', 'info');
+
+                const calendars = await googleCalendarAuth.getCalendarList('primary');
+
+                log(`✅ Retrieved ${calendars.length} calendars`, 'success');
+
+                // Display calendars
+                displayCalendars(calendars);
+
+                // Log details
+                calendars.forEach((cal, i) => {
+                    log(`   ${i + 1}. ${cal.summary} (${cal.id})`, 'info');
+                });
+
+            } catch (error) {
+                log(`❌ Error fetching calendars: ${error.message}`, 'error');
+                console.error(error);
+            }
+        }
+
+        // Button handlers
+        document.getElementById('btn-init').addEventListener('click', initialize);
+        document.getElementById('btn-fetch-calendars').addEventListener('click', fetchCalendars);
+        document.getElementById('btn-clear').addEventListener('click', () => {
+            document.getElementById('log').innerHTML = '';
+            document.getElementById('calendar-list').innerHTML = '';
+        });
+
+        log('👋 Ready to test. Click "Initialize" to begin.', 'info');
+    </script>
+</body>
+</html>

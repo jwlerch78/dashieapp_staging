@@ -175,6 +175,22 @@ export const OAUTH_TOKEN_CACHE_BUFFER_MINUTES = 10;
 export const SESSION_TIMEOUT_HOURS = 24;
 
 // =============================================================================
+// HEARTBEAT CONFIGURATION
+// =============================================================================
+
+// Heartbeat frequency (how often to ping server with status)
+// Options: 60000 (1 min), 300000 (5 min), 900000 (15 min)
+export const HEARTBEAT_FREQUENCY_MS = 60000; // 60 seconds (1 minute)
+
+// Offline detection threshold (dashboard marked offline if no heartbeat)
+// Should be 2-3x heartbeat frequency for safety
+export const HEARTBEAT_OFFLINE_THRESHOLD_MINUTES = 5; // Mark offline after 5 min
+
+// Version check behavior
+export const HEARTBEAT_VERSION_CHECK_ENABLED = true;
+export const HEARTBEAT_AUTO_UPDATE_PROMPT = true; // Show update prompt automatically
+
+// =============================================================================
 // STORAGE KEYS
 // =============================================================================
 
@@ -479,6 +495,12 @@ export default {
   JWT_ON_DEMAND_THRESHOLD_MINUTES,
   OAUTH_TOKEN_CACHE_BUFFER_MINUTES,
   SESSION_TIMEOUT_HOURS,
+
+  // Heartbeat
+  HEARTBEAT_FREQUENCY_MS,
+  HEARTBEAT_OFFLINE_THRESHOLD_MINUTES,
+  HEARTBEAT_VERSION_CHECK_ENABLED,
+  HEARTBEAT_AUTO_UPDATE_PROMPT,
 
   // Storage
   STORAGE_KEYS,

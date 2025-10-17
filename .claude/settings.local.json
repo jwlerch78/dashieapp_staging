@@ -6,7 +6,8 @@
       "Read(//c/Users/**)",
       "Bash(cat:*)",
       "Bash(xargs cat:*)",
-      "Bash(code --list-extensions)"
+      "Bash(code --list-extensions)",
+      "Bash(supabase functions deploy:*)"
     ],
     "deny": [],
     "ask": []
