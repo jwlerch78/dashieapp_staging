@@ -303,8 +303,20 @@
               tokenStore.edgeClient = edgeClient;
               logger.debug('TokenStore updated with JWT-authenticated EdgeClient');
 
+              // Determine which provider was used for the OAuth callback
+              // Use device-aware account type to prevent overwriting wrong account
+              const usedProvider = googleAccountAuth.activeProvider;
+              const isDeviceFlow = usedProvider === deviceFlowProvider;
+              const accountType = isDeviceFlow ? 'primary-tv' : 'primary';
+
+              logger.debug('Storing OAuth callback tokens', {
+                accountType,
+                isDeviceFlow,
+                provider: isDeviceFlow ? 'device_flow' : 'web_oauth'
+              });
+
               // Store tokens with dual-write (now EdgeClient has JWT!)
-              await tokenStore.storeAccountTokens('google', 'primary', {
+              await tokenStore.storeAccountTokens('google', accountType, {
                 access_token: oauthResult.tokens.access_token,
                 refresh_token: oauthResult.tokens.refresh_token,
                 expires_at: new Date(Date.now() + (oauthResult.tokens.expires_in * 1000)).toISOString(),
@@ -312,9 +324,9 @@
                 email: oauthResult.user.email,
                 display_name: oauthResult.user.name,
                 provider_info: {
-                  type: 'web_oauth',
+                  type: isDeviceFlow ? 'device_flow' : 'web_oauth',
                   auth_method: oauthResult.user.authMethod,
-                  client_id: webOAuthProvider.config.client_id
+                  client_id: usedProvider?.config?.client_id || 'unknown'
                 }
               });
 
