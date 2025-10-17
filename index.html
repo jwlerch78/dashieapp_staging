@@ -244,18 +244,15 @@
 
         let webOAuthProvider = null;
         let deviceFlowProvider = null;
-        let oauthResult = null;
 
         if (isFireTV) {
-          logger.info('Fire TV detected - initializing Device Flow');
+          logger.info('Fire TV detected - creating Device Flow provider');
           deviceFlowProvider = new DeviceFlowProvider();
-          await deviceFlowProvider.init();
-          logger.success('DeviceFlowProvider initialized');
+          logger.success('DeviceFlowProvider created');
         } else {
-          logger.info('Desktop/Mobile detected - initializing Web OAuth');
+          logger.info('Desktop/Mobile detected - creating Web OAuth provider');
           webOAuthProvider = new WebOAuthProvider();
-          oauthResult = await webOAuthProvider.init();
-          logger.success('WebOAuthProvider initialized');
+          logger.success('WebOAuthProvider created');
         }
 
         // 3. Initialize EdgeClient (without JWT initially - will be set during bootstrap)
@@ -263,8 +260,9 @@
         logger.success('EdgeClient initialized (no JWT yet)');
 
         // 4. Initialize GoogleAccountAuth with providers, edgeClient, and tokenStore
+        // This will also check for OAuth callbacks and return the result
         googleAccountAuth = new GoogleAccountAuth(webOAuthProvider, deviceFlowProvider, edgeClient, tokenStore);
-        await googleAccountAuth.initialize();
+        const oauthResult = await googleAccountAuth.initialize();
         logger.success('GoogleAccountAuth initialized with JWT bootstrap capability');
 
         // 5. Check if OAuth callback returned a user
@@ -297,7 +295,11 @@
                 tier: jwtResult.access?.tier
               });
 
-              // Store tokens with dual-write
+              // CRITICAL: Update TokenStore with JWT-authenticated EdgeClient
+              tokenStore.edgeClient = edgeClient;
+              logger.debug('TokenStore updated with JWT-authenticated EdgeClient');
+
+              // Store tokens with dual-write (now EdgeClient has JWT!)
               await tokenStore.storeAccountTokens('google', 'primary', {
                 access_token: oauthResult.tokens.access_token,
                 refresh_token: oauthResult.tokens.refresh_token,

@@ -35,9 +35,14 @@ export class GoogleAccountAuth extends BaseAccountAuth {
     /**
      * Initialize Google account authentication
      * Determines which OAuth method to use (web or device flow)
+     * Returns OAuth callback result if detected
+     *
+     * @returns {Promise<object|null>} OAuth result if callback detected, null otherwise
      */
     async initialize() {
         try {
+            let oauthResult = null;
+
             // Initialize web OAuth provider (always available)
             if (this.webOAuthProvider && this.webOAuthProvider.init) {
                 const result = await this.webOAuthProvider.init();
@@ -46,9 +51,11 @@ export class GoogleAccountAuth extends BaseAccountAuth {
                 if (result && result.success && result.user) {
                     this.user = this.normalizeUser(result.user);
                     this.activeProvider = this.webOAuthProvider;
+                    oauthResult = result; // Store for return
 
                     logger.success('User authenticated via OAuth callback during init', {
-                        email: this.user.email
+                        email: this.user.email,
+                        hasTokens: !!result.tokens
                     });
                 }
             }
@@ -56,8 +63,11 @@ export class GoogleAccountAuth extends BaseAccountAuth {
             this.isReady = true;
             logger.info('GoogleAccountAuth initialized', {
                 hasDeviceFlow: !!this.deviceFlowProvider,
-                isAuthenticated: this.isAuthenticated()
+                isAuthenticated: this.isAuthenticated(),
+                hadOAuthCallback: !!oauthResult
             });
+
+            return oauthResult; // Return OAuth result if callback was detected
 
         } catch (error) {
             logger.error('Failed to initialize GoogleAccountAuth', error);

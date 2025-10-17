@@ -312,19 +312,35 @@ export class TokenStore {
             throw new Error('Edge client not initialized');
         }
 
+        logger.debug('Starting Supabase sync...', {
+            providers: Object.keys(this.tokens),
+            accountCount: this.countAccounts()
+        });
+
         // For each provider/account, call edge function to store
         const promises = [];
 
         for (const [provider, providerAccounts] of Object.entries(this.tokens)) {
             for (const [accountType, tokenData] of Object.entries(providerAccounts)) {
+                logger.debug(`Syncing ${provider}:${accountType} to Supabase...`);
+
                 // Call edge function store_tokens operation
-                const promise = this.edgeClient.storeTokens(provider, accountType, tokenData);
+                const promise = this.edgeClient.storeTokens(provider, accountType, tokenData)
+                    .then(() => {
+                        logger.debug(`✅ Synced ${provider}:${accountType} to Supabase`);
+                    })
+                    .catch((error) => {
+                        logger.error(`❌ Failed to sync ${provider}:${accountType}`, error);
+                        throw error;
+                    });
+
                 promises.push(promise);
             }
         }
 
         // Wait for all stores to complete
         await Promise.all(promises);
+        logger.success('All tokens synced to Supabase');
     }
 
     /**
