@@ -184,22 +184,17 @@
     import Dashboard from './js/modules/Dashboard/dashboard.js';
     import DashboardInputHandler from './js/modules/Dashboard/dashboard-input-handler.js';
 
-    // Phase 3 - Auth imports
-    import { TokenStore } from './js/data/auth/token-store.js';
-    import { EdgeClient } from './js/data/auth/edge-client.js';
-    import { GoogleAccountAuth } from './js/data/auth/account-auth/google-account-auth.js';
-    import { WebOAuthProvider } from './js/data/auth/providers/web-oauth.js';
-    import { DeviceFlowProvider } from './js/data/auth/providers/device-flow.js';
+    // Phase 3 - Auth imports (orchestration layer)
+    import { sessionManager } from './js/data/auth/orchestration/session-manager.js';
+    import { AuthCoordinator } from './js/data/auth/orchestration/auth-coordinator.js';
 
     const logger = createLogger('Main');
 
     // Initialize console commands (for debugging)
     consoleCommands.initialize();
 
-    // Global auth references
-    let tokenStore = null;
-    let edgeClient = null;
-    let googleAccountAuth = null;
+    // Global auth reference
+    const authCoordinator = new AuthCoordinator();
     let isAuthenticated = false;
 
     // UI Helper functions
@@ -226,242 +221,71 @@
       document.getElementById('dashboard-container').classList.add('visible');
     }
 
-    // Initialize authentication
+    // Initialize authentication (using orchestration layer)
     async function initializeAuth() {
       try {
         logger.info('🔐 Initializing authentication...');
         updateLoginStatus('Setting up authentication system...');
 
-        // 1. Initialize EdgeClient FIRST
-        // Constructor automatically loads JWT from localStorage if available
-        edgeClient = new EdgeClient();
-        if (edgeClient.jwtToken) {
-          logger.success('EdgeClient initialized - JWT loaded from localStorage');
-        } else {
-          logger.success('EdgeClient initialized - no JWT found');
-        }
+        // Initialize SessionManager (handles entire auth flow)
+        const result = await sessionManager.initialize(authCoordinator);
 
-        // 2. Initialize TokenStore WITH EdgeClient
-        tokenStore = new TokenStore();
-        await tokenStore.initialize(edgeClient);
-        logger.success('TokenStore initialized');
+        // Check authentication result
+        if (result.authenticated) {
+          const user = sessionManager.getUser();
 
-        // 3. Detect platform and initialize appropriate OAuth providers
-        const platform = getPlatformDetector();
-        const isFireTV = platform.getPlatformDescription().includes('Fire TV');
-
-        let webOAuthProvider = null;
-        let deviceFlowProvider = null;
-
-        if (isFireTV) {
-          logger.info('Fire TV detected - creating Device Flow provider');
-          deviceFlowProvider = new DeviceFlowProvider();
-          logger.success('DeviceFlowProvider created');
-        } else {
-          logger.info('Desktop/Mobile detected - creating Web OAuth provider');
-          webOAuthProvider = new WebOAuthProvider();
-          logger.success('WebOAuthProvider created');
-        }
-
-        // 4. Initialize GoogleAccountAuth with providers, edgeClient, and tokenStore
-        // This will also check for OAuth callbacks and return the result
-        googleAccountAuth = new GoogleAccountAuth(webOAuthProvider, deviceFlowProvider, edgeClient, tokenStore);
-        const oauthResult = await googleAccountAuth.initialize();
-        logger.success('GoogleAccountAuth initialized with JWT bootstrap capability');
-
-        // 5. Check if OAuth callback returned a user
-        if (oauthResult && oauthResult.success && oauthResult.user) {
-          logger.success('OAuth callback detected! User authenticated', {
-            email: oauthResult.user.email
-          });
-
-          // GoogleAccountAuth.initialize() already processed the OAuth callback
-          // But we need to trigger the full sign-in flow to bootstrap JWT
-          updateLoginStatus('Completing authentication...');
-
-          try {
-            // This will bootstrap JWT and store tokens
-            // GoogleAccountAuth already has the OAuth result from init()
-            const user = googleAccountAuth.getUser();
-
-            if (user) {
-              // User was set during init, now we need JWT bootstrap
-              // Manually trigger bootstrap since we already have tokens
-              logger.info('Bootstrapping JWT from OAuth callback...');
-
-              const jwtResult = await googleAccountAuth.bootstrapJWT(
-                edgeClient,
-                oauthResult.tokens.access_token
-              );
-
-              logger.success('JWT bootstrap complete', {
-                userId: jwtResult.user?.id,
-                tier: jwtResult.access?.tier
-              });
-
-              // CRITICAL: Update TokenStore with JWT-authenticated EdgeClient
-              tokenStore.edgeClient = edgeClient;
-              logger.debug('TokenStore updated with JWT-authenticated EdgeClient');
-
-              // Determine which provider was used for the OAuth callback
-              // Use device-aware account type to prevent overwriting wrong account
-              const usedProvider = googleAccountAuth.activeProvider;
-              const isDeviceFlow = usedProvider === deviceFlowProvider;
-              const accountType = isDeviceFlow ? 'primary-tv' : 'primary';
-
-              logger.debug('Storing OAuth callback tokens', {
-                accountType,
-                isDeviceFlow,
-                provider: isDeviceFlow ? 'device_flow' : 'web_oauth'
-              });
-
-              // Store tokens with dual-write (now EdgeClient has JWT!)
-              await tokenStore.storeAccountTokens('google', accountType, {
-                access_token: oauthResult.tokens.access_token,
-                refresh_token: oauthResult.tokens.refresh_token,
-                expires_at: new Date(Date.now() + (oauthResult.tokens.expires_in * 1000)).toISOString(),
-                scopes: oauthResult.tokens.scope?.split(' ') || [],
-                email: oauthResult.user.email,
-                display_name: oauthResult.user.name,
-                provider_info: {
-                  type: isDeviceFlow ? 'device_flow' : 'web_oauth',
-                  auth_method: oauthResult.user.authMethod,
-                  client_id: usedProvider?.config?.client_id || 'unknown'
-                }
-              });
-
-              logger.success('OAuth tokens stored to Supabase (dual-write)');
-
-              updateLoginStatus(`Welcome, ${user.name}!`);
-              isAuthenticated = true;
-
-              // Hide login screen and proceed to dashboard
-              setTimeout(() => {
-                hideLoginScreen();
-                initializeCore();
-              }, 1000);
-
-              return true;
-            }
-          } catch (error) {
-            logger.error('JWT bootstrap failed during OAuth callback', error);
-            showLoginError(`Authentication error: ${error.message}`);
-            return false;
-          }
-        }
-
-        // 6. Try to restore session from JWT (already loaded by EdgeClient)
-        logger.info('Checking for stored JWT...');
-        updateLoginStatus('Checking for saved session...');
-
-        if (edgeClient.jwtToken) {
-          try {
-            logger.info('Found JWT, checking if valid and refreshing if needed');
-
-            // Check if JWT is expired or expiring soon (< 60 min remaining)
-            if (edgeClient.isJWTExpired(60)) {
-              logger.info('JWT expired or expiring soon, refreshing...');
-              updateLoginStatus('Refreshing your session...');
-
-              try {
-                await edgeClient.refreshJWT();
-                logger.success('JWT refreshed successfully');
-              } catch (refreshError) {
-                logger.error('JWT refresh failed', refreshError);
-                // Clear invalid JWT
-                edgeClient.clearJWT();
-                logger.info('JWT cleared - user must re-authenticate');
-                throw new Error('Session expired - please sign in again');
-              }
-            }
-
-            // JWT is valid! Restore session
-            updateLoginStatus('Restoring your session...');
-
-            logger.success('Session restored from JWT', {
-              userId: edgeClient.jwtUserId,
-              email: edgeClient.jwtUserEmail
-            });
-
-            // Update TokenStore with authenticated EdgeClient
-            tokenStore.edgeClient = edgeClient;
-
-            // Set user in GoogleAccountAuth
-            // Note: We don't have full user details (name, picture) from JWT
-            // Those will be loaded when needed
-            googleAccountAuth.user = {
-              id: edgeClient.jwtUserId,
-              email: edgeClient.jwtUserEmail,
-              name: edgeClient.jwtUserEmail.split('@')[0], // Use email prefix as fallback
-              picture: null,
-              provider: 'google',
-              authMethod: 'jwt_restoration',
-              signedInAt: Date.now()
-            };
-
+          if (result.oauthCallback) {
+            // OAuth callback flow
+            updateLoginStatus(`Welcome, ${user.name || user.email}!`);
+          } else {
+            // Session restoration flow
             updateLoginStatus(`Welcome back!`);
-            isAuthenticated = true;
-
-            setTimeout(() => {
-              hideLoginScreen();
-              initializeCore();
-            }, 500);
-
-            return true;
-
-          } catch (sessionError) {
-            logger.error('Session restoration failed', sessionError);
-            // Fall through to show login button
           }
-        } else {
-          logger.info('No JWT found - user must sign in');
+
+          isAuthenticated = true;
+
+          // Hide login screen and proceed to dashboard
+          setTimeout(() => {
+            hideLoginScreen();
+            initializeCore();
+          }, result.oauthCallback ? 1000 : 500);
+
+          return true;
         }
 
-        // 7. No authentication - show sign in button
+        // Not authenticated - show sign in button
         logger.info('No user authenticated');
         updateLoginStatus('Ready to sign in');
         updateLoginButton('Sign in with Google', true, false);
 
         // Attach sign-in handler
+        const isFireTV = authCoordinator.isFireTVPlatform();
+
         document.getElementById('login-button').onclick = async () => {
           try {
-            if (isFireTV) {
-              updateLoginButton('Starting Device Flow...', false, true);
-              updateLoginStatus('Follow instructions on screen...');
+            const buttonText = isFireTV ? 'Starting Device Flow...' : 'Redirecting to Google...';
+            updateLoginButton(buttonText, false, true);
+            updateLoginStatus(isFireTV ? 'Follow instructions on screen...' : 'Redirecting...');
 
-              const result = await googleAccountAuth.signIn({ useDeviceFlow: true });
+            const signInResult = await sessionManager.signIn({ useDeviceFlow: isFireTV });
 
-              if (result && result.email) {
-                // Store tokens
-                const tokenData = {
-                  access_token: result.googleAccessToken || googleAccountAuth.getAccessToken(),
-                  refresh_token: deviceFlowProvider.getRefreshToken(),
-                  expires_at: new Date(Date.now() + 3600000).toISOString(),
-                  scopes: [],
-                  email: result.email,
-                  display_name: result.name,
-                  provider_info: {
-                    type: 'device_flow',
-                    auth_method: result.authMethod,
-                    client_id: deviceFlowProvider.config.client_id
-                  }
-                };
-
-                await tokenStore.storeAccountTokens('google', 'primary', tokenData);
-                logger.success('Device Flow tokens stored');
-
-                updateLoginStatus(`Welcome, ${result.name}!`);
-                isAuthenticated = true;
-
-                setTimeout(() => {
-                  hideLoginScreen();
-                  initializeCore();
-                }, 1000);
-              }
-            } else {
-              updateLoginButton('Redirecting to Google...', false, true);
-              await googleAccountAuth.signIn();
+            // Check for redirect (web OAuth)
+            if (signInResult && signInResult.redirected) {
+              logger.debug('OAuth redirect initiated');
+              return;
             }
+
+            // Sign-in successful
+            if (signInResult && signInResult.email) {
+              updateLoginStatus(`Welcome, ${signInResult.name || signInResult.email}!`);
+              isAuthenticated = true;
+
+              setTimeout(() => {
+                hideLoginScreen();
+                initializeCore();
+              }, 1000);
+            }
+
           } catch (error) {
             logger.error('Sign-in failed', error);
             showLoginError(`Sign-in failed: ${error.message}`);
