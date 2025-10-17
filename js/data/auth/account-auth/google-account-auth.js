@@ -135,13 +135,24 @@ export class GoogleAccountAuth extends BaseAccountAuth {
                         if (this.tokenStore) {
                             logger.info('Storing OAuth tokens to Supabase...');
 
+                            // CRITICAL: Ensure TokenStore has JWT-authenticated EdgeClient
+                            this.tokenStore.edgeClient = this.edgeClient;
+
+                            // Determine provider info based on which provider was used
+                            const providerInfo = {
+                                type: provider === this.deviceFlowProvider ? 'device_flow' : 'web_oauth',
+                                auth_method: this.user.authMethod,
+                                client_id: provider.config?.client_id || 'unknown'
+                            };
+
                             await this.tokenStore.storeAccountTokens('google', 'primary', {
                                 access_token: result.tokens.access_token,
                                 refresh_token: result.tokens.refresh_token,
                                 expires_at: new Date(Date.now() + (result.tokens.expires_in || 3600) * 1000).toISOString(),
                                 scopes: result.tokens.scope?.split(' ') || [],
                                 email: this.user.email,
-                                display_name: this.user.name
+                                display_name: this.user.name,
+                                provider_info: providerInfo
                             });
 
                             logger.success('OAuth tokens stored successfully');
