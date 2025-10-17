@@ -72,7 +72,8 @@ export class TokenStore {
             let loadedFromSupabase = false;
 
             // STRATEGY 1: Try loading from Supabase (authoritative)
-            if (this.edgeClient) {
+            // Only attempt if edgeClient has JWT token (can't load without auth)
+            if (this.edgeClient && this.edgeClient.jwtToken) {
                 try {
                     const supabaseTokens = await this.loadFromSupabase();
                     if (supabaseTokens && Object.keys(supabaseTokens).length > 0) {
@@ -89,6 +90,8 @@ export class TokenStore {
                 } catch (supabaseError) {
                     logger.warn('Failed to load from Supabase, falling back to localStorage', supabaseError);
                 }
+            } else if (this.edgeClient && !this.edgeClient.jwtToken) {
+                logger.debug('EdgeClient has no JWT yet, skipping Supabase load (will use localStorage)');
             }
 
             // STRATEGY 2: Fallback to localStorage if Supabase unavailable or empty
