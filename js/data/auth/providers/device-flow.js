@@ -3,7 +3,7 @@
 // Simplified from legacy, adapted for TokenStore integration
 
 import { createLogger } from '../../../utils/logger.js';
-import { SUPABASE_CONFIG } from '../../../auth/auth-config.js';
+import { SUPABASE_CONFIG } from '../auth-config.js';
 
 const logger = createLogger('DeviceFlow');
 

@@ -150,8 +150,9 @@ serve(async (req) => {
     // Generate JWT
     const jwtToken = await generateSupabaseJWT(authUserId, googleUser.email);
 
-    // Handle get_jwt_from_google
-    if (operation === 'get_jwt_from_google') {
+    // Handle bootstrap_jwt (provider-agnostic JWT bootstrapping)
+    // Legacy operation name 'get_jwt_from_google' also supported for backward compatibility
+    if (operation === 'bootstrap_jwt' || operation === 'get_jwt_from_google') {
       return jsonResponse({
         success: true,
         user: {
@@ -159,7 +160,7 @@ serve(async (req) => {
           email: googleUser.email,
           name: googleUser.name,
           picture: googleUser.picture,
-          provider: 'google'
+          provider: 'google'  // This will be dynamic when we add more providers
         },
         jwtToken,
         access: {

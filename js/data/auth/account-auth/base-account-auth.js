@@ -150,4 +150,40 @@ export class BaseAccountAuth {
         this.isReady = false;
         logger.debug(`${this.providerName} provider destroyed`);
     }
+
+    /**
+     * Bootstrap Supabase JWT from provider's access token
+     * Common implementation for all OAuth providers
+     *
+     * This solves the chicken-and-egg problem:
+     * - After OAuth, we have provider access token
+     * - EdgeClient needs JWT to call edge functions
+     * - This method exchanges provider token for JWT
+     *
+     * @param {object} edgeClient - EdgeClient instance
+     * @param {string} providerAccessToken - Provider's OAuth access token
+     * @returns {Promise<object>} { jwtToken, user, access }
+     */
+    async bootstrapJWT(edgeClient, providerAccessToken) {
+        logger.debug('Bootstrapping JWT', { provider: this.getProviderName() });
+
+        try {
+            const result = await edgeClient.bootstrapJWT(
+                this.getProviderName(),
+                providerAccessToken
+            );
+
+            logger.success('JWT bootstrap complete', {
+                provider: this.getProviderName(),
+                userId: result.user?.id,
+                tier: result.access?.tier
+            });
+
+            return result;
+
+        } catch (error) {
+            logger.error('JWT bootstrap failed', error);
+            throw error;
+        }
+    }
 }

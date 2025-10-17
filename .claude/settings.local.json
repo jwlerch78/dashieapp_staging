@@ -10,7 +10,8 @@
       "Bash(supabase functions deploy:*)",
       "Bash(supabase --version:*)",
       "Bash(cd:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(ls -la \"c:\\Users\\John Lerch\\Dashie\\dashieapp_staging\\js\\core\\initialization\"\" 2>&1 || echo \"Directory does not exist \")"
     ],
     "deny": [],
     "ask": []

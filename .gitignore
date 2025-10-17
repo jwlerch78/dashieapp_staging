@@ -1,5 +1,4 @@
 # Auth secrets (removed - now only contains public anon keys which are safe)
-# js/auth/auth-config.js
 
 # Other common ignores
 node_modules/

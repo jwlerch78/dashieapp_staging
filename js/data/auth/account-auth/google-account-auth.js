@@ -22,12 +22,14 @@ const logger = createLogger('GoogleAccountAuth');
  * to fit into the new two-layer architecture.
  */
 export class GoogleAccountAuth extends BaseAccountAuth {
-    constructor(webOAuthProvider, deviceFlowProvider = null) {
+    constructor(webOAuthProvider, deviceFlowProvider = null, edgeClient = null, tokenStore = null) {
         super();
         this.providerName = 'google';
         this.webOAuthProvider = webOAuthProvider;
         this.deviceFlowProvider = deviceFlowProvider;
         this.activeProvider = null; // Currently active OAuth provider
+        this.edgeClient = edgeClient; // For JWT bootstrapping
+        this.tokenStore = tokenStore; // For token storage
     }
 
     /**
@@ -66,8 +68,15 @@ export class GoogleAccountAuth extends BaseAccountAuth {
     /**
      * Sign in with Google
      * Uses web OAuth by default, device flow for TV platforms
+     *
+     * FLOW:
+     * 1. OAuth provider signs in → gets Google access token
+     * 2. Bootstrap JWT from Google token (via edge function)
+     * 3. Initialize EdgeClient with JWT
+     * 4. Store OAuth tokens to Supabase (dual-write now works!)
+     *
      * @param {object} options - { useDeviceFlow: boolean }
-     * @returns {Promise<object>} User object
+     * @returns {Promise<object>} User object with jwtToken
      */
     async signIn(options = {}) {
         try {
@@ -77,6 +86,7 @@ export class GoogleAccountAuth extends BaseAccountAuth {
                 provider: provider === this.deviceFlowProvider ? 'device_flow' : 'web_oauth'
             });
 
+            // Step 1: Get OAuth tokens from provider
             const result = await provider.signIn();
 
             // Handle redirect case (web OAuth)
@@ -90,11 +100,64 @@ export class GoogleAccountAuth extends BaseAccountAuth {
                 this.user = this.normalizeUser(result.user);
                 this.activeProvider = provider;
 
-                logger.success('Google sign-in successful', {
+                logger.success('Google OAuth successful', {
                     email: this.user.email,
-                    authMethod: this.user.authMethod
+                    hasTokens: !!result.tokens
                 });
 
+                // Step 2: Bootstrap JWT if edgeClient available
+                if (this.edgeClient && result.tokens?.access_token) {
+                    try {
+                        logger.info('Bootstrapping JWT token...');
+
+                        const jwtResult = await this.bootstrapJWT(
+                            this.edgeClient,
+                            result.tokens.access_token
+                        );
+
+                        // Step 3: EdgeClient now has JWT (set by bootstrapJWT)
+                        logger.success('JWT bootstrapped successfully', {
+                            userId: jwtResult.user?.id,
+                            tier: jwtResult.access?.tier
+                        });
+
+                        // Step 4: Store tokens to Supabase (dual-write now works!)
+                        if (this.tokenStore) {
+                            logger.info('Storing OAuth tokens to Supabase...');
+
+                            await this.tokenStore.storeAccountTokens('google', 'primary', {
+                                access_token: result.tokens.access_token,
+                                refresh_token: result.tokens.refresh_token,
+                                expires_at: new Date(Date.now() + (result.tokens.expires_in || 3600) * 1000).toISOString(),
+                                scopes: result.tokens.scope?.split(' ') || [],
+                                email: this.user.email,
+                                display_name: this.user.name
+                            });
+
+                            logger.success('OAuth tokens stored successfully');
+                        }
+
+                        // Return user with JWT token
+                        return {
+                            ...this.user,
+                            jwtToken: jwtResult.jwtToken,
+                            access: jwtResult.access
+                        };
+
+                    } catch (jwtError) {
+                        logger.error('JWT bootstrap or token storage failed', jwtError);
+                        // Still return user, but without JWT
+                        // This allows app to continue with limited functionality
+                        return {
+                            ...this.user,
+                            jwtBootstrapFailed: true,
+                            jwtError: jwtError.message
+                        };
+                    }
+                }
+
+                // No edgeClient available - return user without JWT
+                logger.warn('No edgeClient available, skipping JWT bootstrap');
                 return this.user;
             }
 

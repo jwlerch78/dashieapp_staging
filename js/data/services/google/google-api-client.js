@@ -3,7 +3,7 @@
 // Based on legacy client but adapted for Phase 3 architecture
 
 import { createLogger } from '../../../utils/logger.js';
-import { API_CONFIG } from '../../../auth/auth-config.js';
+import { API_CONFIG } from '../../auth/auth-config.js';
 
 const logger = createLogger('GoogleAPIClient');
 

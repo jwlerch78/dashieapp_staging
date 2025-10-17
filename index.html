@@ -187,6 +187,7 @@
 
     // Phase 3 - Auth imports
     import { TokenStore } from './js/data/auth/token-store.js';
+    import { EdgeClient } from './js/data/auth/edge-client.js';
     import { GoogleAccountAuth } from './js/data/auth/account-auth/google-account-auth.js';
     import { WebOAuthProvider } from './js/data/auth/providers/web-oauth.js';
     import { DeviceFlowProvider } from './js/data/auth/providers/device-flow.js';
@@ -198,6 +199,7 @@
 
     // Global auth references
     let tokenStore = null;
+    let edgeClient = null;
     let googleAccountAuth = null;
     let isAuthenticated = false;
 
@@ -231,10 +233,10 @@
         logger.info('🔐 Initializing authentication...');
         updateLoginStatus('Setting up authentication system...');
 
-        // 1. Initialize TokenStore
+        // 1. Initialize TokenStore (without EdgeClient initially - we don't have JWT yet)
         tokenStore = new TokenStore();
-        await tokenStore.initialize();
-        logger.success('TokenStore initialized');
+        await tokenStore.initialize(); // No edgeClient yet
+        logger.success('TokenStore initialized (localStorage only - JWT not available yet)');
 
         // 2. Detect platform and initialize appropriate OAuth providers
         const platform = getPlatformDetector();
@@ -256,45 +258,78 @@
           logger.success('WebOAuthProvider initialized');
         }
 
-        // 3. Initialize GoogleAccountAuth with appropriate providers
-        googleAccountAuth = new GoogleAccountAuth(webOAuthProvider, deviceFlowProvider);
-        await googleAccountAuth.initialize();
-        logger.success('GoogleAccountAuth initialized');
+        // 3. Initialize EdgeClient (without JWT initially - will be set during bootstrap)
+        edgeClient = new EdgeClient();
+        logger.success('EdgeClient initialized (no JWT yet)');
 
-        // 4. Check if OAuth callback returned a user
+        // 4. Initialize GoogleAccountAuth with providers, edgeClient, and tokenStore
+        googleAccountAuth = new GoogleAccountAuth(webOAuthProvider, deviceFlowProvider, edgeClient, tokenStore);
+        await googleAccountAuth.initialize();
+        logger.success('GoogleAccountAuth initialized with JWT bootstrap capability');
+
+        // 5. Check if OAuth callback returned a user
         if (oauthResult && oauthResult.success && oauthResult.user) {
           logger.success('OAuth callback detected! User authenticated', {
             email: oauthResult.user.email
           });
 
-          // Store tokens
-          const tokenData = {
-            access_token: oauthResult.tokens.access_token,
-            refresh_token: oauthResult.tokens.refresh_token,
-            expires_at: new Date(Date.now() + (oauthResult.tokens.expires_in * 1000)).toISOString(),
-            scopes: oauthResult.tokens.scope?.split(' ') || [],
-            email: oauthResult.user.email,
-            display_name: oauthResult.user.name,
-            provider_info: {
-              type: 'web_oauth',
-              auth_method: oauthResult.user.authMethod,
-              client_id: webOAuthProvider.config.client_id
+          // GoogleAccountAuth.initialize() already processed the OAuth callback
+          // But we need to trigger the full sign-in flow to bootstrap JWT
+          updateLoginStatus('Completing authentication...');
+
+          try {
+            // This will bootstrap JWT and store tokens
+            // GoogleAccountAuth already has the OAuth result from init()
+            const user = googleAccountAuth.getUser();
+
+            if (user) {
+              // User was set during init, now we need JWT bootstrap
+              // Manually trigger bootstrap since we already have tokens
+              logger.info('Bootstrapping JWT from OAuth callback...');
+
+              const jwtResult = await googleAccountAuth.bootstrapJWT(
+                edgeClient,
+                oauthResult.tokens.access_token
+              );
+
+              logger.success('JWT bootstrap complete', {
+                userId: jwtResult.user?.id,
+                tier: jwtResult.access?.tier
+              });
+
+              // Store tokens with dual-write
+              await tokenStore.storeAccountTokens('google', 'primary', {
+                access_token: oauthResult.tokens.access_token,
+                refresh_token: oauthResult.tokens.refresh_token,
+                expires_at: new Date(Date.now() + (oauthResult.tokens.expires_in * 1000)).toISOString(),
+                scopes: oauthResult.tokens.scope?.split(' ') || [],
+                email: oauthResult.user.email,
+                display_name: oauthResult.user.name,
+                provider_info: {
+                  type: 'web_oauth',
+                  auth_method: oauthResult.user.authMethod,
+                  client_id: webOAuthProvider.config.client_id
+                }
+              });
+
+              logger.success('OAuth tokens stored to Supabase (dual-write)');
+
+              updateLoginStatus(`Welcome, ${user.name}!`);
+              isAuthenticated = true;
+
+              // Hide login screen and proceed to dashboard
+              setTimeout(() => {
+                hideLoginScreen();
+                initializeCore();
+              }, 1000);
+
+              return true;
             }
-          };
-
-          await tokenStore.storeAccountTokens('google', 'primary', tokenData);
-          logger.success('Tokens stored successfully');
-
-          updateLoginStatus(`Welcome back, ${oauthResult.user.name}!`);
-          isAuthenticated = true;
-
-          // Hide login screen and proceed to dashboard
-          setTimeout(() => {
-            hideLoginScreen();
-            initializeCore();
-          }, 1000);
-
-          return true;
+          } catch (error) {
+            logger.error('JWT bootstrap failed during OAuth callback', error);
+            showLoginError(`Authentication error: ${error.message}`);
+            return false;
+          }
         }
 
         // 5. Check if user was previously authenticated

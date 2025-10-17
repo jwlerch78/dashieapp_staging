@@ -3,7 +3,7 @@
 // Handles Google OAuth flow with authorization code grant
 
 import { createLogger } from '../../../utils/logger.js';
-import { SUPABASE_CONFIG } from '../../../auth/auth-config.js';
+import { SUPABASE_CONFIG } from '../auth-config.js';
 
 const logger = createLogger('WebOAuth');
 

@@ -1,7 +1,7 @@
 # Dashie Application Architecture v2.0
 
-**Last Updated:** 2025-10-15
-**Status:** Design Phase - Ground-Up Rebuild
+**Last Updated:** 2025-10-17
+**Status:** Phase 3 Implementation - Data Layer Active Development
 
 ---
 
@@ -225,42 +225,58 @@ dashieapp_staging/
 │   │
 │   ├── data/                           # Data layer
 │   │   ├── auth/
-│   │   │   ├── session-manager.js      # Orchestrates auth (from simple-auth.js)
-│   │   │   ├── token-store.js
-│   │   │   ├── auth-coordinator.js
-│   │   │   ├── account-manager.js
+│   │   │   ├── auth-config.js          # ✅ Environment config (dev/prod, Supabase)
+│   │   │   ├── token-store.js          # ✅ Dual-write token storage
+│   │   │   ├── edge-client.js          # ✅ Edge function HTTP client
 │   │   │   │
-│   │   │   ├── jwt/                    # JWT Service (REFACTORED)
-│   │   │   │   ├── jwt.js              # Public API & coordinator
-│   │   │   │   ├── jwt-manager.js      # JWT lifecycle (~250 lines)
-│   │   │   │   ├── jwt-storage.js      # localStorage (~100 lines)
-│   │   │   │   ├── token-cache.js      # OAuth caching (~150 lines)
-│   │   │   │   ├── edge-client.js      # HTTP communication (~200 lines)
-│   │   │   │   └── settings-integration.js (~100 lines)
+│   │   │   ├── orchestration/          # ⏳ TO BUILD - Auth orchestration layer
+│   │   │   │   ├── session-manager.js  # Orchestrates auth (from simple-auth.js)
+│   │   │   │   ├── auth-coordinator.js # Routes to correct auth provider
+│   │   │   │   └── account-manager.js  # Multi-account management
 │   │   │   │
-│   │   │   └── providers/
-│   │   │       ├── device-flow.js      # OAuth2 Device Flow (TV)
-│   │   │       ├── web-oauth.js        # Standard OAuth2
-│   │   │       └── native-android.js
+│   │   │   ├── providers/              # ✅ Layer 1: Account Authentication
+│   │   │   │   ├── base-account-auth.js    # ✅ Base class for account auth
+│   │   │   │   ├── google-account-auth.js  # ✅ Google account login
+│   │   │   │   ├── amazon-account-auth.js  # ⏳ FUTURE - Amazon OAuth
+│   │   │   │   ├── email-password-auth.js  # ⏳ FUTURE - Email/Password
+│   │   │   │   ├── web-oauth.js            # ✅ Browser OAuth flow
+│   │   │   │   └── device-flow.js          # ✅ Fire TV OAuth flow
+│   │   │   │
+│   │   │   └── calendar-providers/     # ✅ Layer 2: Calendar API Access
+│   │   │       ├── base-calendar-auth.js       # ✅ Base class
+│   │   │       ├── google-calendar-auth.js     # ✅ Google Calendar API
+│   │   │       ├── microsoft-calendar-auth.js  # ⏳ FUTURE - Microsoft
+│   │   │       └── apple-calendar-auth.js      # ⏳ FUTURE - iCloud
 │   │   │
 │   │   ├── services/
-│   │   │   ├── calendar-service.js
-│   │   │   ├── photo-service.js
-│   │   │   ├── weather-service.js
-│   │   │   ├── telemetry-service.js
-│   │   │   ├── greeting-service.js
-│   │   │   ├── account-deletion-service.js
+│   │   │   ├── calendar-service.js     # ⏳ TO BUILD
+│   │   │   ├── photo-service.js        # ⏳ TO BUILD
+│   │   │   ├── weather-service.js      # ⏳ TO BUILD
+│   │   │   ├── telemetry-service.js    # ⏳ TO BUILD
+│   │   │   ├── greeting-service.js     # ⏳ TO BUILD
+│   │   │   ├── account-deletion-service.js  # ⏳ TO BUILD
 │   │   │   └── google/
-│   │   │       └── google-client.js
+│   │   │       └── google-api-client.js     # ✅ Google API HTTP client
 │   │   │
-│   │   ├── database/
-│   │   │   ├── supabase-client.js
-│   │   │   ├── supabase-storage.js
-│   │   │   └── supabase-config.js
+│   │   ├── storage/                    # ⏳ TO BUILD - Data persistence
+│   │   │   ├── settings-manager.js     # User settings with dual-write
+│   │   │   ├── calendar-cache.js       # Calendar event caching
+│   │   │   └── photo-storage.js        # Photo storage management
 │   │   │
-│   │   ├── data-manager.js             # Orchestrates data flow
-│   │   ├── data-cache.js               # In-memory caching
-│   │   └── data-handler.js             # Persistence interface
+│   │   ├── sync/                       # ⏳ TO BUILD - Synchronization layer
+│   │   │   ├── calendar-sync.js        # Calendar sync engine
+│   │   │   ├── photo-sync.js           # Photo sync
+│   │   │   └── conflict-resolver.js    # Data conflict resolution
+│   │   │
+│   │   ├── models/                     # ⏳ TO BUILD - Data models
+│   │   │   ├── calendar-event.js       # Calendar event model
+│   │   │   ├── calendar.js             # Calendar model
+│   │   │   ├── user-profile.js         # User profile model
+│   │   │   └── photo.js                # Photo model
+│   │   │
+│   │   ├── data-manager.js             # ⏳ TO BUILD - Orchestrates data flow
+│   │   ├── data-cache.js               # ⏳ TO BUILD - In-memory caching
+│   │   └── data-handler.js             # ⏳ TO BUILD - Persistence interface
 │   │
 │   ├── ui/                             # Global UI components
 │   │   ├── theme-applier.js
@@ -1149,64 +1165,69 @@ The auth system handles:
 - Decoupled architecture supports any provider combination
 - Future-proof for additional providers
 
-### Auth Architecture
+### Auth Architecture (Phase 3 - Current Implementation)
 
 ```
 js/data/auth/
-├── session-manager.js          # Orchestrates entire auth system
-│                               # (refactored from simple-auth.js)
+├── auth-config.js              # ✅ Environment config (dev/prod detection)
+│                               # - Supabase URL & anon keys
+│                               # - Environment detection based on hostname
+│                               # - FORCE_DEV_DATABASE override flag
 │
-├── auth-coordinator.js         # Routes to correct auth provider
-├── account-manager.js          # Multi-account calendar switching
-├── token-store.js              # Secure credential storage (SEPARATE from settings)
+├── token-store.js              # ✅ Dual-write token storage (~350 lines)
+│                               # - save() writes to localStorage + Supabase
+│                               # - loadTokens() reads Supabase-first, fallback localStorage
+│                               # - Separate storage key: 'dashie-auth-tokens'
+│                               # - Integration with EdgeClient for Supabase sync
 │
-├── jwt/                        # JWT Service (REFACTORED)
-│   ├── jwt.js                  # Public API & coordinator (~150 lines)
-│   ├── jwt-manager.js          # JWT lifecycle (~250 lines)
-│   │                           # - Auto-refresh at 24hr threshold
-│   │                           # - Token expiry management
-│   │                           # - Auto-logout on failure
-│   │
-│   ├── jwt-storage.js          # localStorage persistence (~100 lines)
-│   ├── token-cache.js          # OAuth token caching (~150 lines)
-│   │                           # - Request deduplication
-│   │                           # - 10-minute buffer
-│   │                           # - Fixed: cache updates after refresh
-│   │                           # - Fixed: force refresh invalidates cache
-│   │
-│   ├── edge-client.js          # HTTP to Supabase (~200 lines)
-│   │                           # - All edge function operations
-│   │                           # - Error handling & retries
-│   │
-│   └── settings-integration.js # Settings persistence (~100 lines)
-│                               # - Save/load via JWT
-│                               # - Does NOT store auth tokens in settings
+├── edge-client.js              # ✅ Edge function HTTP client (~228 lines)
+│                               # - All edge function operations (storeTokens, loadTokens)
+│                               # - JWT-authenticated requests
+│                               # - Error handling & retries
+│                               # - Settings operations (future)
 │
-├── account-auth/               # Layer 1: Account Authentication (User Login)
-│   ├── base-account-auth.js    # Base class for account auth providers
-│   ├── google-account-auth.js  # Google OAuth for account login
-│   ├── amazon-account-auth.js  # Amazon OAuth (Fire TV native)
-│   ├── email-account-auth.js   # Email/Password (Supabase Auth)
-│   └── device-flow-auth.js     # Device Flow (TV fallback)
+├── orchestration/              # ⏳ TO BUILD - Auth orchestration layer
+│   ├── session-manager.js      # Orchestrates entire auth system
+│   │                           # (refactored from simple-auth.js)
+│   ├── auth-coordinator.js     # Routes to correct auth provider
+│   └── account-manager.js      # Multi-account calendar switching
 │
-├── calendar-auth/              # Layer 2: Calendar API Authentication
-│   ├── base-calendar-auth.js   # Base class for calendar providers
-│   ├── google-calendar-auth.js # Google Calendar API
-│   ├── icloud-calendar-auth.js # Apple iCloud (CalDAV)
-│   └── outlook-calendar-auth.js # Microsoft Outlook (Graph API)
+├── providers/                  # ✅ Layer 1: Account Authentication
+│   ├── base-account-auth.js    # ✅ Base class for account auth providers
+│   ├── google-account-auth.js  # ✅ Google OAuth for account login
+│   ├── amazon-account-auth.js  # ⏳ FUTURE - Amazon OAuth (Fire TV native)
+│   ├── email-password-auth.js  # ⏳ FUTURE - Email/Password (Supabase Auth)
+│   ├── web-oauth.js            # ✅ Browser OAuth flow (~403 lines)
+│   │                           # - Authorization code grant for refresh tokens
+│   │                           # - Callback handling & state management
+│   │                           # - Authorization: Bearer header format
+│   └── device-flow.js          # ✅ Fire TV OAuth flow (~692 lines)
+│                               # - QR code generation
+│                               # - Device code polling
+│                               # - Authorization: Bearer header format
 │
-└── providers/                  # Legacy providers (refactored to two-layer)
-    ├── device-flow.js          # OAuth2 Device Flow for TV (839 lines)
-    │                           # - QR code generation
-    │                           # - Device code polling
-    │                           # - Multi-client support
-    │
-    ├── web-oauth.js            # Standard OAuth2 (625 lines)
-    │                           # - Browser redirect flow
-    │                           # - State management
-    │
-    └── native-android.js       # Android-specific auth (200 lines)
+└── calendar-providers/         # ✅ Layer 2: Calendar API Authentication
+    ├── base-calendar-auth.js   # ✅ Base class for calendar providers
+    ├── google-calendar-auth.js # ✅ Google Calendar API auth
+    ├── microsoft-calendar-auth.js  # ⏳ FUTURE - Microsoft Calendar
+    └── apple-calendar-auth.js      # ⏳ FUTURE - Apple iCloud (CalDAV)
 ```
+
+**Phase 3 Status: ~35% Complete**
+
+**✅ Implemented:**
+- Two-layer auth architecture (account vs calendar)
+- Dual-write pattern for tokens (localStorage + Supabase)
+- EdgeClient abstraction
+- Google OAuth (web + device flow)
+- Environment-based configuration
+- Supabase edge function integration
+
+**⏳ Next to Build:**
+- Initialization system (js/core/initialization/)
+- Auth orchestration layer (session-manager, auth-coordinator, account-manager)
+- Settings Manager with dual-write pattern
+- Additional auth providers (Amazon, Microsoft, Apple)
 
 ### JWT Service Design
 
@@ -2279,5 +2300,5 @@ describe('AppComms', () => {
 
 **End of Architecture Document**
 
-*Last Updated: 2025-10-15*
-*Version: 2.0 (Consolidated)*
+*Last Updated: 2025-10-17*
+*Version: 2.0 (Consolidated - Phase 3 Data Layer Active)*

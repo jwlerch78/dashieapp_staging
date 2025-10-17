@@ -63,29 +63,83 @@ export class TokenStore {
 
     /**
      * Load tokens from storage
-     * Priority: localStorage (fast) → Supabase (authoritative)
+     * DUAL-READ PATTERN: Reads from Supabase (authoritative) with localStorage fallback
+     * - Supabase: Authoritative source of truth (persists across devices)
+     * - localStorage: Fast cache fallback if Supabase unavailable
      */
     async loadTokens() {
         try {
-            // Try localStorage first (fast)
-            const stored = localStorage.getItem(this.STORAGE_KEY);
-            if (stored) {
-                this.tokens = JSON.parse(stored);
-                logger.debug('Loaded tokens from localStorage', {
-                    providers: Object.keys(this.tokens)
-                });
-            } else {
-                this.tokens = {};
+            let loadedFromSupabase = false;
+
+            // STRATEGY 1: Try loading from Supabase (authoritative)
+            if (this.edgeClient) {
+                try {
+                    const supabaseTokens = await this.loadFromSupabase();
+                    if (supabaseTokens && Object.keys(supabaseTokens).length > 0) {
+                        this.tokens = supabaseTokens;
+                        loadedFromSupabase = true;
+                        logger.info('Loaded tokens from Supabase', {
+                            providers: Object.keys(this.tokens),
+                            accountCount: this.countAccounts()
+                        });
+
+                        // Sync to localStorage for offline access
+                        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.tokens));
+                    }
+                } catch (supabaseError) {
+                    logger.warn('Failed to load from Supabase, falling back to localStorage', supabaseError);
+                }
             }
 
-            // TODO: Validate against Supabase user_auth_tokens table
-            // For now, localStorage is source of truth
-            // After edge function updates, sync with database
+            // STRATEGY 2: Fallback to localStorage if Supabase unavailable or empty
+            if (!loadedFromSupabase) {
+                const stored = localStorage.getItem(this.STORAGE_KEY);
+                if (stored) {
+                    this.tokens = JSON.parse(stored);
+                    logger.info('Loaded tokens from localStorage (Supabase unavailable)', {
+                        providers: Object.keys(this.tokens),
+                        accountCount: this.countAccounts()
+                    });
+                } else {
+                    this.tokens = {};
+                    logger.debug('No tokens found in any storage location');
+                }
+            }
 
         } catch (error) {
-            logger.error('Error loading tokens', error);
+            logger.error('Error loading tokens from all sources', error);
             this.tokens = {};
         }
+    }
+
+    /**
+     * Load tokens from Supabase user_auth_tokens table
+     * Called by loadTokens() as part of dual-read pattern
+     * @private
+     * @returns {object} Token structure from database
+     */
+    async loadFromSupabase() {
+        if (!this.edgeClient) {
+            throw new Error('Edge client not initialized');
+        }
+
+        // Call edge function to get tokens from user_auth_tokens table
+        const response = await this.edgeClient.loadTokens();
+
+        // Response should contain the full tokens object structure
+        return response.tokens || {};
+    }
+
+    /**
+     * Count total number of accounts across all providers
+     * @private
+     * @returns {number} Total account count
+     */
+    countAccounts() {
+        return Object.values(this.tokens).reduce(
+            (sum, provider) => sum + Object.keys(provider).length,
+            0
+        );
     }
 
     /**
@@ -214,27 +268,63 @@ export class TokenStore {
 
     /**
      * Save tokens to storage
-     * Writes to both localStorage and Supabase (dual-write for safety)
+     * DUAL-WRITE PATTERN: Writes to both localStorage and Supabase
+     * - localStorage: Fast local cache
+     * - Supabase: Persistent, authoritative source of truth
      */
     async save() {
         try {
-            // Save to localStorage (fast)
+            // WRITE 1: Save to localStorage (fast, always succeeds)
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.tokens));
-
-            // TODO: Save to Supabase user_auth_tokens table
-            // After edge function updates, implement database sync
-            // if (this.edgeClient) {
-            //     await this.edgeClient.storeTokens(this.tokens);
-            // }
-
-            logger.debug('Saved tokens to storage', {
+            logger.debug('Saved tokens to localStorage', {
                 providers: Object.keys(this.tokens)
             });
 
+            // WRITE 2: Save to Supabase (authoritative, may fail)
+            if (this.edgeClient) {
+                try {
+                    // Store entire token structure to database
+                    // Edge function will update user_auth_tokens table
+                    await this.syncToSupabase();
+                    logger.debug('Synced tokens to Supabase');
+                } catch (supabaseError) {
+                    // Don't fail the save if Supabase is down
+                    // Tokens are in localStorage, will sync on next successful connection
+                    logger.warn('Failed to sync tokens to Supabase (will retry later)', supabaseError);
+                }
+            } else {
+                logger.debug('No edgeClient available, skipping Supabase sync');
+            }
+
         } catch (error) {
-            logger.error('Error saving tokens', error);
+            logger.error('Error saving tokens to localStorage', error);
             throw error;
         }
+    }
+
+    /**
+     * Sync current token state to Supabase
+     * Called by save() as part of dual-write pattern
+     * @private
+     */
+    async syncToSupabase() {
+        if (!this.edgeClient) {
+            throw new Error('Edge client not initialized');
+        }
+
+        // For each provider/account, call edge function to store
+        const promises = [];
+
+        for (const [provider, providerAccounts] of Object.entries(this.tokens)) {
+            for (const [accountType, tokenData] of Object.entries(providerAccounts)) {
+                // Call edge function store_tokens operation
+                const promise = this.edgeClient.storeTokens(provider, accountType, tokenData);
+                promises.push(promise);
+            }
+        }
+
+        // Wait for all stores to complete
+        await Promise.all(promises);
     }
 
     /**

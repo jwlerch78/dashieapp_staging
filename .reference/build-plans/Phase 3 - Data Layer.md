@@ -1,21 +1,178 @@
-# Phase 3: Data Layer - Quick Start Guide
+# Phase 3: Data Layer - Implementation Guide
 
-**Estimated Time:** 1-2 days
-**Status:** Ready after Phase 2 complete
-**Prerequisites:** Phase 2 (Dashboard Module) complete
+**Estimated Time:** 1-2 weeks
+**Status:** IN PROGRESS - ~35% Complete
+**Last Updated:** 2025-10-17
 
 ---
 
-## What You're Building
+## 🚀 Quick Start for New Chat Session
+
+**If starting a fresh chat, tell Claude:**
+
+> "We're working on Phase 3 of the Dashie app rebuild - the Data Layer. Please read `.reference/build-plans/Phase 3 - Data Layer.md` to understand what we've completed and what's next. We just finished Phase 3A (authentication foundation) and need to move to Phase 3B (testing dual-write pattern and building the initialization system). Start by reviewing the 'What's Next' section."
+
+**Key Context Files:**
+- `.reference/architecture.md` - Overall architecture (updated 2025-10-17)
+- `.reference/build-plans/Phase 3 - Data Layer.md` - This file
+- `.reference/Dual_Write_Pattern_Implementation.md` - Dual-write pattern docs
+- `js/data/auth/` - Current Phase 3 implementation
+
+**Current Working Branch:** main (all Phase 3A work committed)
+
+---
+
+## Current Status - What's Done
+
+### ✅ Completed (Phase 3A - Foundation)
+
+**Authentication Infrastructure:**
+- ✅ Two-layer auth architecture (BaseAccountAuth + BaseCalendarAuth)
+- ✅ Google account authentication (web OAuth + device flow)
+- ✅ Google Calendar API authentication
+- ✅ Environment configuration (dev/prod detection)
+- ✅ Supabase edge function integration
+- ✅ Authorization: Bearer header format (fixed from apikey format)
+
+**Data Persistence:**
+- ✅ EdgeClient for edge function HTTP calls
+- ✅ TokenStore with dual-write pattern (localStorage + Supabase) - CODE WRITTEN, NOT TESTED
+- ✅ Separate token storage from settings (auth-config.js moved to js/data/auth/)
+- ✅ Google API client with retry logic
+
+**Files Created:**
+- `js/data/auth/auth-config.js` (environment config)
+- `js/data/auth/token-store.js` (dual-write token storage)
+- `js/data/auth/edge-client.js` (edge function client)
+- `js/data/auth/providers/base-account-auth.js`
+- `js/data/auth/providers/google-account-auth.js`
+- `js/data/auth/providers/web-oauth.js` (updated)
+- `js/data/auth/providers/device-flow.js` (updated)
+- `js/data/auth/calendar-providers/base-calendar-auth.js`
+- `js/data/auth/calendar-providers/google-calendar-auth.js`
+- `js/data/services/google/google-api-client.js`
+
+**Documentation Created:**
+- `.reference/Dual_Write_Pattern_Implementation.md`
+- `.reference/Next_Steps_EdgeClient_Integration.md`
+- `.reference/Phase3_Edge_Function_Auth_Fix.md`
+
+---
+
+## What's Next - Remaining Work
+
+### ⏳ Phase 3B - Integration & Testing (CURRENT PHASE)
+
+---
+
+#### 🎯 IMMEDIATE NEXT TASK: Test Dual-Write Pattern
+
+**Goal:** Verify TokenStore actually saves to Supabase, not just localStorage
+
+**Current Issue:**
+- TokenStore has dual-write code implemented
+- Web OAuth and Device Flow login work
+- Tokens save to localStorage successfully
+- **Unknown:** Does syncToSupabase() actually write to Supabase database?
+- **Unknown:** Does loadTokens() successfully read from Supabase?
+
+**Testing Plan:**
+
+1. **Manual Test - Login Flow:**
+   ```
+   Step 1: Clear localStorage ('dashie-auth-tokens')
+   Step 2: Login via web OAuth
+   Step 3: Check localStorage - should have tokens
+   Step 4: Check Supabase user_auth_tokens table - should have tokens
+   Step 5: Clear localStorage only
+   Step 6: Refresh page
+   Step 7: Verify tokens loaded from Supabase
+   ```
+
+2. **What to Check in Supabase:**
+   - Table: `user_auth_tokens`
+   - Expected columns: provider, account_type, access_token, refresh_token, expires_at, scopes, user_id
+   - Edge function: `jwt-auth` operation `store_tokens`
+
+3. **Debug Logging:**
+   - Add console.logs to TokenStore.syncToSupabase()
+   - Add console.logs to EdgeClient.storeTokens()
+   - Verify edge function receives the request
+   - Check for errors in edge function logs
+
+4. **Fix Any Issues:**
+   - EdgeClient.storeTokens() may need JWT token (chicken-and-egg problem)
+   - May need to initialize EdgeClient with JWT before calling syncToSupabase()
+   - Edge function may need debugging
+
+**Success Criteria:**
+- [ ] Login saves tokens to BOTH localStorage AND Supabase
+- [ ] Can delete localStorage and tokens reload from Supabase
+- [ ] No errors in console or edge function logs
+- [ ] Dual-read strategy works (Supabase-first)
+
+---
+
+#### Priority 2: Build Initialization System
+
+**Why This is Next:**
+The dual-write pattern needs proper initialization to work:
+- EdgeClient needs JWT token to call edge functions
+- JWT token comes from OAuth login
+- Need proper initialization sequence
+
+**Files to Create:**
+- [ ] `js/core/initialization/init-orchestrator.js`
+- [ ] `js/core/initialization/initializers/auth-initializer.js`
+- [ ] `js/core/initialization/initializers/settings-initializer.js`
+- [ ] `js/core/initialization/initializers/storage-initializer.js`
+
+**Initialization Sequence:**
+```
+1. App starts
+2. auth-initializer checks for OAuth callback
+3. If callback: exchange code for tokens → get JWT → initialize EdgeClient → save tokens
+4. If no callback: load tokens from storage → validate JWT → initialize EdgeClient
+5. settings-initializer loads settings (dual-read from Supabase)
+6. App continues to dashboard
+```
+
+**See:** `.reference/Next_Steps_EdgeClient_Integration.md` for detailed plan
+
+---
+
+#### Priority 3: Auth Orchestration Layer
+
+**After initialization works, build:**
+- [ ] `js/data/auth/orchestration/session-manager.js` - Manages user sessions
+- [ ] `js/data/auth/orchestration/auth-coordinator.js` - Routes auth providers
+- [ ] `js/data/auth/orchestration/account-manager.js` - Multi-account management
+
+**Purpose:** Clean abstraction layer between UI and auth providers
+
+---
+
+#### Priority 4: Settings with Dual-Write
+
+**Apply same pattern to settings:**
+- [ ] Create `js/data/storage/settings-manager.js` (dual-write like TokenStore)
+- [ ] Ensure settings NEVER contain auth tokens
+- [ ] Test dual-read/dual-write for settings
+
+---
+
+## What You're Building (Complete Vision)
 
 The **data infrastructure** that powers the app:
 - **Authentication system** (Google OAuth, Supabase)
+- **Dual-write data persistence** (localStorage + Supabase for both tokens and settings)
 - **JWT service** (token management, settings sync)
 - **Data services** (Calendar, Photos, Telemetry)
+- **Initialization system** (modular app startup)
 - **High-priority technical debt fixes**:
-  - Multi-provider auth architecture (2-layer design)
-  - Separate auth tokens from settings (security fix)
-  - Account-prefixed calendar IDs (shared calendar support)
+  - Multi-provider auth architecture (2-layer design) ✅ DONE
+  - Separate auth tokens from settings (security fix) ✅ DONE
+  - Account-prefixed calendar IDs (shared calendar support) ⏳ TODO
 
 ---
 
