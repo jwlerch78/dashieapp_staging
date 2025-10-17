@@ -732,10 +732,11 @@ handleMenuAction(data) {
 - [ ] Photos: left/right change photos
 - [ ] All widgets: Escape exits to grid
 
-**Data Updates:**
-- [ ] Calendar receives event data
-- [ ] Photos receives photo URLs
+**Data Updates (Live Data from Phase 3):**
+- [ ] Calendar receives live event data from Google Calendar API
+- [ ] Photos receives live photo URLs from Google Photos API
 - [ ] Theme changes apply to all widgets
+- [ ] Data updates happen in real-time (no stale data)
 
 **Fire TV Hardware:**
 - [ ] All visual effects render correctly
@@ -747,7 +748,7 @@ handleMenuAction(data) {
 
 ## Success Criteria
 
-### Phase 2.5 Complete When:
+### Phase 3.5 Complete When:
 
 **Widget Integration:**
 - [ ] All 8 widgets copied to `/widgets/` folder
@@ -769,7 +770,8 @@ handleMenuAction(data) {
 - [ ] Focus menu navigation works
 - [ ] Widget ACTIVE state works
 - [ ] Return-to-menu works
-- [ ] Data updates reach widgets
+- [ ] **Live data updates reach widgets (calendar events, photos)**
+- [ ] **Widgets display live data correctly**
 
 **Fire TV Compatibility:**
 - [ ] All effects render on Fire TV
@@ -811,10 +813,10 @@ handleMenuAction(data) {
 
 ## Next Steps
 
-When Phase 2.5 is complete, move to:
-**Phase 3: Data Layer** (Auth, JWT, Services)
+When Phase 3.5 is complete, move to:
+**Phase 4: Remaining Modules** (Settings, Login, Modals, Welcome)
 
-See: `.reference/build-plans/Phase 3 - Data Layer.md`
+See: `.reference/build-plans/Phase 4 - Remaining Modules.md`
 
 ---
 
