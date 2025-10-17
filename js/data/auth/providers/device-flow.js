@@ -3,9 +3,11 @@
 // Simplified from legacy, adapted for TokenStore integration
 
 import { createLogger } from '../../../utils/logger.js';
-import { AUTH_CONFIG } from '../../../auth/auth-config.js';
 
 const logger = createLogger('DeviceFlow');
+
+// Client secret for device flow (hardcoded for now)
+const CLIENT_SECRET_DEVICE_FLOW = 'REDACTED';
 
 /**
  * Device Flow OAuth provider for TV and limited input devices
@@ -17,7 +19,7 @@ export class DeviceFlowProvider {
   constructor() {
     this.config = {
       client_id: '221142210647-m9vf7t0qgm6nlc6gggfsqefmjrak1mo9.apps.googleusercontent.com',
-      client_secret: AUTH_CONFIG.client_secret_device_flow,
+      client_secret: CLIENT_SECRET_DEVICE_FLOW,
       device_code_endpoint: 'https://oauth2.googleapis.com/device/code',
       token_endpoint: 'https://oauth2.googleapis.com/token',
       scope: 'openid email profile https://www.googleapis.com/auth/calendar.readonly'
