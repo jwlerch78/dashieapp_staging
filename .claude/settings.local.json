@@ -9,7 +9,8 @@
       "Bash(code --list-extensions)",
       "Bash(supabase functions deploy:*)",
       "Bash(supabase --version:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(git add:*)"
     ],
     "deny": [],
     "ask": []
