@@ -189,6 +189,7 @@
     import { TokenStore } from './js/data/auth/token-store.js';
     import { GoogleAccountAuth } from './js/data/auth/account-auth/google-account-auth.js';
     import { WebOAuthProvider } from './js/data/auth/providers/web-oauth.js';
+    import { DeviceFlowProvider } from './js/data/auth/providers/device-flow.js';
 
     const logger = createLogger('Main');
 
@@ -235,13 +236,28 @@
         await tokenStore.initialize();
         logger.success('TokenStore initialized');
 
-        // 2. Initialize WebOAuthProvider
-        const webOAuthProvider = new WebOAuthProvider();
-        const oauthResult = await webOAuthProvider.init();
-        logger.success('WebOAuthProvider initialized');
+        // 2. Detect platform and initialize appropriate OAuth providers
+        const platform = getPlatformDetector();
+        const isFireTV = platform.getPlatformDescription().includes('Fire TV');
 
-        // 3. Initialize GoogleAccountAuth
-        googleAccountAuth = new GoogleAccountAuth(webOAuthProvider, null);
+        let webOAuthProvider = null;
+        let deviceFlowProvider = null;
+        let oauthResult = null;
+
+        if (isFireTV) {
+          logger.info('Fire TV detected - initializing Device Flow');
+          deviceFlowProvider = new DeviceFlowProvider();
+          await deviceFlowProvider.init();
+          logger.success('DeviceFlowProvider initialized');
+        } else {
+          logger.info('Desktop/Mobile detected - initializing Web OAuth');
+          webOAuthProvider = new WebOAuthProvider();
+          oauthResult = await webOAuthProvider.init();
+          logger.success('WebOAuthProvider initialized');
+        }
+
+        // 3. Initialize GoogleAccountAuth with appropriate providers
+        googleAccountAuth = new GoogleAccountAuth(webOAuthProvider, deviceFlowProvider);
         await googleAccountAuth.initialize();
         logger.success('GoogleAccountAuth initialized');
 
@@ -258,7 +274,12 @@
             expires_at: new Date(Date.now() + (oauthResult.tokens.expires_in * 1000)).toISOString(),
             scopes: oauthResult.tokens.scope?.split(' ') || [],
             email: oauthResult.user.email,
-            display_name: oauthResult.user.name
+            display_name: oauthResult.user.name,
+            provider_info: {
+              type: 'web_oauth',
+              auth_method: oauthResult.user.authMethod,
+              client_id: webOAuthProvider.config.client_id
+            }
           };
 
           await tokenStore.storeAccountTokens('google', 'primary', tokenData);
@@ -299,8 +320,43 @@
         // Attach sign-in handler
         document.getElementById('login-button').onclick = async () => {
           try {
-            updateLoginButton('Redirecting to Google...', false, true);
-            await googleAccountAuth.signIn();
+            if (isFireTV) {
+              updateLoginButton('Starting Device Flow...', false, true);
+              updateLoginStatus('Follow instructions on screen...');
+
+              const result = await googleAccountAuth.signIn({ useDeviceFlow: true });
+
+              if (result && result.email) {
+                // Store tokens
+                const tokenData = {
+                  access_token: result.googleAccessToken || googleAccountAuth.getAccessToken(),
+                  refresh_token: deviceFlowProvider.getRefreshToken(),
+                  expires_at: new Date(Date.now() + 3600000).toISOString(),
+                  scopes: [],
+                  email: result.email,
+                  display_name: result.name,
+                  provider_info: {
+                    type: 'device_flow',
+                    auth_method: result.authMethod,
+                    client_id: deviceFlowProvider.config.client_id
+                  }
+                };
+
+                await tokenStore.storeAccountTokens('google', 'primary', tokenData);
+                logger.success('Device Flow tokens stored');
+
+                updateLoginStatus(`Welcome, ${result.name}!`);
+                isAuthenticated = true;
+
+                setTimeout(() => {
+                  hideLoginScreen();
+                  initializeCore();
+                }, 1000);
+              }
+            } else {
+              updateLoginButton('Redirecting to Google...', false, true);
+              await googleAccountAuth.signIn();
+            }
           } catch (error) {
             logger.error('Sign-in failed', error);
             showLoginError(`Sign-in failed: ${error.message}`);
