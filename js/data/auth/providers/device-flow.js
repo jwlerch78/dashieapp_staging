@@ -6,8 +6,8 @@ import { createLogger } from '../../../utils/logger.js';
 
 const logger = createLogger('DeviceFlow');
 
-// Client secret for device flow (hardcoded for now)
-const CLIENT_SECRET_DEVICE_FLOW = 'REDACTED';
+// Edge function URL for secure token exchange
+const EDGE_FUNCTION_URL = 'https://cwglbtosingboqepsmjk.supabase.co/functions/v1/jwt-auth';
 
 /**
  * Device Flow OAuth provider for TV and limited input devices
@@ -19,9 +19,7 @@ export class DeviceFlowProvider {
   constructor() {
     this.config = {
       client_id: '221142210647-m9vf7t0qgm6nlc6gggfsqefmjrak1mo9.apps.googleusercontent.com',
-      client_secret: CLIENT_SECRET_DEVICE_FLOW,
       device_code_endpoint: 'https://oauth2.googleapis.com/device/code',
-      token_endpoint: 'https://oauth2.googleapis.com/token',
       scope: 'openid email profile https://www.googleapis.com/auth/calendar.readonly'
     };
 
@@ -299,14 +297,8 @@ export class DeviceFlowProvider {
       try {
         logger.debug(`Polling attempt ${attempts}/${maxAttempts}`);
 
-        // Request tokens (try with client_secret first)
-        let tokenResponse = await this.requestTokens(deviceCode, true);
-
-        // If error with client_secret, retry without it
-        if (tokenResponse.error === 'invalid_request' && tokenResponse.error_description?.includes('client_secret')) {
-          logger.debug('Retrying without client_secret');
-          tokenResponse = await this.requestTokens(deviceCode, false);
-        }
+        // Request tokens via edge function
+        const tokenResponse = await this.requestTokens(deviceCode);
 
         if (tokenResponse.success) {
           // Got tokens!
@@ -357,42 +349,56 @@ export class DeviceFlowProvider {
   }
 
   /**
-   * Request tokens from Google using device code
+   * Request tokens from Google using device code via edge function
    * @param {string} deviceCode - Device code
-   * @param {boolean} useClientSecret - Whether to include client_secret
    * @returns {Promise<Object>} Token request result
    */
-  async requestTokens(deviceCode, useClientSecret = true) {
+  async requestTokens(deviceCode) {
+    logger.debug('Requesting tokens via edge function');
+
     try {
-      const bodyParams = {
-        client_id: this.config.client_id,
-        device_code: deviceCode,
-        grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-      };
-
-      if (useClientSecret && this.config.client_secret) {
-        bodyParams.client_secret = this.config.client_secret;
-      }
-
-      const response = await fetch(this.config.token_endpoint, {
+      const response = await fetch(EDGE_FUNCTION_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams(bodyParams)
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          operation: 'poll_device_code',
+          data: {
+            device_code: deviceCode,
+            provider_type: 'device_flow'
+          }
+        }),
       });
 
       const data = await response.json();
 
-      if (response.ok && data.access_token) {
-        return { success: true, tokens: data };
+      // Edge function returns { success, tokens, error, error_type }
+      if (data.success && data.tokens) {
+        logger.success('Device flow tokens received', {
+          hasAccessToken: !!data.tokens.access_token,
+          hasRefreshToken: !!data.tokens.refresh_token
+        });
+        return { success: true, tokens: data.tokens };
       }
 
-      // Handle errors
-      if (data.error === 'authorization_pending') return { success: false, pending: true };
-      if (data.error === 'slow_down') return { success: false, slowDown: true };
+      // Handle pending/slow_down errors
+      if (data.error === 'authorization_pending') {
+        return { success: false, pending: true };
+      }
+      if (data.error === 'slow_down') {
+        return { success: false, slowDown: true };
+      }
 
-      return { success: false, error: data.error, error_description: data.error_description };
+      // Other errors
+      return {
+        success: false,
+        error: data.error,
+        error_description: data.details || data.error_description
+      };
 
     } catch (error) {
+      logger.error('Token request failed', error);
       throw error;
     }
   }

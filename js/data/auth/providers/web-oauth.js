@@ -3,9 +3,11 @@
 // Handles Google OAuth flow with authorization code grant
 
 import { createLogger } from '../../../utils/logger.js';
-import { AUTH_CONFIG } from '../../../auth/auth-config.js';
 
 const logger = createLogger('WebOAuth');
+
+// Edge function URL for secure token exchange
+const EDGE_FUNCTION_URL = 'https://cwglbtosingboqepsmjk.supabase.co/functions/v1/jwt-auth';
 
 /**
  * Web OAuth provider for browser environments
@@ -240,42 +242,47 @@ export class WebOAuthProvider {
   }
 
   /**
-   * Exchange authorization code for access and refresh tokens
+   * Exchange authorization code for access and refresh tokens via edge function
    * @param {string} authCode - Authorization code from Google
    * @returns {Promise<Object>} Token response object
    */
   async exchangeCodeForTokens(authCode) {
-    logger.debug('Exchanging authorization code for tokens');
+    logger.debug('Exchanging authorization code for tokens via edge function');
 
     try {
-      const response = await fetch('https://oauth2.googleapis.com/token', {
+      const response = await fetch(EDGE_FUNCTION_URL, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Type': 'application/json',
         },
-        body: new URLSearchParams({
-          client_id: this.config.client_id,
-          client_secret: AUTH_CONFIG.client_secret_web_oauth,
-          code: authCode,
-          grant_type: 'authorization_code',
-          redirect_uri: this.config.redirect_uri,
+        body: JSON.stringify({
+          operation: 'exchange_code',
+          data: {
+            code: authCode,
+            redirect_uri: this.config.redirect_uri,
+            provider_type: 'web_oauth'
+          }
         }),
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Token exchange failed: ${response.status} ${errorText}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`Token exchange failed: ${response.status} ${errorData.error || errorData.details || ''}`);
       }
 
-      const tokens = await response.json();
+      const result = await response.json();
+
+      if (!result.success || !result.tokens) {
+        throw new Error('Token exchange failed: Invalid response from edge function');
+      }
 
       logger.success('Token exchange successful', {
-        hasAccessToken: !!tokens.access_token,
-        hasRefreshToken: !!tokens.refresh_token,
-        expiresIn: tokens.expires_in
+        hasAccessToken: !!result.tokens.access_token,
+        hasRefreshToken: !!result.tokens.refresh_token,
+        expiresIn: result.tokens.expires_in
       });
 
-      return tokens;
+      return result.tokens;
 
     } catch (error) {
       logger.error('Token exchange failed', error);
@@ -318,44 +325,14 @@ export class WebOAuthProvider {
 
   /**
    * Refresh an access token using a refresh token
+   * NOTE: Token refresh now handled by edge function, not client-side
+   * This method is here for compatibility but shouldn't be called
    * @param {string} refreshToken - Refresh token
    * @returns {Promise<Object>} New token data
    */
   async refreshAccessToken(refreshToken) {
-    logger.debug('Refreshing access token');
-
-    try {
-      const response = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          client_id: this.config.client_id,
-          client_secret: AUTH_CONFIG.client_secret_web_oauth,
-          refresh_token: refreshToken,
-          grant_type: 'refresh_token',
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Token refresh failed: ${response.status} ${errorText}`);
-      }
-
-      const tokens = await response.json();
-
-      logger.success('Access token refreshed successfully', {
-        hasAccessToken: !!tokens.access_token,
-        expiresIn: tokens.expires_in
-      });
-
-      return tokens;
-
-    } catch (error) {
-      logger.error('Token refresh failed', error);
-      throw error;
-    }
+    logger.warn('refreshAccessToken called - this should be handled by edge function via GoogleAPIClient');
+    throw new Error('Token refresh should be handled via edge function, not client-side');
   }
 
   /**

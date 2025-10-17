@@ -50,6 +50,14 @@ serve(async (req) => {
 
     // ==================== STANDALONE OPERATIONS ====================
 
+    if (operation === 'exchange_code') {
+      return handleExchangeCode(data);
+    }
+
+    if (operation === 'poll_device_code') {
+      return handlePollDeviceCode(data);
+    }
+
     if (operation === 'refresh_token') {
       return handleRefreshTokenStandalone(data);
     }
@@ -825,6 +833,154 @@ async function handleRefreshTokenStandalone(data: any) {
 function getOAuthCredentials(providerInfo: any) {
   if (providerInfo?.type === 'device_flow' ||
       providerInfo?.client_id?.includes('m9vf7t0qgm6nlc6gggfsqefmjrak1mo9')) {
+    return {
+      clientId: GOOGLE_DEVICE_CLIENT_ID || GOOGLE_CLIENT_ID,
+      clientSecret: GOOGLE_DEVICE_CLIENT_SECRET || GOOGLE_CLIENT_SECRET
+    };
+  }
+  return {
+    clientId: GOOGLE_CLIENT_ID,
+    clientSecret: GOOGLE_CLIENT_SECRET
+  };
+}
+
+async function handleExchangeCode(data: any) {
+  try {
+    const { code, redirect_uri, provider_type } = data;
+
+    if (!code) {
+      throw new Error('Authorization code required');
+    }
+
+    const { clientId, clientSecret } = getOAuthCredentialsForExchange(provider_type);
+
+    console.log(`🔐 Exchanging ${provider_type || 'web_oauth'} code for tokens`);
+
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        code: code,
+        redirect_uri: redirect_uri,
+        grant_type: 'authorization_code'
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(`Token exchange failed: HTTP ${response.status}: ${errorData}`);
+    }
+
+    const tokens = await response.json();
+
+    // Get user info with new access token
+    const userInfo = await fetch(`https://www.googleapis.com/oauth2/v2/userinfo?access_token=${tokens.access_token}`).then(r => r.json());
+
+    console.log(`✅ Code exchanged successfully for ${userInfo.email}`);
+
+    return jsonResponse({
+      success: true,
+      tokens: {
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        expires_in: tokens.expires_in || 3600,
+        scope: tokens.scope
+      },
+      user: {
+        id: userInfo.id,
+        email: userInfo.email,
+        name: userInfo.name,
+        picture: userInfo.picture
+      }
+    }, 200);
+  } catch (error) {
+    console.error('🚨 Code exchange failed:', error);
+    return jsonResponse({
+      error: 'Code exchange failed',
+      details: error.message
+    }, 500);
+  }
+}
+
+async function handlePollDeviceCode(data: any) {
+  try {
+    const { device_code, provider_type } = data;
+
+    if (!device_code) {
+      throw new Error('Device code required');
+    }
+
+    const { clientId, clientSecret } = getOAuthCredentialsForExchange(provider_type);
+
+    console.log(`📱 Polling device code for ${provider_type || 'device_flow'}`);
+
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        device_code: device_code,
+        grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
+      })
+    });
+
+    const result = await response.json();
+
+    // Handle pending/slow_down (these are not errors, just status updates)
+    if (result.error === 'authorization_pending') {
+      console.log(`⏳ Authorization pending for device code`);
+      return jsonResponse({
+        success: false,
+        error: 'authorization_pending',
+        details: 'User has not yet authorized the device'
+      }, 200);
+    }
+
+    if (result.error === 'slow_down') {
+      console.log(`⏳ Slow down requested for device code`);
+      return jsonResponse({
+        success: false,
+        error: 'slow_down',
+        details: 'Polling too frequently, slow down'
+      }, 200);
+    }
+
+    // Handle other errors
+    if (result.error) {
+      console.error(`❌ Device code polling error: ${result.error}`);
+      return jsonResponse({
+        success: false,
+        error: result.error,
+        details: result.error_description || 'Device code polling failed'
+      }, 200);
+    }
+
+    // Success! Got tokens
+    console.log(`✅ Device code authorized, tokens received`);
+
+    return jsonResponse({
+      success: true,
+      tokens: {
+        access_token: result.access_token,
+        refresh_token: result.refresh_token,
+        expires_in: result.expires_in || 3600,
+        scope: result.scope
+      }
+    }, 200);
+  } catch (error) {
+    console.error('🚨 Device code polling failed:', error);
+    return jsonResponse({
+      error: 'Device code polling failed',
+      details: error.message
+    }, 500);
+  }
+}
+
+function getOAuthCredentialsForExchange(providerType: string) {
+  if (providerType === 'device_flow') {
     return {
       clientId: GOOGLE_DEVICE_CLIENT_ID || GOOGLE_CLIENT_ID,
       clientSecret: GOOGLE_DEVICE_CLIENT_SECRET || GOOGLE_CLIENT_SECRET
