@@ -138,14 +138,21 @@ export class GoogleAccountAuth extends BaseAccountAuth {
                             // CRITICAL: Ensure TokenStore has JWT-authenticated EdgeClient
                             this.tokenStore.edgeClient = this.edgeClient;
 
-                            // Determine provider info based on which provider was used
+                            // Determine provider info and account type based on which provider was used
+                            const isDeviceFlow = provider === this.deviceFlowProvider;
                             const providerInfo = {
-                                type: provider === this.deviceFlowProvider ? 'device_flow' : 'web_oauth',
+                                type: isDeviceFlow ? 'device_flow' : 'web_oauth',
                                 auth_method: this.user.authMethod,
                                 client_id: provider.config?.client_id || 'unknown'
                             };
 
-                            await this.tokenStore.storeAccountTokens('google', 'primary', {
+                            // Use different account type for TV to avoid token conflicts
+                            // This allows same user to have tokens for both web/mobile AND TV
+                            const accountType = isDeviceFlow ? 'primary-tv' : 'primary';
+
+                            logger.debug('Storing tokens with account type', { accountType, providerType: providerInfo.type });
+
+                            await this.tokenStore.storeAccountTokens('google', accountType, {
                                 access_token: result.tokens.access_token,
                                 refresh_token: result.tokens.refresh_token,
                                 expires_at: new Date(Date.now() + (result.tokens.expires_in || 3600) * 1000).toISOString(),
@@ -289,5 +296,35 @@ export class GoogleAccountAuth extends BaseAccountAuth {
      */
     canRefreshToken() {
         return !!(this.activeProvider && this.activeProvider.refreshToken);
+    }
+
+    /**
+     * Get the appropriate account type for current device
+     * Returns 'primary-tv' for TV devices, 'primary' for web/mobile
+     * This prevents token conflicts across different OAuth clients
+     * @returns {string} Account type identifier
+     */
+    getAccountTypeForDevice() {
+        // Check if we're using device flow provider (TV)
+        if (this.activeProvider === this.deviceFlowProvider) {
+            return 'primary-tv';
+        }
+
+        // Default to 'primary' for web/mobile
+        return 'primary';
+    }
+
+    /**
+     * Get tokens for current device from TokenStore
+     * Automatically uses correct account type (primary vs primary-tv)
+     * @returns {Promise<object|null>} Token data or null
+     */
+    async getTokensForCurrentDevice() {
+        if (!this.tokenStore) {
+            return null;
+        }
+
+        const accountType = this.getAccountTypeForDevice();
+        return await this.tokenStore.getAccountTokens('google', accountType);
     }
 }
