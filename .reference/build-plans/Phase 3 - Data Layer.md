@@ -475,6 +475,7 @@ async function initializeApp() {
     // Auth
     const isAuthenticated = await initializeAuth();
 
+
     if (!isAuthenticated) {
         // Show login screen (Phase 4)
         logger.info('Not authenticated - would show login');

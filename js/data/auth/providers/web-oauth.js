@@ -3,11 +3,13 @@
 // Handles Google OAuth flow with authorization code grant
 
 import { createLogger } from '../../../utils/logger.js';
+import { SUPABASE_CONFIG } from '../../../auth/auth-config.js';
 
 const logger = createLogger('WebOAuth');
 
-// Edge function URL for secure token exchange
-const EDGE_FUNCTION_URL = 'https://cwglbtosingboqepsmjk.supabase.co/functions/v1/jwt-auth';
+// Supabase config - anon key is SAFE in client code (public by design)
+const EDGE_FUNCTION_URL = SUPABASE_CONFIG.edgeFunctionUrl;
+const SUPABASE_ANON_KEY = SUPABASE_CONFIG.anonKey;
 
 /**
  * Web OAuth provider for browser environments
@@ -249,11 +251,20 @@ export class WebOAuthProvider {
   async exchangeCodeForTokens(authCode) {
     logger.debug('Exchanging authorization code for tokens via edge function');
 
+    // DEBUG: Log what we're sending
+    console.log('🔍 DEBUG - Edge function request:', {
+      url: EDGE_FUNCTION_URL,
+      hasApiKey: !!SUPABASE_ANON_KEY,
+      apiKeyLength: SUPABASE_ANON_KEY?.length,
+      apiKeyPrefix: SUPABASE_ANON_KEY?.substring(0, 20)
+    });
+
     try {
       const response = await fetch(EDGE_FUNCTION_URL, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify({
           operation: 'exchange_code',

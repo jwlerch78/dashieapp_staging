@@ -3,11 +3,13 @@
 // Simplified from legacy, adapted for TokenStore integration
 
 import { createLogger } from '../../../utils/logger.js';
+import { SUPABASE_CONFIG } from '../../../auth/auth-config.js';
 
 const logger = createLogger('DeviceFlow');
 
-// Edge function URL for secure token exchange
-const EDGE_FUNCTION_URL = 'https://cwglbtosingboqepsmjk.supabase.co/functions/v1/jwt-auth';
+// Supabase config - anon key is SAFE in client code (public by design)
+const EDGE_FUNCTION_URL = SUPABASE_CONFIG.edgeFunctionUrl;
+const SUPABASE_ANON_KEY = SUPABASE_CONFIG.anonKey;
 
 /**
  * Device Flow OAuth provider for TV and limited input devices
@@ -361,6 +363,7 @@ export class DeviceFlowProvider {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
         },
         body: JSON.stringify({
           operation: 'poll_device_code',

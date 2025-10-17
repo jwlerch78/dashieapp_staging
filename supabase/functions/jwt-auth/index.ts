@@ -196,9 +196,9 @@ serve(async (req) => {
       ...result
     }, 200);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('🚨 JWT Auth error:', error);
-    return jsonResponse({ error: 'Internal server error', details: error.message }, 500);
+    return jsonResponse({ error: 'Internal server error', details: error?.message || 'Unknown error' }, 500);
   }
 });
 
@@ -214,17 +214,17 @@ async function checkUserAccess(supabase: any, email: string) {
       .select('key, value');
 
     const config: Record<string, string> = {};
-    configData?.forEach((item: any) => {
+    configData?.forEach((item: { key: string; value: string }) => {
       config[item.key] = item.value;
     });
 
     // Check maintenance mode
-    if (config.maintenance_mode === 'true') {
+    if (config['maintenance_mode'] === 'true') {
       return { allowed: false, reason: 'maintenance_mode' };
     }
 
     // BETA MODE - Check whitelist
-    if (config.beta_mode_enabled === 'true') {
+    if (config['beta_mode_enabled'] === 'true') {
       const { data: whitelist } = await supabase
         .from('beta_whitelist')
         .select('email, access_granted_at')
@@ -252,9 +252,9 @@ async function checkUserAccess(supabase: any, email: string) {
     }
 
     // TRIAL MODE (for future use)
-    if (config.trial_enabled === 'true') {
+    if (config['trial_enabled'] === 'true') {
       // TODO: Implement trial logic when beta ends
-      const trialDays = parseInt(config.trial_duration_days || '14');
+      const trialDays = parseInt(config['trial_duration_days'] || '14');
       return {
         allowed: true,
         tier: 'trial',
@@ -369,7 +369,7 @@ async function handleStoreTokensOperation(
     const existingTokens = existingData?.tokens || {};
     const expiresAt = new Date(Date.now() + (expires_in || 3600) * 1000);
 
-    const accountData = {
+    const accountData: any = {
       email: tokenData.email || email,
       access_token,
       refresh_token,
@@ -531,14 +531,15 @@ async function handleListAccountsOperation(supabase: any, authUserId: string) {
 
     for (const [provider, providerAccounts] of Object.entries(tokens)) {
       for (const [accountType, accountData] of Object.entries(providerAccounts as any)) {
+        const data = accountData as any;
         accountList.push({
           provider,
           account_type: accountType,
-          email: accountData.email,
-          display_name: accountData.display_name,
-          expires_at: accountData.expires_at,
-          scopes: accountData.scopes,
-          is_active: accountData.is_active
+          email: data.email,
+          display_name: data.display_name,
+          expires_at: data.expires_at,
+          scopes: data.scopes,
+          is_active: data.is_active
         });
       }
     }
@@ -821,11 +822,11 @@ async function handleRefreshTokenStandalone(data: any) {
       expires_in: refreshResult.expires_in,
       expires_at: new Date(Date.now() + refreshResult.expires_in * 1000).toISOString()
     }, 200);
-  } catch (error) {
+  } catch (error: any) {
     console.error('🚨 Refresh token operation failed:', error);
     return jsonResponse({
       error: 'Token refresh failed',
-      details: error.message
+      details: error?.message || 'Unknown error'
     }, 500);
   }
 }
@@ -895,11 +896,11 @@ async function handleExchangeCode(data: any) {
         picture: userInfo.picture
       }
     }, 200);
-  } catch (error) {
+  } catch (error: any) {
     console.error('🚨 Code exchange failed:', error);
     return jsonResponse({
       error: 'Code exchange failed',
-      details: error.message
+      details: error?.message || 'Unknown error'
     }, 500);
   }
 }
@@ -970,11 +971,11 @@ async function handlePollDeviceCode(data: any) {
         scope: result.scope
       }
     }, 200);
-  } catch (error) {
+  } catch (error: any) {
     console.error('🚨 Device code polling failed:', error);
     return jsonResponse({
       error: 'Device code polling failed',
-      details: error.message
+      details: error?.message || 'Unknown error'
     }, 500);
   }
 }
@@ -1016,8 +1017,8 @@ async function refreshGoogleToken(refreshToken: string, clientId: string, client
       access_token: tokenData.access_token,
       expires_in: tokenData.expires_in || 3600
     };
-  } catch (error) {
-    return { success: false, error: error.message };
+  } catch (error: any) {
+    return { success: false, error: error?.message || 'Unknown error' };
   }
 }
 
