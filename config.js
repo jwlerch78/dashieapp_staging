@@ -104,6 +104,11 @@ export function getDefaultSettings(userEmail = 'unknown@example.com') {
       longitude: null
     },
 
+    // Calendar Settings
+    calendar: {
+      activeCalendarIds: [] // Account-prefixed IDs like 'primary-user@gmail.com'
+    },
+
     // System Settings
     system: {
       refreshInterval: DEFAULT_REFRESH_INTERVAL,

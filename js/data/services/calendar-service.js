@@ -29,27 +29,96 @@ export class CalendarService {
 
         this.edgeClient = edgeClient;
         this.googleClient = new GoogleAPIClient(edgeClient);
+        this.activeCalendarIds = []; // Account-prefixed IDs (e.g., 'primary-user@gmail.com')
 
         logger.verbose('CalendarService initialized');
     }
 
     /**
-     * Get all calendars for an account
+     * Initialize service and load active calendars from settings
+     * @returns {Promise<void>}
+     */
+    async initialize() {
+        logger.info('Initializing CalendarService with settings');
+
+        try {
+            // Load settings to get active calendar IDs
+            const settings = await this.edgeClient.loadSettings();
+            this.activeCalendarIds = settings?.calendar?.activeCalendarIds || [];
+
+            logger.success('CalendarService initialized', {
+                activeCalendars: this.activeCalendarIds.length
+            });
+        } catch (error) {
+            logger.warn('Failed to load active calendars from settings', error);
+            this.activeCalendarIds = [];
+        }
+    }
+
+    // =========================================================================
+    // ACCOUNT-PREFIXED ID METHODS
+    // =========================================================================
+
+    /**
+     * Create account-prefixed calendar ID
+     * @param {string} accountType - Account type ('primary', 'account2', etc.)
+     * @param {string} calendarId - Raw calendar ID from Google API
+     * @returns {string} Prefixed ID like 'primary-user@gmail.com'
+     */
+    createPrefixedId(accountType, calendarId) {
+        return `${accountType}-${calendarId}`;
+    }
+
+    /**
+     * Parse account-prefixed calendar ID
+     * @param {string} prefixedId - Like 'primary-user@gmail.com'
+     * @returns {{ accountType: string, calendarId: string }}
+     */
+    parsePrefixedId(prefixedId) {
+        // Handle edge case: calendar IDs can contain dashes
+        const firstDashIndex = prefixedId.indexOf('-');
+
+        if (firstDashIndex === -1) {
+            logger.warn('Invalid prefixed ID format', { prefixedId });
+            return { accountType: 'primary', calendarId: prefixedId };
+        }
+
+        const accountType = prefixedId.substring(0, firstDashIndex);
+        const calendarId = prefixedId.substring(firstDashIndex + 1);
+
+        return { accountType, calendarId };
+    }
+
+    // =========================================================================
+    // CALENDAR FETCHING
+    // =========================================================================
+
+    /**
+     * Get all calendars for an account with prefixed IDs
      * @param {string} accountType - Account type ('primary', 'primary-tv', 'account2', etc.)
-     * @returns {Promise<Array>} Array of calendar objects
+     * @returns {Promise<Array>} Array of calendar objects with prefixed IDs
      */
     async getCalendars(accountType = 'primary') {
         logger.info('Fetching calendars', { accountType });
 
         try {
-            const calendars = await this.googleClient.getCalendarList(accountType);
+            const rawCalendars = await this.googleClient.getCalendarList(accountType);
+
+            // Add prefixed IDs and metadata to each calendar
+            const calendarsWithPrefix = rawCalendars.map(cal => ({
+                ...cal,
+                prefixedId: this.createPrefixedId(accountType, cal.id),
+                rawId: cal.id,
+                accountType: accountType,
+                isActive: this.isCalendarActive(accountType, cal.id)
+            }));
 
             logger.success('Calendars fetched successfully', {
                 accountType,
-                count: calendars.length
+                count: calendarsWithPrefix.length
             });
 
-            return calendars;
+            return calendarsWithPrefix;
 
         } catch (error) {
             logger.error('Failed to fetch calendars', {
@@ -138,6 +207,127 @@ export class CalendarService {
             });
             throw error;
         }
+    }
+
+    // =========================================================================
+    // ACTIVE CALENDAR MANAGEMENT
+    // =========================================================================
+
+    /**
+     * Check if calendar is active
+     * @param {string} accountType - Account type
+     * @param {string} calendarId - Raw calendar ID
+     * @returns {boolean}
+     */
+    isCalendarActive(accountType, calendarId) {
+        const prefixedId = this.createPrefixedId(accountType, calendarId);
+        return this.activeCalendarIds.includes(prefixedId);
+    }
+
+    /**
+     * Enable a calendar
+     * @param {string} accountType - Account type
+     * @param {string} calendarId - Raw calendar ID
+     * @returns {Promise<void>}
+     */
+    async enableCalendar(accountType, calendarId) {
+        const prefixedId = this.createPrefixedId(accountType, calendarId);
+
+        if (!this.activeCalendarIds.includes(prefixedId)) {
+            this.activeCalendarIds.push(prefixedId);
+            await this.saveActiveCalendars();
+
+            logger.info('Calendar enabled', { prefixedId });
+        }
+    }
+
+    /**
+     * Disable a calendar
+     * @param {string} accountType - Account type
+     * @param {string} calendarId - Raw calendar ID
+     * @returns {Promise<void>}
+     */
+    async disableCalendar(accountType, calendarId) {
+        const prefixedId = this.createPrefixedId(accountType, calendarId);
+        const originalLength = this.activeCalendarIds.length;
+
+        this.activeCalendarIds = this.activeCalendarIds.filter(id => id !== prefixedId);
+
+        if (this.activeCalendarIds.length !== originalLength) {
+            await this.saveActiveCalendars();
+            logger.info('Calendar disabled', { prefixedId });
+        }
+    }
+
+    /**
+     * Get active calendar IDs
+     * @returns {Array<string>} Array of prefixed calendar IDs
+     */
+    getActiveCalendarIds() {
+        return [...this.activeCalendarIds];
+    }
+
+    /**
+     * Save active calendars to settings
+     * @returns {Promise<void>}
+     */
+    async saveActiveCalendars() {
+        try {
+            // Load current settings
+            const settings = await this.edgeClient.loadSettings();
+
+            // Ensure calendar section exists
+            if (!settings.calendar) {
+                settings.calendar = {};
+            }
+
+            // Update active calendar IDs
+            settings.calendar.activeCalendarIds = this.activeCalendarIds;
+
+            // Save back to settings
+            await this.edgeClient.saveSettings(settings);
+
+            logger.debug('Active calendars saved', {
+                count: this.activeCalendarIds.length
+            });
+
+        } catch (error) {
+            logger.error('Failed to save active calendars', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get all events from all active calendars
+     * @param {object} timeRange - Time range options
+     * @returns {Promise<Array>} All events from active calendars
+     */
+    async getAllActiveEvents(timeRange = {}) {
+        logger.info('Fetching events from all active calendars', {
+            activeCount: this.activeCalendarIds.length
+        });
+
+        const eventPromises = this.activeCalendarIds.map(prefixedId => {
+            const { accountType, calendarId } = this.parsePrefixedId(prefixedId);
+            return this.getEvents(accountType, calendarId, timeRange)
+                .catch(err => {
+                    logger.error('Failed to fetch events', { prefixedId, error: err });
+                    return [];
+                });
+        });
+
+        const eventArrays = await Promise.all(eventPromises);
+        const allEvents = eventArrays.flat();
+
+        // Sort by start time
+        allEvents.sort((a, b) => {
+            const aTime = new Date(a.start?.dateTime || a.start?.date);
+            const bTime = new Date(b.start?.dateTime || b.start?.date);
+            return aTime - bTime;
+        });
+
+        logger.success('Fetched all active events', { totalEvents: allEvents.length });
+        return allEvents;
     }
 }
 
