@@ -35,7 +35,7 @@ export const widgetConfig = [
     rowSpan: 1,
     colSpan: 1,
     label: 'Header',
-    url: null, // No iframe for header (native widget)
+    path: 'js/widgets/header/header.html',
     noCenter: true,
     focusScale: 1.05,
     selectable: true
@@ -47,7 +47,7 @@ export const widgetConfig = [
     rowSpan: 1,
     colSpan: 1,
     label: 'Clock',
-    url: null,
+    path: 'js/widgets/clock/clock.html',
     noCenter: false,
     focusScale: 1.5,
     selectable: true

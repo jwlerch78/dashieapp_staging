@@ -6,6 +6,7 @@ import { createLogger } from '../../utils/logger.js';
 import DashboardStateManager from './dashboard-state-manager.js';
 import UIRenderer from './dashboard-ui-renderer.js';
 import { getWidgetAtPosition, canWidgetCenter } from './dashboard-widget-config.js';
+import AppStateManager from '../../core/app-state-manager.js';
 
 const logger = createLogger('DashboardNav');
 
@@ -345,11 +346,53 @@ class NavigationManager {
 
     logger.info('Menu item selected', { item: menuItem, index: itemIndex });
 
-    // TODO: Implement menu actions in future phases
-    console.log(`[Dashboard] Menu action: ${menuItem}`);
+    // Handle menu actions
+    switch (menuItem) {
+      case 'settings':
+        // Open Settings module
+        logger.info('Opening Settings module');
+        this.closeMenu();
 
-    // Close menu after selection
-    this.closeMenu();
+        // Get Settings module from window (exposed in index.html)
+        if (window.Settings) {
+          window.Settings.show();
+        } else {
+          logger.error('Settings module not available');
+        }
+        break;
+
+      case 'reload':
+        logger.info('Reloading page');
+        this.closeMenu();
+        window.location.reload();
+        break;
+
+      case 'sleep':
+        // Show sleep overlay
+        logger.info('Sleep action');
+        this.closeMenu();
+        if (window.modals) {
+          window.modals.showSleep();
+        } else {
+          logger.error('Modals module not available');
+        }
+        break;
+
+      case 'exit':
+        // Show exit confirmation modal
+        logger.info('Exit action');
+        this.closeMenu();
+        if (window.modals) {
+          window.modals.showExitConfirmation();
+        } else {
+          logger.error('Modals module not available');
+        }
+        break;
+
+      default:
+        logger.warn('Unknown menu action', { menuItem });
+        this.closeMenu();
+    }
 
     return true;
   }

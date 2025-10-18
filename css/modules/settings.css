@@ -1,0 +1,297 @@
+/* css/modules/settings.css - iOS-Style Settings Modal (Legacy Match) */
+
+/* Settings Modal Backdrop */
+.settings-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast);
+}
+
+.settings-modal--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Settings Container - iOS Style */
+.settings-modal__container {
+  width: 70vw;
+  max-width: 600px;
+  height: 70vh;
+  max-height: 500px;
+  background: #F2F2F7;
+  border-radius: var(--border-radius);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  transform: scale(0.9);
+  transition: transform var(--transition-fast);
+}
+
+.settings-modal--visible .settings-modal__container {
+  transform: scale(1);
+}
+
+/* iOS Navigation Bar */
+.settings-modal__nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 44px;
+  background: #F5F5F7;
+  border-bottom: 1px solid rgba(60, 60, 67, 0.29);
+  padding: 0 16px;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.settings-modal__nav-back {
+  background: none;
+  border: none;
+  color: #EE9828;
+  font-size: 17px;
+  font-weight: 400;
+  cursor: pointer;
+  padding: 0;
+  min-width: 44px;
+  height: 44px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: none;
+}
+
+.settings-modal__nav-back:hover {
+  transform: none;
+}
+
+.settings-modal__nav-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #000000;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Screen Stack Container */
+.settings-modal__content {
+  overflow: hidden;
+  position: relative;
+  height: calc(100% - 44px);
+  padding: 0;
+  flex: 1;
+}
+
+.settings-modal__screens {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+/* Individual Screens */
+.settings-modal__screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: #F2F2F7;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  display: none;
+}
+
+.settings-modal__screen--active {
+  display: block;
+}
+
+/* Screen Transitions */
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slideInLeft {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes slideOutLeft {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+
+@keyframes slideOutRight {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+
+.settings-modal__screen--sliding-in-right {
+  animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.settings-modal__screen--sliding-in-left {
+  animation: slideInLeft 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.settings-modal__screen--sliding-out-left {
+  animation: slideOutLeft 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.settings-modal__screen--sliding-out-right {
+  animation: slideOutRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Settings List */
+.settings-modal__list {
+  padding: 20px 0;
+}
+
+.settings-modal__section {
+  margin: 0 16px 35px 16px;
+}
+
+/* iOS-Style Cells */
+.settings-modal__menu-item {
+  background: #FCFCFF;
+  min-height: 44px;
+  padding: 11px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(60, 60, 67, 0.29);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.settings-modal__menu-item:first-child {
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+
+.settings-modal__menu-item:last-child {
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+  border-bottom: none;
+}
+
+.settings-modal__menu-item:active {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Focused state for D-pad navigation - EXACT LEGACY MATCH */
+.settings-modal__menu-item--selected {
+  background: rgba(238, 152, 40, 0.15) !important;
+  outline: 2px solid #EE9828 !important;
+  outline-offset: -2px;
+}
+
+/* Cell Content */
+.settings-modal__menu-label {
+  font-size: 17px;
+  color: #000000;
+  font-weight: 400;
+  flex: 1;
+}
+
+.settings-modal__cell-value {
+  font-size: 17px;
+  color: #8E8E93;
+  font-weight: 400;
+  margin-right: 8px;
+}
+
+.settings-modal__menu-chevron {
+  font-size: 20px;
+  color: #C7C7CC;
+  font-weight: 300;
+}
+
+.settings-modal__cell-checkmark {
+  font-size: 20px;
+  color: #EE9828;
+  font-weight: 600;
+  min-width: 20px;
+  text-align: right;
+}
+
+/* Selectable cells (for radio/checkbox style options) */
+.settings-modal__menu-item--selectable {
+  cursor: pointer;
+}
+
+/* Page Content (for blank pages) */
+.settings-modal__page-content {
+  padding: 20px 16px;
+}
+
+/* Empty State (for blank pages during development) */
+.settings-modal__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.settings-modal__empty-icon {
+  font-size: 48px;
+  opacity: 0.3;
+  margin-bottom: 16px;
+}
+
+.settings-modal__empty-text {
+  font-size: 17px;
+  color: #8E8E93;
+  font-weight: 400;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.settings-modal__empty-text:first-of-type {
+  color: #000000;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+/* Scrollbar styling for webkit browsers */
+.settings-modal__screen::-webkit-scrollbar {
+  width: 8px;
+}
+
+.settings-modal__screen::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-modal__screen::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
+}
+
+.settings-modal__screen::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Mobile-specific overrides */
+@media (max-width: 899px) {
+  .settings-modal__container {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    border-radius: 0;
+  }
+}

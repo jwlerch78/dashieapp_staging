@@ -1,17 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(find:*)",
+      "Bash(mkdir:*)",
+      "Bash(npm start)",
       "Bash(python -m http.server:*)",
-      "Read(//c/Users/**)",
+      "Read(//c/**)",
       "Bash(cat:*)",
-      "Bash(xargs cat:*)",
-      "Bash(code --list-extensions)",
-      "Bash(supabase functions deploy:*)",
-      "Bash(supabase --version:*)",
-      "Bash(cd:*)",
-      "Bash(git add:*)",
-      "Bash(ls -la \"c:\\Users\\John Lerch\\Dashie\\dashieapp_staging\\js\\core\\initialization\"\" 2>&1 || echo \"Directory does not exist \")"
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "ask": []

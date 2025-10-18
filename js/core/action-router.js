@@ -121,7 +121,16 @@ class ActionRouter {
       return true;
     }
 
-    // PRIORITY 3: Modal is active - route to Modals module
+    // PRIORITY 3: Settings modal is active - route to Settings module
+    if (window.Settings && window.Settings.isVisible()) {
+      const handled = this.routeToModule('settings', action, originalEvent);
+      if (handled && originalEvent) {
+        originalEvent.preventDefault();
+      }
+      return handled;
+    }
+
+    // PRIORITY 4: Other modals active - route to Modals module
     if (this.hasActiveModal()) {
       const handled = this.routeToModule('modals', action, originalEvent);
       if (handled && originalEvent) {
@@ -130,7 +139,7 @@ class ActionRouter {
       return handled;
     }
 
-    // PRIORITY 4: Route to current module
+    // PRIORITY 5: Route to current module
     const currentModule = state.currentModule;
 
     if (!currentModule) {
@@ -217,13 +226,13 @@ class ActionRouter {
   }
 
   /**
-   * Check if there's an active modal
+   * Check if there's an active modal (excluding Settings which is handled separately)
    * @private
    * @returns {boolean} True if modal is active
    */
   hasActiveModal() {
-    // Check for modal in DOM
-    const modalElement = document.querySelector('.modal.active, .modal.show');
+    // Check for modal in DOM (excluding settings modal)
+    const modalElement = document.querySelector('.modal.active:not(.settings-modal), .modal.show:not(.settings-modal)');
     if (modalElement) {
       return true;
     }

@@ -1,7 +1,7 @@
 # Phase 3: Data Layer - Implementation Guide
 
 **Estimated Time:** 1-2 weeks
-**Status:** IN PROGRESS - ~35% Complete
+**Status:** ✅ COMPLETE (Calendar IDs deferred to Phase 4)
 **Last Updated:** 2025-10-17
 
 ---
@@ -22,9 +22,17 @@
 
 ---
 
+## Phase 3 Status Summary
+
+**Phase 3A: Foundation** ✅ **100% COMPLETE**
+**Phase 3B: Integration & Testing** ✅ **100% COMPLETE**
+**Phase 3C: Settings & Calendar IDs** ⏸️ **DEFERRED TO PHASE 4**
+
+---
+
 ## Current Status - What's Done
 
-### ✅ Completed (Phase 3A - Foundation)
+### ✅ Phase 3A: Foundation (100% Complete)
 
 **Authentication Infrastructure:**
 - ✅ Two-layer auth architecture (BaseAccountAuth + BaseCalendarAuth)
@@ -57,9 +65,55 @@
 - `.reference/Next_Steps_EdgeClient_Integration.md`
 - `.reference/Phase3_Edge_Function_Auth_Fix.md`
 
+### ✅ Phase 3B: Integration & Testing (100% Complete)
+
+**Auth Orchestration Layer:**
+- ✅ Session Manager (320 lines) - Orchestrates entire auth system
+- ✅ Auth Coordinator (160 lines) - Routes to correct provider
+- ✅ OAuth callback handling with JWT bootstrap
+- ✅ Session restoration from JWT
+- ✅ Multi-device token isolation (primary vs primary-tv)
+
+**Calendar Service:**
+- ✅ CalendarService high-level wrapper
+- ✅ GoogleAPIClient with automatic token refresh
+- ✅ Real-world token refresh testing
+- ✅ Console test command (testCalendars())
+
+**Index.html Cleanup:**
+- ✅ Removed 185 lines of auth code from "god file"
+- ✅ Clean initialization flow (85 lines)
+
+**Testing Complete:**
+- ✅ PC web OAuth login works
+- ✅ Fire TV device flow login works
+- ✅ JWT persistence across page refresh works
+- ✅ Token refresh via calendar API works
+
+**Files Created:**
+- `js/data/auth/orchestration/session-manager.js`
+- `js/data/auth/orchestration/auth-coordinator.js`
+- `js/data/services/calendar-service.js`
+
+### ⏸️ Phase 3C: Deferred to Phase 4
+
+**Account-Prefixed Calendar IDs** → Phase 4 Settings Module
+- Reason: Settings UI doesn't exist yet
+- Build calendar settings WITH prefixed IDs from day 1
+- See: `.reference/build-plans/Phase 4 - Remaining Modules.md`
+
+**Settings Manager with Dual-Write** → Phase 4 Settings Module
+- Apply dual-write pattern to settings (like TokenStore)
+- Ensure auth tokens NEVER in settings
+- Build alongside Settings UI
+
+**Account Manager** → Phase 4 or Phase 5
+- Multi-account switching UI
+- Lower priority, can wait
+
 ---
 
-## What's Next - Remaining Work
+## What's Next - Phase 3.5 (Widgets)
 
 ### ⏳ Phase 3B - Integration & Testing (CURRENT PHASE)
 

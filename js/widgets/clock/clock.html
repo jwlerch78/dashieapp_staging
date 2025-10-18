@@ -1,0 +1,96 @@
+<!-- widgets/clock.html -->
+<!-- v1.4 - 10/9/25 - Reduced logging noise: changed info logs to debug -->
+<!-- v1.3 - 10/9/25 - Weather now waits for location from settings (no default Belleair display) -->
+<!-- v1.2 - 10/9/25 - Integrated with settings system for automatic zip code-based weather location -->
+<!-- CHANGE SUMMARY: Fixed theme change detection in applyTheme() to prevent redundant applications, simplified logging to reduce noise - only logs relevant updates -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Clock with Weather</title>
+
+  <style>
+    /* Define CSS variables inline to avoid MIME type issues */
+    :root {
+      --bg-primary: #222;
+      --text-primary: #fff;
+      --transition-medium: 0.3s ease;
+    }
+
+    body.theme-dark {
+      --bg-primary: #222;
+      --text-primary: #fff;
+    }
+
+    body.theme-light {
+      --bg-primary: #FCFCFF;
+      --text-primary: #424242;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      height: 100%;
+      width: 100%;
+      box-sizing: border-box;
+      transition: background-color var(--transition-medium), color var(--transition-medium);
+    }
+
+    /* Container that fills the entire space */
+    .clock-container {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 100vh;
+      width: 100vw;
+      padding: 0 20px;
+      box-sizing: border-box;
+      background: var(--bg-primary);
+      transition: background-color var(--transition-medium);
+    }
+
+    #time {
+      font-size: 10vw;
+      font-weight: bold;
+      text-align: right;
+      color: var(--text-primary);
+      transition: color var(--transition-medium);
+    }
+
+    #weather {
+      font-size: 6vw;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      color: var(--text-primary);
+      transition: color var(--transition-medium);
+    }
+
+    #weather-icon {
+      margin-right: 15px;
+    }
+
+    #temperature {
+      color: var(--text-primary);
+      transition: color var(--transition-medium);
+    }
+  </style>
+</head>
+<body>
+  <div class="clock-container">
+    <!-- Weather first, then time (preserved original layout) -->
+    <div id="weather">
+      <span id="weather-icon">☀️</span>
+      <span id="temperature">--°F</span>
+    </div>
+    <div id="time">--:--</div>
+  </div>
+
+  <script type="module" src="clock.js"></script>
+</body>
+</html>

@@ -1,0 +1,61 @@
+<!-- widgets/header.html -->
+<!-- CHANGE SUMMARY: Fixed theme change detection in applyTheme() to prevent redundant applications - only applies when theme actually changes -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Header Widget</title>
+
+  <style>
+    /* Define CSS variables inline to avoid MIME type issues */
+    :root {
+      --bg-primary: #222;
+      --text-primary: #fff;
+      --transition-medium: 0.3s ease;
+    }
+
+    body.theme-dark {
+      --bg-primary: #222;
+      --text-primary: #fff;
+    }
+
+    body.theme-light {
+      --bg-primary: #FCFCFF;
+      --text-primary: #424242;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100%;
+      width: 100%;
+      transition: background-color var(--transition-medium), color var(--transition-medium);
+    }
+
+    #family-name {
+      font-size: 4vw;
+      font-weight: bold;
+      text-align: center;
+      white-space: nowrap;
+      color: var(--text-primary);
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+      transition: color var(--transition-medium), text-shadow var(--transition-medium);
+    }
+
+  </style>
+</head>
+<body>
+  <div id="family-name">The Dashie Family</div>
+
+  <script type="module" src="header.js"></script>
+</body>
+</html>

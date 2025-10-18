@@ -1,18 +1,36 @@
 # Phase 4: Remaining Modules - Quick Start Guide
 
-**Estimated Time:** 2-3 days
-**Status:** Ready after Phase 3 complete
-**Prerequisites:** Phase 3 (Data Layer) complete
+**Estimated Time:** 2-3 weeks
+**Status:** Ready after Phase 3.5 (Widgets) complete
+**Prerequisites:**
+- Phase 3 (Data Layer) ✅ COMPLETE
+- Phase 3.5 (Widgets) - Complete before starting Phase 4
 
 ---
 
 ## What You're Building
 
 The remaining UI modules:
-- **Settings Module** - Complex modal with multiple pages
+- **Settings Module** - Complex modal with multiple pages + **calendar ID management**
 - **Login Module** - Authentication UI
 - **Modals Module** - Confirmation dialogs (sleep, exit)
 - **Welcome Module** - First-run wizard (with D-pad bug fix)
+
+**New in Phase 4:** Account-prefixed calendar ID implementation (deferred from Phase 3)
+
+---
+
+## 🎯 Key Architectural Decision: Calendar IDs
+
+**Deferred from Phase 3:** Account-prefixed calendar ID system will be implemented in Phase 4 alongside the Settings UI.
+
+**Why build it here instead of Phase 3:**
+- Settings pages don't exist yet
+- Calendar account management UI is part of Settings module
+- Build calendar settings WITH prefixed IDs from day 1 (no migration needed)
+- Natural fit: multi-account UI + multi-account data model together
+
+**Implementation Details:** See [Settings Module → Calendar Settings Page](#calendar-settings-page-account-prefixed-ids) section below.
 
 ---
 
@@ -55,10 +73,16 @@ js/modules/Settings/
 └── pages/
     ├── settings-family-page.js          # Family settings
     ├── settings-interface-page.js       # UI settings
-    ├── settings-calendar-page.js        # Calendar accounts (with prefixed IDs)
+    ├── settings-calendar-page.js        # Calendar accounts (⚠️ WITH PREFIXED IDs)
     ├── settings-photos-page.js          # Photo settings
     ├── settings-system-page.js          # System settings
     └── settings-account-page.js         # User account
+
+js/data/storage/
+└── calendar-settings-manager.js       # ⚠️ NEW - Calendar ID storage with prefixes
+
+js/data/services/
+└── calendar-service.js                # ⚠️ UPDATED - Add prefix helper methods
 
 js/modules/Login/
 ├── login.js                           # Public API
@@ -152,50 +176,373 @@ class BroadcastManager {
 }
 ```
 
-**Settings Pages (Modular Composition):**
+### Calendar Settings Page (Account-Prefixed IDs)
+
+⚠️ **CRITICAL IMPLEMENTATION:** This is where we implement the account-prefixed calendar ID system deferred from Phase 3.
+
+**Step 1: Update CalendarService with helper methods**
+
 ```javascript
-// js/modules/Settings/pages/settings-calendar-page.js
-class CalendarPage {
-    async render() {
-        // Get calendar accounts
-        const calendarService = window.dashieCalendarService;
-        const accounts = await this.getConnectedAccounts();
+// js/data/services/calendar-service.js - ADD THESE METHODS
 
-        // For each account, show calendars with prefixed IDs
-        for (const account of accounts) {
-            const calendars = await calendarService.getCalendarList(account.type);
+/**
+ * Create account-prefixed calendar ID
+ * @param {string} accountType - 'primary', 'account2', etc.
+ * @param {string} calendarId - Raw calendar ID from Google API
+ * @returns {string} Prefixed ID like 'primary-user@gmail.com'
+ */
+createPrefixedId(accountType, calendarId) {
+    return `${accountType}-${calendarId}`;
+}
 
-            // Render calendar list with enable/disable toggles
-            calendars.forEach(cal => {
-                // cal.id is already prefixed: 'primary-user@gmail.com'
-                this.renderCalendarToggle(cal);
+/**
+ * Parse account-prefixed calendar ID
+ * @param {string} prefixedId - Like 'primary-user@gmail.com'
+ * @returns {{ accountType: string, calendarId: string }}
+ */
+parsePrefixedId(prefixedId) {
+    // Handle edge case: calendar IDs can contain dashes
+    const parts = prefixedId.split('-');
+    const accountType = parts[0];
+    const calendarId = parts.slice(1).join('-');
+
+    return { accountType, calendarId };
+}
+
+/**
+ * Get calendars with prefixed IDs
+ * @param {string} accountType - Account type
+ * @returns {Promise<Array>} Calendars with prefixed IDs
+ */
+async getCalendars(accountType = 'primary') {
+    const rawCalendars = await this.googleClient.getCalendarList(accountType);
+
+    // Add prefixed IDs to each calendar
+    return rawCalendars.map(cal => ({
+        ...cal,
+        id: this.createPrefixedId(accountType, cal.id),  // Prefixed ID
+        rawId: cal.id,                                    // Original ID
+        accountType: accountType                          // Account ownership
+    }));
+}
+
+/**
+ * Get events using prefixed calendar ID
+ * @param {string} prefixedCalendarId - Like 'primary-user@gmail.com'
+ * @param {object} timeRange - Time range
+ * @returns {Promise<Array>} Calendar events
+ */
+async getEvents(prefixedCalendarId, timeRange = {}) {
+    // Parse the prefixed ID
+    const { accountType, calendarId } = this.parsePrefixedId(prefixedCalendarId);
+
+    // Fetch events using raw calendar ID
+    const events = await this.googleClient.getCalendarEvents(
+        calendarId,
+        timeRange,
+        accountType
+    );
+
+    return events;
+}
+```
+
+**Step 2: Create CalendarSettingsManager**
+
+```javascript
+// js/data/storage/calendar-settings-manager.js - NEW FILE
+
+import { createLogger } from '../../utils/logger.js';
+
+const logger = createLogger('CalendarSettingsManager');
+
+/**
+ * Manages active calendar IDs with account-prefixed format
+ *
+ * Format: {accountType}-{calendarId}
+ * Examples:
+ *   - 'primary-user@gmail.com'
+ *   - 'account2-user@gmail.com'
+ *   - 'primary-en.usa#holiday@group.v.calendar.google.com'
+ */
+export class CalendarSettingsManager {
+    constructor(edgeClient) {
+        if (!edgeClient) {
+            throw new Error('EdgeClient is required for CalendarSettingsManager');
+        }
+
+        this.edgeClient = edgeClient;
+        this.activeCalendarIds = [];
+    }
+
+    /**
+     * Initialize and load active calendar IDs
+     */
+    async initialize() {
+        logger.info('Initializing CalendarSettingsManager');
+
+        try {
+            // Load settings from Supabase/localStorage
+            const settings = await this.edgeClient.loadSettings();
+            this.activeCalendarIds = settings.activeCalendarIds || [];
+
+            logger.info('Active calendar IDs loaded', {
+                count: this.activeCalendarIds.length
+            });
+
+        } catch (error) {
+            logger.error('Failed to load calendar settings', error);
+            this.activeCalendarIds = [];
+        }
+    }
+
+    /**
+     * Enable a calendar
+     * @param {string} accountType - Account type
+     * @param {string} calendarId - Raw calendar ID
+     */
+    async enableCalendar(accountType, calendarId) {
+        const prefixedId = `${accountType}-${calendarId}`;
+
+        if (!this.activeCalendarIds.includes(prefixedId)) {
+            this.activeCalendarIds.push(prefixedId);
+            await this.save();
+
+            logger.info('Calendar enabled', { prefixedId });
+        }
+    }
+
+    /**
+     * Disable a calendar
+     * @param {string} accountType - Account type
+     * @param {string} calendarId - Raw calendar ID
+     */
+    async disableCalendar(accountType, calendarId) {
+        const prefixedId = `${accountType}-${calendarId}`;
+        const originalLength = this.activeCalendarIds.length;
+
+        this.activeCalendarIds = this.activeCalendarIds.filter(id => id !== prefixedId);
+
+        if (this.activeCalendarIds.length !== originalLength) {
+            await this.save();
+            logger.info('Calendar disabled', { prefixedId });
+        }
+    }
+
+    /**
+     * Remove ALL calendars from an account
+     * (When user disconnects account)
+     * @param {string} accountType - Account type to remove
+     */
+    async removeAccountCalendars(accountType) {
+        const prefix = `${accountType}-`;
+        const originalLength = this.activeCalendarIds.length;
+
+        this.activeCalendarIds = this.activeCalendarIds.filter(
+            id => !id.startsWith(prefix)
+        );
+
+        const removed = originalLength - this.activeCalendarIds.length;
+
+        if (removed > 0) {
+            await this.save();
+            logger.info('Account calendars removed', {
+                accountType,
+                removedCount: removed
             });
         }
     }
 
-    async toggleCalendar(prefixedId, enabled) {
-        const calendarService = window.dashieCalendarService;
-        const { accountType, calendarId } = calendarService.parsePrefixedId(prefixedId);
+    /**
+     * Get active calendars for an account
+     * @param {string} accountType - Account type
+     * @returns {Array<string>} Prefixed calendar IDs for this account
+     */
+    getActiveCalendarsForAccount(accountType) {
+        const prefix = `${accountType}-`;
+        return this.activeCalendarIds.filter(id => id.startsWith(prefix));
+    }
 
-        if (enabled) {
-            await calendarService.enableCalendar(calendarId, accountType);
-        } else {
-            await calendarService.disableCalendar(calendarId, accountType);
+    /**
+     * Get all active calendar IDs
+     * @returns {Array<string>} All active prefixed calendar IDs
+     */
+    getAllActiveCalendars() {
+        return [...this.activeCalendarIds];
+    }
+
+    /**
+     * Check if a calendar is active
+     * @param {string} accountType - Account type
+     * @param {string} calendarId - Raw calendar ID
+     * @returns {boolean}
+     */
+    isCalendarActive(accountType, calendarId) {
+        const prefixedId = `${accountType}-${calendarId}`;
+        return this.activeCalendarIds.includes(prefixedId);
+    }
+
+    /**
+     * Save active calendar IDs to storage
+     */
+    async save() {
+        try {
+            const settings = {
+                activeCalendarIds: this.activeCalendarIds
+            };
+
+            await this.edgeClient.saveSettings(settings);
+
+            logger.debug('Calendar settings saved', {
+                count: this.activeCalendarIds.length
+            });
+
+        } catch (error) {
+            logger.error('Failed to save calendar settings', error);
+            throw error;
         }
+    }
+}
+
+// Export singleton
+let calendarSettingsInstance = null;
+
+export function initializeCalendarSettings(edgeClient) {
+    if (!calendarSettingsInstance) {
+        calendarSettingsInstance = new CalendarSettingsManager(edgeClient);
+    }
+    return calendarSettingsInstance;
+}
+
+export function getCalendarSettings() {
+    if (!calendarSettingsInstance) {
+        throw new Error('CalendarSettingsManager not initialized');
+    }
+    return calendarSettingsInstance;
+}
+```
+
+**Step 3: Calendar Settings Page UI**
+
+```javascript
+// js/modules/Settings/pages/settings-calendar-page.js
+class CalendarPage {
+    constructor() {
+        this.calendarService = null;
+        this.calendarSettings = null;
+    }
+
+    async initialize() {
+        this.calendarService = window.sessionManager.calendarService;
+        this.calendarSettings = window.calendarSettings;
+    }
+
+    async render() {
+        // Get connected accounts (from TokenStore)
+        const accounts = await this.getConnectedAccounts();
+
+        let html = '<div class="settings-calendar">';
+
+        // For each account, show calendars with enable/disable toggles
+        for (const account of accounts) {
+            html += `<div class="settings-calendar__account">`;
+            html += `<h3>${account.name} (${account.type})</h3>`;
+
+            // Fetch calendars with prefixed IDs
+            const calendars = await this.calendarService.getCalendars(account.type);
+
+            for (const cal of calendars) {
+                const isActive = this.calendarSettings.isCalendarActive(
+                    account.type,
+                    cal.rawId
+                );
+
+                html += `
+                    <div class="settings-calendar__item">
+                        <label>
+                            <input
+                                type="checkbox"
+                                ${isActive ? 'checked' : ''}
+                                data-prefixed-id="${cal.id}"
+                                data-account-type="${account.type}"
+                                data-calendar-id="${cal.rawId}"
+                            >
+                            <span class="calendar-name">${cal.summary}</span>
+                        </label>
+                    </div>
+                `;
+            }
+
+            // Remove account button
+            html += `
+                <button
+                    class="settings-calendar__remove-account"
+                    data-account-type="${account.type}"
+                >
+                    Remove ${account.name}
+                </button>
+            `;
+
+            html += `</div>`;
+        }
+
+        html += '</div>';
+
+        return html;
+    }
+
+    async toggleCalendar(accountType, calendarId, enabled) {
+        if (enabled) {
+            await this.calendarSettings.enableCalendar(accountType, calendarId);
+        } else {
+            await this.calendarSettings.disableCalendar(accountType, calendarId);
+        }
+
+        // Notify widgets of calendar change
+        this.notifyCalendarChange();
     }
 
     async removeAccount(accountType) {
-        const calendarService = window.dashieCalendarService;
-
         // Remove all calendars from this account
-        await calendarService.removeAccountCalendars(accountType);
+        await this.calendarSettings.removeAccountCalendars(accountType);
 
         // Remove tokens
-        const tokenStore = window.dashieTokenStore;
-        await tokenStore.removeAccountTokens(accountType);
+        const tokenStore = window.sessionManager.tokenStore;
+        await tokenStore.removeAccountTokens('google', accountType);
 
         // Refresh UI
         await this.render();
+
+        // Notify widgets
+        this.notifyCalendarChange();
+    }
+
+    notifyCalendarChange() {
+        // Broadcast to widgets
+        WidgetMessenger.broadcast('config', {
+            action: 'calendars-changed',
+            activeCalendarIds: this.calendarSettings.getAllActiveCalendars()
+        });
+    }
+
+    async getConnectedAccounts() {
+        // Get all connected Google accounts from TokenStore
+        const tokenStore = window.sessionManager.tokenStore;
+        const allTokens = await tokenStore.getAllTokens();
+
+        const accounts = [];
+        for (const [key, tokenData] of Object.entries(allTokens)) {
+            if (key.startsWith('google/')) {
+                const accountType = key.split('/')[1];
+                accounts.push({
+                    type: accountType,
+                    name: tokenData.email || accountType,
+                    email: tokenData.email
+                });
+            }
+        }
+
+        return accounts;
     }
 }
 ```
@@ -205,8 +552,11 @@ class CalendarPage {
 - [ ] Page navigation works
 - [ ] Settings persist to Supabase
 - [ ] Widget updates broadcast
-- [ ] Calendar page uses prefixed IDs
-- [ ] Account removal cleans up calendars
+- [ ] ⚠️ **Calendar page uses prefixed IDs (account-calendar format)**
+- [ ] ⚠️ **CalendarSettingsManager stores/loads prefixed IDs**
+- [ ] ⚠️ **Account removal cleans up all account calendars**
+- [ ] ⚠️ **Shared calendars work across multiple accounts**
+- [ ] ⚠️ **Calendar widget receives prefixed IDs**
 
 ---
 
@@ -435,7 +785,10 @@ class WelcomeUIRenderer {
 - [ ] Widget updates broadcast
 - [ ] Calendar page shows all accounts
 - [ ] Account removal works
-- [ ] Prefixed calendar IDs work
+- [ ] ⚠️ **Prefixed calendar IDs work (test with 2+ accounts)**
+- [ ] ⚠️ **Shared calendar appears in both accounts**
+- [ ] ⚠️ **Enabling calendar in account A doesn't affect account B**
+- [ ] ⚠️ **Removing account removes only its calendars**
 
 ### Login Module
 - [ ] Correct auth method for platform

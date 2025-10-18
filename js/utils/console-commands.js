@@ -86,6 +86,12 @@ class ConsoleCommands {
     window.TestCalendars = this.testCalendars.bind(this);
     window.testCalendars = this.testCalendars.bind(this);
 
+    // Theme Commands
+    window.SetTheme = this.setTheme.bind(this);
+    window.setTheme = this.setTheme.bind(this);
+    window.ToggleTheme = this.toggleTheme.bind(this);
+    window.toggleTheme = this.toggleTheme.bind(this);
+
     console.log('✅ Console commands loaded! Type help() or Help() to see available commands.');
   }
 
@@ -139,6 +145,11 @@ class ConsoleCommands {
 
 📅 CALENDAR TESTING:
   testCalendars()           - Test calendar fetch with token refresh
+
+🎨 THEME COMMANDS:
+  setTheme('light')         - Set theme to light mode
+  setTheme('dark')          - Set theme to dark mode
+  toggleTheme()             - Toggle between light and dark
 
 ╔════════════════════════════════════════════════════════════════╗
 ║  TIP: All commands work in lowercase or UpperCase!           ║
@@ -375,6 +386,46 @@ class ConsoleCommands {
     console.log(`  Edge Function: ${status.edgeFunctionUrl}`);
 
     return status;
+  }
+
+  /**
+   * Set theme
+   * @param {string} theme - 'light' or 'dark'
+   */
+  setTheme(theme) {
+    console.log(`🎨 Setting theme to: ${theme}\n`);
+
+    if (!window.themeApplier) {
+      console.error('❌ ThemeApplier not initialized');
+      return { success: false, error: 'ThemeApplier not initialized' };
+    }
+
+    if (theme !== 'light' && theme !== 'dark') {
+      console.error('❌ Invalid theme. Use "light" or "dark"');
+      return { success: false, error: 'Invalid theme' };
+    }
+
+    window.themeApplier.applyTheme(theme);
+    console.log(`✅ Theme set to: ${theme}`);
+
+    return { success: true, theme };
+  }
+
+  /**
+   * Toggle theme between light and dark
+   */
+  toggleTheme() {
+    console.log('🎨 Toggling theme...\n');
+
+    if (!window.themeApplier) {
+      console.error('❌ ThemeApplier not initialized');
+      return { success: false, error: 'ThemeApplier not initialized' };
+    }
+
+    const newTheme = window.themeApplier.toggleTheme();
+    console.log(`✅ Theme toggled to: ${newTheme}`);
+
+    return { success: true, theme: newTheme };
   }
 
   /**

@@ -1,0 +1,168 @@
+/* css/modules/modals.css - Modal Styling with Theme Support */
+/* Copied from legacy modals.css with exact styling */
+
+/* Sleep Overlay */
+.sleep-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-sleep);
+  z-index: var(--z-sleep);
+  cursor: pointer;
+  transition: opacity var(--transition-slow);
+  opacity: 0;
+}
+
+.sleep-overlay.visible {
+  opacity: 1;
+}
+
+/* Original Exit Confirmation Modal (for non-authenticated users) */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--bg-modal-backdrop);
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.exit-dialog {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  padding: 30px;
+  border-radius: var(--border-radius);
+  text-align: center;
+  min-width: 300px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+.exit-dialog h2 {
+  margin: 0 0 20px 0;
+  font-size: var(--font-size-heading);
+  color: var(--text-primary);
+}
+
+.exit-buttons {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  margin-top: 30px;
+}
+
+.exit-button {
+  padding: 12px 24px;
+  background: var(--bg-button);
+  color: var(--text-primary);
+  border: none;
+  border-radius: var(--border-radius-small);
+  cursor: pointer;
+  font-size: var(--font-size-base);
+  transition: all var(--transition-fast);
+}
+
+.exit-button:hover {
+  transform: scale(1.02);
+}
+
+/* Orange highlighting for button focus */
+.exit-button.selected {
+  background: rgba(238, 152, 40, 0.15);
+  outline: 2px solid #EE9828;
+  outline-offset: -2px;
+  transform: scale(1.05);
+}
+
+.exit-button.focused {
+  background: rgba(238, 152, 40, 0.15);
+  outline: 2px solid #EE9828;
+  outline-offset: -2px;
+  transform: scale(1.05);
+}
+
+/* Enhanced Exit/Logout Modal (for authenticated users) */
+.exit-modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-modal);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.exit-modal {
+  background: #FCFCFF;
+  border-radius: 12px;
+  padding: 30px;
+  min-width: 350px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.modal-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: white;
+  border: 1px solid #dadce0;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #333;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.modal-option:hover {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  background: #f8f9fa;
+}
+
+/* Orange highlighting for modal options */
+.modal-option.selected {
+  background: rgba(238, 152, 40, 0.15);
+  outline: 2px solid #EE9828;
+  outline-offset: -2px;
+}
+
+.modal-option.focused {
+  background: rgba(238, 152, 40, 0.15);
+  outline: 2px solid #EE9828;
+  outline-offset: -2px;
+}
+
+.user-photo-modal {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.modal-option svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* Utility classes for dynamic opacity changes */
+.fade-in {
+  opacity: 1 !important;
+}
+
+.fade-out {
+  opacity: 0 !important;
+}

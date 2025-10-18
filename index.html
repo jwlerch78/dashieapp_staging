@@ -5,8 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashie Dashboard</title>
 
+  <!-- CSS Variables -->
+  <link rel="stylesheet" href="./css/core/variables.css">
+
   <!-- Dashboard Module CSS -->
   <link rel="stylesheet" href="./css/modules/dashboard.css">
+
+  <!-- Settings Module CSS -->
+  <link rel="stylesheet" href="./css/modules/settings.css">
 
   <style>
     * {
@@ -183,10 +189,18 @@
     import { getPlatformDetector } from './js/utils/platform-detector.js';
     import Dashboard from './js/modules/Dashboard/dashboard.js';
     import DashboardInputHandler from './js/modules/Dashboard/dashboard-input-handler.js';
+    import Settings from './js/modules/Settings/settings.js';
 
     // Phase 3 - Auth imports (orchestration layer)
     import { sessionManager } from './js/data/auth/orchestration/session-manager.js';
     import { AuthCoordinator } from './js/data/auth/orchestration/auth-coordinator.js';
+
+    // Phase 3.5 - Widget imports
+    import { initializeWidgetDataManager } from './js/core/widget-data-manager.js';
+    import { initializeCalendarService } from './js/data/services/calendar-service.js';
+
+    // UI Layer imports
+    import themeApplier from './js/ui/theme-applier.js';
 
     const logger = createLogger('Main');
 
@@ -311,6 +325,43 @@
       }
     }
 
+    // Initialize widget data flow (Phase 3.5)
+    async function initializeWidgetDataFlow() {
+      try {
+        logger.info('Initializing widget data flow...');
+
+        // Get EdgeClient from SessionManager
+        const edgeClient = sessionManager.getEdgeClient();
+
+        // Initialize CalendarService
+        const calendarService = initializeCalendarService(edgeClient);
+        logger.success('CalendarService initialized');
+
+        // Initialize WidgetDataManager
+        const widgetDataManager = initializeWidgetDataManager();
+        logger.success('WidgetDataManager initialized');
+
+        // Register widget iframes
+        const clockIframe = document.getElementById('widget-clock');
+        const headerIframe = document.getElementById('widget-header');
+
+        if (clockIframe) {
+          widgetDataManager.registerWidget('clock', clockIframe);
+          logger.info('Clock widget registered');
+        }
+
+        if (headerIframe) {
+          widgetDataManager.registerWidget('header', headerIframe);
+          logger.info('Header widget registered');
+        }
+
+        logger.success('Widget data flow initialized');
+
+      } catch (error) {
+        logger.error('Failed to initialize widget data flow', error);
+      }
+    }
+
     // Initialize core components
     async function initializeCore() {
       try {
@@ -319,6 +370,10 @@
         // Initialize AppStateManager
         await AppStateManager.initialize();
         logger.success('AppStateManager initialized');
+
+        // Initialize ThemeApplier (UI Layer)
+        themeApplier.initialize();
+        logger.success('ThemeApplier initialized');
 
         // Initialize InputHandler
         await InputHandler.initialize();
@@ -340,6 +395,17 @@
         ActionRouter.registerModule('dashboard', DashboardInputHandler);
         logger.success('Dashboard module registered with ActionRouter');
 
+        // Initialize Settings module
+        await Settings.initialize();
+        logger.success('Settings module initialized');
+
+        // Register Settings with ActionRouter
+        ActionRouter.registerModule('settings', Settings.getInputHandler());
+        logger.success('Settings module registered with ActionRouter');
+
+        // Expose Settings globally for testing
+        window.Settings = Settings;
+
         // Set Dashboard as active module
         AppStateManager.setCurrentModule('dashboard');
         logger.success('Dashboard set as current module');
@@ -347,6 +413,9 @@
         // Activate Dashboard
         Dashboard.activate();
         logger.success('Dashboard activated');
+
+        // Initialize widget data flow (Phase 3.5)
+        await initializeWidgetDataFlow();
 
         // Detect platform
         const platform = getPlatformDetector();

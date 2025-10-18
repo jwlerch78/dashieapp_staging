@@ -24,8 +24,8 @@
   display: flex;
   height: 100vh;
   width: 100vw;
-  background-color: var(--color-background, #1a1a1a);
-  color: var(--color-text, #ffffff);
+  background-color: var(--grid-gap-color);
+  color: var(--text-primary);
   overflow: hidden;
 }
 
@@ -58,8 +58,8 @@
   bottom: 0;
   width: 60px;
   height: 100vh;
-  background-color: var(--color-sidebar-bg, #2a2a2a);
-  border-right: 1px solid var(--color-border, #3a3a3a);
+  background-color: var(--bg-primary);
+  border-right: 1px solid var(--bg-tertiary);
   transition: width 0.3s ease, background 0.3s ease;
   overflow: hidden;
   display: flex;
@@ -69,12 +69,12 @@
 
 .dashboard-sidebar--expanded {
   width: 200px;
-  /* Semi-transparent gradient on right side when expanded */
+  /* Semi-transparent gradient on right side when expanded (legacy style) */
   background: linear-gradient(
     to right,
-    var(--color-sidebar-bg, #2a2a2a) 0%,
-    var(--color-sidebar-bg, #2a2a2a) 70%,
-    rgba(42, 42, 42, 0.95) 100%
+    var(--bg-primary) 0%,
+    var(--bg-primary) 40%,
+    var(--bg-primary-semi-transparent) 100%
   );
   /* z-index managed by wrapper */
 }
@@ -122,7 +122,7 @@
   margin: 0;
   cursor: pointer;
   transition: border-color 0.2s ease, background-color 0.2s ease;
-  color: var(--color-text, #ffffff);
+  color: var(--text-primary);
   font-size: 14px;
   font-family: inherit;
   text-align: left;
@@ -132,8 +132,8 @@
 }
 
 .dashboard-menu__item--selected {
-  border-left-color: var(--color-accent, #667eea); /* Thick left border only */
-  background-color: var(--color-selected-bg, rgba(102, 126, 234, 0.1));
+  border-left-color: var(--accent-blue); /* Thick left border only */
+  background-color: var(--bg-selected-fill);
   font-weight: 600;
 }
 
@@ -142,9 +142,9 @@
   height: 20px;
   object-fit: contain;
   flex-shrink: 0;
-  /* Make SVG icons white (assuming black SVGs) */
-  filter: brightness(0) invert(1);
-  transition: transform 0.2s ease;
+  /* Icon color controlled by theme variable */
+  filter: var(--sidebar-icon-filter);
+  transition: transform 0.2s ease, filter 0.3s ease;
 }
 
 .dashboard-menu__label {
@@ -169,8 +169,8 @@
   /* Legacy layout: 3 rows × 2 columns, 70/30 width split */
   grid-template-columns: 70% 30%;
   grid-template-rows: 10% 45% 45%;
-  gap: 16px;
-  padding: 16px;
+  gap: var(--grid-gap);
+  padding: var(--grid-gap);
   height: 100vh;
   max-height: 100vh;
   overflow: visible; /* Allow cells to overflow and appear above sidebar */
@@ -185,9 +185,9 @@
 }
 
 .dashboard-grid__cell {
-  background-color: var(--color-cell-bg, #2a2a2a);
+  background-color: var(--bg-secondary);
   border: none; /* No border - focus states use box-shadow instead */
-  border-radius: 12px;
+  border-radius: var(--border-radius);
   padding: 16px;
   transition: box-shadow 0.2s ease, transform 0.2s ease, z-index 0s;
   overflow: hidden;
@@ -213,7 +213,7 @@
 
 .dashboard-grid__cell--focused {
   /* State 1: Selected (navigating grid with arrow keys) */
-  border-radius: 8px;
+  border-radius: var(--border-radius);
   box-shadow: var(--glow-selected),
               inset 0 0 0 var(--border-width-selected) var(--color-selected-silver);
   transform: scale(1.05); /* 105% scale for enhanced mode */
@@ -232,7 +232,7 @@
   z-index: 100;
 
   /* Silver border and glow */
-  border-radius: 8px;
+  border-radius: var(--border-radius);
   box-shadow: var(--glow-selected),
               inset 0 0 0 var(--border-width-selected) var(--color-selected-silver);
 
@@ -255,7 +255,7 @@
   z-index: 100;
 
   /* Blue border and glow */
-  border-radius: 8px;
+  border-radius: var(--border-radius);
   box-shadow: var(--glow-focused),
               inset 0 0 0 var(--border-width-active) var(--color-active-blue);
 
@@ -274,7 +274,7 @@
   justify-content: center;
   height: 100%;
   font-size: 18px;
-  color: var(--color-text-muted, #888888);
+  color: var(--text-muted);
   text-align: center;
 }
 
@@ -290,12 +290,12 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: var(--color-overlay-bg, rgba(0, 0, 0, 0.5));
+  background-color: var(--bg-modal-backdrop);
   z-index: 50;
   pointer-events: auto; /* Clickable - allows defocus when clicking overlay */
   cursor: pointer;
   opacity: 0;
-  transition: opacity var(--transition-normal);
+  transition: opacity var(--transition-medium);
 }
 
 .dashboard--widget-focused.overlay-visible::before {
@@ -343,37 +343,21 @@
 }
 
 /* =============================================================================
-   CSS VARIABLES (Can be overridden by themes)
+   CSS VARIABLES - Enhanced Focus Mode
    ============================================================================= */
 
+/* Dashboard uses legacy theme variables directly from css/core/variables.css
+   Theme-specific colors (bg-primary, text-primary, etc.) automatically update
+   when body.theme-dark or body.theme-light class is applied */
+
 :root {
-  --color-background: #1a1a1a;
-  --color-text: #ffffff;
-  --color-text-muted: #888888;
-  --color-sidebar-bg: #2a2a2a;
-  --color-cell-bg: #2a2a2a;
-  --color-border: #3a3a3a;
-  --color-hover-bg: rgba(255, 255, 255, 0.05);
-  --color-selected-bg: rgba(102, 126, 234, 0.1);
-  --color-accent: #667eea;
-  --color-focus-border: #ffd700;
+  /* Enhanced Focus Mode Colors - use legacy theme colors */
+  --color-selected-silver: var(--accent-silver);
+  --color-active-blue: var(--accent-blue);
 
-  /* Enhanced Focus Mode Colors */
-  --color-selected-silver: #a8b0b8;
-  --color-active-blue: #00aaff;
-  --color-overlay-bg: rgba(0, 0, 0, 0.5);
-
-  /* Enhanced Focus Mode Glows */
-  --glow-selected: 0 0 20px rgba(168, 176, 184, 0.6), 0 0 45px rgba(168, 176, 184, 0.3);
-  --glow-focused: 0 0 25px rgba(0, 170, 255, 0.9), 0 0 55px rgba(0, 170, 255, 0.5);
-
-  /* Border widths */
+  /* Border widths for enhanced focus mode */
   --border-width-selected: 6px;
   --border-width-active: 6px;
-
-  /* Transitions */
-  --transition-normal: 0.3s ease;
-  --transition-fast: 0.2s ease;
 }
 
 /* =============================================================================
@@ -383,7 +367,7 @@
 /* Ensure focus is visible for keyboard navigation */
 .dashboard-menu__item:focus,
 .dashboard-grid__cell:focus {
-  outline: 2px solid var(--color-accent, #667eea);
+  outline: 2px solid var(--accent-blue);
   outline-offset: 2px;
 }
 
@@ -395,4 +379,34 @@
   .dashboard-menu__label {
     transition: none;
   }
+}
+
+/* =============================================================================
+   WIDGET IFRAMES (Phase 3.5)
+   ============================================================================= */
+
+/* Widget iframe container */
+.widget-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: var(--border-radius);
+  background: transparent;
+  display: block;
+  overflow: hidden;
+}
+
+/* Remove default iframe scrollbars */
+.widget-iframe::-webkit-scrollbar {
+  display: none;
+}
+
+/* Ensure iframe content fills container */
+.dashboard-grid__cell iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
 }

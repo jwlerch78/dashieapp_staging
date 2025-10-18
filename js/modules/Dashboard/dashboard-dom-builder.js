@@ -136,12 +136,23 @@ class DOMBuilder {
     cell.dataset.focusScale = widget.focusScale || 1.2;
     cell.dataset.selectable = widget.selectable !== false;
 
-    // Placeholder content (will be replaced by actual widget)
-    const placeholder = document.createElement('div');
-    placeholder.className = 'dashboard-grid__placeholder';
-    placeholder.textContent = widget.label || widget.id;
+    // Create widget iframe
+    if (widget.path) {
+      const iframe = document.createElement('iframe');
+      iframe.id = `widget-${widget.id}`;
+      iframe.className = 'widget-iframe';
+      iframe.src = widget.path;
+      iframe.sandbox = 'allow-scripts allow-same-origin';
+      iframe.title = widget.label || widget.id;
 
-    cell.appendChild(placeholder);
+      cell.appendChild(iframe);
+    } else {
+      // Fallback placeholder if no widget path provided
+      const placeholder = document.createElement('div');
+      placeholder.className = 'dashboard-grid__placeholder';
+      placeholder.textContent = widget.label || widget.id;
+      cell.appendChild(placeholder);
+    }
 
     return cell;
   }
