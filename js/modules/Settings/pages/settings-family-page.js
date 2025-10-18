@@ -34,6 +34,9 @@ export class SettingsFamilyPage {
         const familyName = this.getFamilyName();
         const zipCode = this.getZipCode();
 
+        // Extract just the base name for editing (remove "The" and "Family")
+        const baseName = this.extractBaseName(familyName);
+
         return `
             <div class="settings-modal__list">
                 <div class="settings-modal__section">
@@ -44,8 +47,11 @@ export class SettingsFamilyPage {
                                class="settings-modal__text-input"
                                id="family-name-input"
                                data-setting="family.familyName"
-                               value="${this.escapeHtml(familyName || 'The Dashie Family')}"
+                               value="${this.escapeHtml(baseName || 'Dashie')}"
                                placeholder="Enter family name">
+                        <div class="settings-modal__helper-text" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
+                            Will display as "The ${this.escapeHtml(baseName || 'Dashie')} Family"
+                        </div>
                     </div>
 
                     <!-- Zip Code Input -->
@@ -93,6 +99,11 @@ export class SettingsFamilyPage {
 
         // Set up event listeners
         this.setupEventListeners();
+
+        logger.debug('Event listeners setup complete', {
+            hasInputElement: !!this.familyNameInput,
+            inputValue: this.familyNameInput?.value
+        });
     }
 
     /**
@@ -100,6 +111,18 @@ export class SettingsFamilyPage {
      */
     deactivate() {
         logger.debug('Family page deactivated');
+
+        // Save any pending changes before leaving
+        if (this.familyNameInput) {
+            const newFamilyName = this.familyNameInput.value.trim();
+            const currentFamilyName = this.getFamilyName();
+
+            if (newFamilyName && newFamilyName !== currentFamilyName) {
+                // Fire change event manually to ensure save
+                const event = new Event('change', { bubbles: true });
+                this.familyNameInput.dispatchEvent(event);
+            }
+        }
 
         // Clean up event listeners
         this.cleanupEventListeners();
@@ -110,9 +133,32 @@ export class SettingsFamilyPage {
      * @private
      */
     setupEventListeners() {
-        // Family name input - auto-save on change (like legacy implementation)
+        // Get fresh reference to input element
+        this.familyNameInput = document.getElementById('family-name-input');
+
+        logger.debug('Setting up event listeners', {
+            foundInput: !!this.familyNameInput,
+            inputId: this.familyNameInput?.id,
+            inputValue: this.familyNameInput?.value
+        });
+
+        // Family name input - auto-save on change AND blur (like legacy implementation)
         if (this.familyNameInput) {
             this.familyNameInput.addEventListener('change', this.handleFamilyNameChange.bind(this));
+            this.familyNameInput.addEventListener('blur', this.handleFamilyNameChange.bind(this));
+
+            // Also handle Enter key to trigger blur
+            this.familyNameInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.keyCode === 13) {
+                    e.preventDefault();
+                    logger.debug('Enter key pressed on family name input');
+                    this.familyNameInput.blur(); // Trigger blur which saves
+                }
+            });
+
+            logger.debug('Event listeners attached successfully');
+        } else {
+            logger.error('Could not find family-name-input element!');
         }
     }
 
@@ -133,8 +179,16 @@ export class SettingsFamilyPage {
         const newFamilyName = e.target.value.trim();
         const currentFamilyName = this.getFamilyName();
 
+        logger.debug('Family name change event fired', {
+            newFamilyName,
+            currentFamilyName,
+            willSave: newFamilyName && newFamilyName !== currentFamilyName
+        });
+
         if (newFamilyName && newFamilyName !== currentFamilyName) {
             await this.saveFamilyName(newFamilyName);
+        } else {
+            logger.debug('Skipping save - no change or empty value');
         }
     }
 
@@ -230,6 +284,31 @@ export class SettingsFamilyPage {
         if (!settingsStore) return '';
 
         return settingsStore.get('family.zipCode') || '';
+    }
+
+    /**
+     * Extract base name from formatted family name
+     * Removes "The " prefix and " Family" suffix
+     * @private
+     * @param {string} fullName - Full formatted name
+     * @returns {string} Base name
+     */
+    extractBaseName(fullName) {
+        if (!fullName) return 'Dashie';
+
+        let baseName = fullName.trim();
+
+        // Remove "The " prefix if present
+        if (baseName.startsWith('The ')) {
+            baseName = baseName.substring(4);
+        }
+
+        // Remove " Family" suffix if present
+        if (baseName.endsWith(' Family')) {
+            baseName = baseName.substring(0, baseName.length - 7);
+        }
+
+        return baseName.trim() || 'Dashie';
     }
 
     /**

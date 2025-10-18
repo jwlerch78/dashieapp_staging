@@ -157,6 +157,11 @@ export class SettingsModalRenderer {
                 html += this.buildDisplaySubScreens();
             }
 
+            // Add sub-screens for Calendar page
+            if (pageId === 'calendar') {
+                html += this.buildCalendarSubScreens();
+            }
+
             return html;
         }).join('');
 
@@ -204,6 +209,21 @@ export class SettingsModalRenderer {
             <!-- Wake Timer - Period Selection -->
             <div class="settings-modal__screen" data-screen="display-wake-time-period" data-title="Wake Timer" data-parent="display">
                 ${displayPage.renderWakeTimePeriodScreen()}
+            </div>
+        `;
+    }
+
+    /**
+     * Build Calendar page sub-screens
+     * @returns {string} - HTML string
+     */
+    buildCalendarSubScreens() {
+        const calendarPage = this.pages.calendar;
+
+        return `
+            <!-- Select Calendars -->
+            <div class="settings-modal__screen" data-screen="calendar-select" data-title="Select Calendars" data-parent="calendar">
+                ${calendarPage.renderSelectCalendars()}
             </div>
         `;
     }
@@ -295,6 +315,23 @@ export class SettingsModalRenderer {
                     } else {
                         this.stateManager.setSelectedIndex(0);
                     }
+                }
+
+                // Handle Calendar sub-screens
+                if (screenId.startsWith('calendar-') && direction === 'forward') {
+                    // Load calendar data when entering calendar-select
+                    if (screenId === 'calendar-select' && this.pages.calendar) {
+                        this.pages.calendar.loadCalendarsFromAllAccounts().then(() => {
+                            // Re-render the calendar list with loaded data
+                            const calendarSelectScreen = this.modalElement.querySelector('[data-screen="calendar-select"]');
+                            if (calendarSelectScreen) {
+                                calendarSelectScreen.innerHTML = this.pages.calendar.renderSelectCalendars();
+                                // Attach event listeners
+                                this.pages.calendar.attachEventListeners();
+                            }
+                        });
+                    }
+                    this.stateManager.setSelectedIndex(0);
                 }
             } else {
                 screen.classList.remove('settings-modal__screen--active');
@@ -433,8 +470,8 @@ export class SettingsModalRenderer {
 
         if (currentPage === 'main') {
             return Array.from(this.modalElement.querySelectorAll('[data-screen="main"] .settings-modal__menu-item'));
-        } else if (currentPage.startsWith('display-')) {
-            // Display sub-screens: query the active screen directly
+        } else if (currentPage.startsWith('display-') || currentPage.startsWith('calendar-')) {
+            // Sub-screens: query the active screen directly
             const activeScreen = this.modalElement.querySelector(`[data-screen="${currentPage}"].settings-modal__screen--active`);
             if (activeScreen) {
                 return Array.from(activeScreen.querySelectorAll('.settings-modal__menu-item'));

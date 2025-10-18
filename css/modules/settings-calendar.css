@@ -1,0 +1,242 @@
+/* css/modules/settings-calendar.css */
+/* Calendar settings styles - Ported from legacy dcal-settings.css */
+/* Provides colors, sorting visual cues, and enhanced calendar item display */
+
+/* ============================================================================
+   CALENDAR LIST CONTAINER - FIX SCROLLING AND SPACING
+   ============================================================================ */
+
+.calendar-list-container {
+  padding-top: 0 !important; /* Remove top padding to eliminate space */
+  margin-top: 0 !important;
+}
+
+/* Prevent wrapping issues */
+.calendar-list-container .settings-modal__section {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+/* Ensure headers stick with their content */
+.calendar-account-header {
+  page-break-after: avoid;
+  break-after: avoid;
+}
+
+/* ============================================================================
+   CALENDAR ITEM STYLES
+   ============================================================================ */
+
+.calendar-item {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* Spacing between elements */
+  padding: 8px 16px;
+  transition: all 0.2s ease;
+  min-height: 36px; /* Compact height for tighter spacing */
+}
+
+/* Calendar Color Dot */
+.calendar-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* ============================================================================
+   CALENDAR ITEM STATES
+   ============================================================================ */
+
+/* Enabled calendars - Bold and full opacity */
+.calendar-item.enabled {
+  font-weight: 600;
+  opacity: 1;
+}
+
+.calendar-item.enabled .settings-modal__menu-label {
+  font-weight: 600;
+}
+
+/* Disabled calendars - Faded */
+.calendar-item:not(.enabled) {
+  opacity: 0.4;
+}
+
+.calendar-item:not(.enabled) .calendar-color-dot {
+  opacity: 0.3; /* Even more faded for color dot */
+}
+
+/* ============================================================================
+   CHECKMARK VISIBILITY
+   ============================================================================ */
+
+.calendar-item .settings-modal__cell-checkmark {
+  margin-left: auto;
+  color: var(--focus-color, #ff9500);
+  font-size: 20px;
+  font-weight: 600;
+  opacity: 0; /* Hidden by default */
+  transition: opacity 0.2s ease;
+}
+
+.calendar-item.enabled .settings-modal__cell-checkmark {
+  opacity: 1; /* Show when enabled */
+}
+
+/* ============================================================================
+   ACCOUNT SECTION HEADERS
+   ============================================================================ */
+
+.calendar-account-header {
+  font-size: 16px;
+  font-weight: 700;
+  padding: 16px 16px 8px 16px;
+  color: var(--text-primary, #fff);
+  text-transform: none;
+  letter-spacing: 0px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+/* Light theme override */
+.theme-light .calendar-account-header {
+  color: #333;
+}
+
+.calendar-count {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-secondary, #999);
+  opacity: 0.8;
+}
+
+/* ============================================================================
+   FOCUS STATE (D-PAD NAVIGATION)
+   ============================================================================ */
+
+.calendar-item.focused {
+  background: linear-gradient(90deg,
+    rgba(255, 149, 0, 0.15) 0%,
+    rgba(255, 149, 0, 0.05) 100%) !important;
+  border-left: 3px solid var(--focus-color, #ff9500);
+  padding-left: 13px; /* Adjust for border */
+}
+
+/* ============================================================================
+   HOVER STATE (MOUSE/TOUCH)
+   ============================================================================ */
+
+.calendar-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+  cursor: pointer;
+}
+
+.theme-light .calendar-item:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* ============================================================================
+   ACCOUNT SECTION SPACING
+   ============================================================================ */
+
+.calendar-account-section {
+  margin-bottom: 0; /* No spacing within section */
+}
+
+.calendar-account-section:not(:last-child) {
+  margin-bottom: 24px; /* Add spacing only between account sections */
+}
+
+.calendar-account-section:last-child {
+  margin-bottom: 0;
+}
+
+/* ============================================================================
+   RESPONSIVE ADJUSTMENTS
+   ============================================================================ */
+
+@media (max-width: 768px) {
+  .calendar-color-dot {
+    width: 8px;
+    height: 8px;
+  }
+
+  .calendar-item {
+    padding: 8px 14px;
+    gap: 6px;
+  }
+
+  .calendar-account-header {
+    font-size: 15px;
+    padding: 14px 14px 6px 14px;
+  }
+
+  .calendar-count {
+    font-size: 12px;
+  }
+}
+
+/* ============================================================================
+   LOADING STATE
+   ============================================================================ */
+
+.settings-modal__spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--focus-color, #ff9500);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 12px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.settings-modal__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.settings-modal__empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.settings-modal__empty-text {
+  color: var(--text-secondary, #999);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* ============================================================================
+   COMING SOON ITEMS
+   ============================================================================ */
+
+.settings-modal__menu-item.coming-soon {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.settings-modal__menu-item.coming-soon:hover {
+  background: transparent !important;
+}
+
+.settings-modal__cell-status {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-secondary, #999);
+  opacity: 0.6;
+  margin-right: 8px;
+}

@@ -144,10 +144,12 @@ class HeaderWidget {
 
   updateFamilyName(familyName) {
     if (!familyName || familyName.trim() === '') {
-      familyName = 'The Dashie Family';
+      familyName = 'Dashie';
     }
 
-    this.currentFamilyName = familyName.trim();
+    // Format the family name to "The [Name] Family"
+    const formattedName = this.formatFamilyName(familyName.trim());
+    this.currentFamilyName = formattedName;
 
     const element = document.getElementById('family-name');
     if (element) {
@@ -162,6 +164,27 @@ class HeaderWidget {
     }
 
     logger.info('Family name updated', { familyName: this.currentFamilyName });
+  }
+
+  formatFamilyName(name) {
+    // If already formatted correctly, return as-is
+    if (name.startsWith('The ') && name.endsWith(' Family')) {
+      return name;
+    }
+
+    // Remove "The " prefix if present
+    let baseName = name;
+    if (baseName.startsWith('The ')) {
+      baseName = baseName.substring(4);
+    }
+
+    // Remove " Family" suffix if present
+    if (baseName.endsWith(' Family')) {
+      baseName = baseName.substring(0, baseName.length - 7);
+    }
+
+    // Format as "The [Name] Family"
+    return `The ${baseName} Family`;
   }
 }
 
