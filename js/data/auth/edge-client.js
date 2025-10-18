@@ -18,6 +18,7 @@ export class EdgeClient {
         this.jwtUserId = null;
         this.jwtUserEmail = null;
         this.edgeFunctionUrl = SUPABASE_CONFIG.edgeFunctionUrl;
+        this.databaseOpsUrl = SUPABASE_CONFIG.edgeFunctionUrl.replace('/jwt-auth', '/database-operations');
         this.anonKey = SUPABASE_CONFIG.anonKey;
 
         // Try to load JWT from localStorage
@@ -297,6 +298,52 @@ export class EdgeClient {
     }
 
     /**
+     * Make authenticated request to database-operations edge function
+     * @private
+     * @param {object} payload - Request payload
+     * @returns {Promise<object>} Response data
+     */
+    async databaseRequest(payload) {
+        if (!this.jwtToken) {
+            throw new Error('JWT token required for database operations');
+        }
+
+        logger.debug('🔍 DEBUG: Making database-operations request', {
+            url: this.databaseOpsUrl,
+            operation: payload.operation
+        });
+
+        const response = await fetch(this.databaseOpsUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${this.jwtToken}`
+            },
+            body: JSON.stringify(payload)
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            logger.error('🔍 DEBUG: Database operation failed', {
+                status: response.status,
+                error: errorData
+            });
+            throw new Error(`Database operation error: ${response.status} - ${errorData.error || errorData.details || 'Unknown error'}`);
+        }
+
+        const data = await response.json();
+        if (!data.success) {
+            logger.error('🔍 DEBUG: Database operation returned error', {
+                error: data.error
+            });
+            throw new Error(`Database operation returned error: ${data.error || 'Unknown error'}`);
+        }
+
+        logger.debug('🔍 DEBUG: Database operation successful', data);
+        return data;
+    }
+
+    /**
      * Store tokens for a specific account in Supabase
      * Calls edge function 'store_tokens' operation
      * @param {string} provider - Provider name (e.g., 'google')
@@ -466,5 +513,44 @@ export class EdgeClient {
 
         logger.info('Successfully loaded settings from Supabase');
         return response.settings || {};
+    }
+
+    /**
+     * Save calendar configuration to user_calendar_config table
+     * @param {Array<string>} activeCalendarIds - Array of active calendar IDs (account-prefixed)
+     * @returns {Promise<object>} Save result
+     */
+    async saveCalendarConfig(activeCalendarIds) {
+        logger.info('🔍 DEBUG: Saving calendar config to user_calendar_config table', {
+            count: activeCalendarIds.length,
+            ids: activeCalendarIds
+        });
+
+        const response = await this.databaseRequest({
+            operation: 'save_calendar_config',
+            active_calendar_ids: activeCalendarIds
+        });
+
+        logger.info('🔍 DEBUG: Successfully saved calendar config, response:', response);
+        return response;
+    }
+
+    /**
+     * Load calendar configuration from user_calendar_config table
+     * @returns {Promise<Array<string>>} Array of active calendar IDs
+     */
+    async loadCalendarConfig() {
+        logger.info('🔍 DEBUG: Loading calendar config from user_calendar_config table');
+
+        const response = await this.databaseRequest({
+            operation: 'load_calendar_config'
+        });
+
+        logger.info('🔍 DEBUG: Successfully loaded calendar config, response:', {
+            response,
+            activeCalendarIds: response.active_calendar_ids || []
+        });
+
+        return response.active_calendar_ids || [];
     }
 }

@@ -5,6 +5,7 @@
 import { createLogger } from '../../../utils/logger.js';
 import { getCalendarService } from '../../../data/services/calendar-service.js';
 import UIUpdateHelper from '../utils/ui-update-helper.js';
+import { SettingsPageBase } from '../core/settings-page-base.js';
 
 const logger = createLogger('SettingsCalendarPage');
 
@@ -15,10 +16,11 @@ const logger = createLogger('SettingsCalendarPage');
  * - Select Calendars sub-screen
  * - Calendar colors, sorting, dynamic counts
  * - Instant UI feedback using UIUpdateHelper
+ * - Extends SettingsPageBase for standardized focus management
  */
-export class SettingsCalendarPage {
+export class SettingsCalendarPage extends SettingsPageBase {
     constructor() {
-        this.initialized = false;
+        super('calendar');
         this.calendarService = null;
         this.calendarData = {}; // Account-based calendar storage
         this.isLoading = false;
@@ -292,6 +294,17 @@ export class SettingsCalendarPage {
 
             const calendars = await this.calendarService.getCalendars(accountType);
 
+            logger.info('🔍 DEBUG: Raw calendars from service:', {
+                count: calendars.length,
+                firstCalendar: calendars[0],
+                allCalendars: calendars.map(c => ({
+                    id: c.id,
+                    summary: c.summary,
+                    isActive: c.isActive,
+                    prefixedId: c.prefixedId
+                }))
+            });
+
             // Get account email from first calendar or use placeholder
             const primaryEmail = calendars.find(c => c.id === 'primary')?.id ||
                                 calendars[0]?.id ||
@@ -305,7 +318,8 @@ export class SettingsCalendarPage {
 
             logger.success('Calendars loaded', {
                 accounts: Object.keys(this.calendarData).length,
-                totalCalendars: calendars.length
+                totalCalendars: calendars.length,
+                activeCount: calendars.filter(c => c.isActive).length
             });
 
         } catch (error) {
@@ -318,16 +332,59 @@ export class SettingsCalendarPage {
 
     /**
      * Get focusable elements for this page
+     * Overrides base class to handle sub-screens
      * @returns {Array<HTMLElement>}
      */
     getFocusableElements() {
-        // If on sub-screen, return calendar items
+        // If on calendar-select sub-screen, return calendar items
         if (this.currentSubScreen === 'calendar-select') {
-            return Array.from(document.querySelectorAll('.calendar-item'));
+            const screen = document.querySelector('[data-screen="calendar-select"].settings-modal__screen--active');
+            if (screen) {
+                return Array.from(screen.querySelectorAll('.calendar-item'));
+            }
         }
 
-        // Otherwise return main menu items
-        return Array.from(document.querySelectorAll('[data-navigate]'));
+        // Main calendar page - return menu items
+        const screen = document.querySelector('[data-screen="calendar"].settings-modal__screen--active');
+        if (screen) {
+            return Array.from(screen.querySelectorAll('.settings-modal__menu-item'));
+        }
+
+        return [];
+    }
+
+    /**
+     * Get selection behavior for an item
+     * Overrides base class to define calendar-specific behavior
+     * @param {HTMLElement} item - The clicked item
+     * @returns {Object} Behavior configuration
+     */
+    getSelectionBehavior(item) {
+        // Calendar items: toggle behavior (multi-select)
+        if (item.classList.contains('calendar-item')) {
+            return { type: 'toggle' };
+        }
+
+        // "Coming Soon" items: no behavior
+        if (item.classList.contains('coming-soon')) {
+            return { type: 'none' };
+        }
+
+        // Menu items with navigate attribute: navigate
+        if (item.dataset.navigate) {
+            return { type: 'navigate' };
+        }
+
+        return { type: 'none' };
+    }
+
+    /**
+     * Handle toggle item (calendar selection)
+     * Overrides base class to implement calendar toggle
+     * @param {HTMLElement} item - The calendar item to toggle
+     */
+    async handleToggleItem(item) {
+        await this.toggleCalendar(item);
     }
 
     /**
@@ -431,22 +488,35 @@ export class SettingsCalendarPage {
         const isCurrentlyActive = item.classList.contains('enabled');
         const newActiveState = !isCurrentlyActive;
 
-        logger.info('Calendar toggled', { prefixedId, newState: newActiveState });
+        logger.info('🔍 DEBUG: Calendar toggled', {
+            accountType,
+            calendarId,
+            prefixedId,
+            isCurrentlyActive,
+            newState: newActiveState
+        });
 
         try {
             // Use UIUpdateHelper for instant UI feedback
             await UIUpdateHelper.updateThenSave(
                 // 1. Instant UI update
                 () => {
+                    logger.info('🔍 DEBUG: Updating UI instantly');
                     UIUpdateHelper.toggleCalendarItem(item, newActiveState);
                 },
                 // 2. Async save operation
                 async () => {
+                    logger.info('🔍 DEBUG: Starting async save operation');
+
                     if (newActiveState) {
+                        logger.info('🔍 DEBUG: Calling enableCalendar');
                         await this.calendarService.enableCalendar(accountType, calendarId);
                     } else {
+                        logger.info('🔍 DEBUG: Calling disableCalendar');
                         await this.calendarService.disableCalendar(accountType, calendarId);
                     }
+
+                    logger.info('🔍 DEBUG: Save completed, updating local data');
 
                     // Update local calendar data to reflect the change
                     // This avoids refetching and prevents race conditions
@@ -455,6 +525,9 @@ export class SettingsCalendarPage {
                         const calendar = account.calendars.find(c => c.rawId === calendarId);
                         if (calendar) {
                             calendar.isActive = newActiveState;
+                            logger.info('🔍 DEBUG: Local calendar data updated');
+                        } else {
+                            logger.warn('🔍 DEBUG: Calendar not found in local data!', { calendarId });
                         }
                     }
 
@@ -463,11 +536,12 @@ export class SettingsCalendarPage {
                 },
                 // 3. Rollback on error
                 () => {
+                    logger.error('🔍 DEBUG: Rolling back UI due to error');
                     UIUpdateHelper.toggleCalendarItem(item, isCurrentlyActive);
                 }
             );
 
-            logger.success(`Calendar ${newActiveState ? 'enabled' : 'disabled'}`, { prefixedId });
+            logger.success(`🔍 DEBUG: Calendar ${newActiveState ? 'enabled' : 'disabled'}`, { prefixedId });
 
         } catch (error) {
             logger.error('Failed to toggle calendar', { prefixedId, error });

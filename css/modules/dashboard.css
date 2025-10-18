@@ -47,7 +47,7 @@
   height: 100vh;
   position: relative;
   flex-shrink: 0;
-  z-index: 10; /* Sidebar's stacking context */
+  z-index: 10; /* Sidebar's stacking context - below selected cells (100) and overlay (150) */
 }
 
 /* Sidebar - overlays grid when expanded */
@@ -175,13 +175,8 @@
   max-height: 100vh;
   overflow: visible; /* Allow cells to overflow and appear above sidebar */
   box-sizing: border-box;
-  position: relative;
-  z-index: 5; /* Below sidebar wrapper (10) by default */
-}
-
-/* When any cell is focused, increase grid z-index to appear above sidebar */
-.dashboard-grid:has(.dashboard-grid__cell--focused) {
-  z-index: 20; /* Above sidebar wrapper (10) when cell is selected */
+  /* NO position/z-index - prevents creating stacking context that would trap focused widgets */
+  /* This matches legacy #grid behavior and allows focused widgets to render at proper z-index */
 }
 
 .dashboard-grid__cell {
@@ -218,7 +213,7 @@
               inset 0 0 0 var(--border-width-selected) var(--color-selected-silver);
   transform: scale(1.05); /* 105% scale for enhanced mode */
   transition: all var(--transition-fast);
-  z-index: var(--z-widget-selected); /* 100 - Above grid (5) and sidebar (10) but below overlay (150) */
+  z-index: var(--z-widget-selected); /* 100 - Above sidebar (10) but below overlay (150) */
   overflow: visible; /* Allow border to be fully visible when focused */
 }
 

@@ -10,7 +10,6 @@
 // ============================================================================
 
 import { createLogger } from '../../utils/logger.js';
-import { JWTService } from '../auth/jwt/jwt.js';
 import {
   APP_VERSION,
   HEARTBEAT_FREQUENCY_MS,
@@ -27,7 +26,7 @@ class HeartbeatService {
     this.currentVersion = APP_VERSION;
     this.deviceFingerprint = null;
     this.isRunning = false;
-    this.edgeBaseUrl = null;
+    this.edgeClient = null;
 
     // Track failures for error handling
     this.consecutiveFailures = 0;
@@ -36,12 +35,18 @@ class HeartbeatService {
 
   /**
    * Initialize heartbeat service
+   * @param {EdgeClient} edgeClient - EdgeClient instance for making authenticated requests
    */
-  async initialize() {
+  async initialize(edgeClient) {
     logger.info(`Initializing heartbeat service (frequency: ${this.heartbeatFrequency / 1000}s)...`);
 
-    // Get edge function URL from JWT service
-    this.edgeBaseUrl = JWTService.edgeBaseUrl;
+    // Store EdgeClient reference
+    this.edgeClient = edgeClient;
+
+    if (!this.edgeClient) {
+      logger.error('EdgeClient not provided, heartbeat service cannot start');
+      return;
+    }
 
     // Generate device fingerprint
     this.deviceFingerprint = await this.generateDeviceFingerprint();
@@ -100,18 +105,23 @@ class HeartbeatService {
    */
   async sendHeartbeat() {
     try {
-      // Get current JWT
-      const jwt = await JWTService.getToken();
-      if (!jwt) {
-        logger.warn('No JWT token, skipping heartbeat');
+      // Check if we have EdgeClient and JWT token
+      if (!this.edgeClient || !this.edgeClient.jwtToken) {
+        logger.warn('No JWT token available, skipping heartbeat');
         return;
       }
 
+      // Build heartbeat URL - heartbeat is at root level, not under /jwt-auth
+      // EdgeClient's edgeFunctionUrl is: https://[project].supabase.co/functions/v1/jwt-auth
+      // We need: https://[project].supabase.co/functions/v1/heartbeat
+      const baseUrl = this.edgeClient.edgeFunctionUrl.replace('/jwt-auth', '');
+      const heartbeatUrl = `${baseUrl}/heartbeat`;
+
       // Send heartbeat
-      const response = await fetch(`${this.edgeBaseUrl}/heartbeat`, {
+      const response = await fetch(heartbeatUrl, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${jwt}`,
+          'Authorization': `Bearer ${this.edgeClient.jwtToken}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({

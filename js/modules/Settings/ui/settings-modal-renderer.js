@@ -218,12 +218,16 @@ export class SettingsModalRenderer {
      * @returns {string} - HTML string
      */
     buildCalendarSubScreens() {
-        const calendarPage = this.pages.calendar;
-
         return `
             <!-- Select Calendars -->
             <div class="settings-modal__screen" data-screen="calendar-select" data-title="Select Calendars" data-parent="calendar">
-                ${calendarPage.renderSelectCalendars()}
+                <!-- Initial loading state - will be replaced when data loads -->
+                <div class="settings-modal__page-content">
+                    <div class="settings-modal__empty">
+                        <div class="settings-modal__spinner"></div>
+                        <div class="settings-modal__empty-text">Loading calendars...</div>
+                    </div>
+                </div>
             </div>
         `;
     }
@@ -321,17 +325,37 @@ export class SettingsModalRenderer {
                 if (screenId.startsWith('calendar-') && direction === 'forward') {
                     // Load calendar data when entering calendar-select
                     if (screenId === 'calendar-select' && this.pages.calendar) {
+                        logger.info('🔍 DEBUG: Starting calendar data load');
                         this.pages.calendar.loadCalendarsFromAllAccounts().then(() => {
+                            logger.info('🔍 DEBUG: Calendar data loaded, re-rendering');
+
                             // Re-render the calendar list with loaded data
                             const calendarSelectScreen = this.modalElement.querySelector('[data-screen="calendar-select"]');
                             if (calendarSelectScreen) {
-                                calendarSelectScreen.innerHTML = this.pages.calendar.renderSelectCalendars();
+                                const renderedHTML = this.pages.calendar.renderSelectCalendars();
+                                logger.info('🔍 DEBUG: Rendered HTML length:', renderedHTML.length);
+
+                                calendarSelectScreen.innerHTML = renderedHTML;
+
                                 // Attach event listeners
                                 this.pages.calendar.attachEventListeners();
+
+                                // Reset selection to first item and update UI
+                                this.stateManager.setSelectedIndex(0);
+                                this.updateSelection();
+
+                                logger.info('🔍 DEBUG: Selection updated, checking focusable elements');
+                                const focusable = this.getFocusableElements();
+                                logger.info('🔍 DEBUG: Focusable elements:', focusable.length);
+                            } else {
+                                logger.error('🔍 DEBUG: Calendar select screen not found!');
                             }
+                        }).catch(error => {
+                            logger.error('🔍 DEBUG: Error loading calendars:', error);
                         });
+                    } else {
+                        this.stateManager.setSelectedIndex(0);
                     }
-                    this.stateManager.setSelectedIndex(0);
                 }
             } else {
                 screen.classList.remove('settings-modal__screen--active');
@@ -701,7 +725,32 @@ export class SettingsModalRenderer {
             }
         }
 
-        // Handle sub-page navigation (data-navigate)
+        // Delegate to page's handleItemClick if page extends SettingsPageBase
+        const currentPage = this.stateManager.getCurrentPage();
+        const page = this.pages[currentPage];
+
+        if (page && typeof page.handleItemClick === 'function') {
+            event.preventDefault();
+
+            try {
+                const action = await page.handleItemClick(target);
+
+                // Handle navigation if requested
+                if (action && action.shouldNavigate && action.navigateTo) {
+                    logger.info('Page requested navigation', { to: action.navigateTo });
+                    this.stateManager.navigateToPage(action.navigateTo);
+                    this.showCurrentPage('forward');
+                    this.updateSelection();
+                }
+
+                // If page handled the click, we're done
+                return;
+            } catch (error) {
+                logger.error('Error in page handleItemClick', error);
+            }
+        }
+
+        // Fallback: Handle sub-page navigation (data-navigate)
         // This comes AFTER time selection handling because time cells have both data-period AND data-navigate
         if (target.dataset.navigate) {
             event.preventDefault();

@@ -126,7 +126,7 @@ body.theme-dark {
   --widget-border-gradient-active: linear-gradient(to right, #00aaff 0%, rgba(0, 170, 255, 0.3) 50%, #00aaff 100%);
 
   /* Theme-specific */
-  --sidebar-logo-src: url('/icons/Dashie_Full_Logo_White_Transparent.png');
+  --sidebar-logo-src: url('/artwork/Dashie_Full_Logo_White_Transparent.png');
   --sidebar-icon-filter: invert(100%); /* White icons */
 }
 

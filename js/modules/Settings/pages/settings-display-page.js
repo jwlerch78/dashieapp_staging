@@ -457,8 +457,42 @@ export class SettingsDisplayPage {
     activate() {
         logger.debug('Display page activated');
 
+        // Update displayed values in case they changed in sub-screens
+        this.updateDisplayValues();
+
         // Attach event listeners when page becomes active
         this.attachEventListeners();
+    }
+
+    /**
+     * Update displayed values on the main Display page
+     * Called when navigating back to this page after changing settings
+     */
+    updateDisplayValues() {
+        // Update theme display
+        const themeDisplay = document.getElementById('theme-display');
+        if (themeDisplay) {
+            const currentTheme = this.getCurrentTheme();
+            const themeFormatted = currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1);
+            themeDisplay.textContent = themeFormatted;
+            logger.debug('🔍 DEBUG: Updated theme display to', themeFormatted);
+        }
+
+        // Update sleep time display
+        const sleepTimeDisplay = document.getElementById('sleep-time-display');
+        if (sleepTimeDisplay) {
+            const sleepTime = this.getSleepTime();
+            const sleepTimeFormatted = this.timeHandler.formatTime(sleepTime);
+            sleepTimeDisplay.textContent = sleepTimeFormatted;
+        }
+
+        // Update wake time display
+        const wakeTimeDisplay = document.getElementById('wake-time-display');
+        if (wakeTimeDisplay) {
+            const wakeTime = this.getWakeTime();
+            const wakeTimeFormatted = this.timeHandler.formatTime(wakeTime);
+            wakeTimeDisplay.textContent = wakeTimeFormatted;
+        }
     }
 
     /**

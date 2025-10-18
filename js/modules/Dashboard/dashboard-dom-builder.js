@@ -25,6 +25,32 @@ const logger = createLogger('DashboardDOMBuilder');
  */
 class DOMBuilder {
   /**
+   * Get current theme from body class
+   * @returns {string} 'light' or 'dark'
+   */
+  static getCurrentTheme() {
+    // Check body class for theme
+    if (document.body.classList.contains('theme-light')) {
+      return 'light';
+    } else if (document.body.classList.contains('theme-dark')) {
+      return 'dark';
+    }
+
+    // Check localStorage as fallback
+    try {
+      const saved = localStorage.getItem('dashie-theme');
+      if (saved === 'light' || saved === 'dark') {
+        return saved;
+      }
+    } catch (e) {
+      // Ignore localStorage errors
+    }
+
+    // Default to light theme (matches DEFAULT_THEME in theme.js)
+    return 'light';
+  }
+
+  /**
    * Create sidebar with menu structure
    * @returns {HTMLElement} Sidebar element
    */
@@ -35,9 +61,14 @@ class DOMBuilder {
     // Add Dashie logo at top
     const logo = document.createElement('img');
     logo.className = 'dashie-logo';
-    logo.src = '/artwork/Dashie_Full_Logo_White_Transparent.png'; // Will be set dynamically by theme
+    // Set logo based on current theme
+    const currentTheme = this.getCurrentTheme();
+    logo.src = currentTheme === 'light'
+      ? '/artwork/Dashie_Full_Logo_Black_Transparent.png'
+      : '/artwork/Dashie_Full_Logo_White_Transparent.png';
     logo.alt = 'Dashie';
     sidebar.appendChild(logo);
+    logger.debug('Logo created with theme', { theme: currentTheme, src: logo.src });
 
     const menu = document.createElement('div');
     menu.className = 'dashboard-menu';

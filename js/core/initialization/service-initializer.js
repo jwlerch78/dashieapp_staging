@@ -6,11 +6,12 @@ import { createLogger } from '../../utils/logger.js';
 import { sessionManager } from '../../data/auth/orchestration/session-manager.js';
 import { initializeCalendarService } from '../../data/services/calendar-service.js';
 import settingsService from '../../data/services/settings-service.js';
+import heartbeatService from '../../data/services/heartbeat-service.js';
 
 const logger = createLogger('ServiceInitializer');
 
 /**
- * Initialize data services (EdgeClient, SettingsService, CalendarService)
+ * Initialize data services (EdgeClient, SettingsService, CalendarService, HeartbeatService)
  * @returns {Promise<void>}
  */
 export async function initializeServices() {
@@ -24,6 +25,10 @@ export async function initializeServices() {
 
     // Initialize CalendarService
     const calendarService = initializeCalendarService(edgeClient);
+
+    // Initialize HeartbeatService to track dashboard status and version updates
+    await heartbeatService.initialize(edgeClient);
+    window.heartbeatService = heartbeatService; // Expose for console debugging
 
     logger.verbose('Data services initialized');
 

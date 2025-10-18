@@ -13,6 +13,7 @@ export class SettingsStateManager {
     constructor() {
         this.currentPage = 'main'; // 'main' | 'family' | 'interface' | 'calendar' | 'photos' | 'system' | 'account'
         this.navigationStack = []; // Stack for back navigation
+        this.selectionStack = []; // Stack to remember selected index on each page
         this.isVisible = false;
         this.selectedIndex = 0; // Currently selected menu item or control
     }
@@ -31,6 +32,7 @@ export class SettingsStateManager {
     reset() {
         this.currentPage = 'main';
         this.navigationStack = [];
+        this.selectionStack = [];
         this.isVisible = false;
         this.selectedIndex = 0;
     }
@@ -43,6 +45,7 @@ export class SettingsStateManager {
         this.isVisible = true;
         this.currentPage = 'main';
         this.navigationStack = [];
+        this.selectionStack = [];
         this.selectedIndex = 0;
     }
 
@@ -62,8 +65,9 @@ export class SettingsStateManager {
     navigateToPage(pageName) {
         logger.debug('Navigating to page:', pageName);
 
-        // Push current page to navigation stack
+        // Push current page AND current selection to navigation stack
         this.navigationStack.push(this.currentPage);
+        this.selectionStack.push(this.selectedIndex);
 
         // Set new page
         this.currentPage = pageName;
@@ -81,10 +85,12 @@ export class SettingsStateManager {
         }
 
         const previousPage = this.navigationStack.pop();
-        logger.debug('Navigating back to:', previousPage);
+        const previousSelection = this.selectionStack.pop() || 0;
+
+        logger.debug('Navigating back to:', previousPage, 'with selection:', previousSelection);
 
         this.currentPage = previousPage;
-        this.selectedIndex = 0;
+        this.selectedIndex = previousSelection; // Restore previous selection
 
         return true;
     }
@@ -99,13 +105,14 @@ export class SettingsStateManager {
 
         // Pop the navigation stack to stay in sync
         // (since we're going back one level)
+        const previousSelection = this.selectionStack.pop() || 0;
         if (this.navigationStack.length > 0) {
             this.navigationStack.pop();
         }
 
         // Set the current page to the parent
         this.currentPage = parentPageName;
-        this.selectedIndex = 0;
+        this.selectedIndex = previousSelection; // Restore previous selection
     }
 
     /**

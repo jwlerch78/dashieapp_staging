@@ -93,17 +93,12 @@
   font-size: 16px;
   font-weight: 700;
   padding: 16px 16px 8px 16px;
-  color: var(--text-primary, #fff);
+  color: #6B7280; /* Fixed dark gray - not themed */
   text-transform: none;
   letter-spacing: 0px;
   display: flex;
   align-items: baseline;
   gap: 8px;
-}
-
-/* Light theme override */
-.theme-light .calendar-account-header {
-  color: #333;
 }
 
 .calendar-count {

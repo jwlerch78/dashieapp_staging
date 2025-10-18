@@ -35,22 +35,21 @@ export class CalendarService {
     }
 
     /**
-     * Initialize service and load active calendars from settings
+     * Initialize service and load active calendars from user_calendar_config table
      * @returns {Promise<void>}
      */
     async initialize() {
-        logger.info('Initializing CalendarService with settings');
+        logger.info('Initializing CalendarService with calendar config');
 
         try {
-            // Load settings to get active calendar IDs
-            const settings = await this.edgeClient.loadSettings();
-            this.activeCalendarIds = settings?.calendar?.activeCalendarIds || [];
+            // Load calendar config from user_calendar_config table
+            this.activeCalendarIds = await this.edgeClient.loadCalendarConfig();
 
-            logger.success('CalendarService initialized', {
+            logger.success('CalendarService initialized from user_calendar_config', {
                 activeCalendars: this.activeCalendarIds.length
             });
         } catch (error) {
-            logger.warn('Failed to load active calendars from settings', error);
+            logger.warn('Failed to load active calendars from user_calendar_config', error);
             this.activeCalendarIds = [];
         }
     }
@@ -268,27 +267,17 @@ export class CalendarService {
     }
 
     /**
-     * Save active calendars to settings
+     * Save active calendars to user_calendar_config table
      * @returns {Promise<void>}
      */
     async saveActiveCalendars() {
         try {
-            // Load current settings
-            const settings = await this.edgeClient.loadSettings();
+            // Save to user_calendar_config table via EdgeClient
+            await this.edgeClient.saveCalendarConfig(this.activeCalendarIds);
 
-            // Ensure calendar section exists
-            if (!settings.calendar) {
-                settings.calendar = {};
-            }
-
-            // Update active calendar IDs
-            settings.calendar.activeCalendarIds = this.activeCalendarIds;
-
-            // Save back to settings
-            await this.edgeClient.saveSettings(settings);
-
-            logger.debug('Active calendars saved', {
-                count: this.activeCalendarIds.length
+            logger.debug('Active calendars saved to user_calendar_config', {
+                count: this.activeCalendarIds.length,
+                ids: this.activeCalendarIds
             });
 
         } catch (error) {
