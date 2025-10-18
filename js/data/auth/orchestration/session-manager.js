@@ -80,6 +80,129 @@ export class SessionManager {
             if (oauthResult && oauthResult.success && oauthResult.user) {
                 logger.success('OAuth callback detected during initialization');
 
+                // Check if this is a multi-account flow (adding secondary account)
+                const pendingAccountType = sessionStorage.getItem('pendingAccountType');
+                const isMultiAccountFlow = pendingAccountType && this.edgeClient.jwtToken;
+
+                if (isMultiAccountFlow) {
+                    // MULTI-ACCOUNT FLOW: User is already authenticated, adding a secondary account
+                    // Do NOT bootstrap JWT, just store the tokens for the secondary account
+                    logger.info('Multi-account OAuth callback detected', {
+                        accountType: pendingAccountType,
+                        newAccountEmail: oauthResult.user.email,
+                        existingJwt: !!this.edgeClient.jwtToken
+                    });
+
+                    try {
+                        // Check if this email is already added (prevent duplicates)
+                        const existingAccounts = await this.tokenStore.getProviderAccounts('google');
+                        const accountWithSameEmail = Object.entries(existingAccounts || {}).find(
+                            ([accountType, tokenData]) => tokenData.email === oauthResult.user.email
+                        );
+
+                        if (accountWithSameEmail) {
+                            const [existingAccountType, existingTokenData] = accountWithSameEmail;
+                            logger.warn('Account with this email already exists', {
+                                email: oauthResult.user.email,
+                                existingAccountType
+                            });
+
+                            // Clean up pending account type
+                            sessionStorage.removeItem('pendingAccountType');
+
+                            // Show user a message
+                            alert(`This Google account is already connected:\n${oauthResult.user.email}\n\nAccount: ${existingAccountType}`);
+
+                            // Redirect back to settings
+                            window.location.hash = '#settings/calendar';
+                            window.location.reload();
+
+                            return {
+                                authenticated: true,
+                                user: this.user,
+                                duplicateAccount: true
+                            };
+                        }
+
+                        // Store tokens for secondary account
+                        await this.tokenStore.storeAccountTokens('google', pendingAccountType, {
+                            access_token: oauthResult.tokens.access_token,
+                            refresh_token: oauthResult.tokens.refresh_token,
+                            expires_at: new Date(Date.now() + (oauthResult.tokens.expires_in * 1000)).toISOString(),
+                            scopes: oauthResult.tokens.scope?.split(' ') || [],
+                            email: oauthResult.user.email,
+                            display_name: oauthResult.user.name,
+                            provider_info: {
+                                type: 'web_oauth',
+                                auth_method: oauthResult.user.authMethod,
+                                client_id: this.authCoordinator.webOAuthProvider?.config?.client_id || 'unknown'
+                            }
+                        });
+
+                        logger.success('Secondary account tokens stored', {
+                            accountType: pendingAccountType,
+                            email: oauthResult.user.email
+                        });
+
+                        // Auto-enable primary calendar from the new account
+                        logger.info('Auto-enabling primary calendar from new account', {
+                            accountType: pendingAccountType
+                        });
+
+                        try {
+                            const calendarService = window.calendarService;
+                            if (calendarService) {
+                                // Fetch calendars from the new account
+                                const calendars = await calendarService.getCalendars(pendingAccountType);
+
+                                // Find the primary calendar
+                                const primaryCalendar = calendars.find(cal => cal.primary === true);
+
+                                if (primaryCalendar) {
+                                    // Create prefixed ID for the primary calendar
+                                    const primaryCalendarId = calendarService.createPrefixedId(pendingAccountType, primaryCalendar.id);
+
+                                    // Add to active calendars
+                                    if (!calendarService.activeCalendarIds.includes(primaryCalendarId)) {
+                                        calendarService.activeCalendarIds.push(primaryCalendarId);
+                                        await calendarService.saveActiveCalendars();
+
+                                        logger.success('Primary calendar auto-enabled for new account', {
+                                            accountType: pendingAccountType,
+                                            calendarId: primaryCalendarId
+                                        });
+                                    }
+                                }
+                            }
+                        } catch (calendarError) {
+                            logger.warn('Failed to auto-enable primary calendar for new account', calendarError);
+                            // Don't fail the whole flow if calendar enabling fails
+                        }
+
+                        // Clean up pending account type
+                        sessionStorage.removeItem('pendingAccountType');
+
+                        // Keep existing authentication state
+                        this.isInitialized = true;
+
+                        // Redirect back to settings calendar page
+                        window.location.hash = '#settings/calendar';
+                        window.location.reload();
+
+                        return {
+                            authenticated: true,
+                            user: this.user,
+                            multiAccountCallback: true
+                        };
+
+                    } catch (error) {
+                        logger.error('Failed to store secondary account tokens', error);
+                        sessionStorage.removeItem('pendingAccountType');
+                        throw error;
+                    }
+                }
+
+                // PRIMARY ACCOUNT FLOW: First-time authentication
                 // OAuth callback happened, but we need to complete the sign-in flow:
                 // 1. Bootstrap JWT from Google access token
                 // 2. Store tokens to Supabase

@@ -33,13 +33,14 @@ export class SettingsPhotosPage extends SettingsPageBase {
 
         logger.verbose('Initializing Photos settings page');
 
-        // Get PhotosSettingsManager instance from parent window
-        // This manager handles the iframe modal
-        if (window.parent?.photosSettingsManager) {
-            this.photosModal = window.parent.photosSettingsManager;
+        // Get PhotosSettingsManager instance
+        // Settings modal runs in main window, so check window (not window.parent)
+        if (window.photosSettingsManager) {
+            this.photosModal = window.photosSettingsManager;
             logger.debug('Connected to PhotosSettingsManager');
         } else {
-            logger.warn('PhotosSettingsManager not found on parent window');
+            logger.warn('PhotosSettingsManager not found - Photos modal will not be available');
+            logger.debug('Available on window:', Object.keys(window).filter(k => k.includes('photo')));
         }
 
         // Load current photo stats for display
@@ -51,8 +52,8 @@ export class SettingsPhotosPage extends SettingsPageBase {
      */
     async loadPhotoStats() {
         try {
-            // Get photo data service from parent
-            const photoService = window.parent?.dataManager?.photoService;
+            // Get photo data service
+            const photoService = window.dataManager?.photoService;
 
             if (!photoService) {
                 logger.debug('Photo service not available yet');
@@ -190,11 +191,11 @@ export class SettingsPhotosPage extends SettingsPageBase {
      */
     closeSettingsModal() {
         try {
-            // Get Settings instance from parent
-            const settingsInstance = window.parent?.settingsInstance;
+            // Get Settings instance
+            const settingsInstance = window.settingsInstance || window.Settings;
 
-            if (settingsInstance && typeof settingsInstance.close === 'function') {
-                settingsInstance.close();
+            if (settingsInstance && typeof settingsInstance.hide === 'function') {
+                settingsInstance.hide();
                 logger.debug('Settings modal closed');
             } else {
                 logger.warn('Could not close Settings modal - instance not found');

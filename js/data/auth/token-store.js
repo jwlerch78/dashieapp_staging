@@ -321,6 +321,13 @@ export class TokenStore {
 
         for (const [provider, providerAccounts] of Object.entries(this.tokens)) {
             for (const [accountType, tokenData] of Object.entries(providerAccounts)) {
+                // Skip accounts that don't have complete token data
+                // (e.g., accounts loaded from Supabase that only have metadata)
+                if (!tokenData.access_token || !tokenData.refresh_token) {
+                    logger.debug(`Skipping ${provider}:${accountType} - incomplete token data (metadata only)`);
+                    continue;
+                }
+
                 logger.debug(`Syncing ${provider}:${accountType} to Supabase...`);
 
                 // Call edge function store_tokens operation

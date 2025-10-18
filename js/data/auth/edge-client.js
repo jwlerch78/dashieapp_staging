@@ -96,6 +96,45 @@ export class EdgeClient {
     }
 
     /**
+     * Check if JWT service is ready (for compatibility with PhotoDataService)
+     * @returns {boolean} True if JWT token is available and not expired
+     */
+    get isReady() {
+        // Check if we have a token and it's not expired
+        if (!this.jwtToken) {
+            return false;
+        }
+
+        if (this.jwtExpiry && Date.now() >= this.jwtExpiry) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Check if JWT service is ready (function version for PhotoStorageService)
+     * @returns {boolean} True if JWT token is available and not expired
+     */
+    isServiceReady() {
+        return this.isReady;
+    }
+
+    /**
+     * Get Supabase JWT token (for compatibility with PhotoStorageService)
+     * @returns {Promise<string|null>} Supabase JWT token
+     */
+    async getSupabaseJWT() {
+        // Check if JWT is expired
+        if (this.jwtExpiry && Date.now() >= this.jwtExpiry) {
+            logger.warn('JWT token expired');
+            return null;
+        }
+
+        return this.jwtToken;
+    }
+
+    /**
      * Set JWT token for authenticated requests
      * @param {string} token - Supabase JWT token
      */

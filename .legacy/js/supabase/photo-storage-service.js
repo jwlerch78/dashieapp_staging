@@ -16,18 +16,19 @@ const logger = createLogger('PhotoStorage');
 export class PhotoStorageService {
   constructor(userId, jwtService = null) {
     this.userId = userId;
-    this.jwtService = jwtService || window.jwtAuth;
+    // Check for JWT service: parameter > parent window (iframe) > current window (legacy)
+    this.jwtService = jwtService || window.parent?.jwtAuth || window.parent?.edgeClient || window.jwtAuth || window.edgeClient;
     this.bucketName = 'photos';
     this.defaultFolder = 'all-photos';
     this.edgeFunctionUrl = null;
     this.authenticatedClient = null; // Cached authenticated client
     this.fileProcessor = new PhotoFileProcessor(); // File processor for HEIC, compression, and thumbnails
-    
+
     // Configure edge function URL
     this._configureEdgeFunction();
-    
-    logger.info('PhotoStorageService initialized', { 
-      userId, 
+
+    logger.info('PhotoStorageService initialized', {
+      userId,
       hasJwtService: !!this.jwtService,
       edgeFunctionUrl: this.edgeFunctionUrl
     });

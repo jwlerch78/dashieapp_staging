@@ -218,6 +218,8 @@ export class SettingsModalRenderer {
      * @returns {string} - HTML string
      */
     buildCalendarSubScreens() {
+        const calendarPage = this.pages.calendar;
+
         return `
             <!-- Select Calendars -->
             <div class="settings-modal__screen" data-screen="calendar-select" data-title="Select Calendars" data-parent="calendar">
@@ -228,6 +230,16 @@ export class SettingsModalRenderer {
                         <div class="settings-modal__empty-text">Loading calendars...</div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Add Calendar Accounts -->
+            <div class="settings-modal__screen" data-screen="calendar-add" data-title="Add Calendar Accounts" data-parent="calendar">
+                ${calendarPage.renderAddAccount()}
+            </div>
+
+            <!-- Remove Calendar Accounts -->
+            <div class="settings-modal__screen" data-screen="calendar-remove" data-title="Remove Calendar Accounts" data-parent="calendar">
+                ${calendarPage.renderRemoveAccount()}
             </div>
         `;
     }
@@ -387,6 +399,26 @@ export class SettingsModalRenderer {
                             }
                         }).catch(error => {
                             logger.error('🔍 DEBUG: Error loading calendars:', error);
+                        });
+                    } else if (screenId === 'calendar-remove' && this.pages.calendar) {
+                        // Load accounts when entering calendar-remove
+                        logger.info('Loading accounts for removal screen');
+                        this.pages.calendar.loadAccountsForRemoval().then(() => {
+                            logger.info('Accounts loaded, re-rendering removal screen');
+
+                            // Re-render the remove account screen with loaded data
+                            const calendarRemoveScreen = this.modalElement.querySelector('[data-screen="calendar-remove"]');
+                            if (calendarRemoveScreen) {
+                                calendarRemoveScreen.innerHTML = this.pages.calendar.renderRemoveAccount();
+
+                                // Reset selection to first item and update UI
+                                setTimeout(() => {
+                                    this.stateManager.setSelectedIndex(0);
+                                    this.updateSelection();
+                                }, 100);
+                            }
+                        }).catch(error => {
+                            logger.error('Error loading accounts for removal:', error);
                         });
                     } else {
                         this.stateManager.setSelectedIndex(0);
@@ -597,7 +629,7 @@ export class SettingsModalRenderer {
             }
         }
 
-        const target = event.target.closest('[data-action], [data-page], [data-navigate], [data-setting][data-value], [data-hour], [data-minute], [data-period], [data-photos-action]');
+        const target = event.target.closest('[data-action], [data-page], [data-navigate], [data-setting][data-value], [data-hour], [data-minute], [data-period], [data-photos-action], .settings-modal__menu-item--selectable');
 
         if (!target) return;
 
@@ -772,7 +804,14 @@ export class SettingsModalRenderer {
 
         // Delegate to page's handleItemClick if page extends SettingsPageBase
         const currentPage = this.stateManager.getCurrentPage();
-        const page = this.pages[currentPage];
+
+        // Handle sub-screens: map them to their parent page
+        let page = this.pages[currentPage];
+        if (!page) {
+            // Check if this is a sub-screen (e.g., calendar-add -> calendar)
+            const basePageId = currentPage.split('-')[0]; // 'calendar-add' -> 'calendar'
+            page = this.pages[basePageId];
+        }
 
         if (page && typeof page.handleItemClick === 'function') {
             event.preventDefault();

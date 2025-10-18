@@ -25,6 +25,8 @@ export class SettingsCalendarPage extends SettingsPageBase {
         this.calendarData = {}; // Account-based calendar storage
         this.isLoading = false;
         this.currentSubScreen = null; // Track which sub-screen we're on
+        this.accountsForRemoval = null; // Accounts available for removal
+        this.isLoadingAccounts = false; // Loading state for account removal screen
     }
 
     /**
@@ -63,21 +65,19 @@ export class SettingsCalendarPage extends SettingsPageBase {
                         <span class="settings-modal__cell-chevron">›</span>
                     </div>
 
-                    <div class="settings-modal__menu-item settings-modal__menu-item--navigable coming-soon"
+                    <div class="settings-modal__menu-item settings-modal__menu-item--navigable"
                          data-navigate="calendar-add"
                          role="button"
                          tabindex="0">
                         <span class="settings-modal__menu-label">Add Calendar Accounts</span>
-                        <span class="settings-modal__cell-status">Coming Soon</span>
                         <span class="settings-modal__cell-chevron">›</span>
                     </div>
 
-                    <div class="settings-modal__menu-item settings-modal__menu-item--navigable coming-soon"
+                    <div class="settings-modal__menu-item settings-modal__menu-item--navigable"
                          data-navigate="calendar-remove"
                          role="button"
                          tabindex="0">
                         <span class="settings-modal__menu-label">Remove Calendar Accounts</span>
-                        <span class="settings-modal__cell-status">Coming Soon</span>
                         <span class="settings-modal__cell-chevron">›</span>
                     </div>
                 </div>
@@ -272,6 +272,174 @@ export class SettingsCalendarPage extends SettingsPageBase {
     }
 
     /**
+     * Render the Add Account screen
+     * Shows available calendar providers (Google enabled, others coming soon)
+     * @returns {string} - HTML string
+     */
+    renderAddAccount() {
+        return `
+            <div class="settings-modal__page-content">
+                <div class="settings-modal__section">
+                    <div class="settings-modal__section-header">Add Calendar Provider</div>
+
+                    <!-- Google - Available -->
+                    <div class="settings-modal__menu-item settings-modal__menu-item--selectable add-account-provider"
+                         data-provider="google"
+                         role="button"
+                         tabindex="0">
+                        <span class="settings-modal__menu-label">Google Calendar</span>
+                        <span class="settings-modal__cell-chevron">›</span>
+                    </div>
+
+                    <!-- Microsoft - Coming Soon (grayed out) -->
+                    <div class="settings-modal__menu-item coming-soon"
+                         style="opacity: 0.4; cursor: not-allowed;">
+                        <span class="settings-modal__menu-label">Microsoft Outlook</span>
+                        <span class="settings-modal__cell-status">Coming Soon</span>
+                    </div>
+
+                    <!-- Apple - Coming Soon (grayed out) -->
+                    <div class="settings-modal__menu-item coming-soon"
+                         style="opacity: 0.4; cursor: not-allowed;">
+                        <span class="settings-modal__menu-label">Apple iCloud</span>
+                        <span class="settings-modal__cell-status">Coming Soon</span>
+                    </div>
+                </div>
+
+                <div class="settings-modal__section">
+                    <div class="settings-modal__info-text" style="padding: 16px; color: #6B7280; font-size: 14px; line-height: 1.5;">
+                        Adding a calendar account will allow you to view and manage events from multiple calendars in one place.
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Render the Remove Account screen
+     * Shows list of connected accounts (primary account is grayed out)
+     * @returns {string} - HTML string
+     */
+    renderRemoveAccount() {
+        if (this.isLoadingAccounts) {
+            return `
+                <div class="settings-modal__page-content">
+                    <div class="settings-modal__empty">
+                        <div class="settings-modal__spinner"></div>
+                        <div class="settings-modal__empty-text">Loading accounts...</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        if (!this.accountsForRemoval || this.accountsForRemoval.length === 0) {
+            return `
+                <div class="settings-modal__page-content">
+                    <div class="settings-modal__empty">
+                        <div class="settings-modal__empty-icon">📅</div>
+                        <div class="settings-modal__empty-text">No Additional Accounts</div>
+                        <div class="settings-modal__empty-text" style="font-size: var(--font-size-base); margin-top: 10px;">
+                            You only have your primary account connected
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        const accountItems = this.accountsForRemoval.map(account => {
+            const isPrimary = account.accountType === 'primary';
+            const isDisabled = isPrimary;
+
+            return `
+                <div class="settings-modal__menu-item ${isDisabled ? 'coming-soon' : 'settings-modal__menu-item--selectable remove-account-item'}"
+                     data-account-type="${account.accountType}"
+                     data-account-email="${account.email}"
+                     ${isDisabled ? '' : 'role="button" tabindex="0"'}
+                     style="${isDisabled ? 'opacity: 0.4; cursor: not-allowed;' : ''}">
+                    <div class="settings-modal__menu-content">
+                        <span class="settings-modal__menu-label">${account.email}</span>
+                        <span class="settings-modal__menu-sublabel" style="display: block; font-size: 12px; color: #6B7280; margin-top: 4px;">
+                            ${this.formatAccountDisplayLabel(account.accountType)}${isPrimary ? ' (Primary Account)' : ''}
+                        </span>
+                    </div>
+                    ${!isDisabled ? '<span class="settings-modal__cell-chevron">×</span>' : ''}
+                </div>
+            `;
+        }).join('');
+
+        return `
+            <div class="settings-modal__page-content">
+                <div class="settings-modal__section">
+                    <div class="settings-modal__section-header">Connected Accounts</div>
+                    ${accountItems}
+                </div>
+
+                <div class="settings-modal__section">
+                    <div class="settings-modal__info-text" style="padding: 16px; color: #6B7280; font-size: 14px; line-height: 1.5;">
+                        Your primary account cannot be removed. To remove it, you must sign out completely.
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Load accounts for removal screen
+     * Fetches all Google accounts from TokenStore
+     */
+    async loadAccountsForRemoval() {
+        logger.info('Loading accounts for removal screen');
+
+        try {
+            this.isLoadingAccounts = true;
+
+            const sessionManager = window.sessionManager;
+            if (!sessionManager) {
+                logger.warn('No session manager found');
+                this.accountsForRemoval = [];
+                return;
+            }
+
+            const tokenStore = sessionManager.getTokenStore();
+            if (!tokenStore) {
+                logger.warn('No token store found');
+                this.accountsForRemoval = [];
+                return;
+            }
+
+            // Get all Google accounts
+            const accountsObj = await tokenStore.getProviderAccounts('google');
+
+            // Convert object to array with account type and email
+            const accounts = Object.entries(accountsObj || {}).map(([accountType, tokenData]) => ({
+                accountType,
+                email: tokenData.email || 'Unknown',
+                tokenData
+            }));
+
+            // Sort: primary first, then by account number
+            const sortedAccounts = accounts.sort((a, b) => {
+                if (a.accountType === 'primary') return -1;
+                if (b.accountType === 'primary') return 1;
+                return a.accountType.localeCompare(b.accountType);
+            });
+
+            this.accountsForRemoval = sortedAccounts;
+
+            logger.success('Accounts loaded for removal', {
+                count: sortedAccounts.length,
+                accounts: sortedAccounts.map(a => ({ type: a.accountType, email: a.email }))
+            });
+
+        } catch (error) {
+            logger.error('Failed to load accounts for removal', error);
+            this.accountsForRemoval = [];
+        } finally {
+            this.isLoadingAccounts = false;
+        }
+    }
+
+    /**
      * Load calendars from all authenticated Google accounts
      */
     async loadCalendarsFromAllAccounts() {
@@ -288,49 +456,71 @@ export class SettingsCalendarPage extends SettingsPageBase {
                 return;
             }
 
-            // For now, load primary account
-            // TODO: Multi-account support - iterate through all accounts
-            const accountType = 'primary';
-
-            const calendars = await this.calendarService.getCalendars(accountType);
-
-            logger.info('🔍 DEBUG: Raw calendars from service:', {
-                count: calendars.length,
-                firstCalendar: calendars[0],
-                allCalendars: calendars.map(c => ({
-                    id: c.id,
-                    summary: c.summary,
-                    isActive: c.isActive,
-                    prefixedId: c.prefixedId
-                }))
-            });
-
-            // Get account email from TokenStore (the logged-in user's email)
-            let primaryEmail = 'primary@gmail.com'; // fallback
-            try {
-                const tokenStore = window.sessionManager?.getTokenStore();
-                if (tokenStore) {
-                    const tokenData = await tokenStore.getAccountTokens('google', accountType);
-                    if (tokenData && tokenData.email) {
-                        primaryEmail = tokenData.email;
-                        logger.debug('Got account email from TokenStore', { email: primaryEmail });
-                    }
-                }
-            } catch (error) {
-                logger.warn('Failed to get account email from TokenStore, using fallback', error);
+            // Get all Google accounts from TokenStore
+            const tokenStore = window.sessionManager?.getTokenStore();
+            if (!tokenStore) {
+                logger.warn('No TokenStore found');
+                this.calendarData = {};
+                return;
             }
 
-            this.calendarData[accountType] = {
-                displayName: 'Primary',
-                email: primaryEmail,
-                calendars: calendars
-            };
+            const googleAccounts = await tokenStore.getProviderAccounts('google');
+            const accountTypes = Object.keys(googleAccounts || {});
 
-            logger.success('Calendars loaded', {
+            if (accountTypes.length === 0) {
+                logger.warn('No Google accounts found');
+                this.calendarData = {};
+                return;
+            }
+
+            logger.info('Found Google accounts', {
+                count: accountTypes.length,
+                accounts: accountTypes
+            });
+
+            // Clear existing calendar data
+            this.calendarData = {};
+
+            // Load calendars from each account
+            for (const accountType of accountTypes) {
+                try {
+                    const accountEmail = googleAccounts[accountType].email || 'Unknown';
+
+                    logger.info(`Loading calendars from ${accountType}`, { email: accountEmail });
+
+                    const calendars = await this.calendarService.getCalendars(accountType);
+
+                    logger.debug(`Calendars loaded from ${accountType}`, {
+                        count: calendars.length,
+                        activeCount: calendars.filter(c => c.isActive).length
+                    });
+
+                    this.calendarData[accountType] = {
+                        displayName: this.formatAccountDisplayLabel(accountType),
+                        email: accountEmail,
+                        calendars: calendars
+                    };
+
+                } catch (error) {
+                    logger.warn(`Failed to load calendars from ${accountType}`, error);
+                    // Continue loading other accounts even if one fails
+                }
+            }
+
+            const totalCalendars = Object.values(this.calendarData).reduce(
+                (sum, account) => sum + account.calendars.length,
+                0
+            );
+
+            const totalActive = Object.values(this.calendarData).reduce(
+                (sum, account) => sum + account.calendars.filter(c => c.isActive).length,
+                0
+            );
+
+            logger.success('Calendars loaded from all accounts', {
                 accounts: Object.keys(this.calendarData).length,
-                totalCalendars: calendars.length,
-                activeCount: calendars.filter(c => c.isActive).length,
-                accountEmail: primaryEmail
+                totalCalendars,
+                activeCount: totalActive
             });
 
         } catch (error) {
@@ -371,6 +561,16 @@ export class SettingsCalendarPage extends SettingsPageBase {
      * @returns {Object} Behavior configuration
      */
     getSelectionBehavior(item) {
+        // Add account provider items: custom behavior
+        if (item.classList.contains('add-account-provider')) {
+            return { type: 'custom' };
+        }
+
+        // Remove account items: custom behavior
+        if (item.classList.contains('remove-account-item')) {
+            return { type: 'custom' };
+        }
+
         // Calendar items: toggle behavior (multi-select)
         if (item.classList.contains('calendar-item')) {
             return { type: 'toggle' };
@@ -390,12 +590,187 @@ export class SettingsCalendarPage extends SettingsPageBase {
     }
 
     /**
+     * Handle item click
+     * Overrides base class to handle custom behaviors (e.g., add account provider)
+     * @param {HTMLElement} item - The clicked item
+     * @returns {Object} Navigation result
+     */
+    async handleItemClick(item) {
+        // Handle add account provider clicks
+        if (item.classList.contains('add-account-provider')) {
+            const provider = item.dataset.provider;
+            if (provider === 'google') {
+                await this.handleAddGoogleAccount();
+            }
+            return { shouldNavigate: false };
+        }
+
+        // Handle remove account clicks
+        if (item.classList.contains('remove-account-item')) {
+            const accountType = item.dataset.accountType;
+            const accountEmail = item.dataset.accountEmail;
+            await this.handleRemoveAccount(accountType, accountEmail);
+            return { shouldNavigate: false };
+        }
+
+        // Delegate to base class for standard behaviors
+        return await super.handleItemClick(item);
+    }
+
+    /**
      * Handle toggle item (calendar selection)
      * Overrides base class to implement calendar toggle
      * @param {HTMLElement} item - The calendar item to toggle
      */
     async handleToggleItem(item) {
         await this.toggleCalendar(item);
+    }
+
+    /**
+     * Handle adding a Google calendar account
+     * Triggers OAuth flow to authenticate a new Google account
+     */
+    async handleAddGoogleAccount() {
+        logger.info('Starting Google account addition flow');
+
+        try {
+            // Get the session manager and token store
+            const sessionManager = window.sessionManager;
+            if (!sessionManager) {
+                logger.error('Session manager not available');
+                alert('Unable to add account: Session manager not found');
+                return;
+            }
+
+            const tokenStore = sessionManager.getTokenStore();
+            if (!tokenStore) {
+                logger.error('Token store not available');
+                alert('Unable to add account: Token store not found');
+                return;
+            }
+
+            // Determine the next account type (account2, account3, etc.)
+            const existingAccounts = await tokenStore.getProviderAccounts('google');
+            // getProviderAccounts returns an object with account types as keys
+            const existingAccountTypes = Object.keys(existingAccounts || {});
+
+            let nextAccountNumber = 2; // Start with account2
+            let nextAccountType = `account${nextAccountNumber}`;
+
+            // Find the first available account number
+            while (existingAccountTypes.includes(nextAccountType)) {
+                nextAccountNumber++;
+                nextAccountType = `account${nextAccountNumber}`;
+            }
+
+            logger.info('Next account type determined', {
+                nextAccountType,
+                existingAccounts: existingAccountTypes
+            });
+
+            // Store the account type in sessionStorage for the OAuth callback to use
+            // The google-account-auth.js will check for this and use it instead of 'primary'
+            sessionStorage.setItem('pendingAccountType', nextAccountType);
+
+            logger.info('Triggering OAuth flow for new Google account', { accountType: nextAccountType });
+
+            // Trigger the sign-in flow which will redirect to Google OAuth
+            // After OAuth completes, the callback will store tokens with nextAccountType
+            await sessionManager.signIn();
+
+            logger.success('Google OAuth flow initiated for new account');
+
+        } catch (error) {
+            logger.error('Failed to add Google account', error);
+            alert(`Failed to add Google account: ${error.message}`);
+        }
+    }
+
+    /**
+     * Handle removing a calendar account
+     * Confirms with user and removes account tokens from database
+     * @param {string} accountType - The account type to remove (e.g., 'account2')
+     * @param {string} accountEmail - The account email for display
+     */
+    async handleRemoveAccount(accountType, accountEmail) {
+        logger.info('Attempting to remove account', { accountType, accountEmail });
+
+        // Prevent removal of primary account
+        if (accountType === 'primary') {
+            logger.warn('Cannot remove primary account');
+            alert('Cannot remove primary account. To remove it, you must sign out completely.');
+            return;
+        }
+
+        // Confirm with user
+        const confirmed = confirm(
+            `Are you sure you want to remove this account?\n\n${accountEmail}\n\nAll calendars from this account will be removed from your dashboard.`
+        );
+
+        if (!confirmed) {
+            logger.info('Account removal cancelled by user');
+            return;
+        }
+
+        try {
+            logger.info('Removing account tokens from database', { accountType });
+
+            // Get token store
+            const sessionManager = window.sessionManager;
+            if (!sessionManager) {
+                throw new Error('Session manager not available');
+            }
+
+            const tokenStore = sessionManager.getTokenStore();
+            if (!tokenStore) {
+                throw new Error('Token store not available');
+            }
+
+            // Remove account tokens from database
+            await tokenStore.removeAccountTokens('google', accountType);
+
+            logger.success('Account removed successfully', { accountType });
+
+            // Remove any calendars from this account from active calendars
+            if (this.calendarService) {
+                const activeCalendars = this.calendarService.activeCalendarIds || [];
+                const prefix = `${accountType}-`;
+                const filteredCalendars = activeCalendars.filter(id => !id.startsWith(prefix));
+
+                if (filteredCalendars.length !== activeCalendars.length) {
+                    logger.info('Removing calendars from removed account', {
+                        before: activeCalendars.length,
+                        after: filteredCalendars.length
+                    });
+
+                    this.calendarService.activeCalendarIds = filteredCalendars;
+                    await this.calendarService.saveActiveCalendars();
+                }
+            }
+
+            // Reload the accounts list
+            await this.loadAccountsForRemoval();
+
+            // Re-render the remove account screen
+            const removeScreen = document.querySelector('[data-screen="calendar-remove"]');
+            if (removeScreen) {
+                removeScreen.innerHTML = this.renderRemoveAccount();
+
+                // Update focus after short delay
+                setTimeout(() => {
+                    const stateManager = window.settingsStateManager;
+                    if (stateManager && stateManager.renderer) {
+                        stateManager.renderer.updateSelection();
+                    }
+                }, 100);
+            }
+
+            alert(`Account removed successfully:\n${accountEmail}`);
+
+        } catch (error) {
+            logger.error('Failed to remove account', { accountType, error });
+            alert(`Failed to remove account: ${error.message}`);
+        }
     }
 
     /**
@@ -434,57 +809,20 @@ export class SettingsCalendarPage extends SettingsPageBase {
 
     /**
      * Attach event listeners
+     * NOTE: Calendar items are handled by the global click handler via handleItemClick()
+     * No need for specific event listeners here
      */
     attachEventListeners() {
-        const calendarItems = document.querySelectorAll('.calendar-item');
-
-        calendarItems.forEach(item => {
-            // Remove old listeners by cloning
-            const newItem = item.cloneNode(true);
-            item.parentNode?.replaceChild(newItem, item);
-        });
-
-        // Attach fresh listeners
-        const freshItems = document.querySelectorAll('.calendar-item');
-        freshItems.forEach(item => {
-            item.addEventListener('click', this.handleCalendarClick.bind(this));
-            item.addEventListener('keydown', this.handleCalendarKeydown.bind(this));
-        });
-
-        if (freshItems.length > 0) {
-            logger.debug('Event listeners attached to calendar items');
-        }
+        // Calendar items are handled by the renderer's global click handler
+        // which calls handleItemClick() -> handleToggleItem() -> toggleCalendar()
+        // No specific listeners needed
     }
 
     /**
      * Detach event listeners
      */
     detachEventListeners() {
-        const calendarItems = document.querySelectorAll('.calendar-item');
-
-        calendarItems.forEach(item => {
-            item.removeEventListener('click', this.handleCalendarClick.bind(this));
-            item.removeEventListener('keydown', this.handleCalendarKeydown.bind(this));
-        });
-    }
-
-    /**
-     * Handle calendar item click (toggle active)
-     */
-    async handleCalendarClick(event) {
-        const item = event.currentTarget;
-        await this.toggleCalendar(item);
-    }
-
-    /**
-     * Handle calendar item keydown (Enter to toggle)
-     */
-    async handleCalendarKeydown(event) {
-        if (event.key === 'Enter') {
-            event.preventDefault();
-            const item = event.currentTarget;
-            await this.toggleCalendar(item);
-        }
+        // No specific listeners to detach
     }
 
     /**

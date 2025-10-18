@@ -148,7 +148,15 @@ export class GoogleAccountAuth extends BaseAccountAuth {
 
                             // Use different account type for TV to avoid token conflicts
                             // This allows same user to have tokens for both web/mobile AND TV
-                            const accountType = isDeviceFlow ? 'primary-tv' : 'primary';
+                            // Also check for pendingAccountType from sessionStorage (for adding secondary accounts)
+                            let accountType = isDeviceFlow ? 'primary-tv' : 'primary';
+
+                            const pendingAccountType = sessionStorage.getItem('pendingAccountType');
+                            if (pendingAccountType && !isDeviceFlow) {
+                                accountType = pendingAccountType;
+                                sessionStorage.removeItem('pendingAccountType'); // Clean up
+                                logger.info('Using pending account type for secondary account', { accountType });
+                            }
 
                             logger.debug('Storing tokens with account type', { accountType, providerType: providerInfo.type });
 

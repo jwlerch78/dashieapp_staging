@@ -127,7 +127,7 @@ export class PhotosSettingsManager {
     // Create iframe
     const iframe = document.createElement('iframe');
     iframe.className = 'photos-settings-iframe';
-    iframe.src = 'widgets/photos/photos-settings.html';
+    iframe.src = '.legacy/widgets/photos/photos-settings.html';
     iframe.setAttribute('title', 'Photos Settings');
     
     // Store reference
