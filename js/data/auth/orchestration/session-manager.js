@@ -264,9 +264,17 @@ export class SessionManager {
             // Delegate to AuthCoordinator
             const result = await this.authCoordinator.signIn(options);
 
-            if (result && result.user) {
+            // Check for redirect (web OAuth)
+            if (result && result.redirected) {
+                logger.debug('OAuth redirect initiated');
+                return result;
+            }
+
+            // Check for successful authentication
+            // GoogleAccountAuth.signIn() returns user object directly (with email property)
+            if (result && result.email) {
                 this.isAuthenticated = true;
-                this.user = result.user;
+                this.user = result;
 
                 logger.success('Sign-in successful', {
                     userId: this.user.id,
