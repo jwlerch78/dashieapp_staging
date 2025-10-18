@@ -262,11 +262,8 @@ class VisualEffects {
   static defocusWidget() {
     if (!this.container) return;
 
-    // Remove overlay first
-    const overlay = document.getElementById('focus-overlay');
-    if (overlay) {
-      overlay.classList.remove('visible');
-    }
+    // Remove overlay-visible class first
+    this.container.classList.remove('overlay-visible');
 
     // Remove widget focus and active from all cells
     const cells = this.container.querySelectorAll('.dashboard-grid__cell');
