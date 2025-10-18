@@ -55,7 +55,8 @@
   position: relative;
 }
 
-.settings-modal__nav-back {
+.settings-modal__nav-back,
+.settings-modal__nav-close {
   background: none;
   border: none;
   color: #EE9828;
@@ -69,7 +70,8 @@
   transition: none;
 }
 
-.settings-modal__nav-back:hover {
+.settings-modal__nav-back:hover,
+.settings-modal__nav-close:hover {
   transform: none;
 }
 

@@ -1,19 +1,22 @@
 // js/modules/Settings/settings-store.js
-// Settings persistence layer
+// Settings persistence layer - now uses centralized SettingsService
 
 import { createLogger } from '../../utils/logger.js';
 import { getDefaultSettings } from '../../../config.js';
+import settingsService from '../../data/services/settings-service.js';
 
 const logger = createLogger('SettingsStore');
 
 /**
  * Settings Store
- * Manages settings persistence to/from Supabase
+ * Wrapper around SettingsService for backward compatibility
+ * Delegates all persistence operations to SettingsService
  */
 export class SettingsStore {
     constructor() {
         this.settings = null;
         this.initialized = false;
+        this.service = settingsService;
     }
 
     /**
@@ -25,8 +28,22 @@ export class SettingsStore {
         logger.info('Initializing SettingsStore');
 
         try {
-            await this.load();
+            // Load settings using SettingsService
+            this.settings = await this.service.load();
             this.initialized = true;
+
+            logger.success('Settings loaded successfully', {
+                version: this.settings?.version,
+                theme: this.settings?.interface?.theme
+            });
+
+            // Apply the loaded theme to both dashie-theme and dashie-settings
+            // This ensures dashboard and widgets use the same theme on startup
+            const theme = this.get('interface.theme');
+            if (theme && window.themeApplier) {
+                logger.info('Applying theme from Settings Store', { theme });
+                window.themeApplier.applyTheme(theme, true);
+            }
         } catch (error) {
             logger.error('Failed to initialize SettingsStore', error);
             // Fall back to defaults
@@ -36,51 +53,24 @@ export class SettingsStore {
     }
 
     /**
-     * Load settings from storage
-     */
-    async load() {
-        logger.debug('Loading settings');
-
-        try {
-            // Try to load from JWTService (Supabase)
-            if (window.dashieJWT) {
-                this.settings = await window.dashieJWT.loadSettings();
-                logger.info('Settings loaded from Supabase', {
-                    version: this.settings?.version
-                });
-            } else {
-                // Fall back to defaults if JWT service not available
-                logger.warn('JWT service not available, using defaults');
-                this.settings = getDefaultSettings();
-            }
-        } catch (error) {
-            logger.error('Failed to load settings', error);
-            // Use defaults on error
-            this.settings = getDefaultSettings();
-        }
-
-        // Ensure we have valid settings
-        if (!this.settings) {
-            this.settings = getDefaultSettings();
-        }
-    }
-
-    /**
      * Save settings to storage
+     * Uses SettingsService dual-write pattern
      */
     async save() {
-        logger.debug('Saving settings');
+        logger.debug('Saving settings via SettingsService');
 
         try {
-            if (window.dashieJWT) {
-                // Update lastModified timestamp
-                this.settings.lastModified = Date.now();
+            const result = await this.service.save(this.settings);
 
-                await window.dashieJWT.saveSettings(this.settings);
-                logger.info('Settings saved to Supabase');
+            if (result.localStorage && result.database) {
+                logger.success('Settings saved to both localStorage and database');
+            } else if (result.localStorage) {
+                logger.info('Settings saved to localStorage only');
             } else {
-                logger.warn('JWT service not available, settings not saved');
+                throw new Error('Failed to save settings');
             }
+
+            return result;
         } catch (error) {
             logger.error('Failed to save settings', error);
             throw error;
@@ -89,29 +79,16 @@ export class SettingsStore {
 
     /**
      * Get a setting value by path
-     * @param {string} path - Dot-notation path (e.g., 'display.theme')
+     * @param {string} path - Dot-notation path (e.g., 'interface.theme')
      * @returns {*} - Setting value
      */
     get(path) {
-        if (!this.settings) return undefined;
-
-        const parts = path.split('.');
-        let value = this.settings;
-
-        for (const part of parts) {
-            if (value && typeof value === 'object') {
-                value = value[part];
-            } else {
-                return undefined;
-            }
-        }
-
-        return value;
+        return this.service.get(this.settings, path);
     }
 
     /**
      * Set a setting value by path
-     * @param {string} path - Dot-notation path (e.g., 'display.theme')
+     * @param {string} path - Dot-notation path (e.g., 'interface.theme')
      * @param {*} value - New value
      */
     set(path, value) {
@@ -119,22 +96,7 @@ export class SettingsStore {
             this.settings = getDefaultSettings();
         }
 
-        const parts = path.split('.');
-        const lastPart = parts.pop();
-        let target = this.settings;
-
-        // Navigate to parent object
-        for (const part of parts) {
-            if (!target[part] || typeof target[part] !== 'object') {
-                target[part] = {};
-            }
-            target = target[part];
-        }
-
-        // Set value
-        target[lastPart] = value;
-
-        logger.debug('Setting updated', { path, value });
+        this.service.set(this.settings, path, value);
     }
 
     /**
@@ -148,8 +110,18 @@ export class SettingsStore {
     /**
      * Reset settings to defaults
      */
-    resetToDefaults() {
+    async resetToDefaults() {
         logger.info('Resetting settings to defaults');
         this.settings = getDefaultSettings();
+        await this.save();
+    }
+
+    /**
+     * Reload settings from storage
+     * Useful for refreshing after external changes
+     */
+    async reload() {
+        logger.info('Reloading settings');
+        this.settings = await this.service.load();
     }
 }

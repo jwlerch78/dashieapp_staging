@@ -36,7 +36,7 @@ export class SettingsDisplayPage {
             <div class="settings-modal__list">
                 <div class="settings-modal__section">
                     <div class="settings-modal__menu-item settings-modal__menu-item--selectable ${currentTheme === 'dark' ? 'settings-modal__menu-item--checked' : ''}"
-                         data-setting="display.theme"
+                         data-setting="interface.theme"
                          data-value="dark"
                          data-index="0"
                          role="button"
@@ -45,7 +45,7 @@ export class SettingsDisplayPage {
                         <span class="settings-modal__cell-checkmark">${currentTheme === 'dark' ? '✓' : ''}</span>
                     </div>
                     <div class="settings-modal__menu-item settings-modal__menu-item--selectable ${currentTheme === 'light' ? 'settings-modal__menu-item--checked' : ''}"
-                         data-setting="display.theme"
+                         data-setting="interface.theme"
                          data-value="light"
                          data-index="1"
                          role="button"
@@ -63,11 +63,11 @@ export class SettingsDisplayPage {
      * @returns {string} - 'dark' or 'light'
      */
     getCurrentTheme() {
-        // Get from Settings Store
+        // Get from Settings Store (stored under interface.theme in config)
         if (window.settingsStore) {
-            return window.settingsStore.get('display.theme') || 'dark';
+            return window.settingsStore.get('interface.theme') || 'light';
         }
-        return 'dark';
+        return 'light';
     }
 
     /**
@@ -77,31 +77,19 @@ export class SettingsDisplayPage {
     async setTheme(theme) {
         logger.info('Setting theme', { theme });
 
-        // Update store
+        // Update settings store (interface.theme)
         if (window.settingsStore) {
-            window.settingsStore.set('display.theme', theme);
+            window.settingsStore.set('interface.theme', theme);
             await window.settingsStore.save();
         }
 
-        // Apply theme to document
-        this.applyTheme(theme);
+        // Apply theme via ThemeApplier (handles DOM, widgets, and dashie-theme localStorage)
+        if (window.themeApplier) {
+            window.themeApplier.applyTheme(theme, true);
+        }
 
-        // Re-render to update checkmarks
-        await this.refresh();
-    }
-
-    /**
-     * Apply theme to document body
-     * @param {string} theme - 'dark' or 'light'
-     */
-    applyTheme(theme) {
-        logger.debug('Applying theme to document', { theme });
-
-        // Remove existing theme classes
-        document.body.classList.remove('theme-dark', 'theme-light');
-
-        // Add new theme class
-        document.body.classList.add(`theme-${theme}`);
+        // Update checkmarks without full re-render (faster)
+        this.updateCheckmarks(theme);
     }
 
     /**
@@ -117,16 +105,48 @@ export class SettingsDisplayPage {
     }
 
     /**
+     * Update checkmarks to reflect current theme
+     * @param {string} theme - 'dark' or 'light'
+     */
+    updateCheckmarks(theme) {
+        const cells = document.querySelectorAll('[data-setting="interface.theme"]');
+
+        cells.forEach(cell => {
+            const cellTheme = cell.dataset.value;
+            const checkmark = cell.querySelector('.settings-modal__cell-checkmark');
+
+            if (cellTheme === theme) {
+                cell.classList.add('settings-modal__menu-item--checked');
+                if (checkmark) checkmark.textContent = '✓';
+            } else {
+                cell.classList.remove('settings-modal__menu-item--checked');
+                if (checkmark) checkmark.textContent = '';
+            }
+        });
+    }
+
+    /**
      * Attach event listeners to theme cells
      */
     attachEventListeners() {
-        const cells = document.querySelectorAll('[data-setting="display.theme"]');
+        const cells = document.querySelectorAll('[data-setting="interface.theme"]');
 
         cells.forEach(cell => {
-            cell.addEventListener('click', async (e) => {
+            // Remove existing listener to prevent duplicates
+            const oldListener = cell._themeClickListener;
+            if (oldListener) {
+                cell.removeEventListener('click', oldListener);
+            }
+
+            // Create new listener
+            const listener = async (e) => {
                 const theme = cell.dataset.value;
                 await this.setTheme(theme);
-            });
+            };
+
+            // Store reference and attach
+            cell._themeClickListener = listener;
+            cell.addEventListener('click', listener);
         });
     }
 
@@ -135,8 +155,8 @@ export class SettingsDisplayPage {
      * @returns {Array<HTMLElement>}
      */
     getFocusableElements() {
-        // No focusable elements in blank template
-        return [];
+        // Return theme option cells
+        return Array.from(document.querySelectorAll('[data-setting="interface.theme"]'));
     }
 
     /**

@@ -90,8 +90,11 @@ export class SettingsModalRenderer {
         return `
             <div class="settings-modal__container">
                 <div class="settings-modal__nav-bar">
-                    <button class="settings-modal__nav-back" data-action="back" style="visibility: hidden;">
+                    <button class="settings-modal__nav-back" data-action="back" style="display: none;">
                         ‹ Back
+                    </button>
+                    <button class="settings-modal__nav-close" data-action="close" style="display: none;">
+                        Close
                     </button>
                     <h1 class="settings-modal__nav-title">Settings</h1>
                 </div>
@@ -163,14 +166,19 @@ export class SettingsModalRenderer {
         const previousPage = this.previousPage || 'main';
         const screens = this.modalElement.querySelectorAll('.settings-modal__screen');
         const navBack = this.modalElement.querySelector('.settings-modal__nav-back');
+        const navClose = this.modalElement.querySelector('.settings-modal__nav-close');
         const navTitle = this.modalElement.querySelector('.settings-modal__nav-title');
 
         // Update nav bar
         if (currentPage === 'main') {
-            if (navBack) navBack.style.visibility = 'hidden';
+            // Main menu: show Close button, hide Back button
+            if (navBack) navBack.style.display = 'none';
+            if (navClose) navClose.style.display = 'block';
             if (navTitle) navTitle.textContent = 'Settings';
         } else {
-            if (navBack) navBack.style.visibility = 'visible';
+            // Sub-page: show Back button, hide Close button
+            if (navBack) navBack.style.display = 'block';
+            if (navClose) navClose.style.display = 'none';
             const screenElement = this.modalElement.querySelector(`[data-screen="${currentPage}"]`);
             if (screenElement && navTitle) {
                 navTitle.textContent = screenElement.dataset.title || 'Settings';
@@ -209,6 +217,11 @@ export class SettingsModalRenderer {
                 // Activate page if it's not main
                 if (screenId !== 'main' && this.pages[screenId]) {
                     this.pages[screenId].activate();
+
+                    // Reset selection to first item when navigating to a sub-page
+                    if (direction === 'forward' && previousPage === 'main') {
+                        this.stateManager.setSelectedIndex(0);
+                    }
                 }
             } else {
                 screen.classList.remove('settings-modal__screen--active');
@@ -235,13 +248,21 @@ export class SettingsModalRenderer {
 
         // Apply selection to current context
         if (currentPage === 'main') {
-            // Highlight menu item
-            const menuItems = this.modalElement.querySelectorAll('.settings-modal__menu-item');
+            // Highlight menu item on main screen
+            const menuItems = this.modalElement.querySelectorAll('[data-screen="main"] .settings-modal__menu-item');
             if (menuItems[selectedIndex]) {
                 menuItems[selectedIndex].classList.add('settings-modal__menu-item--selected');
             }
+        } else {
+            // Highlight item on sub-page (if page has getFocusableElements)
+            const page = this.pages[currentPage];
+            if (page && page.getFocusableElements) {
+                const focusableElements = page.getFocusableElements();
+                if (focusableElements[selectedIndex]) {
+                    focusableElements[selectedIndex].classList.add('settings-modal__menu-item--selected');
+                }
+            }
         }
-        // For other pages, no selection highlighting yet (pages are blank)
     }
 
     /**
@@ -296,9 +317,13 @@ export class SettingsModalRenderer {
         const currentPage = this.stateManager.getCurrentPage();
 
         if (currentPage === 'main') {
-            return Array.from(this.modalElement.querySelectorAll('.settings-modal__menu-item'));
+            return Array.from(this.modalElement.querySelectorAll('[data-screen="main"] .settings-modal__menu-item'));
         } else {
-            // For now, pages are blank so no focusable elements
+            // Get focusable elements from the page if it implements the method
+            const page = this.pages[currentPage];
+            if (page && page.getFocusableElements) {
+                return page.getFocusableElements();
+            }
             return [];
         }
     }

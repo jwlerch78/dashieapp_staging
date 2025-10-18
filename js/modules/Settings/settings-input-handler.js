@@ -70,10 +70,13 @@ export class SettingsInputHandler {
                 await this.orchestrator.navigateToPage(menuItem.id);
             }
         } else {
-            // On a sub-page - for now, selectedIndex 0 is back button
-            if (selectedIndex === 0) {
-                logger.info('Navigating back');
-                await this.orchestrator.navigateBack();
+            // On a sub-page - trigger click on selected element
+            const focusableElements = this.renderer.getFocusableElements();
+            const selectedElement = focusableElements[selectedIndex];
+
+            if (selectedElement) {
+                logger.info('Triggering click on selected element');
+                selectedElement.click();
             }
         }
 

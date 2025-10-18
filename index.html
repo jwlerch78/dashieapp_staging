@@ -199,6 +199,9 @@
     import { initializeWidgetDataManager } from './js/core/widget-data-manager.js';
     import { initializeCalendarService } from './js/data/services/calendar-service.js';
 
+    // Phase 4 - Settings import
+    import settingsService from './js/data/services/settings-service.js';
+
     // UI Layer imports
     import themeApplier from './js/ui/theme-applier.js';
 
@@ -325,23 +328,43 @@
       }
     }
 
-    // Initialize widget data flow (Phase 3.5)
-    async function initializeWidgetDataFlow() {
+    // Initialize data services (EdgeClient, SettingsService, CalendarService)
+    async function initializeDataServices() {
       try {
-        logger.info('Initializing widget data flow...');
+        logger.info('Initializing data services...');
 
         // Get EdgeClient from SessionManager
         const edgeClient = sessionManager.getEdgeClient();
 
+        // Expose edgeClient globally for Settings Store
+        window.edgeClient = edgeClient;
+
+        // Initialize SettingsService with EdgeClient for database operations
+        settingsService.setEdgeClient(edgeClient);
+        logger.success('SettingsService initialized with EdgeClient');
+
         // Initialize CalendarService
         const calendarService = initializeCalendarService(edgeClient);
         logger.success('CalendarService initialized');
+
+        logger.success('Data services initialized');
+
+      } catch (error) {
+        logger.error('Failed to initialize data services', error);
+      }
+    }
+
+    // Initialize widgets AFTER theme is applied
+    async function initializeWidgets() {
+      try {
+        logger.info('Initializing widgets (theme should already be applied)...');
 
         // Initialize WidgetDataManager
         const widgetDataManager = initializeWidgetDataManager();
         logger.success('WidgetDataManager initialized');
 
         // Register widget iframes
+        // IMPORTANT: Widgets load AFTER Settings applies theme, so they get correct theme from localStorage
         const clockIframe = document.getElementById('widget-clock');
         const headerIframe = document.getElementById('widget-header');
 
@@ -355,10 +378,10 @@
           logger.info('Header widget registered');
         }
 
-        logger.success('Widget data flow initialized');
+        logger.success('Widgets initialized with correct theme');
 
       } catch (error) {
-        logger.error('Failed to initialize widget data flow', error);
+        logger.error('Failed to initialize widgets', error);
       }
     }
 
@@ -371,9 +394,19 @@
         await AppStateManager.initialize();
         logger.success('AppStateManager initialized');
 
-        // Initialize ThemeApplier (UI Layer)
-        themeApplier.initialize();
-        logger.success('ThemeApplier initialized');
+        // Make themeApplier globally accessible
+        window.themeApplier = themeApplier;
+        logger.info('ThemeApplier exposed globally');
+
+        // STEP 1: Initialize data services (EdgeClient + SettingsService)
+        await initializeDataServices();
+
+        // STEP 2: Initialize Settings (loads from database, applies theme to localStorage)
+        await Settings.initialize();
+        logger.success('Settings initialized (theme loaded from database and applied)');
+
+        // STEP 3: NOW initialize widgets (they will load with correct theme from localStorage)
+        await initializeWidgets();
 
         // Initialize InputHandler
         await InputHandler.initialize();
@@ -395,10 +428,6 @@
         ActionRouter.registerModule('dashboard', DashboardInputHandler);
         logger.success('Dashboard module registered with ActionRouter');
 
-        // Initialize Settings module
-        await Settings.initialize();
-        logger.success('Settings module initialized');
-
         // Register Settings with ActionRouter
         ActionRouter.registerModule('settings', Settings.getInputHandler());
         logger.success('Settings module registered with ActionRouter');
@@ -413,9 +442,6 @@
         // Activate Dashboard
         Dashboard.activate();
         logger.success('Dashboard activated');
-
-        // Initialize widget data flow (Phase 3.5)
-        await initializeWidgetDataFlow();
 
         // Detect platform
         const platform = getPlatformDetector();

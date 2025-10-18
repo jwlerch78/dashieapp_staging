@@ -291,7 +291,7 @@
   right: 0;
   bottom: 0;
   background-color: var(--bg-modal-backdrop);
-  z-index: 50;
+  z-index: 90; /* Below focused widget (100) but above everything else */
   pointer-events: auto; /* Clickable - allows defocus when clicking overlay */
   cursor: pointer;
   opacity: 0;
@@ -317,6 +317,8 @@
    ============================================================================= */
 
 /* Mobile/Tablet - Stack vertically */
+/* DISABLED: This breakpoint was causing layout issues when console is open
+   TODO: Re-enable when we have proper mobile/tablet support
 @media (max-width: 768px) {
   .dashboard {
     flex-direction: column;
@@ -341,6 +343,7 @@
     grid-template-rows: repeat(6, 1fr);
   }
 }
+*/
 
 /* =============================================================================
    CSS VARIABLES - Enhanced Focus Mode

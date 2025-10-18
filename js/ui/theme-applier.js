@@ -4,10 +4,11 @@
 
 import { createLogger } from '../utils/logger.js';
 import AppComms from '../core/app-comms.js';
+import { DEFAULT_THEME as CONFIG_DEFAULT_THEME } from '../../config.js';
 
 const logger = createLogger('ThemeApplier');
 
-export const DEFAULT_THEME = 'dark';
+export const DEFAULT_THEME = CONFIG_DEFAULT_THEME || 'light';
 export const VALID_THEMES = ['light', 'dark'];
 
 class ThemeApplier {
@@ -20,7 +21,8 @@ class ThemeApplier {
 
   /**
    * Initialize theme system
-   * Loads saved theme and applies it
+   * NOTE: Does NOT automatically apply a theme
+   * Theme will be applied when Settings loads from database
    */
   initialize() {
     if (this.initialized) {
@@ -28,16 +30,10 @@ class ThemeApplier {
       return;
     }
 
-    logger.info('Initializing ThemeApplier...');
-
-    // Load saved theme from localStorage
-    const savedTheme = this.loadThemeFromStorage();
-
-    // Apply theme
-    this.applyTheme(savedTheme, false); // Don't save on init
+    logger.info('Initializing ThemeApplier (ready to apply themes)...');
 
     this.initialized = true;
-    logger.success('ThemeApplier initialized', { theme: this.currentTheme });
+    logger.success('ThemeApplier initialized and ready', { currentTheme: this.currentTheme });
   }
 
   /**
@@ -85,30 +81,32 @@ class ThemeApplier {
       return;
     }
 
-    // Skip if already applied
-    if (this.currentTheme === theme) {
-      logger.debug('Theme already applied', { theme });
-      return;
-    }
-
     const previousTheme = this.currentTheme;
+    const themeChanged = this.currentTheme !== theme;
+
+    // Update current theme
     this.currentTheme = theme;
 
-    // Apply to document body
-    this.applyThemeToDOM(theme, previousTheme);
+    // Apply to document body (only if changed)
+    if (themeChanged) {
+      this.applyThemeToDOM(theme, previousTheme);
+    }
 
     // Save to localStorage
     if (save) {
       this.saveThemeToStorage(theme);
     }
 
-    // Broadcast theme change to widgets via AppComms
+    // ALWAYS broadcast theme change to widgets (even if theme didn't change)
+    // This ensures widgets get the theme on initialization
     this.broadcastThemeChange(theme);
 
     logger.info('Theme applied', {
       theme,
       previousTheme,
-      saved: save
+      changed: themeChanged,
+      saved: save,
+      broadcast: true
     });
   }
 
