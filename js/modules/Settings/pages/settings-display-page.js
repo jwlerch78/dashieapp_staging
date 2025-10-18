@@ -133,7 +133,7 @@ export class SettingsDisplayPage {
         const parsed = this.timeHandler.parseTime24(sleepTime);
         const currentHour = parsed.hour12;
 
-        const hours = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+        const hours = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
         return `
             <div class="settings-modal__list">
@@ -223,7 +223,7 @@ export class SettingsDisplayPage {
         const parsed = this.timeHandler.parseTime24(wakeTime);
         const currentHour = parsed.hour12;
 
-        const hours = [12, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+        const hours = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
         return `
             <div class="settings-modal__list">

@@ -218,7 +218,7 @@
               inset 0 0 0 var(--border-width-selected) var(--color-selected-silver);
   transform: scale(1.05); /* 105% scale for enhanced mode */
   transition: all var(--transition-fast);
-  z-index: 1000; /* Much higher to break out of grid's stacking context and appear above sidebar wrapper (10) */
+  z-index: var(--z-widget-selected); /* 100 - Above grid (5) and sidebar (10) but below overlay (150) */
 }
 
 /* =============================================================================
@@ -229,7 +229,7 @@
   /* State 2: Focused (ENTER pressed, widget centered, overlay visible) */
   /* Don't use position: fixed - keep in normal flow and translate from current position */
   position: relative;
-  z-index: 100;
+  z-index: var(--z-widget-focused); /* 200 - Above overlay (150) */
 
   /* Silver border and glow */
   border-radius: var(--border-radius);
@@ -252,7 +252,7 @@
 .dashboard-grid__cell--widget-active {
   /* State 3: Active (RIGHT pressed from focused, controlling widget, menu dimmed) */
   position: relative;
-  z-index: 100;
+  z-index: var(--z-widget-focused); /* 200 - Above overlay (150) */
 
   /* Blue border and glow */
   border-radius: var(--border-radius);
@@ -291,7 +291,7 @@
   right: 0;
   bottom: 0;
   background-color: var(--bg-modal-backdrop);
-  z-index: 90; /* Below focused widget (100) but above everything else */
+  z-index: var(--z-focus-overlay); /* 150 - Below focused widget (200) but above everything else */
   pointer-events: auto; /* Clickable - allows defocus when clicking overlay */
   cursor: pointer;
   opacity: 0;

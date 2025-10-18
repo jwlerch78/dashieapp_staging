@@ -491,7 +491,7 @@ export class SettingsModalRenderer {
             }
         }
 
-        const target = event.target.closest('[data-action], [data-page], [data-navigate], [data-setting][data-value]');
+        const target = event.target.closest('[data-action], [data-page], [data-navigate], [data-setting][data-value], [data-hour], [data-minute], [data-period]');
 
         if (!target) return;
 
@@ -511,7 +511,19 @@ export class SettingsModalRenderer {
                     logger.info('Back button clicked');
                     const currentPage = this.stateManager.getCurrentPage();
                     if (currentPage !== 'main') {
-                        this.stateManager.navigateBack();
+                        // Check if current screen has a parent (like display-theme has parent="display")
+                        const currentScreen = this.modalElement.querySelector(`[data-screen="${currentPage}"]`);
+                        const parentId = currentScreen?.dataset.parent;
+
+                        if (parentId) {
+                            // Navigate directly to parent screen (not through history)
+                            logger.info('Navigating to parent screen', { parent: parentId });
+                            this.stateManager.navigateToPage(parentId);
+                        } else {
+                            // No parent defined, use navigation history
+                            this.stateManager.navigateBack();
+                        }
+
                         this.showCurrentPage('backward');
                         this.updateSelection();
                     }
@@ -537,56 +549,53 @@ export class SettingsModalRenderer {
             return;
         }
 
-        // Handle sub-page navigation (data-navigate)
-        if (target.dataset.navigate) {
-            event.preventDefault();
-            const targetScreen = target.dataset.navigate;
-            logger.info('Navigating to sub-screen', { screen: targetScreen });
-
-            // Navigate to the target screen
-            this.stateManager.navigateToPage(targetScreen);
-            this.showCurrentPage('forward');
-            this.updateSelection();
-            return;
-        }
-
-        // Handle setting selection (data-setting + data-value) or time selection (data-hour, data-minute, data-period)
+        // IMPORTANT: Check time selection BEFORE navigation
+        // Time selection cells have both data-period AND data-navigate, so we need to handle them first
         if (target.dataset.setting || target.dataset.hour || target.dataset.minute || target.dataset.period) {
             event.preventDefault();
 
             const currentPage = this.stateManager.getCurrentPage();
 
-            // Check if this is a time selection cell
-            const displayPage = this.pages.display;
-            if (displayPage && displayPage.getTimeHandler) {
-                const timeHandler = displayPage.getTimeHandler();
-                const action = timeHandler.handleSelection(target);
+            // Check if this is a time selection cell (has hour, minute, or period data)
+            const isTimeSelection = !!(target.dataset.hour || target.dataset.minute || target.dataset.period);
 
-                if (action.type === 'navigate') {
-                    // Navigate to next time selection screen
-                    logger.info('Time selection - navigating', { screen: action.screenId });
-                    this.stateManager.navigateToPage(action.screenId);
-                    this.showCurrentPage('forward');
-                    this.updateSelection();
-                    return;
-                } else if (action.type === 'complete') {
-                    // Time selection complete - save and navigate back
-                    logger.success('Time selection complete', { setting: action.setting, value: action.value });
+            if (isTimeSelection) {
+                const displayPage = this.pages.display;
+                if (displayPage && displayPage.getTimeHandler) {
+                    const timeHandler = displayPage.getTimeHandler();
+                    const action = timeHandler.handleSelection(target);
 
-                    // Save the time setting
-                    if (window.settingsStore) {
-                        window.settingsStore.set(action.setting, action.value);
-                        await window.settingsStore.save();
+                    if (action.type === 'navigate') {
+                        // Navigate to next time selection screen
+                        logger.info('Time selection - navigating', { screen: action.screenId });
+                        this.stateManager.navigateToPage(action.screenId);
+                        this.showCurrentPage('forward');
+                        this.updateSelection();
+                        return;
+                    } else if (action.type === 'complete') {
+                        // Time selection complete - save and navigate back
+                        logger.info('Time selection complete', { setting: action.setting, value: action.value });
+
+                        // Save the time setting
+                        if (window.settingsStore) {
+                            window.settingsStore.set(action.setting, action.value);
+                            await window.settingsStore.save();
+                        }
+
+                        // Update the display on the main Display screen
+                        displayPage.updateTimeDisplay(action.setting);
+
+                        // Navigate back to Display screen using parent hierarchy (not stack)
+                        // Pop back through the stack until we reach 'display'
+                        let didNavigate = true;
+                        while (didNavigate && this.stateManager.getCurrentPage() !== 'display') {
+                            didNavigate = this.stateManager.navigateBack();
+                        }
+
+                        this.showCurrentPage('backward');
+                        this.updateSelection();
+                        return;
                     }
-
-                    // Update the display on the main Display screen
-                    displayPage.updateTimeDisplay(action.setting);
-
-                    // Navigate back to Display screen
-                    this.stateManager.navigateToPage('display');
-                    this.showCurrentPage('backward');
-                    this.updateSelection();
-                    return;
                 }
             }
 
@@ -597,22 +606,35 @@ export class SettingsModalRenderer {
 
                 logger.info('Setting selected', { setting, value });
 
-                if (setting === 'interface.theme') {
-                    // Handle theme selection from display-theme screen
-                    if (displayPage) {
-                        await displayPage.setTheme(value);
+                const displayPage = this.pages.display;
+                if (displayPage) {
+                    await displayPage.setTheme(value);
 
-                        // Don't auto-navigate back - user will press Back manually
-                        // Just update the checkmarks on the current screen
-                        const currentScreen = this.modalElement.querySelector(`[data-screen="${currentPage}"]`);
-                        if (currentScreen) {
-                            // Re-render the theme screen to update checkmarks
-                            currentScreen.innerHTML = displayPage.renderThemeScreen();
-                            this.updateSelection();
-                        }
+                    // Don't auto-navigate back - user will press Back manually
+                    // Just update the checkmarks on the current screen
+                    const currentScreen = this.modalElement.querySelector(`[data-screen="${currentPage}"]`);
+                    if (currentScreen) {
+                        // Re-render the theme screen to update checkmarks
+                        currentScreen.innerHTML = displayPage.renderThemeScreen();
+                        this.updateSelection();
                     }
                 }
+                return;
             }
+        }
+
+        // Handle sub-page navigation (data-navigate)
+        // This comes AFTER time selection handling because time cells have both data-period AND data-navigate
+        if (target.dataset.navigate) {
+            event.preventDefault();
+            const targetScreen = target.dataset.navigate;
+            logger.info('Navigating to sub-screen', { screen: targetScreen });
+
+            // Navigate to the target screen
+            this.stateManager.navigateToPage(targetScreen);
+            this.showCurrentPage('forward');
+            this.updateSelection();
+            return;
         }
     }
 }

@@ -40,7 +40,7 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: rgba(0, 0, 0, 1);
+      background: #000000;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -201,25 +201,20 @@
       font-size: 14px;
     }
 
-    /* External site info styling - outside the modal box */
+    /* External site info styling - inside the modal box */
     .site-info-external {
-      position: absolute;
-      bottom: 60px;
-      left: 50%;
-      transform: translateX(-50%);
       text-align: center;
-      color: white;
-      width: 100%;
+      margin-top: 20px;
     }
 
     .site-info-external p {
-      color: white !important;
+      color: #9e9e9e !important;
       font-size: 14px;
       margin: 5px 0;
     }
 
     .prod-site-link {
-      color: #ffaa00 !important;
+      color: #1a73e8 !important;
       text-decoration: none;
       border-bottom: 1px solid transparent;
       transition: all 0.2s ease;
@@ -230,10 +225,9 @@
       border-radius: 3px;
     }
 
-    .prod-site-link:hover,
-    .prod-site-link:focus {
-      border-bottom-color: #ffaa00;
-      background: rgba(255, 170, 0, 0.2);
+    .prod-site-link:hover {
+      border-bottom-color: #1a73e8;
+      background: rgba(26, 115, 232, 0.1);
     }
 
     /* TV/Fire TV focus styling for link */
@@ -403,12 +397,11 @@
       </div>
 
       <div class="sign-in-footer">
+        <!-- Site info inside the modal box -->
+        <div class="site-info-external" id="site-info-external">
+          <!-- Will be populated by JavaScript -->
+        </div>
       </div>
-    </div>
-
-    <!-- Site info outside the modal box -->
-    <div class="site-info-external" id="site-info-external">
-      <!-- Will be populated by JavaScript -->
     </div>
   </div>
 

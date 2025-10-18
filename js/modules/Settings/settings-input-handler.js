@@ -97,9 +97,27 @@ export class SettingsInputHandler {
             logger.info('Closing settings from main menu');
             await this.orchestrator.close();
         } else {
-            // Navigate back to previous page
-            logger.info('Navigating back from sub-page');
-            await this.orchestrator.navigateBack();
+            // Check if current screen has a parent (hierarchical navigation)
+            const modalElement = this.renderer.modalElement;
+            if (modalElement) {
+                const currentScreen = modalElement.querySelector(`[data-screen="${currentPage}"]`);
+                const parentId = currentScreen?.dataset.parent;
+
+                if (parentId) {
+                    // Navigate directly to parent screen (hierarchical)
+                    logger.info('Navigating to parent screen', { parent: parentId });
+                    this.stateManager.navigateToPage(parentId);
+                    this.renderer.showCurrentPage('backward');
+                    this.renderer.updateSelection();
+                } else {
+                    // No parent defined, use navigation history (stack-based)
+                    logger.info('Navigating back from sub-page');
+                    await this.orchestrator.navigateBack();
+                }
+            } else {
+                // Fallback to orchestrator
+                await this.orchestrator.navigateBack();
+            }
         }
 
         return true;
