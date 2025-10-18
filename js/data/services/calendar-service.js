@@ -30,6 +30,7 @@ export class CalendarService {
         this.edgeClient = edgeClient;
         this.googleClient = new GoogleAPIClient(edgeClient);
         this.activeCalendarIds = []; // Account-prefixed IDs (e.g., 'primary-user@gmail.com')
+        this.STORAGE_KEY = 'dashie-active-calendars'; // localStorage key
 
         logger.verbose('CalendarService initialized');
     }
@@ -42,15 +43,104 @@ export class CalendarService {
         logger.info('Initializing CalendarService with calendar config');
 
         try {
-            // Load calendar config from user_calendar_config table
+            // Try to load from database first
             this.activeCalendarIds = await this.edgeClient.loadCalendarConfig();
+
+            // Save to localStorage for fast future loads
+            if (this.activeCalendarIds.length > 0) {
+                this.saveToLocalStorage();
+            }
 
             logger.success('CalendarService initialized from user_calendar_config', {
                 activeCalendars: this.activeCalendarIds.length
             });
+
+            // Auto-enable primary calendar on first login
+            if (this.activeCalendarIds.length === 0) {
+                logger.info('No active calendars found, auto-enabling primary calendar');
+                await this.autoEnablePrimaryCalendar();
+            }
         } catch (error) {
-            logger.warn('Failed to load active calendars from user_calendar_config', error);
-            this.activeCalendarIds = [];
+            logger.warn('Failed to load active calendars from database', error);
+
+            // Fallback to localStorage
+            const fromLocalStorage = this.loadFromLocalStorage();
+            if (fromLocalStorage.length > 0) {
+                logger.info('Loaded active calendars from localStorage fallback', {
+                    count: fromLocalStorage.length
+                });
+                this.activeCalendarIds = fromLocalStorage;
+            } else {
+                this.activeCalendarIds = [];
+
+                // Try to auto-enable primary calendar
+                try {
+                    await this.autoEnablePrimaryCalendar();
+                } catch (autoEnableError) {
+                    logger.warn('Failed to auto-enable primary calendar', autoEnableError);
+                }
+            }
+        }
+    }
+
+    /**
+     * Auto-enable the primary calendar for new users
+     * Called during initialization if no calendars are active
+     * @private
+     */
+    async autoEnablePrimaryCalendar() {
+        try {
+            logger.info('Auto-enabling primary calendar for first-time user');
+
+            // Check if we have a primary account
+            const tokenStore = window.sessionManager?.getTokenStore();
+            if (!tokenStore) {
+                logger.warn('TokenStore not available, skipping auto-enable');
+                return;
+            }
+
+            const primaryAccount = await tokenStore.getAccountTokens('google', 'primary');
+            if (!primaryAccount || !primaryAccount.email) {
+                logger.warn('No primary account found, skipping auto-enable');
+                return;
+            }
+
+            // Fetch calendars to find the actual primary calendar
+            const calendars = await this.getCalendars('primary');
+
+            // Find the primary calendar (marked as primary=true in Google's response)
+            // It will have either id='primary' or id=user's email
+            const primaryCalendar = calendars.find(cal => cal.primary === true);
+
+            if (!primaryCalendar) {
+                logger.warn('No primary calendar found in calendar list');
+                return;
+            }
+
+            logger.info('Found primary calendar', {
+                id: primaryCalendar.id,
+                summary: primaryCalendar.summary,
+                email: primaryAccount.email
+            });
+
+            // Create prefixed ID for the actual primary calendar
+            const primaryCalendarId = this.createPrefixedId('primary', primaryCalendar.id);
+
+            // Enable it
+            this.activeCalendarIds = [primaryCalendarId];
+
+            // Save to database and localStorage
+            await this.saveActiveCalendars();
+
+            logger.success('Primary calendar auto-enabled', {
+                calendarId: primaryCalendarId,
+                rawCalendarId: primaryCalendar.id,
+                userEmail: primaryAccount.email
+            });
+
+        } catch (error) {
+            logger.error('Failed to auto-enable primary calendar', error);
+            throw error;
         }
     }
 
@@ -267,22 +357,65 @@ export class CalendarService {
     }
 
     /**
-     * Save active calendars to user_calendar_config table
+     * Save active calendars to user_calendar_config table and localStorage
      * @returns {Promise<void>}
      */
     async saveActiveCalendars() {
         try {
-            // Save to user_calendar_config table via EdgeClient
+            // Save to localStorage first (instant)
+            this.saveToLocalStorage();
+
+            // Save to database (async)
             await this.edgeClient.saveCalendarConfig(this.activeCalendarIds);
 
-            logger.debug('Active calendars saved to user_calendar_config', {
+            logger.debug('Active calendars saved to database and localStorage', {
                 count: this.activeCalendarIds.length,
                 ids: this.activeCalendarIds
             });
 
         } catch (error) {
-            logger.error('Failed to save active calendars', error);
+            logger.error('Failed to save active calendars to database', error);
+            // Note: localStorage save already succeeded, so calendars are persisted locally
             throw error;
+        }
+    }
+
+    /**
+     * Save active calendar IDs to localStorage
+     * @private
+     */
+    saveToLocalStorage() {
+        try {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.activeCalendarIds));
+            logger.debug('Saved active calendars to localStorage', {
+                count: this.activeCalendarIds.length
+            });
+        } catch (error) {
+            logger.warn('Failed to save to localStorage', error);
+        }
+    }
+
+    /**
+     * Load active calendar IDs from localStorage
+     * @private
+     * @returns {Array<string>} Active calendar IDs
+     */
+    loadFromLocalStorage() {
+        try {
+            const stored = localStorage.getItem(this.STORAGE_KEY);
+            if (!stored) {
+                return [];
+            }
+
+            const ids = JSON.parse(stored);
+            if (Array.isArray(ids)) {
+                return ids;
+            }
+
+            return [];
+        } catch (error) {
+            logger.warn('Failed to load from localStorage', error);
+            return [];
         }
     }
 

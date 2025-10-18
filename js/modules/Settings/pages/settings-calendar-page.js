@@ -305,10 +305,20 @@ export class SettingsCalendarPage extends SettingsPageBase {
                 }))
             });
 
-            // Get account email from first calendar or use placeholder
-            const primaryEmail = calendars.find(c => c.id === 'primary')?.id ||
-                                calendars[0]?.id ||
-                                'primary@gmail.com';
+            // Get account email from TokenStore (the logged-in user's email)
+            let primaryEmail = 'primary@gmail.com'; // fallback
+            try {
+                const tokenStore = window.sessionManager?.getTokenStore();
+                if (tokenStore) {
+                    const tokenData = await tokenStore.getAccountTokens('google', accountType);
+                    if (tokenData && tokenData.email) {
+                        primaryEmail = tokenData.email;
+                        logger.debug('Got account email from TokenStore', { email: primaryEmail });
+                    }
+                }
+            } catch (error) {
+                logger.warn('Failed to get account email from TokenStore, using fallback', error);
+            }
 
             this.calendarData[accountType] = {
                 displayName: 'Primary',
@@ -319,7 +329,8 @@ export class SettingsCalendarPage extends SettingsPageBase {
             logger.success('Calendars loaded', {
                 accounts: Object.keys(this.calendarData).length,
                 totalCalendars: calendars.length,
-                activeCount: calendars.filter(c => c.isActive).length
+                activeCount: calendars.filter(c => c.isActive).length,
+                accountEmail: primaryEmail
             });
 
         } catch (error) {

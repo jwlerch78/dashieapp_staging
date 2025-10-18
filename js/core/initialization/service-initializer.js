@@ -25,6 +25,8 @@ export async function initializeServices() {
 
     // Initialize CalendarService
     const calendarService = initializeCalendarService(edgeClient);
+    await calendarService.initialize(); // Load calendar config and auto-enable primary calendar
+    window.calendarService = calendarService; // Expose for console debugging
 
     // Initialize HeartbeatService to track dashboard status and version updates
     await heartbeatService.initialize(edgeClient);

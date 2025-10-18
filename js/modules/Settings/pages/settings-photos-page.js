@@ -1,27 +1,74 @@
 // js/modules/Settings/pages/settings-photos-page.js
-// Photos settings page (blank template for now)
+// Photos settings page - Launches the photos modal for managing photos
+// v2.0 - Integrated with SettingsPageBase architecture
 
 import { createLogger } from '../../../utils/logger.js';
+import { SettingsPageBase } from '../core/settings-page-base.js';
 
 const logger = createLogger('SettingsPhotosPage');
 
 /**
  * Photos Settings Page
- * Handles photo slideshow and album settings
+ *
+ * Hybrid approach: This page provides menu items that launch the existing
+ * photos modal (iframe-based) which handles file upload, deletion, and transitions.
+ *
+ * The modal is necessary because:
+ * - File picker requires real user click (browser security)
+ * - Complex upload/delete flows with progress tracking
+ * - TV/Mobile handling (QR code vs file picker)
  */
-export class SettingsPhotosPage {
+export class SettingsPhotosPage extends SettingsPageBase {
     constructor() {
-        this.initialized = false;
+        super('photos');
+        this.photosModal = null;
+        this.photoStats = null;
     }
 
     /**
      * Initialize the page
      */
     async initialize() {
-        if (this.initialized) return;
+        await super.initialize();
 
         logger.verbose('Initializing Photos settings page');
-        this.initialized = true;
+
+        // Get PhotosSettingsManager instance from parent window
+        // This manager handles the iframe modal
+        if (window.parent?.photosSettingsManager) {
+            this.photosModal = window.parent.photosSettingsManager;
+            logger.debug('Connected to PhotosSettingsManager');
+        } else {
+            logger.warn('PhotosSettingsManager not found on parent window');
+        }
+
+        // Load current photo stats for display
+        await this.loadPhotoStats();
+    }
+
+    /**
+     * Load photo statistics (count, storage)
+     */
+    async loadPhotoStats() {
+        try {
+            // Get photo data service from parent
+            const photoService = window.parent?.dataManager?.photoService;
+
+            if (!photoService) {
+                logger.debug('Photo service not available yet');
+                return;
+            }
+
+            // Get photo count (simplified)
+            this.photoStats = {
+                count: 0,
+                storage: 'Unknown'
+            };
+
+            logger.debug('Photo stats loaded', this.photoStats);
+        } catch (error) {
+            logger.debug('Could not load photo stats', error);
+        }
     }
 
     /**
@@ -29,13 +76,51 @@ export class SettingsPhotosPage {
      * @returns {string} - HTML string
      */
     render() {
+        const transitionTime = this.getTransitionTime();
+
         return `
-            <div class="settings-modal__page-content">
-                <div class="settings-modal__empty">
-                    <div class="settings-modal__empty-icon">📸</div>
-                    <div class="settings-modal__empty-text">Photos Settings</div>
-                    <div class="settings-modal__empty-text" style="font-size: var(--font-size-base); margin-top: 10px;">
-                        Coming soon: Album selection and slideshow settings
+            <div class="settings-modal__list">
+                <!-- Photo Library Section -->
+                <div class="settings-modal__section">
+                    <div class="settings-modal__section-header">Photo Library</div>
+
+                    <div class="settings-modal__menu-item settings-modal__menu-item--navigable"
+                         data-photos-action="add-photos"
+                         role="button"
+                         tabindex="0">
+                        <span class="settings-modal__menu-label">Add Photos</span>
+                        <span class="settings-modal__cell-description">Upload photos from your device</span>
+                        <span class="settings-modal__cell-chevron">›</span>
+                    </div>
+
+                    <div class="settings-modal__menu-item settings-modal__menu-item--navigable"
+                         data-photos-action="delete-photos"
+                         role="button"
+                         tabindex="0">
+                        <span class="settings-modal__menu-label">Delete Photos</span>
+                        <span class="settings-modal__cell-description">Remove photos from your library</span>
+                        <span class="settings-modal__cell-chevron">›</span>
+                    </div>
+                </div>
+
+                <!-- Display Options Section -->
+                <div class="settings-modal__section">
+                    <div class="settings-modal__section-header">Display Options</div>
+
+                    <div class="settings-modal__menu-item settings-modal__menu-item--navigable"
+                         data-photos-action="transition"
+                         role="button"
+                         tabindex="0">
+                        <span class="settings-modal__menu-label">Photo Transition Time</span>
+                        <span class="settings-modal__cell-value" id="photo-transition-value">${transitionTime} seconds</span>
+                        <span class="settings-modal__cell-chevron">›</span>
+                    </div>
+                </div>
+
+                <!-- Info Section -->
+                <div class="settings-modal__section">
+                    <div style="padding: 12px 16px; color: var(--text-muted); font-size: 13px; line-height: 1.4;">
+                        Photos are stored in your personal library and displayed in a rotating slideshow on your dashboard.
                     </div>
                 </div>
             </div>
@@ -43,25 +128,162 @@ export class SettingsPhotosPage {
     }
 
     /**
-     * Get focusable elements for this page
-     * @returns {Array<HTMLElement>}
+     * Get selection behavior for an item
+     * All items open the photos modal
+     * @param {HTMLElement} item - The clicked item
+     * @returns {Object} Behavior configuration
      */
-    getFocusableElements() {
-        // No focusable elements in blank template
-        return [];
+    getSelectionBehavior(item) {
+        // All items with data-photos-action open the photos modal
+        if (item.dataset.photosAction) {
+            return { type: 'none' }; // Custom handling in handleItemClick
+        }
+
+        return { type: 'none' };
+    }
+
+    /**
+     * Handle item click - Open photos modal
+     *
+     * NOTE: This is called automatically by Settings modal renderer (settings-modal-renderer.js)
+     * when user clicks or presses Enter on any menu item. We don't need to attach event listeners.
+     *
+     * We use data-photos-action instead of data-action because data-action is reserved
+     * for Settings modal actions (close, back).
+     *
+     * @param {HTMLElement} item - The clicked item
+     * @returns {Promise<Object>} Action result
+     */
+    async handleItemClick(item) {
+        const action = item.dataset.photosAction;
+
+        if (action && this.photosModal) {
+            logger.info('Opening photos modal', { action });
+
+            // Close the Settings modal first
+            this.closeSettingsModal();
+
+            // Small delay to let settings modal close cleanly
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            // Open photos modal with optional navigation
+            await this.photosModal.open();
+
+            // If specific action requested, navigate to that screen
+            if (action !== 'main') {
+                this.navigateModalTo(action);
+            }
+
+            return { shouldNavigate: false };
+        }
+
+        if (!this.photosModal) {
+            logger.error('Photos modal manager not available');
+            // TODO: Show error message to user
+        }
+
+        return { shouldNavigate: false };
+    }
+
+    /**
+     * Close the Settings modal
+     */
+    closeSettingsModal() {
+        try {
+            // Get Settings instance from parent
+            const settingsInstance = window.parent?.settingsInstance;
+
+            if (settingsInstance && typeof settingsInstance.close === 'function') {
+                settingsInstance.close();
+                logger.debug('Settings modal closed');
+            } else {
+                logger.warn('Could not close Settings modal - instance not found');
+            }
+        } catch (error) {
+            logger.error('Error closing Settings modal', error);
+        }
+    }
+
+    /**
+     * Navigate photos modal to specific screen
+     * @param {string} action - Screen to navigate to
+     */
+    navigateModalTo(action) {
+        if (!this.photosModal || !this.photosModal.modalIframe) {
+            return;
+        }
+
+        // Map actions to screen IDs in the photos modal
+        const screenMap = {
+            'add-photos': 'trigger-file-picker',
+            'delete-photos': 'delete-photos-screen',
+            'transition': 'transition-screen'
+        };
+
+        const targetScreen = screenMap[action];
+
+        if (targetScreen) {
+            // Special case: add-photos triggers file picker directly
+            if (action === 'add-photos') {
+                this.photosModal.modalIframe.contentWindow.postMessage({
+                    type: 'trigger-file-picker'
+                }, '*');
+            } else {
+                // For other actions, navigate to screen
+                this.photosModal.modalIframe.contentWindow.postMessage({
+                    type: 'navigate-to',
+                    screen: targetScreen
+                }, '*');
+            }
+
+            logger.debug('Sent navigation to photos modal', { action, targetScreen });
+        }
+    }
+
+    /**
+     * Get current transition time setting
+     * @returns {number} Transition time in seconds
+     */
+    getTransitionTime() {
+        if (window.settingsStore) {
+            return window.settingsStore.get('photos.transitionTime') || 5;
+        }
+        return 5;
     }
 
     /**
      * Handle activation (page shown)
      */
-    activate() {
+    async activate() {
+        await super.activate();
+
         logger.debug('Photos page activated');
+
+        // Reload photo stats when page is shown
+        await this.loadPhotoStats();
+
+        // Update transition time display in case it changed
+        this.updateTransitionDisplay();
+    }
+
+    /**
+     * Update transition time display
+     */
+    updateTransitionDisplay() {
+        const transitionValue = this.getTransitionTime();
+        const displayElement = document.getElementById('photo-transition-value');
+
+        if (displayElement) {
+            displayElement.textContent = `${transitionValue} seconds`;
+            logger.debug('Updated transition display', { transitionValue });
+        }
     }
 
     /**
      * Handle deactivation (page hidden)
      */
     deactivate() {
+        super.deactivate();
         logger.debug('Photos page deactivated');
     }
 }

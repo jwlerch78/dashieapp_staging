@@ -310,7 +310,10 @@ export class EdgeClient {
 
         logger.debug('🔍 DEBUG: Making database-operations request', {
             url: this.databaseOpsUrl,
-            operation: payload.operation
+            operation: payload.operation,
+            hasJwtToken: !!this.jwtToken,
+            jwtTokenLength: this.jwtToken?.length,
+            jwtTokenPrefix: this.jwtToken?.substring(0, 20)
         });
 
         const response = await fetch(this.databaseOpsUrl, {

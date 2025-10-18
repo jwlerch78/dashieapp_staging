@@ -143,6 +143,11 @@ export class TokenStore {
      * @param {object} tokenData - Token data object
      */
     async storeAccountTokens(provider, accountType, tokenData) {
+        // Ensure this.tokens is initialized
+        if (!this.tokens) {
+            this.tokens = {};
+        }
+
         if (!this.tokens[provider]) {
             this.tokens[provider] = {};
         }

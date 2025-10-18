@@ -1,6 +1,18 @@
 // widgets/photos/photos-settings-modal.js
+// v1.2 - Integrated with new Settings architecture (hybrid approach)
 // v1.1 - 10/12/25 8:30pm - FIXED: Added message listener for navigation actions from modal manager (Fire TV back button)
-// CHANGE SUMMARY: Added handler for {action} postMessages from parent to enable Fire TV remote navigation
+//
+// HYBRID INTEGRATION:
+// This modal is launched from SettingsPhotosPage (Settings menu > Photos).
+// The Settings page provides menu items, but clicking them opens this iframe modal.
+// This allows file picker functionality (requires real user click) while maintaining
+// Settings navigation consistency.
+//
+// Message types supported:
+// - init-photos-modal: Initialize with userId, theme, settings
+// - trigger-file-picker: Open file picker for upload
+// - navigate-to: Navigate to specific screen (delete-photos-screen, transition-screen)
+// - action: D-pad/keyboard navigation (up, down, enter, escape)
 
 import { createLogger } from '../../js/utils/logger.js';
 import { PhotoStorageService } from '../../js/supabase/photo-storage-service.js';
@@ -47,11 +59,22 @@ export class PhotosSettingsModal {
           event.data.settings
         );
       } else if (event.data?.type === 'trigger-file-picker') {
-        // Triggered from empty photos widget click - open file picker
+        // Triggered from empty photos widget click OR Settings menu - open file picker
         logger.info('Triggering file picker from parent request');
         const fileInput = document.getElementById('file-input');
         if (fileInput) {
           fileInput.click();
+        }
+      } else if (event.data?.type === 'navigate-to') {
+        // Navigate to specific screen from Settings menu
+        const targetScreen = event.data.screen;
+        logger.info('Navigating to screen from parent request', { targetScreen });
+
+        // Map screen IDs to navigation
+        if (targetScreen === 'delete-photos-screen') {
+          this.navigateTo('delete-photos-screen', 'Delete Photos');
+        } else if (targetScreen === 'transition-screen') {
+          this.navigateTo('transition-screen', 'Photo Transition');
         }
       } else if (event.data?.action) {
         // Handle navigation actions from modal manager (Fire TV remote, etc.)

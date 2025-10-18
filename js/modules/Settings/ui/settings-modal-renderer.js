@@ -341,12 +341,47 @@ export class SettingsModalRenderer {
                                 this.pages.calendar.attachEventListeners();
 
                                 // Reset selection to first item and update UI
-                                this.stateManager.setSelectedIndex(0);
-                                this.updateSelection();
+                                // Use setTimeout to ensure DOM has updated before applying focus
+                                // Legacy code used updateFocusableElements() + updateFocus() pattern
+                                setTimeout(() => {
+                                    logger.info('🔍 DEBUG: === APPLYING CALENDAR FOCUS ===');
+                                    logger.info('🔍 DEBUG: Current page:', this.stateManager.getCurrentPage());
+                                    logger.info('🔍 DEBUG: Calendar page exists:', !!this.pages.calendar);
 
-                                logger.info('🔍 DEBUG: Selection updated, checking focusable elements');
-                                const focusable = this.getFocusableElements();
-                                logger.info('🔍 DEBUG: Focusable elements:', focusable.length);
+                                    this.stateManager.setSelectedIndex(0);
+
+                                    // Force refresh of focusable elements (like legacy updateFocusableElements())
+                                    const focusable = this.getFocusableElements();
+                                    logger.info('🔍 DEBUG: Focusable elements refreshed:', {
+                                        count: focusable.length,
+                                        firstElement: focusable[0],
+                                        firstElementClass: focusable[0]?.className,
+                                        firstElementDataset: focusable[0]?.dataset
+                                    });
+
+                                    // Check if calendar page has getFocusableElements
+                                    if (this.pages.calendar && this.pages.calendar.getFocusableElements) {
+                                        const calendarFocusable = this.pages.calendar.getFocusableElements();
+                                        logger.info('🔍 DEBUG: Calendar page focusable elements:', {
+                                            count: calendarFocusable.length,
+                                            firstElement: calendarFocusable[0],
+                                            firstElementClass: calendarFocusable[0]?.className
+                                        });
+                                    }
+
+                                    // Now apply the selection highlight (like legacy updateFocus())
+                                    this.updateSelection();
+
+                                    // Verify selection was applied
+                                    const selectedElements = this.modalElement.querySelectorAll('.settings-modal__menu-item--selected');
+                                    logger.info('🔍 DEBUG: After updateSelection, selected elements:', {
+                                        count: selectedElements.length,
+                                        firstSelected: selectedElements[0],
+                                        firstSelectedClass: selectedElements[0]?.className
+                                    });
+
+                                    logger.info('🔍 DEBUG: === CALENDAR FOCUS COMPLETE ===');
+                                }, 100); // Back to 100ms
                             } else {
                                 logger.error('🔍 DEBUG: Calendar select screen not found!');
                             }
@@ -392,6 +427,16 @@ export class SettingsModalRenderer {
             }
         } else if (currentPage.startsWith('display-')) {
             // Display sub-screens: query the active screen directly
+            const activeScreen = this.modalElement.querySelector(`[data-screen="${currentPage}"].settings-modal__screen--active`);
+            if (activeScreen) {
+                const menuItems = activeScreen.querySelectorAll('.settings-modal__menu-item');
+                if (menuItems[selectedIndex]) {
+                    menuItems[selectedIndex].classList.add('settings-modal__menu-item--selected');
+                    selectedElement = menuItems[selectedIndex];
+                }
+            }
+        } else if (currentPage.startsWith('calendar-')) {
+            // Calendar sub-screens: query the active screen directly (like display screens)
             const activeScreen = this.modalElement.querySelector(`[data-screen="${currentPage}"].settings-modal__screen--active`);
             if (activeScreen) {
                 const menuItems = activeScreen.querySelectorAll('.settings-modal__menu-item');
@@ -552,7 +597,7 @@ export class SettingsModalRenderer {
             }
         }
 
-        const target = event.target.closest('[data-action], [data-page], [data-navigate], [data-setting][data-value], [data-hour], [data-minute], [data-period]');
+        const target = event.target.closest('[data-action], [data-page], [data-navigate], [data-setting][data-value], [data-hour], [data-minute], [data-period], [data-photos-action]');
 
         if (!target) return;
 

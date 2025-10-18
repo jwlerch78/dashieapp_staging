@@ -390,11 +390,235 @@ These pages **do NOT** need to extend `SettingsPageBase` - they're handled by th
 
 ---
 
+## Async Data Loading Pattern
+
+When your page needs to load data asynchronously (like fetching calendars from an API), follow this pattern:
+
+### 1. Show Loading State Initially
+
+```javascript
+buildMySubScreen() {
+    return `
+        <div class="settings-modal__screen" data-screen="my-subscreen">
+            <div class="settings-modal__page-content">
+                <div class="settings-modal__empty">
+                    <div class="settings-modal__spinner"></div>
+                    <div class="settings-modal__empty-text">Loading data...</div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+```
+
+### 2. Load Data and Replace HTML
+
+In the renderer's `showCurrentPage()`:
+
+```javascript
+if (screenId === 'my-subscreen' && this.pages.mypage) {
+    this.pages.mypage.loadData().then(() => {
+        const screen = this.modalElement.querySelector('[data-screen="my-subscreen"]');
+        if (screen) {
+            // Replace loading spinner with actual content
+            screen.innerHTML = this.pages.mypage.renderData();
+            this.pages.mypage.attachEventListeners();
+
+            // CRITICAL: Apply focus after DOM updates
+            setTimeout(() => {
+                this.stateManager.setSelectedIndex(0);
+                this.updateSelection();
+            }, 100); // Give DOM time to render
+        }
+    });
+}
+```
+
+### 3. Why setTimeout is Needed
+
+After replacing HTML with `innerHTML`, the browser needs time to:
+- Parse the new HTML
+- Render elements to the DOM
+- Apply CSS classes
+- Make elements "focusable"
+
+**Without setTimeout:** Focus applies before elements exist → no highlight
+**With setTimeout:** Focus applies after rendering → highlight works
+
+### 4. Data Persistence Pattern
+
+Save data to **both** localStorage (fast) and database (persistent):
+
+```javascript
+async saveData() {
+    // 1. Save to localStorage first (instant)
+    localStorage.setItem('my-data', JSON.stringify(this.data));
+
+    // 2. Save to database (async, may fail)
+    try {
+        await this.edgeClient.saveMyData(this.data);
+        logger.success('Data saved to database');
+    } catch (error) {
+        logger.error('Database save failed, but localStorage succeeded');
+        // Don't throw - data is still saved locally
+    }
+}
+
+async loadData() {
+    try {
+        // Try database first (most up-to-date)
+        this.data = await this.edgeClient.loadMyData();
+
+        // Sync to localStorage for fast future loads
+        localStorage.setItem('my-data', JSON.stringify(this.data));
+    } catch (error) {
+        // Fallback to localStorage
+        const cached = localStorage.getItem('my-data');
+        this.data = cached ? JSON.parse(cached) : [];
+        logger.warn('Loaded from localStorage fallback');
+    }
+}
+```
+
+### 5. Auto-Enable Pattern
+
+Auto-enable default selections on first use:
+
+```javascript
+async initialize() {
+    await this.loadData();
+
+    // Auto-enable defaults if nothing is selected
+    if (this.activeItems.length === 0) {
+        const defaultItem = await this.findDefaultItem();
+        if (defaultItem) {
+            this.activeItems = [defaultItem.id];
+            await this.saveData();
+            logger.success('Auto-enabled default item');
+        }
+    }
+}
+```
+
+---
+
+## Common Pitfalls
+
+### ❌ DON'T Override getFocusableElements() for Sub-Screens
+
+**Wrong:**
+```javascript
+// In calendar page
+getFocusableElements() {
+    return document.querySelectorAll('.calendar-item');  // Returns empty!
+}
+```
+
+**Why it fails:** When `updateSelection()` calls `this.pages.calendar.getFocusableElements()`, the method runs in the page's context but the DOM might not be ready yet.
+
+**Right:** Let the renderer query the DOM directly (it already does this for `calendar-*` screens)
+
+### ❌ DON'T Apply Focus Before Async Data Loads
+
+**Wrong:**
+```javascript
+this.loadData().then(() => {
+    screen.innerHTML = this.renderData();
+});
+// Focus happens before data loads!
+this.stateManager.setSelectedIndex(0);
+this.updateSelection();
+```
+
+**Right:**
+```javascript
+this.loadData().then(() => {
+    screen.innerHTML = this.renderData();
+
+    // Apply focus AFTER data loads and renders
+    setTimeout(() => {
+        this.stateManager.setSelectedIndex(0);
+        this.updateSelection();
+    }, 100);
+});
+```
+
+### ❌ DON'T Forget to Attach Event Listeners After Replacing HTML
+
+**Wrong:**
+```javascript
+screen.innerHTML = this.renderData();  // Old listeners are gone!
+```
+
+**Right:**
+```javascript
+screen.innerHTML = this.renderData();
+this.attachEventListeners();  // Re-attach to new elements
+```
+
+### ❌ DON'T Reload Data After Every Toggle
+
+**Wrong:**
+```javascript
+async toggleItem(item) {
+    await this.service.toggleItem(item.id);
+    await this.loadAllData();  // Race condition! May overwrite UI
+}
+```
+
+**Right:**
+```javascript
+async toggleItem(item) {
+    // Update local state
+    this.updateLocalState(item.id);
+
+    // Save to backend (no reload needed)
+    await this.service.toggleItem(item.id);
+}
+```
+
+---
+
+## Sub-Screen Focus Management
+
+The renderer handles focus differently for different screen types:
+
+### Main Menu
+```javascript
+// Queries main screen menu items
+const menuItems = document.querySelectorAll('[data-screen="main"] .settings-modal__menu-item');
+```
+
+### Display Sub-Screens (`display-*`)
+```javascript
+// Queries active display screen
+const screen = document.querySelector(`[data-screen="${currentPage}"].settings-modal__screen--active`);
+const menuItems = screen.querySelectorAll('.settings-modal__menu-item');
+```
+
+### Calendar Sub-Screens (`calendar-*`)
+```javascript
+// Queries active calendar screen (same pattern as display)
+const screen = document.querySelector(`[data-screen="${currentPage}"].settings-modal__screen--active`);
+const menuItems = screen.querySelectorAll('.settings-modal__menu-item');
+```
+
+### Other Pages
+```javascript
+// Uses page's getFocusableElements() method
+const focusable = this.pages[currentPage].getFocusableElements();
+```
+
+**Key Insight:** Sub-screens with the `-` suffix (`display-*`, `calendar-*`) are queried directly from the DOM. Only root-level pages use `getFocusableElements()`.
+
+---
+
 ## Support
 
 If you encounter issues or need help:
 
 1. Check existing pages for examples (`SettingsCalendarPage`, `SettingsDisplayPage`)
-2. Review this guide
+2. Review this guide, especially **Common Pitfalls**
 3. Check console for `SettingsPageBase` debug logs
 4. Verify HTML structure matches expected patterns
+5. Add `🔍 DEBUG` logs to trace focus application timing
