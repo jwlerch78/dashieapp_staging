@@ -47,6 +47,9 @@ class ConsoleCommands {
     window.GetLogLevel = this.getLogLevel.bind(this);
     window.getLogLevel = this.getLogLevel.bind(this);
 
+    window.LogStatus = this.logStatus.bind(this);
+    window.logStatus = this.logStatus.bind(this);
+
     // Settings Shortcuts
     window.GetSettings = () => window.settingsInstance?.controller?.getSettings();
     window.getSettings = () => window.settingsInstance?.controller?.getSettings();
@@ -92,6 +95,10 @@ class ConsoleCommands {
     window.ToggleTheme = this.toggleTheme.bind(this);
     window.toggleTheme = this.toggleTheme.bind(this);
 
+    // Input Handler Debug Commands
+    window.GetListeners = this.getListeners.bind(this);
+    window.getListeners = this.getListeners.bind(this);
+
     console.log('✅ Console commands loaded! Type help() or Help() to see available commands.');
   }
 
@@ -113,10 +120,12 @@ class ConsoleCommands {
   exportLogs()              - Download logs as JSON file
   clearLogs()               - Clear all crash logs
 
-🔍 LOGGER LEVEL CONTROLS:
-  setLogLevel('debug')      - Set log level (debug|info|warn|error)
-  setLogLevel('info')       - Default level
+🔍 LOGGER CONTROLS:
+  logStatus()               - Show detailed logging status ⭐ NEW!
+  setLogLevel('level')      - Set log level (debug|verbose|info|warn|error)
   getLogLevel()             - Get current log level
+
+💡 TIP: Use logStatus() for a clear overview of your logging setup!
 
 ⚙️  SETTINGS COMMANDS:
   getSettings()             - Get all settings
@@ -151,6 +160,9 @@ class ConsoleCommands {
   setTheme('dark')          - Set theme to dark mode
   toggleTheme()             - Toggle between light and dark
 
+🔧 INPUT HANDLER DEBUG:
+  getListeners()            - Show active event listeners status
+
 ╔════════════════════════════════════════════════════════════════╗
 ║  TIP: All commands work in lowercase or UpperCase!           ║
 ╚════════════════════════════════════════════════════════════════╝
@@ -161,7 +173,7 @@ class ConsoleCommands {
    * Set logger level
    */
   setLogLevel(level) {
-    const validLevels = ['debug', 'info', 'warn', 'error'];
+    const validLevels = ['debug', 'verbose', 'info', 'warn', 'error'];
 
     if (!validLevels.includes(level)) {
       console.error(`Invalid log level. Use one of: ${validLevels.join(', ')}`);
@@ -184,6 +196,49 @@ class ConsoleCommands {
     const level = localStorage.getItem('dashie-log-level') || 'info';
     console.log(`Current log level: ${level}`);
     return level;
+  }
+
+  /**
+   * Show detailed logging status
+   */
+  logStatus() {
+    console.log(`
+╔════════════════════════════════════════════════════════════════╗
+║                    LOGGING STATUS                              ║
+╚════════════════════════════════════════════════════════════════╝
+`);
+
+    // Get current log level
+    const logLevel = localStorage.getItem('dashie-log-level') || 'info';
+    console.log(`📊 Log Level: ${logLevel.toUpperCase()}`);
+
+    // Get debug and verbose status
+    const debug = localStorage.getItem('dashie-debug') === 'true';
+    const verbose = localStorage.getItem('dashie-verbose') === 'true';
+
+    console.log(`🐛 Debug Mode: ${debug ? '✅ ON' : '❌ OFF'}`);
+    console.log(`📋 Verbose Mode: ${verbose ? '✅ ON' : '❌ OFF'}`);
+
+    console.log('\n📝 What you\'ll see:');
+    if (debug) {
+      console.log('   • All logs (DEBUG, VERBOSE, INFO, SUCCESS, WARN, ERROR)');
+    } else if (verbose) {
+      console.log('   • VERBOSE, INFO, SUCCESS, WARN, ERROR');
+    } else {
+      console.log('   • INFO, SUCCESS, WARN, ERROR (clean logs)');
+    }
+
+    console.log('\n💡 Quick commands:');
+    console.log('   dashieDebug.verboseOn()  - Show initialization details');
+    console.log('   dashieDebug.verboseOff() - Hide initialization details');
+    console.log('   dashieDebug.enable()     - Show all debug logs');
+    console.log('   dashieDebug.disable()    - Production mode');
+
+    return {
+      logLevel,
+      debug,
+      verbose
+    };
   }
 
   /**
@@ -512,6 +567,21 @@ class ConsoleCommands {
         error: error.message
       };
     }
+  }
+
+  /**
+   * Get active event listeners status
+   */
+  getListeners() {
+    console.log('🔧 Checking InputHandler Listeners...\n');
+
+    if (!window.InputHandler) {
+      console.error('❌ InputHandler not available');
+      console.log('💡 InputHandler should be available after initialization');
+      return { success: false, error: 'InputHandler not available' };
+    }
+
+    return window.InputHandler.getListenerStatus();
   }
 }
 

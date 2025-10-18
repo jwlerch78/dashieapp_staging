@@ -182,9 +182,18 @@ class NavigationManager {
       DashboardStateManager.setState({ isIdle: false });
     }
 
-    // If menu is open, close it
+    // If menu is open, close it and move to grid
     if (state.menuOpen) {
-      this.closeMenu();
+      // Close menu UI
+      DashboardStateManager.setMenuState(false);
+      UIRenderer.clearMenuFocus();
+      UIRenderer.hideMenu();
+
+      // Wake from idle and move focus to current grid position
+      DashboardStateManager.setState({ isIdle: false });
+      UIRenderer.updateFocus(); // Show focus on current grid position
+
+      logger.info('Menu closed, moved to grid', { gridPosition: state.gridPosition });
       return true;
     }
 

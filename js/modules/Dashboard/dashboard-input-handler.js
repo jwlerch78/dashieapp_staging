@@ -34,7 +34,7 @@ class DashboardInputHandler {
    */
   static enable() {
     this.enabled = true;
-    logger.info('Dashboard input handler enabled');
+    logger.verbose('Dashboard input handler enabled');
   }
 
   /**

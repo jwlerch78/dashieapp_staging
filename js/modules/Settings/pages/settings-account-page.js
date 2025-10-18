@@ -20,7 +20,7 @@ export class SettingsAccountPage {
     async initialize() {
         if (this.initialized) return;
 
-        logger.info('Initializing Account settings page');
+        logger.verbose('Initializing Account settings page');
         this.initialized = true;
     }
 

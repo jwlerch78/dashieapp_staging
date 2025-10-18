@@ -27,7 +27,7 @@ export class WidgetDataManager {
             this.handleWidgetMessage(event.data);
         });
 
-        logger.info('WidgetDataManager initialized');
+        logger.verbose('WidgetDataManager initialized');
     }
 
     /**
@@ -367,7 +367,7 @@ export function initializeWidgetDataManager() {
     if (!widgetDataManagerInstance) {
         widgetDataManagerInstance = new WidgetDataManager();
         widgetDataManagerInstance.initialize();
-        logger.info('WidgetDataManager singleton initialized');
+        logger.verbose('WidgetDataManager singleton initialized');
     }
     return widgetDataManagerInstance;
 }

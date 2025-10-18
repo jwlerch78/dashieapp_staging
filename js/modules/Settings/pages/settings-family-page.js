@@ -20,7 +20,7 @@ export class SettingsFamilyPage {
     async initialize() {
         if (this.initialized) return;
 
-        logger.info('Initializing Family settings page');
+        logger.verbose('Initializing Family settings page');
         this.initialized = true;
     }
 

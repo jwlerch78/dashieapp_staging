@@ -38,7 +38,7 @@ class AppComms {
       publishes: 0
     };
 
-    logger.info('AppComms initialized');
+    logger.verbose('AppComms initialized');
   }
 
   /**

@@ -27,7 +27,7 @@ export class SettingsService {
      */
     setEdgeClient(edgeClient) {
         this.edgeClient = edgeClient;
-        logger.info('EdgeClient set for settings service');
+        logger.verbose('EdgeClient set for settings service');
     }
 
     /**

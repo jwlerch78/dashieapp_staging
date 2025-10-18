@@ -26,7 +26,7 @@ export class SettingsStore {
     async initialize() {
         if (this.initialized) return;
 
-        logger.info('Initializing SettingsStore');
+        logger.verbose('Initializing SettingsStore');
 
         try {
             // Load settings using SettingsService

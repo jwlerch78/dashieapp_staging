@@ -1,15 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mkdir:*)",
-      "Bash(npm start)",
-      "Bash(python -m http.server:*)",
-      "Read(//c/**)",
-      "Bash(cat:*)",
-      "Bash(git checkout:*)",
-      "Bash(dir:*)",
-      "Bash(findstr:*)",
-      "Bash(find ./js -type f -name \"*.js\" ! -path \"./.legacy/*\" ! -path \"./.reference/*\" -exec wc -l {} +)"
+      "Bash(find \"c:\\Users\\John Lerch\\Dashie\\dashieapp_staging\\js\\modules\\Modals\" -name \"*.js\" -exec sed -i \"s/logger\\.success(''.*initialized'')/logger.verbose(&)/g\" {} +)"
     ],
     "deny": [],
     "ask": []

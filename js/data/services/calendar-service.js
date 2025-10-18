@@ -30,7 +30,7 @@ export class CalendarService {
         this.edgeClient = edgeClient;
         this.googleClient = new GoogleAPIClient(edgeClient);
 
-        logger.info('CalendarService initialized');
+        logger.verbose('CalendarService initialized');
     }
 
     /**
@@ -147,7 +147,7 @@ let calendarServiceInstance = null;
 export function initializeCalendarService(edgeClient) {
     if (!calendarServiceInstance) {
         calendarServiceInstance = new CalendarService(edgeClient);
-        logger.info('CalendarService singleton initialized');
+        logger.verbose('CalendarService singleton initialized');
     }
     return calendarServiceInstance;
 }

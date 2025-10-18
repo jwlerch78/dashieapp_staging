@@ -151,7 +151,7 @@ class DashboardTimers {
    * Starts in idle state (clean dashboard on load)
    */
   static initialize() {
-    logger.info('Initializing timer system...');
+    logger.verbose('Initializing timer system...');
 
     // Start in idle state (no visual selection)
     this.isVisible = false;
@@ -159,7 +159,7 @@ class DashboardTimers {
 
     // Don't start timer - wait for first user input
 
-    logger.success('Timer system initialized (idle state)');
+    logger.verbose('Timer system initialized (idle state)');
   }
 
   /**

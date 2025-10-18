@@ -21,7 +21,7 @@ export class SettingsStateManager {
      * Initialize state manager
      */
     initialize() {
-        logger.info('Initializing SettingsStateManager');
+        logger.verbose('Initializing SettingsStateManager');
         this.reset();
     }
 
@@ -87,6 +87,25 @@ export class SettingsStateManager {
         this.selectedIndex = 0;
 
         return true;
+    }
+
+    /**
+     * Navigate back to parent page (hierarchical navigation)
+     * This sets the current page directly and pops the stack to keep it in sync
+     * @param {string} parentPageName - Parent page to navigate to
+     */
+    navigateBackToParent(parentPageName) {
+        logger.debug('Navigating back to parent:', parentPageName);
+
+        // Pop the navigation stack to stay in sync
+        // (since we're going back one level)
+        if (this.navigationStack.length > 0) {
+            this.navigationStack.pop();
+        }
+
+        // Set the current page to the parent
+        this.currentPage = parentPageName;
+        this.selectedIndex = 0;
     }
 
     /**

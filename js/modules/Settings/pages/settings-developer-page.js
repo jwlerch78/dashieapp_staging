@@ -20,7 +20,7 @@ export class SettingsDeveloperPage {
     async initialize() {
         if (this.initialized) return;
 
-        logger.info('Initializing Developer settings page');
+        logger.verbose('Initializing Developer settings page');
         this.initialized = true;
     }
 

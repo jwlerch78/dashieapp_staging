@@ -20,7 +20,7 @@ export class SettingsOrchestrator {
      * Initialize orchestrator
      */
     async initialize() {
-        logger.info('Initializing SettingsOrchestrator');
+        logger.verbose('Initializing SettingsOrchestrator');
     }
 
     /**

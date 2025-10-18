@@ -1,0 +1,133 @@
+/* css/components/button.css
+ * Button component styles for signin and modal buttons
+ * Extracted from index.html inline styles
+ */
+
+/* =============================================================================
+   SIGN-IN BUTTONS
+   ============================================================================= */
+
+.signin-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 20px;
+  background: white;
+  color: #5f6368;
+  border: 1px solid #dadce0;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-top: 15px;
+  outline: none;
+}
+
+.signin-button:hover {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+  background: #f8f9fa;
+  transform: translateY(-1px);
+}
+
+.signin-button.primary {
+  background: #1a73e8;
+  color: white;
+  border: 1px solid #1a73e8;
+}
+
+.signin-button.primary:hover {
+  background: #1557b0;
+  border: 1px solid #1557b0;
+  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
+}
+
+.signin-button.secondary {
+  background: white;
+  color: #5f6368;
+  border: 1px solid #dadce0;
+}
+
+.signin-button.secondary:hover {
+  background: #f8f9fa;
+  border: 1px solid #bdc1c6;
+}
+
+.signin-button:disabled {
+  background: rgba(189, 193, 198, 0.3);
+  color: rgba(95, 99, 104, 0.5);
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Orange focus for D-pad/keyboard navigation */
+.signin-button:focus {
+  outline: 3px solid #ffaa00 !important;
+  outline-offset: 2px;
+  transform: scale(1.02) !important;
+  box-shadow: 0 0 15px rgba(255, 170, 0, 0.5) !important;
+}
+
+/* =============================================================================
+   REDIRECT MODAL BUTTONS
+   ============================================================================= */
+
+.redirect-modal-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 20px;
+  border: 1px solid #dadce0;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.redirect-modal-button.primary {
+  background: #1a73e8;
+  color: white;
+  border: 1px solid #1a73e8;
+}
+
+.redirect-modal-button.primary:hover {
+  background: #1557b0;
+  border: 1px solid #1557b0;
+  box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
+}
+
+.redirect-modal-button.secondary {
+  background: white;
+  color: #5f6368;
+  border: 1px solid #dadce0;
+}
+
+.redirect-modal-button.secondary:hover {
+  background: #f8f9fa;
+  border: 1px solid #bdc1c6;
+}
+
+.redirect-modal-button.cancel {
+  background: #f8f9fa;
+  color: #424242;
+  border: 1px solid #dadce0;
+}
+
+.redirect-modal-button.cancel:hover {
+  background: #e8eaed;
+  border: 1px solid #bdc1c6;
+}
+
+/* TV focus for redirect modal buttons */
+.redirect-modal-button:focus {
+  outline: 3px solid #ffaa00 !important;
+  outline-offset: 2px;
+  transform: scale(1.02) !important;
+  box-shadow: 0 0 15px rgba(255, 170, 0, 0.5) !important;
+}

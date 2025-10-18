@@ -61,7 +61,7 @@ export class GoogleAccountAuth extends BaseAccountAuth {
             }
 
             this.isReady = true;
-            logger.info('GoogleAccountAuth initialized', {
+            logger.verbose('GoogleAccountAuth initialized', {
                 hasDeviceFlow: !!this.deviceFlowProvider,
                 isAuthenticated: this.isAuthenticated(),
                 hadOAuthCallback: !!oauthResult

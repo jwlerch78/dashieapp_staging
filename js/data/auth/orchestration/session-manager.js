@@ -37,7 +37,7 @@ export class SessionManager {
         // Current user
         this.user = null;
 
-        logger.info('SessionManager created');
+        logger.verbose('SessionManager created');
     }
 
     /**
@@ -52,7 +52,7 @@ export class SessionManager {
         }
 
         try {
-            logger.info('🔐 Initializing SessionManager...');
+            logger.verbose('🔐 Initializing SessionManager...');
 
             this.authCoordinator = authCoordinator;
 
@@ -60,15 +60,15 @@ export class SessionManager {
             this.edgeClient = new EdgeClient();
 
             if (this.edgeClient.jwtToken) {
-                logger.success('EdgeClient initialized - JWT loaded from localStorage');
+                logger.verbose('EdgeClient initialized - JWT loaded from localStorage');
             } else {
-                logger.info('EdgeClient initialized - no JWT found');
+                logger.verbose('EdgeClient initialized - no JWT found');
             }
 
             // 2. Initialize TokenStore (for Google token metadata tracking)
             this.tokenStore = new TokenStore();
             await this.tokenStore.initialize(this.edgeClient);
-            logger.success('TokenStore initialized');
+            logger.verbose('TokenStore initialized');
 
             // 3. Initialize AuthCoordinator (sets up OAuth providers)
             const oauthResult = await this.authCoordinator.initialize({
@@ -160,7 +160,7 @@ export class SessionManager {
 
             this.isInitialized = true;
 
-            logger.success('SessionManager initialized', {
+            logger.verbose('SessionManager initialized', {
                 authenticated: this.isAuthenticated,
                 userId: this.user?.id,
                 sessionRestored

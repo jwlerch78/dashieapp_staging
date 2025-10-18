@@ -34,7 +34,14 @@ class InputHandler {
     this.lastKeyTime = {};
     this.KEY_REPEAT_DELAY = 150; // milliseconds
 
-    logger.info('InputHandler created');
+    // Store handler references to allow proper cleanup
+    this.handlers = {
+      keydown: null,
+      click: null,
+      message: null
+    };
+
+    logger.verbose('InputHandler created');
   }
 
   /**
@@ -44,7 +51,7 @@ class InputHandler {
    */
   async initialize() {
     try {
-      logger.info('Initializing InputHandler...');
+      logger.verbose('Initializing InputHandler...');
 
       // Set up keyboard events
       this.initializeKeyboardEvents();
@@ -60,7 +67,7 @@ class InputHandler {
 
       this.isInitialized = true;
 
-      logger.success('InputHandler initialized');
+      logger.verbose('InputHandler initialized');
       return true;
     } catch (error) {
       logger.error('Failed to initialize InputHandler', error);
@@ -73,6 +80,13 @@ class InputHandler {
    * @private
    */
   initializeKeyboardEvents() {
+    // Remove old listener if exists
+    if (this.handlers.keydown) {
+      document.removeEventListener('keydown', this.handlers.keydown);
+      logger.debug('Removed existing keydown listener');
+    }
+
+    // Create handler
     const handleKeyDown = (event) => {
       // Prevent repeated key events (only on initial press)
       if (event.repeat) {
@@ -99,8 +113,8 @@ class InputHandler {
       }
     };
 
-    // Remove old listener if exists
-    document.removeEventListener('keydown', handleKeyDown);
+    // Store handler reference
+    this.handlers.keydown = handleKeyDown;
 
     // Add new listener
     document.addEventListener('keydown', handleKeyDown);
@@ -120,6 +134,12 @@ class InputHandler {
    * @private
    */
   initializeMouseEvents() {
+    // Remove old listener if exists
+    if (this.handlers.click) {
+      document.removeEventListener('click', this.handlers.click);
+      logger.debug('Removed existing click listener');
+    }
+
     // Click handler for sidebar closing
     const handleDocumentClick = (event) => {
       // Publish click event for modules to handle
@@ -129,6 +149,9 @@ class InputHandler {
         y: event.clientY
       });
     };
+
+    // Store handler reference
+    this.handlers.click = handleDocumentClick;
 
     document.addEventListener('click', handleDocumentClick);
 
@@ -147,6 +170,12 @@ class InputHandler {
    * @private
    */
   initializeWidgetMessages() {
+    // Remove old listener if exists
+    if (this.handlers.message) {
+      window.removeEventListener('message', this.handlers.message);
+      logger.debug('Removed existing message listener');
+    }
+
     const handleWidgetMessage = (event) => {
       if (!event.data || typeof event.data !== 'object') {
         return;
@@ -175,6 +204,9 @@ class InputHandler {
         AppComms.publish(AppComms.events.WIDGET_MESSAGE, event.data);
       }
     };
+
+    // Store handler reference
+    this.handlers.message = handleWidgetMessage;
 
     window.addEventListener('message', handleWidgetMessage);
 
@@ -294,6 +326,35 @@ class InputHandler {
       originalEvent,
       timestamp: Date.now()
     });
+  }
+
+  /**
+   * Get information about active listeners (for debugging)
+   * @returns {Object} Listener status information
+   */
+  getListenerStatus() {
+    const status = {
+      initialized: this.isInitialized,
+      activeListenerCount: this.activeListeners.length,
+      handlers: {
+        keydown: !!this.handlers.keydown,
+        click: !!this.handlers.click,
+        message: !!this.handlers.message
+      },
+      listeners: this.activeListeners.map(l => ({
+        type: l.type,
+        event: l.event,
+        hasHandler: !!l.handler
+      }))
+    };
+
+    console.log('InputHandler Listener Status:');
+    console.log(`  Initialized: ${status.initialized}`);
+    console.log(`  Active Listeners: ${status.activeListenerCount}`);
+    console.log(`  Stored Handlers:`, status.handlers);
+    console.log(`  Listener Details:`, status.listeners);
+
+    return status;
   }
 
   /**

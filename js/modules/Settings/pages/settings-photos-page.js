@@ -20,7 +20,7 @@ export class SettingsPhotosPage {
     async initialize() {
         if (this.initialized) return;
 
-        logger.info('Initializing Photos settings page');
+        logger.verbose('Initializing Photos settings page');
         this.initialized = true;
     }
 

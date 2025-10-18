@@ -219,6 +219,7 @@
   transform: scale(1.05); /* 105% scale for enhanced mode */
   transition: all var(--transition-fast);
   z-index: var(--z-widget-selected); /* 100 - Above grid (5) and sidebar (10) but below overlay (150) */
+  overflow: visible; /* Allow border to be fully visible when focused */
 }
 
 /* =============================================================================
@@ -405,7 +406,7 @@
   display: none;
 }
 
-/* Ensure iframe content fills container */
+/* Ensure iframe content fills container while respecting cell borders */
 .dashboard-grid__cell iframe {
   position: absolute;
   top: 0;
@@ -413,4 +414,17 @@
   width: 100%;
   height: 100%;
   border: none;
+  /* Add pointer-events to allow iframe interaction */
+  pointer-events: auto;
+}
+
+/* When cell is focused, ensure iframe doesn't cover the inset border */
+.dashboard-grid__cell--focused iframe,
+.dashboard-grid__cell--widget-focused iframe,
+.dashboard-grid__cell--widget-active iframe {
+  /* Inset the iframe to make room for the border */
+  top: var(--border-width-selected);
+  left: var(--border-width-selected);
+  width: calc(100% - calc(var(--border-width-selected) * 2));
+  height: calc(100% - calc(var(--border-width-selected) * 2));
 }

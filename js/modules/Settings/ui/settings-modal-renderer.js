@@ -48,7 +48,7 @@ export class SettingsModalRenderer {
      * Initialize renderer and pages
      */
     async initialize() {
-        logger.info('Initializing SettingsModalRenderer');
+        logger.verbose('Initializing SettingsModalRenderer');
 
         // Initialize all pages
         for (const [key, page] of Object.entries(this.pages)) {
@@ -566,21 +566,47 @@ export class SettingsModalRenderer {
                     const action = timeHandler.handleSelection(target);
 
                     if (action.type === 'navigate') {
-                        // Navigate to next time selection screen
+                        // Update checkmark FIRST for instant visual feedback
+                        const currentScreen = this.modalElement.querySelector(`[data-screen="${currentPage}"]`);
+                        if (currentScreen) {
+                            // Remove all checkmarks first
+                            currentScreen.querySelectorAll('.settings-modal__menu-item--checked').forEach(item => {
+                                item.classList.remove('settings-modal__menu-item--checked');
+                                const checkmark = item.querySelector('.settings-modal__cell-checkmark');
+                                if (checkmark) checkmark.textContent = '';
+                            });
+
+                            // Add checkmark to selected item
+                            target.classList.add('settings-modal__menu-item--checked');
+                            const checkmark = target.querySelector('.settings-modal__cell-checkmark');
+                            if (checkmark) checkmark.textContent = '✓';
+                        }
+
+                        // THEN navigate to next time selection screen
                         logger.info('Time selection - navigating', { screen: action.screenId });
                         this.stateManager.navigateToPage(action.screenId);
                         this.showCurrentPage('forward');
                         this.updateSelection();
                         return;
                     } else if (action.type === 'complete') {
+                        // Update checkmark FIRST for instant visual feedback
+                        const currentScreen = this.modalElement.querySelector(`[data-screen="${currentPage}"]`);
+                        if (currentScreen) {
+                            // Remove all checkmarks first
+                            currentScreen.querySelectorAll('.settings-modal__menu-item--checked').forEach(item => {
+                                item.classList.remove('settings-modal__menu-item--checked');
+                                const checkmark = item.querySelector('.settings-modal__cell-checkmark');
+                                if (checkmark) checkmark.textContent = '';
+                            });
+
+                            // Add checkmark to selected item
+                            target.classList.add('settings-modal__menu-item--checked');
+                            const checkmark = target.querySelector('.settings-modal__cell-checkmark');
+                            if (checkmark) checkmark.textContent = '✓';
+                        }
+
                         // Time selection complete - save and navigate back
                         logger.info('Time selection complete', { setting: action.setting, value: action.value });
-
-                        // Save the time setting
-                        if (window.settingsStore) {
-                            window.settingsStore.set(action.setting, action.value);
-                            await window.settingsStore.save();
-                        }
 
                         // Update the display on the main Display screen
                         displayPage.updateTimeDisplay(action.setting);
@@ -594,6 +620,13 @@ export class SettingsModalRenderer {
 
                         this.showCurrentPage('backward');
                         this.updateSelection();
+
+                        // Save the time setting in the background (non-blocking for UI)
+                        if (window.settingsStore) {
+                            window.settingsStore.set(action.setting, action.value);
+                            await window.settingsStore.save();
+                        }
+
                         return;
                     }
                 }
@@ -608,16 +641,24 @@ export class SettingsModalRenderer {
 
                 const displayPage = this.pages.display;
                 if (displayPage) {
-                    await displayPage.setTheme(value);
-
-                    // Don't auto-navigate back - user will press Back manually
-                    // Just update the checkmarks on the current screen
+                    // Update the checkmarks FIRST for instant visual feedback
                     const currentScreen = this.modalElement.querySelector(`[data-screen="${currentPage}"]`);
                     if (currentScreen) {
-                        // Re-render the theme screen to update checkmarks
-                        currentScreen.innerHTML = displayPage.renderThemeScreen();
-                        this.updateSelection();
+                        // Remove all checkmarks first
+                        currentScreen.querySelectorAll('.settings-modal__menu-item--checked').forEach(item => {
+                            item.classList.remove('settings-modal__menu-item--checked');
+                            const checkmark = item.querySelector('.settings-modal__cell-checkmark');
+                            if (checkmark) checkmark.textContent = '';
+                        });
+
+                        // Add checkmark to selected item
+                        target.classList.add('settings-modal__menu-item--checked');
+                        const checkmark = target.querySelector('.settings-modal__cell-checkmark');
+                        if (checkmark) checkmark.textContent = '✓';
                     }
+
+                    // THEN apply the theme (visual changes happen after UI feedback)
+                    await displayPage.setTheme(value);
                 }
                 return;
             }

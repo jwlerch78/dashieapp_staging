@@ -29,6 +29,7 @@ const BUFFER_SAVE_DELAY = 2000; // Save to localStorage every 2 seconds instead 
 // Log levels in order of severity
 export const LOG_LEVELS = {
   DEBUG: 0,
+  VERBOSE: 0.5,  // Granular initialization details (hidden by default)
   INFO: 1,
   WARN: 2,
   ERROR: 3,
@@ -377,6 +378,24 @@ export class Logger {
     if (!this.shouldLog(LOG_LEVELS.DEBUG)) return;
 
     const args = this.formatMessage(LOG_LEVELS.DEBUG, `🔍 ${message}`, data);
+    console.log(...args);
+  }
+
+  /**
+   * Verbose level logging - for granular initialization details
+   * Hidden by default unless verbose mode is enabled
+   * @param {string} message - Log message
+   * @param {any} data - Optional additional data
+   */
+  verbose(message, data = null) {
+    // Check if verbose logging is enabled via LoggerConfig
+    if (!LoggerConfig.enableVerboseLogs && !LoggerConfig.enableDebugLogs) {
+      return; // Suppress verbose logs unless explicitly enabled
+    }
+
+    if (!this.shouldLog(LOG_LEVELS.VERBOSE)) return;
+
+    const args = this.formatMessage(LOG_LEVELS.VERBOSE, `📋 ${message}`, data);
     console.log(...args);
   }
 

@@ -25,7 +25,7 @@ class ModalsStateManager {
     }
 
     this.initialized = true;
-    logger.info('ModalsStateManager initialized');
+    logger.verbose('ModalsStateManager initialized');
   }
 
   /**

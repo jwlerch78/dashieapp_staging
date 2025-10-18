@@ -30,7 +30,7 @@ class ActionRouter {
     this.registeredModules = new Map();
     this.unsubscribeAction = null;
 
-    logger.info('ActionRouter created');
+    logger.verbose('ActionRouter created');
   }
 
   /**
@@ -40,7 +40,7 @@ class ActionRouter {
    */
   async initialize() {
     try {
-      logger.info('Initializing ActionRouter...');
+      logger.verbose('Initializing ActionRouter...');
 
       // Subscribe to input actions
       this.unsubscribeAction = AppComms.subscribe('input:action', (data) => {
@@ -49,7 +49,7 @@ class ActionRouter {
 
       this.isInitialized = true;
 
-      logger.success('ActionRouter initialized');
+      logger.verbose('ActionRouter initialized');
       return true;
     } catch (error) {
       logger.error('Failed to initialize ActionRouter', error);

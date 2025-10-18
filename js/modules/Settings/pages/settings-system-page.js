@@ -20,7 +20,7 @@ export class SettingsSystemPage {
     async initialize() {
         if (this.initialized) return;
 
-        logger.info('Initializing System settings page');
+        logger.verbose('Initializing System settings page');
         this.initialized = true;
     }
 

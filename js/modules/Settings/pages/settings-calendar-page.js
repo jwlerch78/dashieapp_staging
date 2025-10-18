@@ -20,7 +20,7 @@ export class SettingsCalendarPage {
     async initialize() {
         if (this.initialized) return;
 
-        logger.info('Initializing Calendar settings page');
+        logger.verbose('Initializing Calendar settings page');
         this.initialized = true;
     }
 

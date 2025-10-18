@@ -22,7 +22,7 @@ export class SettingsScreenRegistry {
      */
     initialize(settingsStore) {
         this.settingsStore = settingsStore;
-        logger.info('Screen registry initialized');
+        logger.verbose('Screen registry initialized');
     }
 
     /**

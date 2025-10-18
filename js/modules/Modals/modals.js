@@ -30,7 +30,7 @@ class Modals {
    */
   async initialize() {
     try {
-      logger.info('Initializing Modals module...');
+      logger.verbose('Initializing Modals module...');
 
       // Initialize submodules
       modalsStateManager.initialize();
@@ -38,7 +38,7 @@ class Modals {
 
       this.isInitialized = true;
 
-      logger.success('Modals module initialized');
+      logger.verbose('Modals module initialized');
       AppComms.publish('module:initialized', { module: 'modals' });
 
       return true;

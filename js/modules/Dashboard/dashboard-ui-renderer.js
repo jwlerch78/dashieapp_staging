@@ -43,11 +43,11 @@ class UIRenderer {
    */
   static async initialize() {
     try {
-      logger.info('Initializing Dashboard UI renderer...');
+      logger.verbose('Initializing Dashboard UI renderer...');
 
       this.isInitialized = true;
 
-      logger.success('Dashboard UI renderer initialized');
+      logger.verbose('Dashboard UI renderer initialized');
       return true;
     } catch (error) {
       logger.error('Failed to initialize UI renderer', error);
@@ -66,7 +66,7 @@ class UIRenderer {
       return;
     }
 
-    logger.info('Rendering Dashboard UI...');
+    logger.verbose('Rendering Dashboard UI...');
 
     // Create main container
     this.container = DOMBuilder.createContainer();
@@ -112,7 +112,7 @@ class UIRenderer {
     // Update focus to initial position
     VisualEffects.updateFocus();
 
-    logger.success('Dashboard UI rendered');
+    logger.verbose('Dashboard UI rendered');
   }
 
   /**

@@ -22,7 +22,7 @@ export class SettingsDisplayPage {
     async initialize() {
         if (this.initialized) return;
 
-        logger.info('Initializing Display settings page');
+        logger.verbose('Initializing Display settings page');
         this.initialized = true;
     }
 
@@ -201,7 +201,6 @@ export class SettingsDisplayPage {
                     ${periods.map(period => `
                         <div class="settings-modal__menu-item settings-modal__menu-item--selectable ${period === currentPeriod ? 'settings-modal__menu-item--checked' : ''}"
                              data-period="${period}"
-                             data-navigate="display"
                              data-setting="interface.sleepTime"
                              role="button"
                              tabindex="0">
@@ -291,7 +290,6 @@ export class SettingsDisplayPage {
                     ${periods.map(period => `
                         <div class="settings-modal__menu-item settings-modal__menu-item--selectable ${period === currentPeriod ? 'settings-modal__menu-item--checked' : ''}"
                              data-period="${period}"
-                             data-navigate="display"
                              data-setting="interface.wakeTime"
                              role="button"
                              tabindex="0">
@@ -355,19 +353,19 @@ export class SettingsDisplayPage {
     async setTheme(theme) {
         logger.info('Setting theme', { theme });
 
-        // Update settings store (interface.theme)
-        if (window.settingsStore) {
-            window.settingsStore.set('interface.theme', theme);
-            await window.settingsStore.save();
-        }
-
-        // Apply theme via ThemeApplier (handles DOM, widgets, and dashie-theme localStorage)
+        // Apply theme FIRST for instant visual feedback
         if (window.themeApplier) {
             window.themeApplier.applyTheme(theme, true);
         }
 
         // Update the theme display on the main Display screen
         this.updateThemeDisplay();
+
+        // Save to settings store in the background (non-blocking for UI)
+        if (window.settingsStore) {
+            window.settingsStore.set('interface.theme', theme);
+            await window.settingsStore.save();
+        }
     }
 
     /**

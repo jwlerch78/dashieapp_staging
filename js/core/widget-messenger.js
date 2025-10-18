@@ -39,7 +39,7 @@ class WidgetMessenger {
       settings: {}
     };
 
-    logger.info('WidgetMessenger created');
+    logger.verbose('WidgetMessenger created');
   }
 
   /**
@@ -49,7 +49,7 @@ class WidgetMessenger {
    */
   async initialize() {
     try {
-      logger.info('Initializing WidgetMessenger...');
+      logger.verbose('Initializing WidgetMessenger...');
 
       // Set up widget message listener
       this.setupMessageListener();
@@ -59,7 +59,7 @@ class WidgetMessenger {
 
       this.isInitialized = true;
 
-      logger.success('WidgetMessenger initialized');
+      logger.verbose('WidgetMessenger initialized');
       return true;
     } catch (error) {
       logger.error('Failed to initialize WidgetMessenger', error);

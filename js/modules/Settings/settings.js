@@ -35,7 +35,7 @@ class Settings {
             return;
         }
 
-        logger.info('Initializing Settings module');
+        logger.verbose('Initializing Settings module');
 
         try {
             // Initialize Settings Store first
@@ -62,7 +62,7 @@ class Settings {
             );
 
             this.initialized = true;
-            logger.info('Settings module initialized successfully');
+            logger.verbose('Settings module initialized successfully');
 
         } catch (error) {
             logger.error('Failed to initialize Settings module', error);

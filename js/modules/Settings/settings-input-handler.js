@@ -105,8 +105,9 @@ export class SettingsInputHandler {
 
                 if (parentId) {
                     // Navigate directly to parent screen (hierarchical)
+                    // Use navigateBackToParent to avoid adding to stack
                     logger.info('Navigating to parent screen', { parent: parentId });
-                    this.stateManager.navigateToPage(parentId);
+                    this.stateManager.navigateBackToParent(parentId);
                     this.renderer.showCurrentPage('backward');
                     this.renderer.updateSelection();
                 } else {

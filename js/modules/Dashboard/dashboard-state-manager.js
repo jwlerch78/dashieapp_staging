@@ -38,14 +38,14 @@ class DashboardStateManager {
    */
   static async initialize() {
     try {
-      logger.info('Initializing Dashboard state manager...');
+      logger.verbose('Initializing Dashboard state manager...');
 
       // Load persisted state
       this.loadState();
 
       this.isInitialized = true;
 
-      logger.success('Dashboard state initialized', { state: this.state });
+      logger.verbose('Dashboard state initialized', { state: this.state });
       return true;
     } catch (error) {
       logger.error('Failed to initialize Dashboard state', error);

@@ -16,7 +16,7 @@ class ThemeApplier {
     this.currentTheme = DEFAULT_THEME;
     this.initialized = false;
 
-    logger.info('ThemeApplier constructed');
+    logger.verbose('ThemeApplier constructed');
   }
 
   /**

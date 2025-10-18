@@ -41,7 +41,7 @@ export class WebOAuthProvider {
    * @returns {Promise<Object|null>} Auth result if callback was handled, null otherwise
    */
   async init() {
-    logger.info('Initializing Web OAuth provider');
+    logger.verbose('Initializing Web OAuth provider');
 
     try {
       this.isInitialized = true;
@@ -56,7 +56,7 @@ export class WebOAuthProvider {
         return callbackResult;
       }
 
-      logger.success('Web OAuth provider initialized successfully');
+      logger.verbose('Web OAuth provider initialized successfully');
       return null;
 
     } catch (error) {

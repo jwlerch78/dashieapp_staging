@@ -33,7 +33,7 @@ class Dashboard {
     this.isInitialized = false;
     this.isActive = false;
 
-    logger.info('Dashboard module created');
+    logger.verbose('Dashboard module created');
   }
 
   /**
@@ -43,7 +43,7 @@ class Dashboard {
    */
   async initialize() {
     try {
-      logger.info('Initializing Dashboard module...');
+      logger.verbose('Initializing Dashboard module...');
 
       // Initialize state manager
       await DashboardStateManager.initialize();
@@ -59,7 +59,7 @@ class Dashboard {
 
       this.isInitialized = true;
 
-      logger.success('Dashboard module initialized');
+      logger.verbose('Dashboard module initialized');
       AppComms.publish('module:initialized', { module: 'dashboard' });
 
       return true;
@@ -92,7 +92,7 @@ class Dashboard {
 
     this.isActive = true;
 
-    logger.success('Dashboard activated');
+    logger.verbose('Dashboard activated');
     AppComms.publish('module:activated', { module: 'dashboard' });
   }
 

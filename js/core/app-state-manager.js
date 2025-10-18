@@ -57,7 +57,7 @@ class AppStateManager {
     // (In addition to AppComms broadcasts)
     this.stateSubscribers = [];
 
-    logger.info('AppStateManager created');
+    logger.verbose('AppStateManager created');
   }
 
   /**
@@ -67,7 +67,7 @@ class AppStateManager {
    */
   async initialize() {
     try {
-      logger.info('Initializing AppStateManager...');
+      logger.verbose('Initializing AppStateManager...');
 
       // Mark as initialized
       this.state.isInitialized = true;
@@ -79,7 +79,7 @@ class AppStateManager {
         state: this.getState()
       });
 
-      logger.success('AppStateManager initialized (runtime-only, no persistence)');
+      logger.verbose('AppStateManager initialized (runtime-only, no persistence)');
       return true;
     } catch (error) {
       logger.error('Failed to initialize AppStateManager', error);

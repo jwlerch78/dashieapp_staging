@@ -32,7 +32,7 @@ export class AuthCoordinator {
         this.isFireTV = false;
         this.isInitialized = false;
 
-        logger.info('AuthCoordinator created');
+        logger.verbose('AuthCoordinator created');
     }
 
     /**
@@ -47,7 +47,7 @@ export class AuthCoordinator {
         }
 
         try {
-            logger.info('Initializing AuthCoordinator...');
+            logger.verbose('Initializing AuthCoordinator...');
 
             // 1. Detect platform
             const platform = getPlatformDetector();
@@ -60,13 +60,13 @@ export class AuthCoordinator {
 
             // 2. Initialize appropriate OAuth provider(s)
             if (this.isFireTV) {
-                logger.info('Fire TV detected - creating Device Flow provider');
+                logger.verbose('Fire TV detected - creating Device Flow provider');
                 this.deviceFlowProvider = new DeviceFlowProvider();
-                logger.success('DeviceFlowProvider created');
+                logger.verbose('DeviceFlowProvider created');
             } else {
-                logger.info('Desktop/Mobile detected - creating Web OAuth provider');
+                logger.verbose('Desktop/Mobile detected - creating Web OAuth provider');
                 this.webOAuthProvider = new WebOAuthProvider();
-                logger.success('WebOAuthProvider created');
+                logger.verbose('WebOAuthProvider created');
             }
 
             // 3. Initialize GoogleAccountAuth with providers
@@ -82,7 +82,7 @@ export class AuthCoordinator {
 
             this.isInitialized = true;
 
-            logger.success('AuthCoordinator initialized', {
+            logger.verbose('AuthCoordinator initialized', {
                 hasDeviceFlow: !!this.deviceFlowProvider,
                 hasWebOAuth: !!this.webOAuthProvider,
                 hadOAuthCallback: !!oauthResult

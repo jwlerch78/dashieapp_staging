@@ -18,7 +18,7 @@ class ModalsUIRenderer {
     }
 
     this.initialized = true;
-    logger.info('ModalsUIRenderer initialized');
+    logger.verbose('ModalsUIRenderer initialized');
   }
 
   /**
