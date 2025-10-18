@@ -82,6 +82,10 @@ class ConsoleCommands {
     window.GetAppState = this.getAppState.bind(this);
     window.getAppState = this.getAppState.bind(this);
 
+    // Calendar Testing Commands
+    window.TestCalendars = this.testCalendars.bind(this);
+    window.testCalendars = this.testCalendars.bind(this);
+
     console.log('✅ Console commands loaded! Type help() or Help() to see available commands.');
   }
 
@@ -132,6 +136,9 @@ class ConsoleCommands {
 📡 TELEMETRY COMMANDS (BETA):
   uploadLogs()              - Manually upload crash logs to Supabase
   getTelemetryStatus()      - Check telemetry service status
+
+📅 CALENDAR TESTING:
+  testCalendars()           - Test calendar fetch with token refresh
 
 ╔════════════════════════════════════════════════════════════════╗
 ║  TIP: All commands work in lowercase or UpperCase!           ║
@@ -368,6 +375,92 @@ class ConsoleCommands {
     console.log(`  Edge Function: ${status.edgeFunctionUrl}`);
 
     return status;
+  }
+
+  /**
+   * Test calendar fetching with automatic token refresh
+   */
+  async testCalendars() {
+    console.log('📅 Testing Calendar Service with Token Refresh...\n');
+
+    // Check if sessionManager is available
+    if (!window.sessionManager) {
+      console.error('❌ SessionManager not available');
+      console.log('💡 Make sure you are authenticated first');
+      return { success: false, error: 'SessionManager not available' };
+    }
+
+    const sessionManager = window.sessionManager;
+
+    // Check if authenticated
+    if (!sessionManager.isUserAuthenticated()) {
+      console.error('❌ Not authenticated');
+      console.log('💡 Sign in first, then try again');
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const edgeClient = sessionManager.getEdgeClient();
+
+    if (!edgeClient || !edgeClient.jwtToken) {
+      console.error('❌ EdgeClient not ready or no JWT');
+      return { success: false, error: 'EdgeClient not ready' };
+    }
+
+    console.log('✅ SessionManager ready');
+    console.log(`   User: ${sessionManager.getUser()?.email}`);
+    console.log(`   JWT: ${edgeClient.jwtToken ? 'Present' : 'Missing'}\n`);
+
+    try {
+      // Dynamically import CalendarService
+      const { CalendarService } = await import('../data/services/calendar-service.js');
+
+      // Create calendar service instance
+      const calendarService = new CalendarService(edgeClient);
+      console.log('✅ CalendarService initialized\n');
+
+      // Fetch calendars
+      console.log('📡 Fetching calendars from Google API...');
+      const startTime = performance.now();
+
+      const calendars = await calendarService.getCalendars('primary');
+
+      const endTime = performance.now();
+      const duration = (endTime - startTime).toFixed(0);
+
+      console.log(`\n✅ Success! Fetched ${calendars.length} calendars in ${duration}ms\n`);
+
+      // Display calendar list
+      console.log('📋 Your Calendars:');
+      calendars.forEach((cal, index) => {
+        console.log(`  ${index + 1}. ${cal.summary || cal.id}`);
+        console.log(`     ID: ${cal.id}`);
+        console.log(`     Primary: ${cal.primary ? 'Yes' : 'No'}`);
+        console.log(`     Access: ${cal.accessRole || 'unknown'}`);
+        console.log('');
+      });
+
+      // Show token info
+      console.log('🔑 Token Info:');
+      console.log('   Token was automatically fetched from edge function');
+      console.log('   Edge function checked expiry and refreshed if needed');
+      console.log('   All token refresh happens server-side!\n');
+
+      return {
+        success: true,
+        calendars,
+        count: calendars.length,
+        duration: `${duration}ms`
+      };
+
+    } catch (error) {
+      console.error('❌ Calendar fetch failed:', error.message);
+      console.error(error);
+
+      return {
+        success: false,
+        error: error.message
+      };
+    }
   }
 }
 

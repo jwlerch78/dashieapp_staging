@@ -9,12 +9,12 @@ const logger = createLogger('GoogleAPIClient');
 
 /**
  * Google API client for Phase 3
- * Works directly with TokenStore (no JWT service dependency)
+ * Uses EdgeClient.getValidToken() for automatic token refresh
  * Handles Calendar API calls with retry logic and rate limiting
  */
 export class GoogleAPIClient {
-  constructor(tokenStore) {
-    this.tokenStore = tokenStore;
+  constructor(edgeClient) {
+    this.edgeClient = edgeClient;
     this.config = API_CONFIG.google;
     this.lastRequestTime = null;
 
@@ -25,33 +25,51 @@ export class GoogleAPIClient {
   }
 
   /**
-   * Get current Google access token from TokenStore
-   * @param {boolean} forceRefresh - Force token refresh (not implemented yet)
-   * @param {string} accountType - Account type (e.g., 'primary', 'account2')
-   * @returns {Promise<string>} Access token
+   * Get current Google access token with automatic refresh
+   * Uses EdgeClient.getValidToken() which:
+   * - Loads tokens from Supabase
+   * - Auto-refreshes if expired (< 5 min buffer)
+   * - Returns valid access_token
+   *
+   * @param {string} accountType - Account type (e.g., 'primary', 'primary-tv')
+   * @returns {Promise<string>} Valid access token
    * @throws {Error} If unable to obtain valid token
    */
-  async getAccessToken(forceRefresh = false, accountType = 'primary') {
-    if (!this.tokenStore) {
-      throw new Error('TokenStore not available');
+  async getAccessToken(accountType = 'primary') {
+    if (!this.edgeClient) {
+      throw new Error('EdgeClient not available');
     }
 
-    logger.debug('Requesting token from TokenStore', { accountType, forceRefresh });
-
-    const tokenData = await this.tokenStore.getAccountTokens('google', accountType);
-
-    if (!tokenData) {
-      throw new Error(`No tokens found for google/${accountType}`);
+    if (!this.edgeClient.jwtToken) {
+      throw new Error('EdgeClient not authenticated (no JWT)');
     }
 
-    if (tokenData.isExpired) {
-      // TODO: Implement token refresh using refresh_token
-      logger.warn('Token is expired - refresh not implemented yet', { accountType });
-      throw new Error(`Token expired for google/${accountType}. Refresh not implemented yet.`);
-    }
+    logger.debug('Requesting valid token from EdgeClient', { accountType });
 
-    logger.debug('Token retrieved successfully', { accountType });
-    return tokenData.access_token;
+    try {
+      // EdgeClient.getValidToken() calls edge function which:
+      // 1. Loads tokens from Supabase (user_auth_tokens table)
+      // 2. Checks if expired (< 5 min buffer)
+      // 3. Auto-refreshes with Google OAuth if needed
+      // 4. Returns valid access_token
+      const tokenResult = await this.edgeClient.getValidToken('google', accountType);
+
+      if (!tokenResult || !tokenResult.access_token) {
+        throw new Error(`No access token returned for google/${accountType}`);
+      }
+
+      logger.debug('Valid token retrieved', {
+        accountType,
+        refreshed: tokenResult.refreshed,
+        expiresAt: tokenResult.expires_at
+      });
+
+      return tokenResult.access_token;
+
+    } catch (error) {
+      logger.error('Failed to get valid token', { accountType, error: error.message });
+      throw error;
+    }
   }
 
   /**
@@ -63,7 +81,7 @@ export class GoogleAPIClient {
    * @returns {Promise<Object>} API response data
    */
   async makeRequest(endpoint, options = {}, isRetryAfter401 = false, accountType = 'primary') {
-    const accessToken = await this.getAccessToken(false, accountType);
+    const accessToken = await this.getAccessToken(accountType);
     if (!accessToken) {
       throw new Error(`No access token available for API request (account: ${accountType})`);
     }
@@ -120,11 +138,15 @@ export class GoogleAPIClient {
 
         // Handle 401 Unauthorized - token expired or revoked
         if (response.status === 401 && !isRetryAfter401) {
-          logger.warn('⚠️ Received 401 Unauthorized - token expired or revoked', { accountType });
+          logger.warn('⚠️ Received 401 Unauthorized - attempting token refresh', { accountType });
           timer();
 
-          // TODO: Implement token refresh here
-          throw new Error(`Token expired for account '${accountType}'. Refresh not implemented yet.`);
+          // Get fresh token (forces new request to edge function)
+          const freshToken = await this.getAccessToken(accountType);
+
+          // Retry request with fresh token
+          logger.debug('Retrying request with refreshed token');
+          return await this.makeRequest(endpoint, options, true, accountType);
         }
 
         if (!response.ok) {

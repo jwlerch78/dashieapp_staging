@@ -193,9 +193,12 @@
     // Initialize console commands (for debugging)
     consoleCommands.initialize();
 
-    // Global auth reference
+    // Global auth references
     const authCoordinator = new AuthCoordinator();
     let isAuthenticated = false;
+
+    // Expose sessionManager globally for console commands
+    window.sessionManager = sessionManager;
 
     // UI Helper functions
     function updateLoginStatus(message) {
