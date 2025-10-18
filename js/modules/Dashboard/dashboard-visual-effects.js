@@ -235,10 +235,11 @@ class VisualEffects {
       cell.classList.add(stateClass);
       this.container.classList.add('dashboard--widget-focused');
 
-      // Add overlay-visible class after a small delay for smooth fade-in
+      // Show overlay by adding .visible class to #focus-overlay element
       setTimeout(() => {
-        if (this.container) {
-          this.container.classList.add('overlay-visible');
+        const overlay = document.getElementById('focus-overlay');
+        if (overlay && this.container.classList.contains('dashboard--widget-focused')) {
+          overlay.classList.add('visible');
         }
       }, 50);
 
@@ -262,8 +263,11 @@ class VisualEffects {
   static defocusWidget() {
     if (!this.container) return;
 
-    // Remove overlay-visible class first
-    this.container.classList.remove('overlay-visible');
+    // Hide overlay by removing .visible class from #focus-overlay element
+    const overlay = document.getElementById('focus-overlay');
+    if (overlay) {
+      overlay.classList.remove('visible');
+    }
 
     // Remove widget focus and active from all cells
     const cells = this.container.querySelectorAll('.dashboard-grid__cell');

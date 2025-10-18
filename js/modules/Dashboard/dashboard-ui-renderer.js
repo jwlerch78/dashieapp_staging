@@ -83,6 +83,12 @@ class UIRenderer {
     const grid = DOMBuilder.createGrid();
     this.container.appendChild(grid);
 
+    // Create focus overlay (separate div like legacy code)
+    const focusOverlay = document.createElement('div');
+    focusOverlay.id = 'focus-overlay';
+    focusOverlay.className = 'focus-overlay';
+    this.container.appendChild(focusOverlay);
+
     // Attach to dashboard container (not body)
     const dashboardContainer = document.getElementById('dashboard-container');
     if (dashboardContainer) {
