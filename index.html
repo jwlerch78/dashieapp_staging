@@ -14,6 +14,9 @@
   <!-- Settings Module CSS -->
   <link rel="stylesheet" href="./css/modules/settings.css">
 
+  <!-- Modals Module CSS -->
+  <link rel="stylesheet" href="./css/modules/modals.css">
+
   <style>
     * {
       margin: 0;
@@ -37,84 +40,141 @@
       left: 0;
       width: 100vw;
       height: 100vh;
-      background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+      background: rgba(0, 0, 0, 1);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 10000;
       transition: opacity 0.3s ease;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
     #oauth-login-screen.hidden {
       display: none; /* Actually remove from layout */
     }
 
-    .login-container {
-      background: rgba(255, 255, 255, 0.05);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 16px;
-      padding: 48px;
-      max-width: 450px;
+    /* Sign-in modal styling - matches legacy auth-ui.css */
+    .sign-in-modal {
+      background: #FCFCFF !important;
+      border-radius: 12px;
+      padding: 40px;
+      max-width: 400px;
+      width: 90%;
       text-align: center;
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      color: #424242 !important;
     }
 
-    .login-logo {
-      font-size: 48px;
-      margin-bottom: 16px;
+    .dashie-logo-signin {
+      width: 150px !important;
+      height: auto;
+      margin: 0 auto 20px auto;
+      display: block;
     }
 
-    .login-title {
-      font-size: 32px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: #fff;
+    .sign-in-header h2 {
+      color: #424242 !important;
+      margin: 0 0 10px 0;
+      font-size: 28px;
+      font-weight: bold;
     }
 
-    .login-subtitle {
+    .sign-in-header p {
+      color: #616161 !important;
+      margin: 0 0 30px 0;
       font-size: 16px;
-      color: rgba(255, 255, 255, 0.6);
-      margin-bottom: 32px;
+      font-style: italic;
     }
 
-    .login-status {
-      background: rgba(255, 255, 255, 0.05);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 24px;
-      font-size: 14px;
-      color: rgba(255, 255, 255, 0.7);
+    .privacy-notice {
+      color: #616161 !important;
+      margin: 30px 0 5px 0 !important;
+      font-size: 16px !important;
+      font-style: normal !important;
     }
 
-    .login-button {
-      background: #1a73e8;
-      color: white;
-      border: none;
-      padding: 14px 32px;
-      border-radius: 8px;
-      font-size: 16px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      width: 100%;
+    .sign-in-content {
+      margin: 30px 0;
+    }
+
+    .sign-in-footer {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #E5E5E5;
+    }
+
+    /* Sign-in button styling - matches legacy */
+    .signin-button {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 12px;
+      width: 100%;
+      padding: 12px 20px;
+      background: white;
+      color: #5f6368;
+      border: 1px solid #dadce0;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-top: 15px;
+      outline: none;
     }
 
-    .login-button:hover {
-      background: #1557b0;
+    .signin-button:hover {
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      background: #f8f9fa;
       transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(26, 115, 232, 0.3);
     }
 
-    .login-button:disabled {
-      background: rgba(255, 255, 255, 0.1);
+    .signin-button.primary {
+      background: #1a73e8;
+      color: white;
+      border: 1px solid #1a73e8;
+    }
+
+    .signin-button.primary:hover {
+      background: #1557b0;
+      border: 1px solid #1557b0;
+      box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
+    }
+
+    .signin-button.secondary {
+      background: white;
+      color: #5f6368;
+      border: 1px solid #dadce0;
+    }
+
+    .signin-button.secondary:hover {
+      background: #f8f9fa;
+      border: 1px solid #bdc1c6;
+    }
+
+    .signin-button:disabled {
+      background: rgba(189, 193, 198, 0.3);
+      color: rgba(95, 99, 104, 0.5);
       cursor: not-allowed;
       transform: none;
+    }
+
+    /* Orange focus for D-pad/keyboard navigation */
+    .signin-button:focus {
+      outline: 3px solid #ffaa00 !important;
+      outline-offset: 2px;
+      transform: scale(1.02) !important;
+      box-shadow: 0 0 15px rgba(255, 170, 0, 0.5) !important;
+    }
+
+    .login-status {
+      background: rgba(189, 193, 198, 0.1);
+      border: 1px solid rgba(189, 193, 198, 0.3);
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 10px;
+      font-size: 14px;
+      color: #616161;
     }
 
     .spinner {
@@ -132,13 +192,171 @@
     }
 
     .login-error {
-      background: rgba(217, 48, 37, 0.1);
-      border: 1px solid rgba(217, 48, 37, 0.3);
-      color: #f28b82;
-      padding: 12px;
-      border-radius: 8px;
+      background: #ffebee;
+      padding: 10px;
+      border-radius: 4px;
+      border-left: 4px solid #d32f2f;
+      color: #d32f2f;
       margin-top: 16px;
       font-size: 14px;
+    }
+
+    /* External site info styling - outside the modal box */
+    .site-info-external {
+      position: absolute;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      color: white;
+      width: 100%;
+    }
+
+    .site-info-external p {
+      color: white !important;
+      font-size: 14px;
+      margin: 5px 0;
+    }
+
+    .prod-site-link {
+      color: #ffaa00 !important;
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: all 0.2s ease;
+      cursor: pointer;
+      outline: none;
+      display: inline-block;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+
+    .prod-site-link:hover,
+    .prod-site-link:focus {
+      border-bottom-color: #ffaa00;
+      background: rgba(255, 170, 0, 0.2);
+    }
+
+    /* TV/Fire TV focus styling for link */
+    .prod-site-link:focus {
+      outline: 3px solid #ffaa00 !important;
+      outline-offset: 2px;
+      transform: scale(1.02) !important;
+      box-shadow: 0 0 15px rgba(255, 170, 0, 0.5) !important;
+    }
+
+    /* Redirect modal styling */
+    .redirect-modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10001;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .redirect-modal {
+      background: #FCFCFF;
+      border-radius: 12px;
+      padding: 30px;
+      max-width: 450px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      color: #424242;
+    }
+
+    .redirect-modal h3 {
+      color: #424242;
+      margin: 0 0 15px 0;
+      font-size: 24px;
+      font-weight: bold;
+    }
+
+    .redirect-modal p {
+      color: #616161;
+      margin: 0 0 15px 0;
+      font-size: 16px;
+      line-height: 1.4;
+    }
+
+    .redirect-modal-buttons {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 25px;
+    }
+
+    .redirect-modal-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 12px 20px;
+      border: 1px solid #dadce0;
+      border-radius: 6px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      outline: none;
+    }
+
+    .redirect-modal-button.primary {
+      background: #1a73e8;
+      color: white;
+      border: 1px solid #1a73e8;
+    }
+
+    .redirect-modal-button.primary:hover {
+      background: #1557b0;
+      border: 1px solid #1557b0;
+      box-shadow: 0 2px 8px rgba(26, 115, 232, 0.3);
+    }
+
+    .redirect-modal-button.secondary {
+      background: white;
+      color: #5f6368;
+      border: 1px solid #dadce0;
+    }
+
+    .redirect-modal-button.secondary:hover {
+      background: #f8f9fa;
+      border: 1px solid #bdc1c6;
+    }
+
+    .redirect-modal-button.cancel {
+      background: #f8f9fa;
+      color: #424242;
+      border: 1px solid #dadce0;
+    }
+
+    .redirect-modal-button.cancel:hover {
+      background: #e8eaed;
+      border: 1px solid #bdc1c6;
+    }
+
+    /* TV focus for redirect modal buttons */
+    .redirect-modal-button:focus {
+      outline: 3px solid #ffaa00 !important;
+      outline-offset: 2px;
+      transform: scale(1.02) !important;
+      box-shadow: 0 0 15px rgba(255, 170, 0, 0.5) !important;
+    }
+
+    .redirect-modal-divider {
+      margin: 20px 0;
+      height: 1px;
+      background: #e0e0e0;
+    }
+
+    .redirect-modal-always-section {
+      margin-top: 15px;
     }
 
     .dashboard-container {
@@ -154,21 +372,43 @@
 <body>
   <!-- OAuth Login Screen -->
   <div id="oauth-login-screen">
-    <div class="login-container">
-      <div class="login-logo">🎯</div>
-      <h1 class="login-title">Dashie</h1>
-      <p class="login-subtitle">Your Personal Dashboard</p>
+    <div class="sign-in-modal">
+      <img src="./artwork/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo-signin">
 
-      <div class="login-status" id="login-status">
-        Initializing authentication system...
+      <div class="sign-in-header">
+        <h2>Welcome to Dashie!</h2>
+        <p>Helping active families manage the chaos</p>
       </div>
 
-      <button class="login-button" id="login-button" disabled>
-        <span class="spinner"></span>
-        <span>Loading...</span>
-      </button>
+      <div class="sign-in-content">
+        <div class="login-status" id="login-status">
+          Initializing authentication system...
+        </div>
 
-      <div class="login-error" id="login-error" style="display: none;"></div>
+        <button class="signin-button secondary" id="login-button" disabled tabindex="1">
+          <span class="spinner"></span>
+          <span>Loading...</span>
+        </button>
+
+        <button class="signin-button secondary" id="exit-app-btn" tabindex="2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+          </svg>
+          Exit
+        </button>
+
+        <div class="login-error" id="login-error" style="display: none;"></div>
+
+        <p class="privacy-notice">Your data stays private and secure</p>
+      </div>
+
+      <div class="sign-in-footer">
+      </div>
+    </div>
+
+    <!-- Site info outside the modal box -->
+    <div class="site-info-external" id="site-info-external">
+      <!-- Will be populated by JavaScript -->
     </div>
   </div>
 
@@ -190,6 +430,8 @@
     import Dashboard from './js/modules/Dashboard/dashboard.js';
     import DashboardInputHandler from './js/modules/Dashboard/dashboard-input-handler.js';
     import Settings from './js/modules/Settings/settings.js';
+    import modals from './js/modules/Modals/modals.js';
+    import { createModalNavigation } from './js/utils/modal-navigation-manager.js';
 
     // Phase 3 - Auth imports (orchestration layer)
     import { sessionManager } from './js/data/auth/orchestration/session-manager.js';
@@ -225,9 +467,23 @@
     function updateLoginButton(text, enabled = true, showSpinner = false) {
       const button = document.getElementById('login-button');
       button.disabled = !enabled;
-      button.innerHTML = showSpinner
-        ? `<span class="spinner"></span><span>${text}</span>`
-        : `<span>${text}</span>`;
+
+      const googleLogo = `
+        <svg class="google-logo" width="20" height="20" viewBox="0 0 24 24">
+          <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+          <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+          <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+          <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+        </svg>
+      `;
+
+      if (showSpinner) {
+        button.innerHTML = `<span class="spinner"></span><span>${text}</span>`;
+      } else if (text.includes('Sign in') || text.includes('Retry')) {
+        button.innerHTML = `${googleLogo}<span>${text}</span>`;
+      } else {
+        button.innerHTML = `<span>${text}</span>`;
+      }
     }
 
     function showLoginError(message) {
@@ -239,6 +495,113 @@
     function hideLoginScreen() {
       document.getElementById('oauth-login-screen').classList.add('hidden');
       document.getElementById('dashboard-container').classList.add('visible');
+
+      // Clean up login screen input handler
+      if (window._loginInputHandler) {
+        document.removeEventListener('keydown', window._loginInputHandler, true);
+        delete window._loginInputHandler;
+        logger.debug('Login screen input handler removed');
+      }
+
+      // Unregister login screen from modal manager
+      if (window.dashieModalManager) {
+        window.dashieModalManager.unregisterModal();
+        logger.debug('Login screen unregistered from modal manager');
+      }
+    }
+
+    // Populate site info (dev vs prod link)
+    function populateSiteInfo() {
+      const hostname = window.location.hostname;
+      const isDev = hostname.includes('dev') || hostname === 'localhost' || hostname.startsWith('localhost');
+      const platform = getPlatformDetector();
+      const platformDesc = platform.getPlatformDescription();
+
+      const siteInfoDiv = document.getElementById('site-info-external');
+      if (siteInfoDiv) {
+        if (isDev) {
+          siteInfoDiv.innerHTML = `
+            <p>Logging into Dev Site &nbsp;&nbsp;|&nbsp;&nbsp; ${platformDesc}</p>
+            <p><a href="#" id="site-switch-link" class="prod-site-link" tabindex="3">Go to production site</a></p>
+          `;
+        } else {
+          siteInfoDiv.innerHTML = `
+            <p>Logging into Production Site &nbsp;&nbsp;|&nbsp;&nbsp; ${platformDesc}</p>
+            <p><a href="#" id="site-switch-link" class="prod-site-link" tabindex="3">Go to development site</a></p>
+          `;
+        }
+
+        // Add event listener (will implement redirect modal later)
+        const siteLink = document.getElementById('site-switch-link');
+        if (siteLink) {
+          siteLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            logger.info('Site switch clicked - redirect modal not implemented yet');
+          });
+
+          siteLink.addEventListener('keydown', (e) => {
+            if (e.keyCode === 13 || e.keyCode === 23 || e.key === 'Enter') {
+              e.preventDefault();
+              e.stopPropagation();
+              logger.info('Site switch selected - redirect modal not implemented yet');
+            }
+          });
+        }
+      }
+    }
+
+    // Setup D-pad navigation for login screen using modal navigation manager
+    function setupLoginNavigation() {
+      const loginScreen = document.getElementById('oauth-login-screen');
+      const buttons = ['login-button', 'exit-app-btn', 'site-switch-link'];
+
+      // Use the same modal navigation system as modals/settings (cookie-cutter approach)
+      createModalNavigation(loginScreen, buttons, {
+        initialFocus: 0, // Focus login button first
+        onEscape: () => {
+          // Escape should exit the program
+          logger.info('Escape pressed on login screen - exiting');
+          window.close();
+        }
+      });
+
+      logger.debug('Login screen navigation set up with modal navigation manager', {
+        hasGlobalManager: !!window.dashieModalManager,
+        isModalActive: window.dashieModalManager?.hasActiveModal(),
+        focusableCount: window.dashieModalManager?.focusableElements?.length,
+        debugInfo: window.dashieModalManager?.getDebugInfo()
+      });
+
+      // IMPORTANT: Set up temporary keyboard handler for login screen
+      // This handles D-pad input BEFORE ActionRouter is initialized
+      const handleLoginInput = (e) => {
+        // Arrow keys
+        const keyMap = {
+          38: 'up',    // Up arrow
+          40: 'down',  // Down arrow
+          37: 'left',  // Left arrow
+          39: 'right', // Right arrow
+          13: 'enter', // Enter
+          27: 'escape' // Escape
+        };
+
+        const action = keyMap[e.keyCode];
+        if (action && window.dashieModalManager) {
+          const handled = window.dashieModalManager.handleAction(action);
+          if (handled) {
+            e.preventDefault();
+            e.stopPropagation();
+          }
+        }
+      };
+
+      // Add keyboard listener
+      document.addEventListener('keydown', handleLoginInput, true);
+
+      // Store reference for cleanup
+      window._loginInputHandler = handleLoginInput;
+
+      logger.debug('Login screen temporary input handler set up');
     }
 
     // Initialize authentication (using orchestration layer)
@@ -246,6 +609,9 @@
       try {
         logger.info('🔐 Initializing authentication...');
         updateLoginStatus('Setting up authentication system...');
+
+        // Populate site info
+        populateSiteInfo();
 
         // Initialize SessionManager (handles entire auth flow)
         const result = await sessionManager.initialize(authCoordinator);
@@ -275,13 +641,18 @@
 
         // Not authenticated - show sign in button
         logger.info('No user authenticated');
-        updateLoginStatus('Ready to sign in');
+        document.getElementById('login-status').style.display = 'none'; // Hide status box
         updateLoginButton('Sign in with Google', true, false);
+
+        // Setup D-pad navigation
+        setupLoginNavigation();
 
         // Attach sign-in handler
         const isFireTV = authCoordinator.isFireTVPlatform();
+        const loginButton = document.getElementById('login-button');
+        const exitButton = document.getElementById('exit-app-btn');
 
-        document.getElementById('login-button').onclick = async () => {
+        const handleSignIn = async () => {
           try {
             const buttonText = isFireTV ? 'Starting Device Flow...' : 'Redirecting to Google...';
             updateLoginButton(buttonText, false, true);
@@ -312,6 +683,47 @@
             updateLoginButton('Sign in with Google', true, false);
           }
         };
+
+        loginButton.onclick = handleSignIn;
+
+        // Add keyboard/D-pad handler
+        loginButton.addEventListener('keydown', (e) => {
+          if (e.keyCode === 13 || e.keyCode === 23 || e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!loginButton.disabled) {
+              handleSignIn();
+            }
+          }
+        });
+
+        // Auto-focus button when enabled (for D-pad navigation)
+        const observer = new MutationObserver(() => {
+          if (!loginButton.disabled) {
+            setTimeout(() => {
+              loginButton.focus();
+              logger.debug('Auto-focused login button');
+            }, 100);
+            observer.disconnect();
+          }
+        });
+        observer.observe(loginButton, { attributes: true, attributeFilter: ['disabled'] });
+
+        // Setup Exit button handler
+        exitButton.addEventListener('click', (e) => {
+          e.preventDefault();
+          logger.info('Exit button clicked');
+          window.close(); // Try to close window (works in some environments)
+        });
+
+        exitButton.addEventListener('keydown', (e) => {
+          if (e.keyCode === 13 || e.keyCode === 23 || e.key === 'Enter') {
+            e.preventDefault();
+            e.stopPropagation();
+            logger.info('Exit button selected');
+            window.close();
+          }
+        });
 
         return false;
 
@@ -434,6 +846,14 @@
 
         // Expose Settings globally for testing
         window.Settings = Settings;
+
+        // Initialize Modals module
+        await modals.initialize();
+        logger.success('Modals module initialized');
+
+        // Register Modals with ActionRouter
+        ActionRouter.registerModule('modals', modals);
+        logger.success('Modals module registered with ActionRouter');
 
         // Set Dashboard as active module
         AppStateManager.setCurrentModule('dashboard');

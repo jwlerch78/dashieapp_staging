@@ -4,6 +4,7 @@
 import { createLogger } from '../../utils/logger.js';
 import { getDefaultSettings } from '../../../config.js';
 import settingsService from '../../data/services/settings-service.js';
+import { showToast } from '../../ui/toast.js';
 
 const logger = createLogger('SettingsStore');
 
@@ -55,8 +56,9 @@ export class SettingsStore {
     /**
      * Save settings to storage
      * Uses SettingsService dual-write pattern
+     * @param {boolean} showNotification - Whether to show toast notification (default: true)
      */
-    async save() {
+    async save(showNotification = true) {
         logger.debug('Saving settings via SettingsService');
 
         try {
@@ -64,8 +66,14 @@ export class SettingsStore {
 
             if (result.localStorage && result.database) {
                 logger.success('Settings saved to both localStorage and database');
+                if (showNotification) {
+                    showToast('Settings saved', 'success');
+                }
             } else if (result.localStorage) {
                 logger.info('Settings saved to localStorage only');
+                if (showNotification) {
+                    showToast('Settings saved (offline)', 'success');
+                }
             } else {
                 throw new Error('Failed to save settings');
             }
@@ -73,6 +81,9 @@ export class SettingsStore {
             return result;
         } catch (error) {
             logger.error('Failed to save settings', error);
+            if (showNotification) {
+                showToast('Failed to save settings', 'error');
+            }
             throw error;
         }
     }

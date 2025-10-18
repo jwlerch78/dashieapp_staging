@@ -231,6 +231,11 @@ class ActionRouter {
    * @returns {boolean} True if modal is active
    */
   hasActiveModal() {
+    // Check if modals module has an active modal
+    if (window.modals && window.modals.isModalOpen()) {
+      return true;
+    }
+
     // Check for modal in DOM (excluding settings modal)
     const modalElement = document.querySelector('.modal.active:not(.settings-modal), .modal.show:not(.settings-modal)');
     if (modalElement) {

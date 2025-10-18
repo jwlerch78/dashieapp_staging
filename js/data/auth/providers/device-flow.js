@@ -157,7 +157,7 @@ export class DeviceFlowProvider {
     overlay.innerHTML = `
       <div class="device-flow-modal">
         <div class="logo-section">
-          <div class="dashie-logo">🎯</div>
+          <img src="./artwork/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo-signin">
           <h2>Sign in to Dashie with Google</h2>
         </div>
 
@@ -177,7 +177,7 @@ export class DeviceFlowProvider {
           <div class="status-text">Waiting for sign-in (Expires in <span id="countdown-timer">${Math.floor(deviceData.expires_in / 60)}</span> min)</div>
         </div>
 
-        <button id="cancel-device-flow" class="cancel-btn">Cancel</button>
+        <button id="cancel-device-flow" class="cancel-btn" tabindex="1">Cancel</button>
       </div>
     `;
 
@@ -198,8 +198,21 @@ export class DeviceFlowProvider {
     };
     cancelBtn.addEventListener('click', this.cancelHandler);
 
-    // Focus cancel button
-    setTimeout(() => cancelBtn.focus(), 200);
+    // Add keyboard/D-pad handler for cancel button
+    cancelBtn.addEventListener('keydown', (e) => {
+      logger.debug('Cancel button keydown', { keyCode: e.keyCode, key: e.key });
+      if (e.keyCode === 13 || e.keyCode === 23 || e.key === 'Enter') {
+        e.preventDefault();
+        e.stopPropagation();
+        this.cancelHandler();
+      }
+    });
+
+    // Focus cancel button with orange highlight
+    setTimeout(() => {
+      cancelBtn.focus();
+      logger.debug('Auto-focused cancel button');
+    }, 200);
 
     // Start countdown timer
     this.startCountdownTimer(deviceData.expires_in);
@@ -499,9 +512,11 @@ export class DeviceFlowProvider {
         margin-bottom: 24px;
       }
 
-      .dashie-logo {
-        font-size: 48px;
-        margin-bottom: 16px;
+      .dashie-logo-signin {
+        width: 150px !important;
+        height: auto;
+        margin: 0 auto 20px auto;
+        display: block;
       }
 
       .device-flow-modal h2 {
@@ -597,11 +612,16 @@ export class DeviceFlowProvider {
         margin-top: 8px;
       }
 
-      .cancel-btn:hover,
-      .cancel-btn:focus {
+      .cancel-btn:hover {
         background: rgba(255, 255, 255, 0.15);
         border-color: rgba(255, 255, 255, 0.3);
-        outline: none;
+      }
+
+      .cancel-btn:focus {
+        outline: 3px solid #ffaa00 !important;
+        outline-offset: 2px;
+        transform: scale(1.02) !important;
+        box-shadow: 0 0 15px rgba(255, 170, 0, 0.5) !important;
       }
 
       .cancel-btn:active {

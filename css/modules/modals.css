@@ -152,6 +152,14 @@
   object-fit: cover;
 }
 
+/* User icon fallback when no photo available */
+.logout-option svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: #666;
+}
+
 .modal-option svg {
   width: 18px;
   height: 18px;

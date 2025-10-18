@@ -113,7 +113,7 @@ class Modals {
     logger.info('Showing exit confirmation');
 
     // Check authentication status
-    const isAuthenticated = window.sessionManager?.isAuthenticated() || false;
+    const isAuthenticated = window.sessionManager?.isUserAuthenticated() || false;
     const user = isAuthenticated ? window.sessionManager?.getUser() : null;
 
     // Update state
@@ -186,14 +186,18 @@ class Modals {
   /**
    * Handle logout action
    */
-  handleLogout() {
+  async handleLogout() {
     logger.info('Logging out');
 
     this.hideExitConfirmation();
 
     // Call session manager to sign out
     if (window.sessionManager) {
-      window.sessionManager.signOut();
+      await window.sessionManager.signOut();
+
+      // Reload page to return to login screen
+      logger.info('Reloading page to show login screen');
+      window.location.reload();
     } else {
       logger.error('SessionManager not available for logout');
     }
@@ -241,6 +245,54 @@ class Modals {
    */
   handleInput(action) {
     return modalsInputHandler.handleAction(action);
+  }
+
+  /**
+   * Handle up arrow input
+   * @returns {boolean} - True if action was handled
+   */
+  handleUp() {
+    return modalsInputHandler.handleAction('up');
+  }
+
+  /**
+   * Handle down arrow input
+   * @returns {boolean} - True if action was handled
+   */
+  handleDown() {
+    return modalsInputHandler.handleAction('down');
+  }
+
+  /**
+   * Handle left arrow input
+   * @returns {boolean} - True if action was handled
+   */
+  handleLeft() {
+    return modalsInputHandler.handleAction('left');
+  }
+
+  /**
+   * Handle right arrow input
+   * @returns {boolean} - True if action was handled
+   */
+  handleRight() {
+    return modalsInputHandler.handleAction('right');
+  }
+
+  /**
+   * Handle enter key input
+   * @returns {boolean} - True if action was handled
+   */
+  handleEnter() {
+    return modalsInputHandler.handleAction('enter');
+  }
+
+  /**
+   * Handle escape key input
+   * @returns {boolean} - True if action was handled
+   */
+  handleEscape() {
+    return modalsInputHandler.handleAction('escape');
   }
 
   /**

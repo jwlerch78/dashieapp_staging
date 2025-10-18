@@ -146,14 +146,66 @@ export class SettingsModalRenderer {
             const page = this.pages[pageId];
             const menuItem = this.menuItems.find(item => item.id === pageId);
 
-            return `
+            let html = `
                 <div class="settings-modal__screen" data-screen="${pageId}" data-title="${menuItem.label}">
                     ${page.render()}
                 </div>
             `;
+
+            // Add sub-screens for Display page
+            if (pageId === 'display') {
+                html += this.buildDisplaySubScreens();
+            }
+
+            return html;
         }).join('');
 
         return pagesHTML;
+    }
+
+    /**
+     * Build Display page sub-screens
+     * @returns {string} - HTML string
+     */
+    buildDisplaySubScreens() {
+        const displayPage = this.pages.display;
+
+        return `
+            <!-- Theme Selection -->
+            <div class="settings-modal__screen" data-screen="display-theme" data-title="Theme" data-parent="display">
+                ${displayPage.renderThemeScreen()}
+            </div>
+
+            <!-- Sleep Timer - Hour Selection -->
+            <div class="settings-modal__screen" data-screen="display-sleep-time-hour" data-title="Sleep Timer" data-parent="display">
+                ${displayPage.renderSleepTimeHourScreen()}
+            </div>
+
+            <!-- Sleep Timer - Minute Selection -->
+            <div class="settings-modal__screen" data-screen="display-sleep-time-min" data-title="Sleep Timer" data-parent="display">
+                ${displayPage.renderSleepTimeMinScreen()}
+            </div>
+
+            <!-- Sleep Timer - Period Selection -->
+            <div class="settings-modal__screen" data-screen="display-sleep-time-period" data-title="Sleep Timer" data-parent="display">
+                ${displayPage.renderSleepTimePeriodScreen()}
+            </div>
+
+            <!-- Wake Timer - Hour Selection -->
+            <div class="settings-modal__screen" data-screen="display-wake-time-hour" data-title="Wake Timer" data-parent="display">
+                ${displayPage.renderWakeTimeHourScreen()}
+            </div>
+
+            <!-- Wake Timer - Minute Selection -->
+            <div class="settings-modal__screen" data-screen="display-wake-time-min" data-title="Wake Timer" data-parent="display">
+                ${displayPage.renderWakeTimeMinScreen()}
+            </div>
+
+            <!-- Wake Timer - Period Selection -->
+            <div class="settings-modal__screen" data-screen="display-wake-time-period" data-title="Wake Timer" data-parent="display">
+                ${displayPage.renderWakeTimePeriodScreen()}
+            </div>
+        `;
     }
 
     /**
@@ -169,6 +221,10 @@ export class SettingsModalRenderer {
         const navClose = this.modalElement.querySelector('.settings-modal__nav-close');
         const navTitle = this.modalElement.querySelector('.settings-modal__nav-title');
 
+        // Get current screen element to check if it has a parent
+        const currentScreenElement = this.modalElement.querySelector(`[data-screen="${currentPage}"]`);
+        const hasParent = currentScreenElement?.dataset.parent;
+
         // Update nav bar
         if (currentPage === 'main') {
             // Main menu: show Close button, hide Back button
@@ -176,12 +232,11 @@ export class SettingsModalRenderer {
             if (navClose) navClose.style.display = 'block';
             if (navTitle) navTitle.textContent = 'Settings';
         } else {
-            // Sub-page: show Back button, hide Close button
+            // Sub-page or sub-screen: show Back button, hide Close button
             if (navBack) navBack.style.display = 'block';
             if (navClose) navClose.style.display = 'none';
-            const screenElement = this.modalElement.querySelector(`[data-screen="${currentPage}"]`);
-            if (screenElement && navTitle) {
-                navTitle.textContent = screenElement.dataset.title || 'Settings';
+            if (currentScreenElement && navTitle) {
+                navTitle.textContent = currentScreenElement.dataset.title || 'Settings';
             }
         }
 
@@ -214,12 +269,30 @@ export class SettingsModalRenderer {
             if (screenId === currentPage) {
                 screen.classList.add('settings-modal__screen--active');
 
-                // Activate page if it's not main
+                // Activate page if it's not main and it's a regular page (not a sub-screen)
                 if (screenId !== 'main' && this.pages[screenId]) {
                     this.pages[screenId].activate();
 
-                    // Reset selection to first item when navigating to a sub-page
+                    // Reset selection to first item when navigating to a sub-page from main
                     if (direction === 'forward' && previousPage === 'main') {
+                        this.stateManager.setSelectedIndex(0);
+                    }
+                }
+
+                // Reset selection when navigating to Display sub-screens
+                if (screenId.startsWith('display-') && direction === 'forward') {
+                    // Find the checked/current item and start selection there
+                    const checkedItem = screen.querySelector('.settings-modal__menu-item--checked');
+                    if (checkedItem) {
+                        // Find the index of the checked item
+                        const allItems = Array.from(screen.querySelectorAll('.settings-modal__menu-item'));
+                        const checkedIndex = allItems.indexOf(checkedItem);
+                        if (checkedIndex !== -1) {
+                            this.stateManager.setSelectedIndex(checkedIndex);
+                        } else {
+                            this.stateManager.setSelectedIndex(0);
+                        }
+                    } else {
                         this.stateManager.setSelectedIndex(0);
                     }
                 }
@@ -246,12 +319,25 @@ export class SettingsModalRenderer {
             el.classList.remove('settings-modal__menu-item--selected');
         });
 
+        let selectedElement = null;
+
         // Apply selection to current context
         if (currentPage === 'main') {
             // Highlight menu item on main screen
             const menuItems = this.modalElement.querySelectorAll('[data-screen="main"] .settings-modal__menu-item');
             if (menuItems[selectedIndex]) {
                 menuItems[selectedIndex].classList.add('settings-modal__menu-item--selected');
+                selectedElement = menuItems[selectedIndex];
+            }
+        } else if (currentPage.startsWith('display-')) {
+            // Display sub-screens: query the active screen directly
+            const activeScreen = this.modalElement.querySelector(`[data-screen="${currentPage}"].settings-modal__screen--active`);
+            if (activeScreen) {
+                const menuItems = activeScreen.querySelectorAll('.settings-modal__menu-item');
+                if (menuItems[selectedIndex]) {
+                    menuItems[selectedIndex].classList.add('settings-modal__menu-item--selected');
+                    selectedElement = menuItems[selectedIndex];
+                }
             }
         } else {
             // Highlight item on sub-page (if page has getFocusableElements)
@@ -260,8 +346,37 @@ export class SettingsModalRenderer {
                 const focusableElements = page.getFocusableElements();
                 if (focusableElements[selectedIndex]) {
                     focusableElements[selectedIndex].classList.add('settings-modal__menu-item--selected');
+                    selectedElement = focusableElements[selectedIndex];
                 }
             }
+        }
+
+        // Auto-scroll to keep selected item in view
+        if (selectedElement) {
+            this.scrollToElement(selectedElement);
+        }
+    }
+
+    /**
+     * Scroll to keep element in view
+     * @param {HTMLElement} element - Element to scroll to
+     */
+    scrollToElement(element) {
+        if (!element) return;
+
+        const scrollContainer = element.closest('.settings-modal__screen');
+        if (!scrollContainer) return;
+
+        const containerRect = scrollContainer.getBoundingClientRect();
+        const elementRect = element.getBoundingClientRect();
+
+        // Check if element is above visible area
+        if (elementRect.top < containerRect.top) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        // Check if element is below visible area
+        else if (elementRect.bottom > containerRect.bottom) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'end' });
         }
     }
 
@@ -318,6 +433,13 @@ export class SettingsModalRenderer {
 
         if (currentPage === 'main') {
             return Array.from(this.modalElement.querySelectorAll('[data-screen="main"] .settings-modal__menu-item'));
+        } else if (currentPage.startsWith('display-')) {
+            // Display sub-screens: query the active screen directly
+            const activeScreen = this.modalElement.querySelector(`[data-screen="${currentPage}"].settings-modal__screen--active`);
+            if (activeScreen) {
+                return Array.from(activeScreen.querySelectorAll('.settings-modal__menu-item'));
+            }
+            return [];
         } else {
             // Get focusable elements from the page if it implements the method
             const page = this.pages[currentPage];
@@ -355,18 +477,31 @@ export class SettingsModalRenderer {
      * @param {MouseEvent} event
      */
     async handleClick(event) {
-        const target = event.target.closest('[data-action], [data-page]');
+        // Check if this is a toggle switch click
+        const toggleItem = event.target.closest('.settings-modal__menu-item--toggle');
+        if (toggleItem) {
+            // Find the checkbox inside the toggle
+            const checkbox = toggleItem.querySelector('input[type="checkbox"]');
+            if (checkbox && event.target !== checkbox && !event.target.closest('.settings-modal__toggle-switch')) {
+                // Toggle the checkbox programmatically
+                checkbox.checked = !checkbox.checked;
+                // Trigger change event
+                checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                return;
+            }
+        }
+
+        const target = event.target.closest('[data-action], [data-page], [data-navigate], [data-setting][data-value]');
 
         if (!target) return;
 
-        // Handle action buttons
+        // Handle action buttons (close, back)
         if (target.dataset.action) {
             event.preventDefault();
 
             switch (target.dataset.action) {
                 case 'close':
                     logger.info('Close button clicked');
-                    // Get orchestrator from window.Settings
                     if (window.Settings) {
                         await window.Settings.hide();
                     }
@@ -385,7 +520,7 @@ export class SettingsModalRenderer {
             return;
         }
 
-        // Handle menu item clicks
+        // Handle main menu navigation (data-page)
         if (target.dataset.page && target.classList.contains('settings-modal__menu-item')) {
             event.preventDefault();
             const pageId = target.dataset.page;
@@ -393,14 +528,91 @@ export class SettingsModalRenderer {
 
             logger.info('Menu item clicked', { pageId, index });
 
-            // Update selection state
             this.stateManager.setSelectedIndex(index);
             this.updateSelection();
 
-            // Navigate to page
             this.stateManager.navigateToPage(pageId);
             this.showCurrentPage('forward');
             this.updateSelection();
+            return;
+        }
+
+        // Handle sub-page navigation (data-navigate)
+        if (target.dataset.navigate) {
+            event.preventDefault();
+            const targetScreen = target.dataset.navigate;
+            logger.info('Navigating to sub-screen', { screen: targetScreen });
+
+            // Navigate to the target screen
+            this.stateManager.navigateToPage(targetScreen);
+            this.showCurrentPage('forward');
+            this.updateSelection();
+            return;
+        }
+
+        // Handle setting selection (data-setting + data-value) or time selection (data-hour, data-minute, data-period)
+        if (target.dataset.setting || target.dataset.hour || target.dataset.minute || target.dataset.period) {
+            event.preventDefault();
+
+            const currentPage = this.stateManager.getCurrentPage();
+
+            // Check if this is a time selection cell
+            const displayPage = this.pages.display;
+            if (displayPage && displayPage.getTimeHandler) {
+                const timeHandler = displayPage.getTimeHandler();
+                const action = timeHandler.handleSelection(target);
+
+                if (action.type === 'navigate') {
+                    // Navigate to next time selection screen
+                    logger.info('Time selection - navigating', { screen: action.screenId });
+                    this.stateManager.navigateToPage(action.screenId);
+                    this.showCurrentPage('forward');
+                    this.updateSelection();
+                    return;
+                } else if (action.type === 'complete') {
+                    // Time selection complete - save and navigate back
+                    logger.success('Time selection complete', { setting: action.setting, value: action.value });
+
+                    // Save the time setting
+                    if (window.settingsStore) {
+                        window.settingsStore.set(action.setting, action.value);
+                        await window.settingsStore.save();
+                    }
+
+                    // Update the display on the main Display screen
+                    displayPage.updateTimeDisplay(action.setting);
+
+                    // Navigate back to Display screen
+                    this.stateManager.navigateToPage('display');
+                    this.showCurrentPage('backward');
+                    this.updateSelection();
+                    return;
+                }
+            }
+
+            // Handle theme selection
+            if (target.dataset.setting === 'interface.theme' && target.dataset.value) {
+                const setting = target.dataset.setting;
+                const value = target.dataset.value;
+
+                logger.info('Setting selected', { setting, value });
+
+                if (setting === 'interface.theme') {
+                    // Handle theme selection from display-theme screen
+                    if (displayPage) {
+                        await displayPage.setTheme(value);
+
+                        // Don't auto-navigate back - user will press Back manually
+                        // Just update the checkmarks on the current screen
+                        const currentScreen = this.modalElement.querySelector(`[data-screen="${currentPage}"]`);
+                        if (currentScreen) {
+                            // Re-render the theme screen to update checkmarks
+                            currentScreen.innerHTML = displayPage.renderThemeScreen();
+                            this.updateSelection();
+                        }
+                    }
+                }
+            }
         }
     }
 }
