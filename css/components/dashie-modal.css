@@ -1,0 +1,194 @@
+/* css/components/dashie-modal.css */
+/* Dashie-themed modal for user messages */
+
+.dashie-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    backdrop-filter: blur(4px);
+    animation: dashie-modal-fade-in 0.2s ease-out;
+}
+
+@keyframes dashie-modal-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.dashie-modal {
+    background: var(--card-bg, #ffffff);
+    border-radius: 16px;
+    padding: 32px;
+    max-width: 480px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    animation: dashie-modal-slide-up 0.3s ease-out;
+}
+
+@keyframes dashie-modal-slide-up {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.dashie-modal__icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    line-height: 1;
+}
+
+.dashie-modal__content {
+    margin-bottom: 24px;
+}
+
+.dashie-modal__title {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--text-primary, #1a1a1a);
+    margin: 0 0 12px 0;
+}
+
+.dashie-modal__message {
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--text-secondary, #666666);
+    margin: 0;
+    white-space: pre-line;
+}
+
+.dashie-modal__buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    width: 100%;
+}
+
+.dashie-modal__button {
+    padding: 12px 28px;
+    font-size: 16px;
+    font-weight: 500;
+    border: 2px solid var(--border-color, #e0e0e0);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-primary, #1a1a1a);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 100px;
+}
+
+.dashie-modal__button:hover {
+    background: var(--hover-bg, #f5f5f5);
+    transform: translateY(-1px);
+}
+
+.dashie-modal__button:active {
+    transform: translateY(0);
+}
+
+.dashie-modal__button:focus {
+    outline: none;
+    border-color: var(--primary-color, #FF6B35);
+    box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.2);
+}
+
+.dashie-modal__button--primary {
+    background: var(--primary-color, #FF6B35);
+    border-color: var(--primary-color, #FF6B35);
+    color: white;
+}
+
+.dashie-modal__button--primary:hover {
+    background: var(--primary-hover, #ff5722);
+    border-color: var(--primary-hover, #ff5722);
+}
+
+.dashie-modal__button--primary:focus {
+    box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.3);
+}
+
+/* Type-specific styling */
+.dashie-modal--success .dashie-modal__icon {
+    color: #4CAF50;
+}
+
+.dashie-modal--error .dashie-modal__icon {
+    color: #f44336;
+}
+
+.dashie-modal--warning .dashie-modal__icon {
+    color: #ff9800;
+}
+
+.dashie-modal--info .dashie-modal__icon {
+    color: #2196F3;
+}
+
+/* Dark theme support */
+[data-theme="dark"] .dashie-modal {
+    background: var(--card-bg-dark, #2a2a2a);
+}
+
+[data-theme="dark"] .dashie-modal__title {
+    color: var(--text-primary-dark, #ffffff);
+}
+
+[data-theme="dark"] .dashie-modal__message {
+    color: var(--text-secondary-dark, #b0b0b0);
+}
+
+[data-theme="dark"] .dashie-modal__button {
+    border-color: var(--border-color-dark, #404040);
+    color: var(--text-primary-dark, #ffffff);
+}
+
+[data-theme="dark"] .dashie-modal__button:hover {
+    background: var(--hover-bg-dark, #3a3a3a);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .dashie-modal {
+        padding: 24px;
+        max-width: 90%;
+    }
+
+    .dashie-modal__icon {
+        font-size: 40px;
+    }
+
+    .dashie-modal__title {
+        font-size: 20px;
+    }
+
+    .dashie-modal__message {
+        font-size: 14px;
+    }
+
+    .dashie-modal__buttons {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .dashie-modal__button {
+        width: 100%;
+    }
+}

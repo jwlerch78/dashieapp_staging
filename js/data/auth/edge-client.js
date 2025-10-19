@@ -413,6 +413,30 @@ export class EdgeClient {
     }
 
     /**
+     * Delete tokens for a specific account from Supabase
+     * Calls edge function 'remove_account' operation
+     * @param {string} provider - Provider name (e.g., 'google')
+     * @param {string} accountType - Account type (e.g., 'primary', 'account2')
+     * @returns {Promise<object>} Delete result
+     */
+    async deleteTokens(provider, accountType) {
+        logger.debug('Deleting tokens from Supabase', { provider, accountType });
+
+        const response = await this.request({
+            operation: 'remove_account',
+            provider,
+            account_type: accountType
+        });
+
+        logger.info('Successfully deleted tokens from Supabase', {
+            provider,
+            accountType
+        });
+
+        return response;
+    }
+
+    /**
      * Load all tokens from Supabase user_auth_tokens table
      * Calls edge function 'load' operation (loads settings, but we'll adapt it)
      * @returns {Promise<object>} Full tokens object structure

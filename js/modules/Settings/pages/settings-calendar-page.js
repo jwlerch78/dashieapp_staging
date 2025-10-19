@@ -6,6 +6,7 @@ import { createLogger } from '../../../utils/logger.js';
 import { getCalendarService } from '../../../data/services/calendar-service.js';
 import UIUpdateHelper from '../utils/ui-update-helper.js';
 import { SettingsPageBase } from '../core/settings-page-base.js';
+import DashieModal from '../../../utils/dashie-modal.js';
 
 const logger = createLogger('SettingsCalendarPage');
 
@@ -638,14 +639,14 @@ export class SettingsCalendarPage extends SettingsPageBase {
             const sessionManager = window.sessionManager;
             if (!sessionManager) {
                 logger.error('Session manager not available');
-                alert('Unable to add account: Session manager not found');
+                await DashieModal.error('Unable to Add Account', 'Session manager not found. Please try refreshing the page.');
                 return;
             }
 
             const tokenStore = sessionManager.getTokenStore();
             if (!tokenStore) {
                 logger.error('Token store not available');
-                alert('Unable to add account: Token store not found');
+                await DashieModal.error('Unable to Add Account', 'Token store not found. Please try refreshing the page.');
                 return;
             }
 
@@ -682,7 +683,7 @@ export class SettingsCalendarPage extends SettingsPageBase {
 
         } catch (error) {
             logger.error('Failed to add Google account', error);
-            alert(`Failed to add Google account: ${error.message}`);
+            await DashieModal.error('Failed to Add Account', `Unable to add Google account:\n\n${error.message}`);
         }
     }
 
@@ -698,12 +699,13 @@ export class SettingsCalendarPage extends SettingsPageBase {
         // Prevent removal of primary account
         if (accountType === 'primary') {
             logger.warn('Cannot remove primary account');
-            alert('Cannot remove primary account. To remove it, you must sign out completely.');
+            await DashieModal.warning('Cannot Remove Primary Account', 'Your primary account cannot be removed. To remove it, you must sign out completely.');
             return;
         }
 
         // Confirm with user
-        const confirmed = confirm(
+        const confirmed = await DashieModal.confirm(
+            'Remove Calendar Account',
             `Are you sure you want to remove this account?\n\n${accountEmail}\n\nAll calendars from this account will be removed from your dashboard.`
         );
 
@@ -748,7 +750,7 @@ export class SettingsCalendarPage extends SettingsPageBase {
                 }
             }
 
-            // Reload the accounts list
+            // Reload the accounts list for the remove screen
             await this.loadAccountsForRemoval();
 
             // Re-render the remove account screen
@@ -765,11 +767,21 @@ export class SettingsCalendarPage extends SettingsPageBase {
                 }, 100);
             }
 
-            alert(`Account removed successfully:\n${accountEmail}`);
+            // Also reload calendars to remove the account's calendars from the select calendars screen
+            await this.loadCalendarsFromAllAccounts();
+
+            // Re-render the select calendars screen if it's been loaded
+            const selectScreen = document.querySelector('[data-screen="calendar-select"]');
+            if (selectScreen && Object.keys(this.calendarData).length > 0) {
+                selectScreen.innerHTML = this.renderSelectCalendars();
+                logger.info('Refreshed calendar list after account removal');
+            }
+
+            await DashieModal.success('Account Removed', `Successfully removed:\n\n${accountEmail}`);
 
         } catch (error) {
             logger.error('Failed to remove account', { accountType, error });
-            alert(`Failed to remove account: ${error.message}`);
+            await DashieModal.error('Failed to Remove Account', `Unable to remove account:\n\n${error.message}`);
         }
     }
 

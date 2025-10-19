@@ -226,6 +226,7 @@ export class TokenStore {
      */
     async removeAccountTokens(provider, accountType) {
         if (this.tokens[provider] && this.tokens[provider][accountType]) {
+            // Delete from memory
             delete this.tokens[provider][accountType];
 
             // Remove provider object if empty
@@ -233,7 +234,16 @@ export class TokenStore {
                 delete this.tokens[provider];
             }
 
-            await this.save();
+            // Delete from Supabase database
+            if (this.edgeClient) {
+                try {
+                    await this.edgeClient.deleteTokens(provider, accountType);
+                    logger.info('Removed tokens from database', { provider, accountType });
+                } catch (error) {
+                    logger.error('Failed to remove tokens from database', { provider, accountType, error });
+                    throw error;
+                }
+            }
 
             logger.info('Removed tokens for account', { provider, accountType });
         }

@@ -5,6 +5,7 @@
 import { createLogger } from '../../../utils/logger.js';
 import { EdgeClient } from '../edge-client.js';
 import { TokenStore } from '../token-store.js';
+import DashieModal from '../../../utils/dashie-modal.js';
 
 const logger = createLogger('SessionManager');
 
@@ -111,7 +112,10 @@ export class SessionManager {
                             sessionStorage.removeItem('pendingAccountType');
 
                             // Show user a message
-                            alert(`This Google account is already connected:\n${oauthResult.user.email}\n\nAccount: ${existingAccountType}`);
+                            await DashieModal.warning(
+                                'Account Already Connected',
+                                `This Google account is already connected:\n\n${oauthResult.user.email}\n\nAccount Type: ${existingAccountType}`
+                            );
 
                             // Redirect back to settings
                             window.location.hash = '#settings/calendar';
@@ -255,11 +259,17 @@ export class SessionManager {
                     logger.success('OAuth tokens stored to Supabase');
 
                     // Set authenticated user
+                    // IMPORTANT: Use jwtResult.user (Supabase UUID), not oauthResult.user (Google ID)
                     this.isAuthenticated = true;
                     this.user = {
-                        ...oauthResult.user,
+                        ...jwtResult.user,  // Supabase user with UUID
+                        name: oauthResult.user.name,  // Keep display name from Google
+                        picture: oauthResult.user.picture,  // Keep picture from Google
+                        provider: 'google',
+                        authMethod: oauthResult.user.authMethod,
                         jwtToken: jwtResult.jwtToken,
-                        access: jwtResult.access
+                        access: jwtResult.access,
+                        signedInAt: Date.now()
                     };
 
                     this.isInitialized = true;
