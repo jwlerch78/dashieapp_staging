@@ -21,8 +21,21 @@ class ModalNavigationManager {
    * Check if there's an active modal (called by events.js)
    */
   hasActiveModal() {
-    return this.modalStack.length > 0 && 
+    const hasModal = this.modalStack.length > 0 &&
            this.modalStack[this.modalStack.length - 1].modal.parentNode !== null;
+
+    console.log('🔷 MODAL MANAGER: hasActiveModal()', {
+      hasModal,
+      stackDepth: this.modalStack.length,
+      stack: this.modalStack.map((entry, i) => ({
+        index: i,
+        modalId: entry.modal?.id,
+        modalClass: entry.modal?.className,
+        hasParent: !!entry.modal?.parentNode
+      }))
+    });
+
+    return hasModal;
   }
 
   /**
@@ -68,6 +81,12 @@ class ModalNavigationManager {
    * @returns {boolean} True if action was handled, false if should continue to next priority
    */
   handleAction(action) {
+    console.log('🔷 MODAL MANAGER: handleAction() called', {
+      action,
+      hasActiveModal: this.hasActiveModal(),
+      stackDepth: this.modalStack.length
+    });
+
     if (!this.hasActiveModal()) {
       logger.warn('handleAction called but no active modal');
       return false;
@@ -75,8 +94,10 @@ class ModalNavigationManager {
 
     // If modal has a custom handler, delegate to it first
     if (this.config && this.config.customHandler) {
+      console.log('🔷 MODAL MANAGER: Delegating to custom handler', { action });
       logger.debug('Delegating to custom handler', { action });
       const handled = this.config.customHandler(action);
+      console.log('🔷 MODAL MANAGER: Custom handler result', { action, handled });
       if (handled !== undefined) {
         return handled; // Custom handler explicitly handled or didn't handle
       }
@@ -134,7 +155,15 @@ class ModalNavigationManager {
     if (!config.buttons) {
       config.buttons = [];
     }
-    
+
+    console.log('🔷 MODAL MANAGER: Registering modal', {
+      modalId: modal.id,
+      modalClass: modal.className,
+      stackDepthBefore: this.modalStack.length,
+      buttonsCount: config.buttons.length,
+      buttonIds: config.buttons.map(b => b.id || b)
+    });
+
     logger.debug('Registering modal', {
       modalClass: modal.className,
       stackDepth: this.modalStack.length,
@@ -151,6 +180,15 @@ class ModalNavigationManager {
 
     // Push to stack
     this.modalStack.push(modalEntry);
+
+    console.log('🔷 MODAL MANAGER: Modal pushed to stack', {
+      stackDepthAfter: this.modalStack.length,
+      stack: this.modalStack.map((entry, i) => ({
+        index: i,
+        modalId: entry.modal?.id,
+        modalClass: entry.modal?.className
+      }))
+    });
 
     // Update focusable elements for this modal
     this.updateFocusableElements();
@@ -174,11 +212,30 @@ class ModalNavigationManager {
    */
   unregisterModal() {
     if (this.modalStack.length === 0) {
+      console.log('🔷 MODAL MANAGER: Cannot unregister - stack is empty');
       logger.warn('Attempted to unregister but stack is empty');
       return;
     }
 
+    console.log('🔷 MODAL MANAGER: Unregistering modal', {
+      stackDepthBefore: this.modalStack.length,
+      topModalId: this.activeModal?.id,
+      topModalClass: this.activeModal?.className
+    });
+
     const removed = this.modalStack.pop();
+
+    console.log('🔷 MODAL MANAGER: Modal popped from stack', {
+      removedModalId: removed.modal?.id,
+      removedModalClass: removed.modal?.className,
+      stackDepthAfter: this.modalStack.length,
+      remainingStack: this.modalStack.map((entry, i) => ({
+        index: i,
+        modalId: entry.modal?.id,
+        modalClass: entry.modal?.className
+      }))
+    });
+
     logger.debug('Unregistered modal', {
       modalClass: removed.modal.className,
       remainingStack: this.modalStack.length
@@ -186,6 +243,11 @@ class ModalNavigationManager {
 
     // If there are still modals in the stack, restore focus to the new top modal
     if (this.modalStack.length > 0) {
+      console.log('🔷 MODAL MANAGER: Restored previous modal to top', {
+        newTopModalId: this.activeModal?.id,
+        newTopModalClass: this.activeModal?.className
+      });
+
       logger.debug('Restored previous modal', {
         modalClass: this.activeModal.className
       });

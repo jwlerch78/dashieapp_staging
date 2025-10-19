@@ -49,7 +49,7 @@ export const widgetConfig = [
     label: 'Clock',
     path: 'js/widgets/clock/clock.html',
     noCenter: false,
-    focusScale: 1.5,
+    focusScale: 1.05,
     selectable: true
   },
   {
@@ -59,9 +59,9 @@ export const widgetConfig = [
     rowSpan: 2, // SPANS 2 ROWS!
     colSpan: 1,
     label: 'Calendar',
-    url: null,
+    path: 'js/widgets/calendar/calendar.html',
     noCenter: false,
-    focusScale: 1.2,
+    focusScale: 1.05,
     selectable: true
   },
   {

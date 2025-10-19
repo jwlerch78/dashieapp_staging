@@ -7,6 +7,7 @@ import DashboardStateManager from './dashboard-state-manager.js';
 import UIRenderer from './dashboard-ui-renderer.js';
 import { getWidgetAtPosition, canWidgetCenter } from './dashboard-widget-config.js';
 import AppStateManager from '../../core/app-state-manager.js';
+import WidgetMessenger from '../../core/widget-messenger.js';
 
 const logger = createLogger('DashboardNav');
 
@@ -424,15 +425,36 @@ class NavigationManager {
     // All widgets can be focused (show overlay, border)
     // Only widgets with canWidgetCenter=true will be moved/centered
     const shouldCenter = canWidgetCenter(widget.id);
+    const hasFocusMenu = false; // TODO: Check widget config for focus menu
 
     DashboardStateManager.setFocusedWidget(widget.id);
-    UIRenderer.focusWidget(widget.id, false, shouldCenter);
+    UIRenderer.focusWidget(widget.id, hasFocusMenu, shouldCenter);
 
-    logger.info('Widget focused', {
-      widgetId: widget.id,
-      position: [row, col],
-      centered: shouldCenter
-    });
+    // Get WidgetMessenger instance
+    const widgetMessenger = window.widgetMessenger || AppStateManager.widgetMessenger;
+
+    // Send enter-focus message to widget
+    if (widgetMessenger) {
+      widgetMessenger.sendCommandToWidget(widget.id, 'enter-focus');
+
+      // If widget has no focus menu, immediately enter active state
+      if (!hasFocusMenu) {
+        widgetMessenger.sendCommandToWidget(widget.id, 'enter-active');
+        logger.info('Widget focused and activated (no focus menu)', {
+          widgetId: widget.id,
+          position: [row, col],
+          centered: shouldCenter
+        });
+      } else {
+        logger.info('Widget focused (has focus menu)', {
+          widgetId: widget.id,
+          position: [row, col],
+          centered: shouldCenter
+        });
+      }
+    } else {
+      logger.warn('WidgetMessenger not available - widget state messages not sent');
+    }
   }
 
   /**
@@ -445,6 +467,18 @@ class NavigationManager {
     if (!widgetId) {
       logger.warn('No widget to defocus');
       return;
+    }
+
+    // Get WidgetMessenger instance
+    const widgetMessenger = window.widgetMessenger || AppStateManager.widgetMessenger;
+
+    // Send exit messages to widget
+    if (widgetMessenger) {
+      widgetMessenger.sendCommandToWidget(widgetId, 'exit-active');
+      widgetMessenger.sendCommandToWidget(widgetId, 'exit-focus');
+      logger.info('Sent exit messages to widget', { widgetId });
+    } else {
+      logger.warn('WidgetMessenger not available - widget state messages not sent');
     }
 
     DashboardStateManager.setFocusedWidget(null);

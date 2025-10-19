@@ -42,33 +42,42 @@ class ModalsInputHandler {
    * @returns {boolean} - True if action was handled
    */
   handleAction(action) {
+    console.log('🟡 MODALS INPUT HANDLER: handleAction called', {
+      action,
+      enabled: this.enabled,
+      isModalOpen: modalsStateManager.isModalOpen(),
+      currentModal: modalsStateManager.getCurrentModal()
+    });
+
     if (!this.enabled || !modalsStateManager.isModalOpen()) {
+      console.log('🟡 MODALS INPUT HANDLER: Not handling - disabled or no modal open');
       return false;
     }
 
     const modalType = modalsStateManager.getCurrentModal();
+    console.log('🟡 MODALS INPUT HANDLER: Processing action for modal type:', modalType);
 
     switch (action) {
       case 'up':
-        if (modalType === 'exit') {
+        if (modalType === 'exit' || modalType === 'confirmation') {
           return this.handleUp();
         }
         return false;
 
       case 'down':
-        if (modalType === 'exit') {
+        if (modalType === 'exit' || modalType === 'confirmation') {
           return this.handleDown();
         }
         return false;
 
       case 'left':
-        if (modalType === 'exit') {
+        if (modalType === 'exit' || modalType === 'confirmation') {
           return this.handleLeft();
         }
         return false;
 
       case 'right':
-        if (modalType === 'exit') {
+        if (modalType === 'exit' || modalType === 'confirmation') {
           return this.handleRight();
         }
         return false;
@@ -89,7 +98,14 @@ class ModalsInputHandler {
    */
   handleUp() {
     if (modalsStateManager.movePrevious()) {
-      modalsUIRenderer.updateExitHighlight(modalsStateManager.getSelectedOption());
+      const modalType = modalsStateManager.getCurrentModal();
+      const selectedOption = modalsStateManager.getSelectedOption();
+
+      if (modalType === 'exit') {
+        modalsUIRenderer.updateExitHighlight(selectedOption);
+      } else if (modalType === 'confirmation') {
+        modalsUIRenderer.updateConfirmationHighlight(selectedOption);
+      }
       return true;
     }
     return false;
@@ -100,7 +116,14 @@ class ModalsInputHandler {
    */
   handleDown() {
     if (modalsStateManager.moveNext()) {
-      modalsUIRenderer.updateExitHighlight(modalsStateManager.getSelectedOption());
+      const modalType = modalsStateManager.getCurrentModal();
+      const selectedOption = modalsStateManager.getSelectedOption();
+
+      if (modalType === 'exit') {
+        modalsUIRenderer.updateExitHighlight(selectedOption);
+      } else if (modalType === 'confirmation') {
+        modalsUIRenderer.updateConfirmationHighlight(selectedOption);
+      }
       return true;
     }
     return false;
@@ -135,6 +158,14 @@ class ModalsInputHandler {
     }
 
     if (modalType === 'exit') {
+      const selectedOption = modalsStateManager.getSelectedOption();
+      if (this.onConfirmCallback) {
+        this.onConfirmCallback(selectedOption);
+      }
+      return true;
+    }
+
+    if (modalType === 'confirmation') {
       const selectedOption = modalsStateManager.getSelectedOption();
       if (this.onConfirmCallback) {
         this.onConfirmCallback(selectedOption);

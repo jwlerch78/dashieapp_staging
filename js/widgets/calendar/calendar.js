@@ -1,0 +1,118 @@
+// js/widgets/calendar/calendar.js
+// Calendar Widget initialization script
+
+import { CalendarWidget } from './calendar-widget.js';
+
+// Initialize logger (same pattern as clock widget)
+const logger = {
+  debug: (...args) => console.debug('[CalendarWidget]', ...args),
+  info: (...args) => console.info('[CalendarWidget]', ...args),
+  warn: (...args) => console.warn('[CalendarWidget]', ...args),
+  error: (...args) => console.error('[CalendarWidget]', ...args)
+};
+
+// Wait for DOM to be ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+
+async function init() {
+  logger.debug('Initializing calendar widget...');
+
+  const container = document.getElementById('calendar-container');
+  if (!container) {
+    logger.error('Calendar container not found');
+    return;
+  }
+
+  // Wait for CalendarService to be available
+  await waitForCalendarService();
+
+  // Create and initialize calendar widget
+  const calendar = new CalendarWidget(container);
+  await calendar.initialize();
+
+  // Listen for theme changes from parent
+  window.addEventListener('message', (event) => {
+    if (event.data.type === 'theme-change') {
+      applyTheme(event.data.theme);
+    }
+  });
+
+  // Apply initial theme
+  const initialTheme = getInitialTheme();
+  applyTheme(initialTheme);
+
+  logger.info('Calendar widget initialized');
+
+  // Expose for debugging
+  window.calendarWidget = calendar;
+}
+
+/**
+ * Wait for CalendarService to be available in parent window
+ */
+async function waitForCalendarService() {
+  let attempts = 0;
+  const maxAttempts = 50; // 5 seconds max wait
+
+  while (attempts < maxAttempts) {
+    // Check parent window first, then fallback to current window
+    if ((window.parent && window.parent.calendarService) || window.calendarService) {
+      logger.debug('CalendarService found');
+      return;
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+    attempts++;
+  }
+
+  logger.warn('CalendarService not found after timeout - widget may not work correctly');
+}
+
+/**
+ * Get initial theme from parent or localStorage
+ */
+function getInitialTheme() {
+  // Try to get theme from parent window
+  try {
+    if (window.parent && window.parent.document && window.parent.document.body) {
+      if (window.parent.document.body.classList.contains('theme-light')) {
+        return 'light';
+      } else if (window.parent.document.body.classList.contains('theme-dark')) {
+        return 'dark';
+      }
+    }
+  } catch (e) {
+    // Cross-origin error - ignore
+  }
+
+  // Try localStorage
+  try {
+    const saved = localStorage.getItem('dashie-theme');
+    if (saved === 'light' || saved === 'dark') {
+      return saved;
+    }
+  } catch (e) {
+    // Ignore localStorage errors
+  }
+
+  // Default to light theme
+  return 'light';
+}
+
+/**
+ * Apply theme to widget
+ */
+function applyTheme(theme) {
+  const body = document.body;
+
+  // Remove existing theme classes
+  body.classList.remove('theme-light', 'theme-dark');
+
+  // Add new theme class
+  body.classList.add(`theme-${theme}`);
+
+  logger.debug('Theme applied:', theme);
+}

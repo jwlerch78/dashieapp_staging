@@ -15,6 +15,7 @@ import modals from '../../modules/Modals/modals.js';
 import themeApplier from '../../ui/theme-applier.js';
 import { initializeServices } from './service-initializer.js';
 import { initializeWidgets } from './widget-initializer.js';
+import '../../utils/modal-navigation-manager.js'; // Initialize global dashieModalManager
 
 const logger = createLogger('CoreInitializer');
 

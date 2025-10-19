@@ -1,0 +1,57 @@
+<!-- js/widgets/calendar/calendar.html -->
+<!-- Calendar Widget - Migrated from legacy dcal widget -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashie Calendar Widget</title>
+
+  <!-- Import theme variables from parent -->
+  <link rel="stylesheet" href="/css/core/variables.css">
+
+  <!-- Calendar Widget Styles -->
+  <link rel="stylesheet" href="calendar-widget.css">
+</head>
+<body>
+  <div id="calendar-container">
+    <div class="loading" id="loading">
+      Loading calendar...
+      <div class="status" id="status">○</div>
+    </div>
+
+    <div class="calendar-header" id="calendarHeader" style="display: none;">
+      <div class="calendar-title" id="calendarTitle">Loading...</div>
+      <div class="calendar-info">
+        <div class="calendar-mode" id="calendarMode">Week</div>
+        <div class="last-updated" id="lastUpdated">Loading...</div>
+      </div>
+    </div>
+
+    <div id="calendar" style="display: none;">
+      <!-- Weekly view will be rendered here by calendar-weekly.js -->
+
+      <!-- Monthly view container (initially hidden) -->
+      <div class="month-grid hidden">
+        <!-- Rendered by calendar-monthly.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Calendar Widget Logic -->
+  <script type="module" src="calendar-widget.js"></script>
+
+  <script>
+    // Widget ready signal
+    window.addEventListener('load', () => {
+      if (window.parent !== window) {
+        window.parent.postMessage({
+          type: 'widget-ready',
+          widget: 'calendar'
+        }, '*');
+      }
+    });
+  </script>
+</body>
+</html>

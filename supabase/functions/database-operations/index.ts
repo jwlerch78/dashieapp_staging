@@ -8,14 +8,14 @@
 // - load_calendar_config: Load active calendar IDs from user_calendar_config
 //
 // PHOTO STORAGE OPERATIONS:
-// - get_storage_quota: Get user's photo storage quota and usage
-// - init_storage_quota: Initialize storage quota for new user
-// - create_photo_record: Create database record for uploaded photo
-// - update_storage_quota: Update storage usage after upload/delete
-// - list_photos: List all photos for user
-// - list_folders: List all photo folders for user
-// - delete_photo: Delete a single photo record
-// - delete_all_photos: Delete all photo records for user
+// - get_storage_quota: Get user's photo storage quota and usage from user_storage_quota
+// - init_storage_quota: Initialize storage quota for new user in user_storage_quota
+// - create_photo_record: Create database record for uploaded photo in user_photos
+// - update_storage_quota: Update storage usage in user_storage_quota after upload/delete
+// - list_photos: List all photos for user from user_photos
+// - list_folders: List all photo folders for user from user_photos
+// - delete_photo: Delete a single photo record from user_photos
+// - delete_all_photos: Delete all photo records for user from user_photos
 // ============================================================================
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -216,7 +216,7 @@ async function handleGetStorageQuota(supabase: any, authUserId: string) {
     console.log(`📸 Getting storage quota for user: ${authUserId}`);
 
     const { data, error } = await supabase
-      .from('user_photo_quota')
+      .from('user_storage_quota')
       .select('*')
       .eq('auth_user_id', authUserId)
       .single();
@@ -225,17 +225,24 @@ async function handleGetStorageQuota(supabase: any, authUserId: string) {
       if (error.code === 'PGRST116') {
         // No record found - user needs initialization
         console.log(`📸 No quota record found for user ${authUserId}`);
-        return { quota: null, needs_init: true };
+        return { quota_found: false };
       }
       throw new Error(`Failed to get storage quota: ${error.message}`);
     }
 
     console.log(`✅ Storage quota retrieved for user: ${authUserId}`, {
       used: data.bytes_used,
-      limit: data.bytes_limit
+      limit: data.quota_bytes
     });
 
-    return { quota: data };
+    // Return flat structure expected by PhotoStorageService
+    return {
+      quota_found: true,
+      bytes_used: data.bytes_used,
+      quota_bytes: data.quota_bytes,
+      storage_tier: data.storage_tier || 'free',
+      photo_count: 0  // Not stored in quota table, calculated from user_photos
+    };
   } catch (error) {
     console.error('🚨 handleGetStorageQuota error:', error);
     throw error;
@@ -246,16 +253,16 @@ async function handleInitStorageQuota(supabase: any, authUserId: string) {
   try {
     console.log(`📸 Initializing storage quota for user: ${authUserId}`);
 
-    // Default quota: 100MB = 100 * 1024 * 1024 bytes
-    const defaultQuota = 100 * 1024 * 1024;
+    // Default quota: 1GB = 1024 * 1024 * 1024 bytes (for beta users)
+    const defaultQuota = 1024 * 1024 * 1024;
 
     const { data, error} = await supabase
-      .from('user_photo_quota')
+      .from('user_storage_quota')
       .insert({
         auth_user_id: authUserId,
         bytes_used: 0,
-        bytes_limit: defaultQuota,
-        photo_count: 0
+        quota_bytes: defaultQuota,
+        storage_tier: 'free'
       })
       .select()
       .single();
@@ -268,7 +275,13 @@ async function handleInitStorageQuota(supabase: any, authUserId: string) {
       limit: defaultQuota
     });
 
-    return { quota: data };
+    // Return flat structure expected by PhotoStorageService
+    return {
+      bytes_used: data.bytes_used,
+      quota_bytes: data.quota_bytes,
+      storage_tier: data.storage_tier || 'free',
+      photo_count: 0  // Not stored in quota table
+    };
   } catch (error) {
     console.error('🚨 handleInitStorageQuota error:', error);
     throw error;
@@ -277,11 +290,11 @@ async function handleInitStorageQuota(supabase: any, authUserId: string) {
 
 async function handleCreatePhotoRecord(supabase: any, authUserId: string, photoData: any) {
   try {
-    const { photo_id, folder, file_size, thumbnail_size } = photoData;
+    const { storage_path, thumbnail_path, filename, folder_name, file_size, mime_type } = photoData;
 
     console.log(`📸 Creating photo record for user: ${authUserId}`, {
-      photo_id,
-      folder,
+      filename,
+      folder_name,
       file_size
     });
 
@@ -289,10 +302,12 @@ async function handleCreatePhotoRecord(supabase: any, authUserId: string, photoD
       .from('user_photos')
       .insert({
         auth_user_id: authUserId,
-        photo_id,
-        folder,
+        storage_path,
+        thumbnail_path,
+        filename,
+        folder_name,
         file_size,
-        thumbnail_size,
+        mime_type,
         uploaded_at: new Date().toISOString()
       })
       .select()
@@ -313,16 +328,15 @@ async function handleCreatePhotoRecord(supabase: any, authUserId: string, photoD
 
 async function handleUpdateStorageQuota(supabase: any, authUserId: string, updateData: any) {
   try {
-    const { bytes_delta, photo_count_delta } = updateData;
+    const { bytes_to_add } = updateData;
 
     console.log(`📸 Updating storage quota for user: ${authUserId}`, {
-      bytes_delta,
-      photo_count_delta
+      bytes_to_add
     });
 
     // Get current quota
     const { data: currentQuota, error: fetchError } = await supabase
-      .from('user_photo_quota')
+      .from('user_storage_quota')
       .select('*')
       .eq('auth_user_id', authUserId)
       .single();
@@ -333,11 +347,10 @@ async function handleUpdateStorageQuota(supabase: any, authUserId: string, updat
 
     // Update quota
     const { data, error } = await supabase
-      .from('user_photo_quota')
+      .from('user_storage_quota')
       .update({
-        bytes_used: currentQuota.bytes_used + bytes_delta,
-        photo_count: currentQuota.photo_count + photo_count_delta,
-        updated_at: new Date().toISOString()
+        bytes_used: currentQuota.bytes_used + bytes_to_add,
+        last_calculated: new Date().toISOString()
       })
       .eq('auth_user_id', authUserId)
       .select()
@@ -348,8 +361,7 @@ async function handleUpdateStorageQuota(supabase: any, authUserId: string, updat
     }
 
     console.log(`✅ Storage quota updated for user: ${authUserId}`, {
-      new_bytes_used: data.bytes_used,
-      new_photo_count: data.photo_count
+      new_bytes_used: data.bytes_used
     });
 
     return { quota: data };
@@ -372,7 +384,7 @@ async function handleListPhotos(supabase: any, authUserId: string, filterData: a
       .order('uploaded_at', { ascending: false });
 
     if (folder) {
-      query = query.eq('folder', folder);
+      query = query.eq('folder_name', folder);
     }
 
     const { data, error } = await query;
@@ -398,7 +410,7 @@ async function handleListFolders(supabase: any, authUserId: string) {
 
     const { data, error } = await supabase
       .from('user_photos')
-      .select('folder')
+      .select('folder_name')
       .eq('auth_user_id', authUserId);
 
     if (error) {
@@ -408,7 +420,7 @@ async function handleListFolders(supabase: any, authUserId: string) {
     // Get unique folders with counts
     const folderCounts: Record<string, number> = {};
     data.forEach((row: any) => {
-      const folder = row.folder || 'all-photos';
+      const folder = row.folder_name || 'all-photos';
       folderCounts[folder] = (folderCounts[folder] || 0) + 1;
     });
 
@@ -434,11 +446,12 @@ async function handleDeletePhoto(supabase: any, authUserId: string, deleteData: 
 
     console.log(`📸 Deleting photo for user: ${authUserId}`, { photo_id });
 
+    // photo_id is actually the storage_path
     const { data, error } = await supabase
       .from('user_photos')
       .delete()
-      .eq('auth_user_id', authUserId)
-      .eq('photo_id', photo_id)
+      .eq('auth_user_id', authUserId)  // Security: ensure user owns this photo
+      .eq('storage_path', photo_id)
       .select()
       .single();
 
@@ -446,9 +459,24 @@ async function handleDeletePhoto(supabase: any, authUserId: string, deleteData: 
       throw new Error(`Failed to delete photo: ${error.message}`);
     }
 
+    // Update quota - reduce by file_size only (no thumbnail_size column)
+    const fileSize = data.file_size || 0;
+    await supabase
+      .from('user_storage_quota')
+      .update({
+        bytes_used: supabase.raw(`bytes_used - ${fileSize}`),
+        last_calculated: new Date().toISOString()
+      })
+      .eq('auth_user_id', authUserId);
+
+    // Build storage paths array
+    const storagePaths: string[] = [];
+    if (data.storage_path) storagePaths.push(data.storage_path);
+    if (data.thumbnail_path) storagePaths.push(data.thumbnail_path);
+
     console.log(`✅ Photo deleted for user: ${authUserId}`, { photo_id });
 
-    return { deleted_photo: data };
+    return { storage_paths: storagePaths };
   } catch (error) {
     console.error('🚨 handleDeletePhoto error:', error);
     throw error;
@@ -459,21 +487,51 @@ async function handleDeleteAllPhotos(supabase: any, authUserId: string) {
   try {
     console.log(`📸 Deleting all photos for user: ${authUserId}`);
 
-    const { data, error } = await supabase
+    // First, get all photo records to extract storage paths
+    const { data: photos, error: fetchError } = await supabase
       .from('user_photos')
-      .delete()
-      .eq('auth_user_id', authUserId)
-      .select();
+      .select('storage_path, thumbnail_path')
+      .eq('auth_user_id', authUserId);
 
-    if (error) {
-      throw new Error(`Failed to delete all photos: ${error.message}`);
+    if (fetchError) {
+      throw new Error(`Failed to fetch photos: ${fetchError.message}`);
     }
 
-    console.log(`✅ All photos deleted for user: ${authUserId}`, {
-      count: data.length
+    // Delete from database
+    const { error: deleteError } = await supabase
+      .from('user_photos')
+      .delete()
+      .eq('auth_user_id', authUserId);
+
+    if (deleteError) {
+      throw new Error(`Failed to delete all photos: ${deleteError.message}`);
+    }
+
+    // Reset quota to zero
+    await supabase
+      .from('user_storage_quota')
+      .update({
+        bytes_used: 0,
+        last_calculated: new Date().toISOString()
+      })
+      .eq('auth_user_id', authUserId);
+
+    // Build list of storage paths to delete
+    const storagePaths: string[] = [];
+    photos.forEach((photo: any) => {
+      if (photo.storage_path) storagePaths.push(photo.storage_path);
+      if (photo.thumbnail_path) storagePaths.push(photo.thumbnail_path);
     });
 
-    return { photo_count: data.length };
+    console.log(`✅ All photos deleted for user: ${authUserId}`, {
+      count: photos.length
+    });
+
+    return {
+      deleted: true,
+      photo_count: photos.length,
+      storage_paths: storagePaths
+    };
   } catch (error) {
     console.error('🚨 handleDeleteAllPhotos error:', error);
     throw error;

@@ -141,6 +141,61 @@ class ModalsUIRenderer {
   }
 
   /**
+   * Show generic confirmation modal
+   * @param {object} config - Confirmation configuration
+   * @returns {Object} - { backdrop, dialog }
+   */
+  showConfirmationModal(config) {
+    // Remove existing if present
+    this.hideConfirmationModal();
+
+    // Create modal backdrop
+    const backdrop = document.createElement('div');
+    backdrop.id = 'confirmation-backdrop';
+    backdrop.className = 'modal-backdrop';
+
+    // Create confirmation dialog
+    const dialog = document.createElement('div');
+    dialog.id = 'confirmation-dialog';
+    dialog.className = 'confirmation-dialog';
+
+    // Determine button styling
+    const confirmButtonClass = config.confirmStyle === 'destructive'
+      ? 'confirmation-button confirmation-button--destructive'
+      : 'confirmation-button confirmation-button--primary';
+
+    dialog.innerHTML = `
+      <h2 class="confirmation-title">${config.title}</h2>
+      <p class="confirmation-message">${config.message}</p>
+      <div class="confirmation-buttons">
+        <button class="confirmation-button confirmation-button--secondary" id="confirmation-cancel" data-action="cancel">
+          ${config.cancelLabel}
+        </button>
+        <button class="${confirmButtonClass}" id="confirmation-confirm" data-action="confirm">
+          ${config.confirmLabel}
+        </button>
+      </div>
+    `;
+
+    backdrop.appendChild(dialog);
+    document.body.appendChild(backdrop);
+
+    logger.info('Confirmation modal shown', { title: config.title });
+    return { backdrop, dialog };
+  }
+
+  /**
+   * Hide confirmation modal
+   */
+  hideConfirmationModal() {
+    const backdrop = document.getElementById('confirmation-backdrop');
+    if (backdrop) {
+      backdrop.remove();
+      logger.info('Confirmation modal hidden');
+    }
+  }
+
+  /**
    * Update button/option highlighting
    * @param {string} selectedOption - ID of selected option (e.g. 'logout', 'exit', 'cancel', 'yes', 'no')
    */
@@ -164,11 +219,35 @@ class ModalsUIRenderer {
   }
 
   /**
+   * Update confirmation button highlighting
+   * @param {string} selectedOption - 'cancel' or 'confirm'
+   */
+  updateConfirmationHighlight(selectedOption) {
+    const dialog = document.getElementById('confirmation-dialog');
+    if (!dialog) return;
+
+    // Remove all highlights
+    const allButtons = dialog.querySelectorAll('.confirmation-button');
+    allButtons.forEach(btn => {
+      btn.classList.remove('selected');
+    });
+
+    // Add highlight to selected button
+    const selectedElement = dialog.querySelector(`[data-action="${selectedOption}"]`);
+    if (selectedElement) {
+      selectedElement.classList.add('selected');
+    }
+
+    logger.debug('Updated confirmation modal highlight', { selectedOption });
+  }
+
+  /**
    * Clean up all modals
    */
   cleanup() {
     this.hideSleepOverlay();
     this.hideExitModal();
+    this.hideConfirmationModal();
     logger.info('All modals cleaned up');
   }
 }

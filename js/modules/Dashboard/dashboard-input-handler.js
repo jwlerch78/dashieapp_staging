@@ -5,6 +5,8 @@
 import { createLogger } from '../../utils/logger.js';
 import NavigationManager from './dashboard-navigation-manager.js';
 import DashboardTimers from './dashboard-timers.js';
+import DashboardStateManager from './dashboard-state-manager.js';
+import widgetMessenger from '../../core/widget-messenger.js';
 
 const logger = createLogger('DashboardInput');
 
@@ -55,6 +57,15 @@ class DashboardInputHandler {
 
     logger.debug('Handling UP action');
     DashboardTimers.reset(); // Reset timer on any input
+
+    // If widget is focused, send command to widget
+    const state = DashboardStateManager.getState();
+    if (state.focusedWidget) {
+      logger.debug('Forwarding UP to focused widget', { widgetId: state.focusedWidget });
+      widgetMessenger.sendCommandToWidget(state.focusedWidget, 'up');
+      return true;
+    }
+
     return NavigationManager.moveUp();
   }
 
@@ -68,6 +79,15 @@ class DashboardInputHandler {
 
     logger.debug('Handling DOWN action');
     DashboardTimers.reset(); // Reset timer on any input
+
+    // If widget is focused, send command to widget
+    const state = DashboardStateManager.getState();
+    if (state.focusedWidget) {
+      logger.debug('Forwarding DOWN to focused widget', { widgetId: state.focusedWidget });
+      widgetMessenger.sendCommandToWidget(state.focusedWidget, 'down');
+      return true;
+    }
+
     return NavigationManager.moveDown();
   }
 
@@ -81,6 +101,15 @@ class DashboardInputHandler {
 
     logger.debug('Handling LEFT action');
     DashboardTimers.reset(); // Reset timer on any input
+
+    // If widget is focused, send command to widget
+    const state = DashboardStateManager.getState();
+    if (state.focusedWidget) {
+      logger.debug('Forwarding LEFT to focused widget', { widgetId: state.focusedWidget });
+      widgetMessenger.sendCommandToWidget(state.focusedWidget, 'left');
+      return true;
+    }
+
     return NavigationManager.moveLeft();
   }
 
@@ -94,6 +123,15 @@ class DashboardInputHandler {
 
     logger.debug('Handling RIGHT action');
     DashboardTimers.reset(); // Reset timer on any input
+
+    // If widget is focused, send command to widget
+    const state = DashboardStateManager.getState();
+    if (state.focusedWidget) {
+      logger.debug('Forwarding RIGHT to focused widget', { widgetId: state.focusedWidget });
+      widgetMessenger.sendCommandToWidget(state.focusedWidget, 'right');
+      return true;
+    }
+
     return NavigationManager.moveRight();
   }
 

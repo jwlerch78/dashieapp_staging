@@ -130,9 +130,26 @@ class ActionRouter {
       return handled;
     }
 
-    // PRIORITY 4: Other modals active - route to Modals module
-    if (this.hasActiveModal()) {
+    // PRIORITY 4: Modals module has active modal - route to Modals module
+    // Note: We check modals.isModalOpen() specifically, not hasActiveModal()
+    // If dashieModalManager has a modal but Modals module doesn't, we let the
+    // event propagate so dashieModalManager's keyboard handlers can handle it
+    if (window.modals && window.modals.isModalOpen()) {
+      console.log('🟠 ACTION ROUTER: Modals module modal is active, routing to modals module', { action });
       const handled = this.routeToModule('modals', action, originalEvent);
+      console.log('🟠 ACTION ROUTER: Modals module handled result', { action, handled });
+      if (handled && originalEvent) {
+        originalEvent.preventDefault();
+      }
+      return handled;
+    }
+
+    // PRIORITY 4b: dashieModalManager has modal but Modals module doesn't
+    // Call dashieModalManager directly since new InputHandler has already captured the event
+    if (window.dashieModalManager && window.dashieModalManager.hasActiveModal()) {
+      console.log('🟠 ACTION ROUTER: dashieModalManager modal active, calling handleAction', { action });
+      const handled = window.dashieModalManager.handleAction(action);
+      console.log('🟠 ACTION ROUTER: dashieModalManager handled result', { action, handled });
       if (handled && originalEvent) {
         originalEvent.preventDefault();
       }
@@ -232,21 +249,31 @@ class ActionRouter {
    */
   hasActiveModal() {
     // Check if modals module has an active modal
-    if (window.modals && window.modals.isModalOpen()) {
+    const modalsOpen = window.modals && window.modals.isModalOpen();
+    console.log('🟠 ACTION ROUTER: Checking hasActiveModal', {
+      modalsModuleOpen: modalsOpen,
+      hasModalsModule: !!window.modals
+    });
+
+    if (modalsOpen) {
+      console.log('🟠 ACTION ROUTER: Modals module reports modal open');
       return true;
     }
 
     // Check for modal in DOM (excluding settings modal)
     const modalElement = document.querySelector('.modal.active:not(.settings-modal), .modal.show:not(.settings-modal)');
     if (modalElement) {
+      console.log('🟠 ACTION ROUTER: Found modal element in DOM');
       return true;
     }
 
     // Check for modal manager
     if (window.dashieModalManager && window.dashieModalManager.hasActiveModal()) {
+      console.log('🟠 ACTION ROUTER: Modal manager reports modal active');
       return true;
     }
 
+    console.log('🟠 ACTION ROUTER: No active modal detected');
     return false;
   }
 

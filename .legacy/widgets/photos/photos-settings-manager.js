@@ -79,22 +79,47 @@ export class PhotosSettingsManager {
         window.dashieModalManager.registerModal(this.modalContainer, {
           buttons: [], // No buttons in container, iframe handles its own navigation
           customHandler: (action) => {
+            // Check if a confirmation modal is open - if so, don't handle input here
+            // Let it propagate to the Modals module instead
+            const hasModalsModule = !!window.modals;
+            const isModalOpen = window.modals ? window.modals.isModalOpen() : false;
+
+            console.log('🔵 PHOTOS MODAL customHandler:', {
+              action,
+              hasModalsModule,
+              isModalOpen,
+              willHandle: !isModalOpen
+            });
+
+            if (window.modals && window.modals.isModalOpen()) {
+              console.log('🔵 PHOTOS MODAL: Confirmation modal open - not handling action', { action });
+              logger.debug('Confirmation modal open - not handling action', { action });
+              return false; // Let Modals module handle it
+            }
+
+            console.log('🔵 PHOTOS MODAL: Forwarding action to iframe', { action });
             logger.debug('Modal manager forwarding action to iframe', { action });
-            
+
             // Forward action to iframe via postMessage
             if (this.modalIframe && this.modalIframe.contentWindow) {
               this.modalIframe.contentWindow.postMessage({ action }, '*');
               return true; // Action handled
             }
-            
+
             return false; // Action not handled
           },
           onEscape: () => {
+            // Check if confirmation modal is open - if so, don't close photos modal
+            if (window.modals && window.modals.isModalOpen()) {
+              logger.debug('Confirmation modal open - not closing photos modal on escape');
+              return;
+            }
+
             logger.debug('Modal manager escape - closing modal');
             this.close();
           }
         });
-        
+
         logger.debug('Registered photos modal with modal manager');
       }
     });

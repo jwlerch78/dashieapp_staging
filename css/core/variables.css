@@ -85,6 +85,7 @@
   --z-focus-overlay: 150;
   --z-sidebar-expanded: 300;
   --z-modal: 999;
+  --z-modal-confirmation: 15000;
   --z-sleep: 1000;
 
   /* Theme-specific variables */

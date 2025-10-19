@@ -239,6 +239,154 @@ class Modals {
   }
 
   /**
+   * Show generic confirmation modal
+   * @param {object} config - Confirmation configuration
+   * @param {string} config.title - Modal title
+   * @param {string} config.message - Modal message
+   * @param {function} config.onConfirm - Callback when user confirms
+   * @param {function} config.onCancel - Optional callback when user cancels
+   * @param {string} config.confirmLabel - Confirm button label (default: "Confirm")
+   * @param {string} config.cancelLabel - Cancel button label (default: "Cancel")
+   * @param {string} config.confirmStyle - 'default' or 'destructive' (default: 'default')
+   */
+  showConfirmation(config) {
+    if (!this.isInitialized) {
+      logger.error('Cannot show confirmation - Modals not initialized');
+      return;
+    }
+
+    if (!config || !config.onConfirm) {
+      logger.error('Cannot show confirmation - onConfirm callback required');
+      return;
+    }
+
+    logger.info('Showing confirmation modal', { title: config.title });
+
+    // Update state
+    modalsStateManager.openConfirmation(config);
+
+    // Show UI
+    const { backdrop } = modalsUIRenderer.showConfirmationModal(
+      modalsStateManager.getState().confirmationData
+    );
+
+    // Update initial highlight
+    modalsUIRenderer.updateConfirmationHighlight(modalsStateManager.getSelectedOption());
+
+    // Enable input handling
+    modalsInputHandler.enable(
+      (action) => this.handleConfirmationAction(action, config),
+      () => this.handleConfirmationCancel(config)
+    );
+
+    // Add click listener to backdrop (cancel on backdrop click)
+    backdrop.addEventListener('click', (e) => {
+      if (e.target === backdrop) {
+        this.handleConfirmationCancel(config);
+      }
+    });
+
+    // Add click listeners to buttons
+    const buttons = backdrop.querySelectorAll('[data-action]');
+    buttons.forEach(button => {
+      button.addEventListener('click', () => {
+        const action = button.getAttribute('data-action');
+        this.handleConfirmationAction(action, config);
+      });
+    });
+
+    // Register with modal manager for d-pad navigation
+    // This ensures the confirmation modal is on top of the stack and receives inputs first
+    if (window.dashieModalManager) {
+      const buttonElements = Array.from(backdrop.querySelectorAll('[data-action]'));
+
+      console.log('🟢 CONFIRMATION MODAL: Registering with dashieModalManager', {
+        backdropId: backdrop.id,
+        buttonCount: buttonElements.length,
+        buttonIds: buttonElements.map(btn => btn.id)
+      });
+
+      window.dashieModalManager.registerModal(backdrop, {
+        buttons: buttonElements.map(btn => ({
+          id: btn.id,
+          element: btn
+        })),
+        horizontalNavigation: true,
+        initialFocus: 0, // Focus cancel button by default
+        customHandler: (action) => {
+          console.log('🟢 CONFIRMATION MODAL customHandler called', { action });
+          logger.debug('Confirmation modal handling action from modal manager', { action });
+          const handled = modalsInputHandler.handleAction(action);
+          console.log('🟢 CONFIRMATION MODAL customHandler result', { action, handled });
+          return handled;
+        },
+        onEscape: () => {
+          console.log('🟢 CONFIRMATION MODAL: onEscape called');
+          this.handleConfirmationCancel(config);
+        }
+      });
+
+      console.log('🟢 CONFIRMATION MODAL: Successfully registered with dashieModalManager');
+      logger.debug('Registered confirmation modal with modal manager');
+    } else {
+      console.log('🔴 CONFIRMATION MODAL: dashieModalManager STILL not available!');
+      logger.error('dashieModalManager not available - d-pad navigation will not work');
+    }
+
+    AppComms.publish('modal:opened', { type: 'confirmation', title: config.title });
+  }
+
+  /**
+   * Handle confirmation modal action
+   * @param {string} action - 'confirm' or 'cancel'
+   * @param {object} config - Original configuration with callbacks
+   */
+  handleConfirmationAction(action, config) {
+    logger.info('Confirmation action selected', { action });
+
+    this.hideConfirmation();
+
+    if (action === 'confirm' && config.onConfirm) {
+      config.onConfirm();
+    } else if (action === 'cancel' && config.onCancel) {
+      config.onCancel();
+    }
+  }
+
+  /**
+   * Handle confirmation modal cancel
+   * @param {object} config - Original configuration with callbacks
+   */
+  handleConfirmationCancel(config) {
+    logger.info('Confirmation cancelled');
+
+    this.hideConfirmation();
+
+    if (config.onCancel) {
+      config.onCancel();
+    }
+  }
+
+  /**
+   * Hide confirmation modal
+   */
+  hideConfirmation() {
+    logger.info('Hiding confirmation modal');
+
+    // Unregister from modal manager
+    if (window.dashieModalManager) {
+      window.dashieModalManager.unregisterModal();
+      logger.debug('Unregistered confirmation modal from modal manager');
+    }
+
+    modalsStateManager.close();
+    modalsUIRenderer.hideConfirmationModal();
+    modalsInputHandler.disable();
+
+    AppComms.publish('modal:closed', { type: 'confirmation' });
+  }
+
+  /**
    * Handle input action
    * @param {string} action - Action name (up, down, left, right, enter, escape)
    * @returns {boolean} - True if action was handled
@@ -252,6 +400,7 @@ class Modals {
    * @returns {boolean} - True if action was handled
    */
   handleUp() {
+    console.log('🟢 MODALS MODULE: handleUp() called');
     return modalsInputHandler.handleAction('up');
   }
 
@@ -260,6 +409,7 @@ class Modals {
    * @returns {boolean} - True if action was handled
    */
   handleDown() {
+    console.log('🟢 MODALS MODULE: handleDown() called');
     return modalsInputHandler.handleAction('down');
   }
 
@@ -268,6 +418,7 @@ class Modals {
    * @returns {boolean} - True if action was handled
    */
   handleLeft() {
+    console.log('🟢 MODALS MODULE: handleLeft() called');
     return modalsInputHandler.handleAction('left');
   }
 
@@ -276,6 +427,7 @@ class Modals {
    * @returns {boolean} - True if action was handled
    */
   handleRight() {
+    console.log('🟢 MODALS MODULE: handleRight() called');
     return modalsInputHandler.handleAction('right');
   }
 
@@ -284,6 +436,7 @@ class Modals {
    * @returns {boolean} - True if action was handled
    */
   handleEnter() {
+    console.log('🟢 MODALS MODULE: handleEnter() called');
     return modalsInputHandler.handleAction('enter');
   }
 
@@ -292,6 +445,7 @@ class Modals {
    * @returns {boolean} - True if action was handled
    */
   handleEscape() {
+    console.log('🟢 MODALS MODULE: handleEscape() called');
     return modalsInputHandler.handleAction('escape');
   }
 
@@ -299,7 +453,10 @@ class Modals {
    * Check if a modal is currently open
    */
   isModalOpen() {
-    return modalsStateManager.isModalOpen();
+    const isOpen = modalsStateManager.isModalOpen();
+    const currentModal = modalsStateManager.getCurrentModal();
+    console.log('🟢 MODALS: isModalOpen() called', { isOpen, currentModal });
+    return isOpen;
   }
 
   /**

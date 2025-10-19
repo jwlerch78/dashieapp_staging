@@ -8,11 +8,12 @@ const logger = createLogger('ModalsStateManager');
 class ModalsStateManager {
   constructor() {
     this.state = {
-      currentModal: null,        // 'sleep', 'exit', null
+      currentModal: null,        // 'sleep', 'exit', 'confirmation', null
       isAuthenticated: false,
       selectedOption: null,       // Current highlighted option
       optionsList: [],            // Available options for current modal
-      user: null                  // User data for authenticated exit modal
+      user: null,                 // User data for authenticated exit modal
+      confirmationData: null      // Data for generic confirmation modals
     };
 
     this.initialized = false;
@@ -60,6 +61,30 @@ class ModalsStateManager {
   }
 
   /**
+   * Open generic confirmation modal
+   * @param {object} config - Confirmation configuration
+   * @param {string} config.title - Modal title
+   * @param {string} config.message - Modal message
+   * @param {string} config.confirmLabel - Confirm button label (default: "Confirm")
+   * @param {string} config.cancelLabel - Cancel button label (default: "Cancel")
+   * @param {string} config.confirmStyle - Confirm button style: 'default' or 'destructive' (default: 'default')
+   */
+  openConfirmation(config) {
+    this.state.currentModal = 'confirmation';
+    this.state.confirmationData = {
+      title: config.title || 'Confirm',
+      message: config.message || '',
+      confirmLabel: config.confirmLabel || 'Confirm',
+      cancelLabel: config.cancelLabel || 'Cancel',
+      confirmStyle: config.confirmStyle || 'default'
+    };
+    this.state.optionsList = ['cancel', 'confirm'];
+    this.state.selectedOption = 'cancel'; // Default to safe option
+
+    logger.info('Confirmation modal state set', { title: config.title });
+  }
+
+  /**
    * Close current modal
    */
   close() {
@@ -69,7 +94,8 @@ class ModalsStateManager {
       isAuthenticated: false,
       selectedOption: null,
       optionsList: [],
-      user: null
+      user: null,
+      confirmationData: null
     };
 
     if (wasOpen) {

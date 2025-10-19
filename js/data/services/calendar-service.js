@@ -235,13 +235,16 @@ export class CalendarService {
                 accountType
             );
 
+            // Normalize all-day events (Google uses exclusive end dates, we need inclusive)
+            const normalizedEvents = events.map(event => this.normalizeAllDayEvent(event));
+
             logger.success('Events fetched successfully', {
                 accountType,
                 calendarId,
-                count: events.length
+                count: normalizedEvents.length
             });
 
-            return events;
+            return normalizedEvents;
 
         } catch (error) {
             logger.error('Failed to fetch events', {
@@ -450,6 +453,59 @@ export class CalendarService {
 
         logger.success('Fetched all active events', { totalEvents: allEvents.length });
         return allEvents;
+    }
+
+    // =========================================================================
+    // ALL-DAY EVENT NORMALIZATION
+    // =========================================================================
+
+    /**
+     * Normalize all-day event end dates
+     * Google Calendar API returns exclusive end dates for all-day events.
+     * For example, a birthday on Jan 15 has start: "2025-01-15", end: "2025-01-16"
+     * This function converts the end date to inclusive by subtracting 1 day.
+     *
+     * @param {Object} event - Calendar event
+     * @returns {Object} Event with normalized end date
+     */
+    normalizeAllDayEvent(event) {
+        // Only process all-day events (those with event.start.date instead of event.start.dateTime)
+        if (!event.start?.date) {
+            return event;
+        }
+
+        // Parse the end date and subtract 1 day
+        const endDateParts = event.end.date.split('-');
+        const endYear = parseInt(endDateParts[0]);
+        const endMonth = parseInt(endDateParts[1]) - 1; // Month is 0-indexed in Date
+        const endDay = parseInt(endDateParts[2]);
+
+        // Create date object and subtract 1 day
+        const endDateObj = new Date(endYear, endMonth, endDay);
+        endDateObj.setDate(endDateObj.getDate() - 1);
+
+        // Format back to YYYY-MM-DD
+        const adjustedEndDate = this.formatDateSafe(endDateObj);
+
+        return {
+            ...event,
+            end: {
+                date: adjustedEndDate,
+                dateTime: null
+            }
+        };
+    }
+
+    /**
+     * Format date object to YYYY-MM-DD string (timezone-safe)
+     * @param {Date} date - Date object
+     * @returns {string} Formatted date string
+     */
+    formatDateSafe(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
     }
 }
 

@@ -306,15 +306,17 @@ class WidgetMessenger {
 
   /**
    * Send command to widget by ID
-   * @param {string} widgetId - Widget element ID
+   * @param {string} widgetId - Widget ID (e.g., 'main', 'calendar')
    * @param {string} command - Command to send
    */
   sendCommandToWidget(widgetId, command) {
-    const iframe = document.getElementById(widgetId);
+    // Iframe IDs are prefixed with 'widget-'
+    const iframeId = `widget-${widgetId}`;
+    const iframe = document.getElementById(iframeId);
     if (iframe && iframe.contentWindow) {
       this.sendCommand(iframe.contentWindow, command);
     } else {
-      logger.warn('Widget iframe not found', { widgetId });
+      logger.warn('Widget iframe not found', { widgetId, iframeId });
     }
   }
 
@@ -546,7 +548,7 @@ const widgetMessenger = new WidgetMessenger();
 // =============================================================================
 
 if (typeof window !== 'undefined') {
-  window.WidgetMessenger = widgetMessenger;
+  window.widgetMessenger = widgetMessenger;
 }
 
 // =============================================================================

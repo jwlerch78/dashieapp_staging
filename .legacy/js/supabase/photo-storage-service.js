@@ -129,21 +129,22 @@ export class PhotoStorageService {
       }
 
       const requestBody = {
-        jwtToken,
         operation,
         data
       };
 
-      // Get Supabase headers (anon key required for edge function access)
-      const headers = {
-        'Content-Type': 'application/json'
-      };
-
-      // Add Supabase anon key if available
+      // Get Supabase anon key for apikey header
       const config = window.parent?.currentDbConfig || window.currentDbConfig || {};
       const supabaseAnonKey = config.supabaseKey || config.supabaseAnonKey;
+
+      // Set headers with JWT in Authorization (NOT anon key)
+      const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${jwtToken}`  // JWT goes here, not anon key
+      };
+
+      // Add anon key as apikey header
       if (supabaseAnonKey) {
-        headers['Authorization'] = `Bearer ${supabaseAnonKey}`;
         headers['apikey'] = supabaseAnonKey;
       }
 

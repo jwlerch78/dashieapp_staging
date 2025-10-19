@@ -16,10 +16,9 @@
 
 import { createLogger } from '../../js/utils/logger.js';
 import { PhotoStorageService } from '../../js/supabase/photo-storage-service.js';
-import { 
-  showUploadOverlay, 
+import {
+  showUploadOverlay,
   hideUploadOverlay,
-  showConfirmationModal,
   showDeleteProgress,
   hideDeleteProgress,
   showQRCodeModal,
@@ -80,14 +79,13 @@ export class PhotosSettingsModal {
         // Handle navigation actions from modal manager (Fire TV remote, etc.)
         const action = event.data.action;
         logger.debug('Received action from parent', { action });
-        
-        // Check if confirmation modal is active IN PARENT DOCUMENT
-        const confirmModal = window.parent?.document.getElementById('delete-confirmation-overlay');
-        if (confirmModal) {
-          logger.debug('Confirmation modal active in parent, ignoring action');
-          return; // Let modal navigation handle it
+
+        // Check if any modal is active in parent (handled by Modals module)
+        if (window.parent?.modals?.isModalOpen()) {
+          logger.debug('Modal active in parent, ignoring action');
+          return; // Let Modals module handle it
         }
-        
+
         switch (action) {
           case 'up':
             this.moveFocus(-1);
@@ -204,11 +202,10 @@ export class PhotosSettingsModal {
     const action = keyMap[e.key];
     if (!action) return;
 
-    // Check if confirmation modal is active IN PARENT DOCUMENT
-    const confirmModal = window.parent?.document.getElementById('delete-confirmation-overlay');
-    if (confirmModal) {
-      logger.debug('Confirmation modal active in parent, not handling keys');
-      return; // Let modal navigation handle it
+    // Check if any modal is active in parent (handled by Modals module)
+    if (window.parent?.modals?.isModalOpen()) {
+      logger.debug('Modal active in parent, not handling keys');
+      return; // Let Modals module handle it
     }
 
     e.preventDefault();
@@ -649,8 +646,30 @@ export class PhotosSettingsModal {
     // Get current photo count for confirmation message
     const photoCountEl = document.getElementById('photo-count');
     const photoCount = photoCountEl ? photoCountEl.textContent : '0';
-    
-    showConfirmationModal(photoCount, () => this.handleDeleteAllPhotos());
+
+    // Use parent window's Modals module for confirmation
+    const modals = window.parent?.modals;
+
+    if (!modals) {
+      logger.error('Modals module not available in parent window');
+      // Fallback to direct deletion (not recommended)
+      if (confirm(`Delete all ${photoCount} photos? This cannot be undone.`)) {
+        this.handleDeleteAllPhotos();
+      }
+      return;
+    }
+
+    modals.showConfirmation({
+      title: 'Delete All Photos?',
+      message: `This will permanently delete all ${photoCount} photos from your library and reset your storage quota. This action cannot be undone.`,
+      confirmLabel: 'Delete All',
+      cancelLabel: 'Cancel',
+      confirmStyle: 'primary',
+      onConfirm: () => this.handleDeleteAllPhotos(),
+      onCancel: () => {
+        logger.info('Delete all photos cancelled');
+      }
+    });
   }
 
   /**
