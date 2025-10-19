@@ -33,6 +33,7 @@ class PhotosWidget {
       enabled: false // No focus menu for photos widget
     };
 
+    this.detectAndApplyInitialTheme();
     this.setupMessageListener();
     this.setupEmptyStateHandler();
     this.signalReady();
@@ -87,20 +88,27 @@ class PhotosWidget {
 
       logger.debug('Photos widget received message', {
         type: data.type,
-        dataType: data.dataType,
+        action: data.action,
+        dataType: data.payload?.dataType,
         widgetId: data.widgetId
       });
 
-      // Handle commands sent from dashboard
+      // Handle commands sent from dashboard (action at top level)
       if (data.type === 'command' && data.action) {
         this.handleCommand(data.action);
         return;
       }
 
-      // Handle data updates
-      if (data.type === 'data' && data.dataType === 'photos') {
-        logger.info('Photos data message received', { payload: data.payload });
-        this.loadPhotosFromData(data.payload);
+      // Handle data updates (dataType inside payload)
+      if (data.type === 'data' && data.payload?.dataType === 'photos') {
+        logger.info('Photos data message received', { payload: data.payload.payload });
+        this.loadPhotosFromData(data.payload.payload);
+        return;
+      }
+
+      // Handle theme updates
+      if (data.type === 'theme-change' && data.theme) {
+        this.applyTheme(data.theme);
         return;
       }
 
@@ -366,6 +374,61 @@ class PhotosWidget {
     if (this.autoAdvanceInterval) {
       this.startAutoAdvance();
     }
+  }
+
+  /**
+   * Detect and apply initial theme from parent or localStorage
+   */
+  detectAndApplyInitialTheme() {
+    let detectedTheme = null;
+
+    // Try to get theme from parent window first (since we're in an iframe)
+    try {
+      if (window.parent && window.parent !== window && window.parent.document) {
+        const parentBody = window.parent.document.body;
+        if (parentBody.classList.contains('theme-light')) {
+          detectedTheme = 'light';
+        } else if (parentBody.classList.contains('theme-dark')) {
+          detectedTheme = 'dark';
+        }
+      }
+    } catch (e) {
+      // Cross-origin error - can't access parent
+      logger.debug('Cannot access parent window for theme detection');
+    }
+
+    // Fallback: try localStorage
+    if (!detectedTheme) {
+      try {
+        const savedTheme = localStorage.getItem('dashie-theme');
+        if (savedTheme === 'light' || savedTheme === 'dark') {
+          detectedTheme = savedTheme;
+        }
+      } catch (e) {
+        logger.debug('Cannot read theme from localStorage');
+      }
+    }
+
+    // Apply detected theme or default to light
+    const theme = detectedTheme || 'light';
+    this.applyTheme(theme);
+    logger.debug('Initial theme applied', { theme });
+  }
+
+  /**
+   * Apply theme to widget
+   * @param {string} theme - Theme name ('light' or 'dark')
+   */
+  applyTheme(theme) {
+    // Remove old theme classes
+    document.documentElement.classList.remove('theme-light', 'theme-dark');
+    document.body.classList.remove('theme-light', 'theme-dark');
+
+    // Add new theme class
+    document.documentElement.classList.add(`theme-${theme}`);
+    document.body.classList.add(`theme-${theme}`);
+
+    logger.debug('Theme applied to photos widget', { theme });
   }
 }
 

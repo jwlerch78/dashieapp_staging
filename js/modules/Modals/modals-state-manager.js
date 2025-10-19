@@ -36,7 +36,7 @@ class ModalsStateManager {
     this.state.currentModal = 'sleep';
     this.state.selectedOption = null;
     this.state.optionsList = [];
-    logger.info('Sleep modal state set');
+    logger.debug('Sleep modal state set');
   }
 
   /**
@@ -57,7 +57,7 @@ class ModalsStateManager {
       this.state.selectedOption = 'no'; // Default to safe option
     }
 
-    logger.info('Exit modal state set', { isAuthenticated, optionsCount: this.state.optionsList.length });
+    logger.debug('Exit modal state set', { isAuthenticated, optionsCount: this.state.optionsList.length });
   }
 
   /**
@@ -81,7 +81,7 @@ class ModalsStateManager {
     this.state.optionsList = ['cancel', 'confirm'];
     this.state.selectedOption = 'cancel'; // Default to safe option
 
-    logger.info('Confirmation modal state set', { title: config.title });
+    logger.debug('Confirmation modal state set', { title: config.title });
   }
 
   /**
@@ -99,7 +99,7 @@ class ModalsStateManager {
     };
 
     if (wasOpen) {
-      logger.info('Modal state cleared', { previousModal: wasOpen });
+      logger.debug('Modal state cleared', { previousModal: wasOpen });
     }
   }
 

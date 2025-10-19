@@ -58,6 +58,9 @@ export async function initializeServices() {
       logger.warn('PhotoDataService not initialized - no authenticated user');
     }
 
+    // Expose PhotoDataService globally (like CalendarService)
+    window.photoDataService = photoDataService;
+
     // Initialize PhotosSettingsManager with photo service
     const photosSettingsManager = new PhotosSettingsManager(photoDataService);
     window.photosSettingsManager = photosSettingsManager;

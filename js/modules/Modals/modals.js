@@ -58,7 +58,7 @@ class Modals {
       return;
     }
 
-    logger.info('Showing sleep overlay');
+    logger.debug('Showing sleep overlay');
 
     // Update state
     modalsStateManager.openSleep();
@@ -91,7 +91,7 @@ class Modals {
    * Hide sleep overlay
    */
   hideSleep() {
-    logger.info('Hiding sleep overlay');
+    logger.debug('Hiding sleep overlay');
 
     modalsStateManager.close();
     modalsUIRenderer.hideSleepOverlay();
@@ -110,7 +110,7 @@ class Modals {
       return;
     }
 
-    logger.info('Showing exit confirmation');
+    logger.debug('Showing exit confirmation');
 
     // Check authentication status
     const isAuthenticated = window.sessionManager?.isUserAuthenticated() || false;
@@ -155,7 +155,7 @@ class Modals {
    * @param {string} action - Selected action (logout, exit, cancel, yes, no)
    */
   handleExitAction(action) {
-    logger.info('Exit action selected', { action });
+    logger.debug('Exit action selected', { action });
 
     const isAuthenticated = modalsStateManager.getState().isAuthenticated;
 
@@ -229,7 +229,7 @@ class Modals {
    * Hide exit confirmation modal
    */
   hideExitConfirmation() {
-    logger.info('Hiding exit confirmation');
+    logger.debug('Hiding exit confirmation');
 
     modalsStateManager.close();
     modalsUIRenderer.hideExitModal();
@@ -260,7 +260,7 @@ class Modals {
       return;
     }
 
-    logger.info('Showing confirmation modal', { title: config.title });
+    logger.debug('Showing confirmation modal', { title: config.title });
 
     // Update state
     modalsStateManager.openConfirmation(config);
@@ -300,7 +300,7 @@ class Modals {
     if (window.dashieModalManager) {
       const buttonElements = Array.from(backdrop.querySelectorAll('[data-action]'));
 
-      console.log('🟢 CONFIRMATION MODAL: Registering with dashieModalManager', {
+      logger.debug('CONFIRMATION MODAL: Registering with dashieModalManager', {
         backdropId: backdrop.id,
         buttonCount: buttonElements.length,
         buttonIds: buttonElements.map(btn => btn.id)
@@ -314,22 +314,20 @@ class Modals {
         horizontalNavigation: true,
         initialFocus: 0, // Focus cancel button by default
         customHandler: (action) => {
-          console.log('🟢 CONFIRMATION MODAL customHandler called', { action });
-          logger.debug('Confirmation modal handling action from modal manager', { action });
+          logger.debug('CONFIRMATION MODAL customHandler called', { action });
           const handled = modalsInputHandler.handleAction(action);
-          console.log('🟢 CONFIRMATION MODAL customHandler result', { action, handled });
+          logger.debug('CONFIRMATION MODAL customHandler result', { action, handled });
           return handled;
         },
         onEscape: () => {
-          console.log('🟢 CONFIRMATION MODAL: onEscape called');
+          logger.debug('CONFIRMATION MODAL: onEscape called');
           this.handleConfirmationCancel(config);
         }
       });
 
-      console.log('🟢 CONFIRMATION MODAL: Successfully registered with dashieModalManager');
-      logger.debug('Registered confirmation modal with modal manager');
+      logger.debug('CONFIRMATION MODAL: Successfully registered with dashieModalManager');
     } else {
-      console.log('🔴 CONFIRMATION MODAL: dashieModalManager STILL not available!');
+      logger.debug('CONFIRMATION MODAL: dashieModalManager STILL not available!');
       logger.error('dashieModalManager not available - d-pad navigation will not work');
     }
 
@@ -342,7 +340,7 @@ class Modals {
    * @param {object} config - Original configuration with callbacks
    */
   handleConfirmationAction(action, config) {
-    logger.info('Confirmation action selected', { action });
+    logger.debug('Confirmation action selected', { action });
 
     this.hideConfirmation();
 
@@ -358,7 +356,7 @@ class Modals {
    * @param {object} config - Original configuration with callbacks
    */
   handleConfirmationCancel(config) {
-    logger.info('Confirmation cancelled');
+    logger.debug('Confirmation cancelled');
 
     this.hideConfirmation();
 
@@ -371,7 +369,7 @@ class Modals {
    * Hide confirmation modal
    */
   hideConfirmation() {
-    logger.info('Hiding confirmation modal');
+    logger.debug('Hiding confirmation modal');
 
     // Unregister from modal manager
     if (window.dashieModalManager) {
@@ -400,7 +398,7 @@ class Modals {
    * @returns {boolean} - True if action was handled
    */
   handleUp() {
-    console.log('🟢 MODALS MODULE: handleUp() called');
+    logger.debug('MODALS MODULE: handleUp() called');
     return modalsInputHandler.handleAction('up');
   }
 
@@ -409,7 +407,7 @@ class Modals {
    * @returns {boolean} - True if action was handled
    */
   handleDown() {
-    console.log('🟢 MODALS MODULE: handleDown() called');
+    logger.debug('MODALS MODULE: handleDown() called');
     return modalsInputHandler.handleAction('down');
   }
 
@@ -418,7 +416,7 @@ class Modals {
    * @returns {boolean} - True if action was handled
    */
   handleLeft() {
-    console.log('🟢 MODALS MODULE: handleLeft() called');
+    logger.debug('MODALS MODULE: handleLeft() called');
     return modalsInputHandler.handleAction('left');
   }
 
@@ -427,7 +425,7 @@ class Modals {
    * @returns {boolean} - True if action was handled
    */
   handleRight() {
-    console.log('🟢 MODALS MODULE: handleRight() called');
+    logger.debug('MODALS MODULE: handleRight() called');
     return modalsInputHandler.handleAction('right');
   }
 
@@ -436,7 +434,7 @@ class Modals {
    * @returns {boolean} - True if action was handled
    */
   handleEnter() {
-    console.log('🟢 MODALS MODULE: handleEnter() called');
+    logger.debug('MODALS MODULE: handleEnter() called');
     return modalsInputHandler.handleAction('enter');
   }
 
@@ -445,7 +443,7 @@ class Modals {
    * @returns {boolean} - True if action was handled
    */
   handleEscape() {
-    console.log('🟢 MODALS MODULE: handleEscape() called');
+    logger.debug('MODALS MODULE: handleEscape() called');
     return modalsInputHandler.handleAction('escape');
   }
 
@@ -455,7 +453,7 @@ class Modals {
   isModalOpen() {
     const isOpen = modalsStateManager.isModalOpen();
     const currentModal = modalsStateManager.getCurrentModal();
-    console.log('🟢 MODALS: isModalOpen() called', { isOpen, currentModal });
+    logger.debug('MODALS: isModalOpen() called', { isOpen, currentModal });
     return isOpen;
   }
 
@@ -470,7 +468,7 @@ class Modals {
    * Cleanup and destroy module
    */
   destroy() {
-    logger.info('Destroying Modals module');
+    logger.debug('Destroying Modals module');
 
     modalsStateManager.close();
     modalsUIRenderer.cleanup();

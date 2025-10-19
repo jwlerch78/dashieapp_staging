@@ -314,13 +314,20 @@ export class EdgeClient {
             throw new Error('JWT token required for edge function calls');
         }
 
+        // Add JWT token to payload for edge function
+        const requestBody = {
+            ...payload,
+            jwtToken: this.jwtToken
+        };
+
         const response = await fetch(this.edgeFunctionUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.jwtToken}`
+                'Authorization': `Bearer ${this.jwtToken}`,
+                'apikey': this.anonKey
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {
@@ -355,13 +362,27 @@ export class EdgeClient {
             jwtTokenPrefix: this.jwtToken?.substring(0, 20)
         });
 
+        // Add JWT token to payload for edge function
+        const requestBody = {
+            ...payload,
+            jwtToken: this.jwtToken
+        };
+
+        logger.debug('🔍 DEBUG: Request body being sent', {
+            operation: requestBody.operation,
+            hasJwtInBody: !!requestBody.jwtToken,
+            jwtLength: requestBody.jwtToken?.length,
+            bodyKeys: Object.keys(requestBody)
+        });
+
         const response = await fetch(this.databaseOpsUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.jwtToken}`
+                'Authorization': `Bearer ${this.jwtToken}`,
+                'apikey': this.anonKey
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(requestBody)
         });
 
         if (!response.ok) {

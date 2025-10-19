@@ -68,8 +68,8 @@ export class CalendarWidget {
     // NEW: Send focus menu configuration to parent
     this.sendMenuConfig();
 
-    // Load calendar data from CalendarService
-    await this.loadCalendarData();
+    // Calendar data will be loaded by widget-data-manager and sent via postMessage
+    // No need to load data here - prevents duplicate loading
 
     logger.info('Calendar widget initialized');
   }
@@ -271,6 +271,21 @@ export class CalendarWidget {
       if (!event.data) return;
 
       logger.debug('Calendar widget received message', { type: event.data.type, payload: event.data.payload });
+
+      // Handle calendar data from widget-data-manager
+      if (event.data.type === 'data' && event.data.payload?.dataType === 'calendar') {
+        logger.debug('Received calendar data from parent', {
+          events: event.data.payload.events?.length,
+          calendars: event.data.payload.calendars?.length
+        });
+
+        this.handleCalendarData({
+          events: event.data.payload.events || [],
+          calendars: event.data.payload.calendars || [],
+          lastUpdated: new Date().toISOString()
+        });
+        return;
+      }
 
       // Handle command messages
       if (event.data.type === 'command') {

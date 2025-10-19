@@ -124,18 +124,32 @@ export class PhotoStorageService {
     try {
       // Get current JWT token
       const jwtToken = await this.jwtService.getSupabaseJWT();
+
+      logger.debug('🔍 DEBUG: JWT token retrieved', {
+        hasToken: !!jwtToken,
+        tokenLength: jwtToken?.length,
+        tokenPrefix: jwtToken?.substring(0, 30)
+      });
+
       if (!jwtToken) {
         throw new Error('Failed to get valid JWT token');
       }
 
       const requestBody = {
         operation,
-        data
+        data,
+        jwtToken  // Include JWT in payload for edge function
       };
 
       // Get Supabase anon key for apikey header
       const config = window.parent?.currentDbConfig || window.currentDbConfig || {};
       const supabaseAnonKey = config.supabaseKey || config.supabaseAnonKey;
+
+      logger.debug('🔍 DEBUG: Config and anon key', {
+        hasConfig: !!config,
+        hasAnonKey: !!supabaseAnonKey,
+        anonKeyPrefix: supabaseAnonKey?.substring(0, 30)
+      });
 
       // Set headers with JWT in Authorization (NOT anon key)
       const headers = {
@@ -147,6 +161,12 @@ export class PhotoStorageService {
       if (supabaseAnonKey) {
         headers['apikey'] = supabaseAnonKey;
       }
+
+      logger.debug('🔍 DEBUG: Making edge function call', {
+        url: this.edgeFunctionUrl,
+        operation,
+        headers: Object.keys(headers)
+      });
 
       const response = await fetch(this.edgeFunctionUrl, {
         method: 'POST',

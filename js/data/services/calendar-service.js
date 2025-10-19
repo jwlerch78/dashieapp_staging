@@ -188,7 +188,7 @@ export class CalendarService {
      * @returns {Promise<Array>} Array of calendar objects with prefixed IDs
      */
     async getCalendars(accountType = 'primary') {
-        logger.info('Fetching calendars', { accountType });
+        logger.debug('Fetching calendars', { accountType });
 
         try {
             const rawCalendars = await this.googleClient.getCalendarList(accountType);
@@ -226,7 +226,7 @@ export class CalendarService {
      * @returns {Promise<Array>} Array of event objects
      */
     async getEvents(accountType = 'primary', calendarId = 'primary', timeRange = {}) {
-        logger.info('Fetching events', { accountType, calendarId });
+        logger.debug('Fetching events', { accountType, calendarId });
 
         try {
             const events = await this.googleClient.getCalendarEvents(
@@ -264,7 +264,7 @@ export class CalendarService {
      * @returns {Promise<Array>} Combined array of events from all calendars
      */
     async getEventsFromMultipleCalendars(accountType = 'primary', calendarIds = [], timeRange = {}) {
-        logger.info('Fetching events from multiple calendars', {
+        logger.debug('Fetching events from multiple calendars', {
             accountType,
             calendarCount: calendarIds.length
         });
@@ -428,7 +428,7 @@ export class CalendarService {
      * @returns {Promise<Array>} All events from active calendars
      */
     async getAllActiveEvents(timeRange = {}) {
-        logger.info('Fetching events from all active calendars', {
+        logger.debug('Fetching events from all active calendars', {
             activeCount: this.activeCalendarIds.length
         });
 

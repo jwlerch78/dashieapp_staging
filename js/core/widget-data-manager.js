@@ -48,7 +48,12 @@ export class WidgetDataManager {
             menuItems: []
         });
 
-        logger.info('Widget registered', { widgetId });
+        logger.info('Widget registered', {
+            widgetId,
+            iframeId: iframe.id,
+            totalRegistered: this.widgets.size,
+            allWidgets: Array.from(this.widgets.keys())
+        });
     }
 
     /**
@@ -130,11 +135,11 @@ export class WidgetDataManager {
         try {
             switch (widgetId) {
                 case 'clock':
-                    // Clock widget doesn't need data (uses browser time)
-                    logger.debug('Clock widget ready (no data needed)');
+                    await this.loadClockData();
                     break;
 
                 case 'main': // Calendar widget (id='main' in config)
+                case 'agenda': // Agenda widget
                     await this.loadCalendarData();
                     break;
 
@@ -161,6 +166,7 @@ export class WidgetDataManager {
 
     /**
      * Load calendar data and send to calendar widget
+     * Loads events from all active calendars configured by the user
      */
     async loadCalendarData() {
         try {
@@ -169,41 +175,117 @@ export class WidgetDataManager {
             // Get calendar service
             const calendarService = getCalendarService();
 
-            // Get events for next 7 days
-            const now = new Date();
-            const endDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+            // Get active calendar IDs from CalendarService
+            const activeCalendarIds = calendarService.getActiveCalendarIds();
 
-            // TODO: Get active calendar IDs from settings
-            // For now, just fetch primary calendar
-            const events = await calendarService.getEvents(
-                'primary-primary', // Will need to use prefixed IDs in Phase 4
-                {
-                    timeMin: now.toISOString(),
-                    timeMax: endDate.toISOString(),
-                    maxResults: 10,
-                    singleEvents: true,
-                    orderBy: 'startTime'
-                }
-            );
-
-            logger.success('Calendar data loaded', { count: events.length });
-
-            // Send events to widget
-            this.sendToWidget('calendar', 'data', {
-                dataType: 'events',
-                data: events
+            logger.debug('Loading events from active calendars', {
+                count: activeCalendarIds.length,
+                calendarIds: activeCalendarIds
             });
+
+            // Get events for next 30 days
+            const now = new Date();
+            const endDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+            const timeRange = {
+                timeMin: now.toISOString(),
+                timeMax: endDate.toISOString(),
+                maxResults: 2500,
+                singleEvents: true,
+                orderBy: 'startTime'
+            };
+
+            // Fetch all calendars and events (same as calendar widget does)
+            const allCalendars = [];
+            const allEvents = [];
+
+            // Group active calendar IDs by account type
+            const calendarsByAccount = {};
+            for (const prefixedId of activeCalendarIds) {
+                const { accountType, calendarId } = calendarService.parsePrefixedId(prefixedId);
+
+                if (!calendarsByAccount[accountType]) {
+                    calendarsByAccount[accountType] = [];
+                }
+                calendarsByAccount[accountType].push({ prefixedId, calendarId });
+            }
+
+            // Fetch calendars and events for each account
+            for (const [accountType, calendars] of Object.entries(calendarsByAccount)) {
+                try {
+                    // Fetch calendar list for this account (to get colors/names)
+                    const accountCalendars = await calendarService.getCalendars(accountType);
+                    allCalendars.push(...accountCalendars);
+
+                    // Fetch events for each active calendar in this account
+                    for (const { prefixedId, calendarId } of calendars) {
+                        try {
+                            const events = await calendarService.getEvents(
+                                accountType,
+                                calendarId,
+                                timeRange
+                            );
+
+                            // Find the calendar object to get color info
+                            const calendarObj = accountCalendars.find(cal => cal.id === calendarId);
+
+                            // Add calendar metadata to each event (needed for rendering and split colors)
+                            const eventsWithMetadata = events.map(event => ({
+                                ...event,
+                                prefixedCalendarId: prefixedId,
+                                calendarId: calendarId,
+                                accountType: accountType,
+                                backgroundColor: calendarObj?.backgroundColor || '#1976d2',
+                                foregroundColor: calendarObj?.foregroundColor || '#ffffff',
+                                calendarName: calendarObj?.summary || 'Calendar'
+                            }));
+
+                            allEvents.push(...eventsWithMetadata);
+                        } catch (error) {
+                            logger.error('Failed to fetch events for calendar', {
+                                accountType,
+                                calendarId,
+                                error: error.message
+                            });
+                        }
+                    }
+                } catch (error) {
+                    logger.error('Failed to fetch calendars for account', {
+                        accountType,
+                        error: error.message
+                    });
+                }
+            }
+
+            logger.success('Calendar data loaded', {
+                calendars: allCalendars.length,
+                events: allEvents.length
+            });
+
+            // Send calendar data to both calendar and agenda widgets
+            const calendarData = {
+                dataType: 'calendar',
+                calendars: allCalendars,
+                events: allEvents
+            };
+
+            this.sendToWidget('main', 'data', calendarData);
+            this.sendToWidget('agenda', 'data', calendarData);
 
         } catch (error) {
             logger.error('Failed to load calendar data', {
                 error: error.message
             });
 
-            // Send empty array on error
-            this.sendToWidget('calendar', 'data', {
-                dataType: 'events',
-                data: []
-            });
+            // Send empty data on error to both widgets
+            const emptyData = {
+                dataType: 'calendar',
+                calendars: [],
+                events: []
+            };
+
+            this.sendToWidget('main', 'data', emptyData);
+            this.sendToWidget('agenda', 'data', emptyData);
         }
     }
 
@@ -214,10 +296,10 @@ export class WidgetDataManager {
         try {
             logger.info('Loading photos data');
 
-            // Get edge client
-            const edgeClient = window.edgeClient;
-            if (!edgeClient) {
-                logger.warn('EdgeClient not available');
+            // Get photo data service
+            const photoDataService = window.photoDataService;
+            if (!photoDataService || !photoDataService.isInitialized) {
+                logger.warn('PhotoDataService not available');
                 this.sendToWidget('photos', 'data', {
                     dataType: 'photos',
                     payload: { urls: [], folder: null }
@@ -225,11 +307,8 @@ export class WidgetDataManager {
                 return;
             }
 
-            // Call edge function to get photo URLs
-            const result = await edgeClient.callEdgeFunction('list_photos', {
-                folder: null, // Get all photos
-                limit: 100
-            });
+            // Load photos from service
+            const result = await photoDataService.loadPhotos(null, true); // folder=null, shuffle=true
 
             logger.success('Photos data loaded', { count: result?.urls?.length || 0 });
 
@@ -256,6 +335,43 @@ export class WidgetDataManager {
     }
 
     /**
+     * Load clock data (send location for weather)
+     */
+    async loadClockData() {
+        try {
+            logger.info('Loading clock data (location for weather)');
+
+            // Get zip code from settings
+            const settingsStore = window.settingsStore;
+            if (!settingsStore) {
+                logger.warn('SettingsStore not available for clock location');
+                return;
+            }
+
+            const zipCode = settingsStore.get('family.zipCode');
+
+            if (!zipCode) {
+                logger.warn('No zip code in settings, clock weather will not display');
+                return;
+            }
+
+            logger.debug('Sending location to clock widget', { zipCode });
+
+            // Send location-update message to clock widget
+            this.sendToWidget('clock', 'location-update', {
+                zipCode: zipCode
+            });
+
+            logger.success('Clock location data sent', { zipCode });
+
+        } catch (error) {
+            logger.error('Failed to load clock data', {
+                error: error.message
+            });
+        }
+    }
+
+    /**
      * Load header data (placeholder)
      */
     async loadHeaderData() {
@@ -273,7 +389,12 @@ export class WidgetDataManager {
         const iframe = this.widgets.get(widgetId);
 
         if (!iframe || !iframe.contentWindow) {
-            logger.warn('Cannot send to widget (not found or not ready)', { widgetId });
+            logger.warn('Cannot send to widget (not found or not ready)', {
+                widgetId,
+                hasIframe: !!iframe,
+                hasContentWindow: !!iframe?.contentWindow,
+                registeredWidgets: Array.from(this.widgets.keys())
+            });
             return;
         }
 
@@ -380,6 +501,24 @@ export class WidgetDataManager {
     isWidgetReady(widgetId) {
         const state = this.widgetStates.get(widgetId);
         return state ? state.ready : false;
+    }
+
+    /**
+     * Debug: Get all registered widgets
+     * @returns {Array} List of registered widget info
+     */
+    getRegisteredWidgets() {
+        const widgets = [];
+        this.widgets.forEach((iframe, widgetId) => {
+            const state = this.widgetStates.get(widgetId);
+            widgets.push({
+                widgetId,
+                iframeId: iframe.id,
+                ready: state?.ready || false,
+                hasContentWindow: !!iframe.contentWindow
+            });
+        });
+        return widgets;
     }
 
     /**

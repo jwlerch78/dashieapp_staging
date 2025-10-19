@@ -23,7 +23,7 @@ class ModalsInputHandler {
     this.enabled = true;
     this.onConfirmCallback = onConfirm;
     this.onCancelCallback = onCancel;
-    logger.info('Input handler enabled');
+    logger.debug('Input handler enabled');
   }
 
   /**
@@ -33,7 +33,7 @@ class ModalsInputHandler {
     this.enabled = false;
     this.onConfirmCallback = null;
     this.onCancelCallback = null;
-    logger.info('Input handler disabled');
+    logger.debug('Input handler disabled');
   }
 
   /**
@@ -42,7 +42,7 @@ class ModalsInputHandler {
    * @returns {boolean} - True if action was handled
    */
   handleAction(action) {
-    console.log('🟡 MODALS INPUT HANDLER: handleAction called', {
+    logger.debug('MODALS INPUT HANDLER: handleAction called', {
       action,
       enabled: this.enabled,
       isModalOpen: modalsStateManager.isModalOpen(),
@@ -50,12 +50,12 @@ class ModalsInputHandler {
     });
 
     if (!this.enabled || !modalsStateManager.isModalOpen()) {
-      console.log('🟡 MODALS INPUT HANDLER: Not handling - disabled or no modal open');
+      logger.debug('MODALS INPUT HANDLER: Not handling - disabled or no modal open');
       return false;
     }
 
     const modalType = modalsStateManager.getCurrentModal();
-    console.log('🟡 MODALS INPUT HANDLER: Processing action for modal type:', modalType);
+    logger.debug('MODALS INPUT HANDLER: Processing action for modal type:', modalType);
 
     switch (action) {
       case 'up':

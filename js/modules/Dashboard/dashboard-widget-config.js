@@ -71,7 +71,7 @@ export const widgetConfig = [
     rowSpan: 1,
     colSpan: 1,
     label: 'Agenda',
-    url: null,
+    path: 'js/widgets/agenda/agenda.html',
     noCenter: false,
     focusScale: 1.4,
     selectable: true

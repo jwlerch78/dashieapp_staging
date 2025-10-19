@@ -41,7 +41,7 @@ class ModalsUIRenderer {
       sleepOverlay.classList.add('visible');
     }, 10);
 
-    logger.info('Sleep overlay shown');
+    logger.debug('Sleep overlay shown');
     return sleepOverlay;
   }
 
@@ -57,7 +57,7 @@ class ModalsUIRenderer {
         sleepOverlay.remove();
       }, 500);
 
-      logger.info('Sleep overlay hidden');
+      logger.debug('Sleep overlay hidden');
     }
   }
 
@@ -125,7 +125,7 @@ class ModalsUIRenderer {
     backdrop.appendChild(dialog);
     document.body.appendChild(backdrop);
 
-    logger.info('Exit modal shown', { isAuthenticated });
+    logger.debug('Exit modal shown', { isAuthenticated });
     return { backdrop, dialog, isAuthenticated };
   }
 
@@ -136,7 +136,7 @@ class ModalsUIRenderer {
     const backdrop = document.getElementById('exit-backdrop');
     if (backdrop) {
       backdrop.remove();
-      logger.info('Exit modal hidden');
+      logger.debug('Exit modal hidden');
     }
   }
 
@@ -180,7 +180,7 @@ class ModalsUIRenderer {
     backdrop.appendChild(dialog);
     document.body.appendChild(backdrop);
 
-    logger.info('Confirmation modal shown', { title: config.title });
+    logger.debug('Confirmation modal shown', { title: config.title });
     return { backdrop, dialog };
   }
 
@@ -191,7 +191,7 @@ class ModalsUIRenderer {
     const backdrop = document.getElementById('confirmation-backdrop');
     if (backdrop) {
       backdrop.remove();
-      logger.info('Confirmation modal hidden');
+      logger.debug('Confirmation modal hidden');
     }
   }
 
@@ -248,7 +248,7 @@ class ModalsUIRenderer {
     this.hideSleepOverlay();
     this.hideExitModal();
     this.hideConfirmationModal();
-    logger.info('All modals cleaned up');
+    logger.debug('All modals cleaned up');
   }
 }
 

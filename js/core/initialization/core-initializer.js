@@ -38,9 +38,6 @@ export async function initializeCore() {
     await Settings.initialize();
     logger.verbose('Settings initialized (theme loaded from database and applied)');
 
-    // STEP 3: NOW initialize widgets (they will load with correct theme from localStorage)
-    await initializeWidgets();
-
     // Initialize core components
     await InputHandler.initialize();
     await ActionRouter.initialize();
@@ -58,9 +55,12 @@ export async function initializeCore() {
     await modals.initialize();
     ActionRouter.registerModule('modals', modals);
 
-    // Set Dashboard as active module and activate it
+    // Set Dashboard as active module and activate it (this creates the widget iframes!)
     AppStateManager.setCurrentModule('dashboard');
     Dashboard.activate();
+
+    // STEP 3: NOW initialize widgets AFTER Dashboard.activate() has created the iframes
+    await initializeWidgets();
 
     // Detect platform
     const platform = getPlatformDetector();
