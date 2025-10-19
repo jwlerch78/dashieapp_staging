@@ -605,7 +605,7 @@ export class CalendarWeekly {
     if (eventElement) {
       eventElement.classList.add('selected');
       this.selectedEventId = eventId;
-      logger.info('Event selected', { eventId });
+      logger.debug('Event selected', { eventId });
     }
   }
 
@@ -859,13 +859,13 @@ export class CalendarWeekly {
     
     if (needsRerender) {
       this.userHasScrolled = false; // Reset - settings changed
-      
-      logger.info('Settings changed, re-rendering view', {
+
+      logger.debug('Settings changed, re-rendering view', {
         dayCount: this.dayCount,
         startWeekOn: this.startWeekOn,
         scrollTime: this.scrollTime
       });
-      
+
       this.calculateWeekDates();
       this.render();
       this.setOptimalScrollPosition(); // Re-scroll with new settings

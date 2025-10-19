@@ -86,7 +86,7 @@ export class CalendarWidget {
         return;
       }
 
-      logger.info('Loading calendar data from CalendarService...');
+      logger.debug('Loading calendar data from CalendarService...');
 
       // Get all accounts
       const tokenStore = this.sessionManager.getTokenStore();
@@ -160,7 +160,7 @@ export class CalendarWidget {
       // Events are already filtered (we only fetched from active calendars)
       const filteredEvents = allEvents;
 
-      logger.info('Calendar data loaded', {
+      logger.debug('Calendar data loaded', {
         calendars: allCalendars.length,
         totalEvents: allEvents.length,
         filteredEvents: filteredEvents.length,
@@ -234,10 +234,10 @@ export class CalendarWidget {
     if (detectedTheme) {
       this.currentTheme = detectedTheme;
       this.applyThemeToElements(detectedTheme);
-      logger.info('Initial theme detected', { theme: detectedTheme });
+      logger.debug('Initial theme detected', { theme: detectedTheme });
     } else {
       this.applyTheme('light'); // Default to light theme
-      logger.info('No initial theme detected, using default light theme');
+      logger.debug('No initial theme detected, using default light theme');
     }
   }
 
@@ -311,8 +311,15 @@ export class CalendarWidget {
 
     window.addEventListener('load', () => {
       if (window.parent !== window) {
-        window.parent.postMessage({ type: 'widget-ready', widget: 'calendar' }, '*');
-        logger.info('📤 Sent widget-ready message to parent');
+        window.parent.postMessage({
+          type: 'event',
+          widgetId: 'main', // Must match ID in dashboard-widget-config.js
+          payload: {
+            eventType: 'widget-ready',
+            data: { hasMenu: false }
+          }
+        }, '*');
+        logger.debug('📤 Sent widget-ready message to parent');
       }
     });
   }
@@ -369,7 +376,7 @@ export class CalendarWidget {
       this.scrollCalendar('down');
       break;
     case 'select':
-      logger.info('Select pressed on weekly view');
+      logger.debug('Select pressed on weekly view');
       break;
     case 'back':
     case 'escape':
@@ -586,15 +593,15 @@ export class CalendarWidget {
       return;
     }
 
-    logger.info('Applying theme to Calendar widget', {
+    logger.debug('Applying theme to Calendar widget', {
       from: this.currentTheme,
       to: theme
     });
 
     this.currentTheme = theme;
     this.applyThemeToElements(theme);
-    
-    logger.info('Theme applied successfully', { theme });
+
+    logger.debug('Theme applied successfully', { theme });
   }
 
   // FIXED: Apply theme to both html and body elements
@@ -715,7 +722,7 @@ export class CalendarWidget {
         }
       }, '*');
       
-      logger.info('✓ Sent enhanced focus menu config', { currentViewMode });
+      logger.debug('✓ Sent enhanced focus menu config', { currentViewMode });
     }
   }
 
@@ -880,7 +887,7 @@ export class CalendarWidget {
    * @param {string} viewMode - View mode ID ('1', '3', 'week', 'monthly')
    */
   async switchViewMode(viewMode) {
-    logger.info('Switching view mode', { from: this.currentView, to: viewMode });
+    logger.debug('Switching view mode', { from: this.currentView, to: viewMode });
     
     // NEW: Save current scroll position if switching from a weekly/day view
     let savedScroll = null;
@@ -975,11 +982,11 @@ export class CalendarWidget {
     }
     
     this.updateCalendarHeader();
-    
+
     // Update menu to reflect new active view
     this.sendMenuConfig();
-    
-    logger.info('✓ View mode switched', { viewMode });
+
+    logger.debug('✓ View mode switched', { viewMode });
   }
 
   /**

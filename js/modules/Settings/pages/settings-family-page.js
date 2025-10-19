@@ -2,6 +2,7 @@
 // Family settings page with family name and zip code inputs
 
 import { createLogger } from '../../../utils/logger.js';
+import { geocodeZipCodeCached } from '../../../utils/geocoding-helper.js';
 
 const logger = createLogger('SettingsFamilyPage');
 
@@ -64,10 +65,9 @@ export class SettingsFamilyPage {
                                value="${this.escapeHtml(zipCode || '')}"
                                placeholder="Enter zip code"
                                maxlength="10"
-                               pattern="[0-9]{5}(-[0-9]{4})?"
-                               disabled>
-                        <div class="settings-modal__helper-text" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary); opacity: 0.7;">
-                            Zip code integration coming soon
+                               pattern="[0-9]{5}(-[0-9]{4})?">
+                        <div class="settings-modal__helper-text" style="margin-top: 8px; font-size: 12px; color: var(--text-secondary);">
+                            Used for weather location in clock widget
                         </div>
                     </div>
                 </div>
@@ -86,7 +86,7 @@ export class SettingsFamilyPage {
         this.zipCodeInput = document.getElementById('zip-code-input');
 
         if (this.familyNameInput) elements.push(this.familyNameInput);
-        // Don't add zipCodeInput since it's disabled
+        if (this.zipCodeInput) elements.push(this.zipCodeInput);
 
         return elements;
     }
@@ -124,6 +124,17 @@ export class SettingsFamilyPage {
             }
         }
 
+        if (this.zipCodeInput) {
+            const newZipCode = this.zipCodeInput.value.trim();
+            const currentZipCode = this.getZipCode();
+
+            if (newZipCode && newZipCode !== currentZipCode) {
+                // Fire change event manually to ensure save
+                const event = new Event('change', { bubbles: true });
+                this.zipCodeInput.dispatchEvent(event);
+            }
+        }
+
         // Clean up event listeners
         this.cleanupEventListeners();
     }
@@ -133,13 +144,13 @@ export class SettingsFamilyPage {
      * @private
      */
     setupEventListeners() {
-        // Get fresh reference to input element
+        // Get fresh reference to input elements
         this.familyNameInput = document.getElementById('family-name-input');
+        this.zipCodeInput = document.getElementById('zip-code-input');
 
         logger.debug('Setting up event listeners', {
-            foundInput: !!this.familyNameInput,
-            inputId: this.familyNameInput?.id,
-            inputValue: this.familyNameInput?.value
+            foundFamilyNameInput: !!this.familyNameInput,
+            foundZipCodeInput: !!this.zipCodeInput
         });
 
         // Family name input - auto-save on change AND blur (like legacy implementation)
@@ -156,9 +167,33 @@ export class SettingsFamilyPage {
                 }
             });
 
-            logger.debug('Event listeners attached successfully');
+            logger.debug('Family name event listeners attached');
         } else {
             logger.error('Could not find family-name-input element!');
+        }
+
+        // Zip code input - auto-save on change AND blur
+        if (this.zipCodeInput) {
+            this.zipCodeInput.addEventListener('change', this.handleZipCodeChange.bind(this));
+            this.zipCodeInput.addEventListener('blur', this.handleZipCodeChange.bind(this));
+
+            // Also handle Enter key to trigger blur
+            this.zipCodeInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.keyCode === 13) {
+                    e.preventDefault();
+                    logger.debug('Enter key pressed on zip code input');
+                    this.zipCodeInput.blur(); // Trigger blur which saves
+                }
+            });
+
+            // Restrict to numeric input only
+            this.zipCodeInput.addEventListener('input', (e) => {
+                e.target.value = e.target.value.replace(/[^0-9-]/g, '');
+            });
+
+            logger.debug('Zip code event listeners attached');
+        } else {
+            logger.error('Could not find zip-code-input element!');
         }
     }
 
@@ -187,6 +222,35 @@ export class SettingsFamilyPage {
 
         if (newFamilyName && newFamilyName !== currentFamilyName) {
             await this.saveFamilyName(newFamilyName);
+        } else {
+            logger.debug('Skipping save - no change or empty value');
+        }
+    }
+
+    /**
+     * Handle zip code input change (auto-save and geocode)
+     * @private
+     */
+    async handleZipCodeChange(e) {
+        const newZipCode = e.target.value.trim();
+        const currentZipCode = this.getZipCode();
+
+        logger.debug('Zip code change event fired', {
+            newZipCode,
+            currentZipCode,
+            willSave: newZipCode && newZipCode !== currentZipCode
+        });
+
+        if (newZipCode && newZipCode !== currentZipCode) {
+            // Validate zip code format (5 or 9 digits)
+            const cleanZip = newZipCode.replace(/[\s-]/g, '');
+            if (!/^\d{5}(\d{4})?$/.test(cleanZip)) {
+                logger.warn('Invalid zip code format', { zipCode: newZipCode });
+                // You could show an error message here
+                return;
+            }
+
+            await this.saveZipCode(newZipCode);
         } else {
             logger.debug('Skipping save - no change or empty value');
         }
@@ -225,6 +289,72 @@ export class SettingsFamilyPage {
     }
 
     /**
+     * Save zip code to settings and geocode to get coordinates
+     * @private
+     * @param {string} zipCode - New zip code
+     */
+    async saveZipCode(zipCode) {
+        try {
+            logger.info('Saving zip code', { zipCode });
+
+            // Get settings store
+            const settingsStore = window.settingsStore;
+            if (!settingsStore) {
+                logger.error('Settings store not available');
+                return;
+            }
+
+            // Update zip code setting
+            settingsStore.set('family.zipCode', zipCode);
+
+            // Geocode the zip code to get coordinates (uses cached value if available)
+            logger.debug('Geocoding zip code for coordinates', { zipCode });
+            const coords = await geocodeZipCodeCached(zipCode);
+
+            if (coords) {
+                logger.debug('Geocoding successful', {
+                    zipCode,
+                    latitude: coords.latitude,
+                    longitude: coords.longitude,
+                    city: coords.city,
+                    state: coords.state
+                });
+
+                // Save coordinates to settings (for weather widget)
+                settingsStore.set('family.latitude', coords.latitude);
+                settingsStore.set('family.longitude', coords.longitude);
+
+                // Save city/state if available (for display purposes)
+                if (coords.city) {
+                    settingsStore.set('family.city', coords.city);
+                }
+                if (coords.state) {
+                    settingsStore.set('family.state', coords.state);
+                }
+
+                logger.info('Zip code and coordinates saved', {
+                    zipCode,
+                    city: coords.city,
+                    state: coords.state
+                });
+            } else {
+                logger.warn('Geocoding failed - saving zip code only', { zipCode });
+            }
+
+            // Save to storage
+            await settingsStore.save(true); // Show toast notification
+
+            // Apply immediately to clock widget
+            await this.applyZipCodeToClockWidget(zipCode);
+
+            logger.success('Zip code saved and applied', { zipCode });
+
+        } catch (error) {
+            logger.error('Failed to save zip code', error);
+        }
+    }
+
+    /**
      * Apply family name to header widgets immediately
      * @private
      * @param {string} familyName - Family name to apply
@@ -259,6 +389,39 @@ export class SettingsFamilyPage {
 
         } catch (error) {
             logger.warn('Failed to apply family name to widgets', error);
+        }
+    }
+
+    /**
+     * Apply zip code to clock widget for weather location
+     * @private
+     * @param {string} zipCode - Zip code to apply
+     */
+    async applyZipCodeToClockWidget(zipCode) {
+        try {
+            logger.debug('Applying zip code to clock widget', { zipCode });
+
+            // Use postMessage to send to all clock widgets
+            const clockWidgets = document.querySelectorAll('iframe[src*="clock.html"]');
+
+            clockWidgets.forEach((iframe, index) => {
+                if (iframe.contentWindow) {
+                    try {
+                        iframe.contentWindow.postMessage({
+                            type: 'location-update',
+                            payload: { zipCode }
+                        }, '*');
+                        logger.debug('Sent zip code to clock widget ' + (index + 1), { zipCode });
+                    } catch (error) {
+                        logger.warn('Failed to send zip code to clock widget ' + (index + 1), error);
+                    }
+                }
+            });
+
+            logger.debug('Zip code applied to all clock widgets', { zipCode });
+
+        } catch (error) {
+            logger.warn('Failed to apply zip code to clock widget', error);
         }
     }
 

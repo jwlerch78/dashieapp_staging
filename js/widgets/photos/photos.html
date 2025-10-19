@@ -1,0 +1,123 @@
+<!-- js/widgets/photos/photos.html -->
+<!-- Photos Widget - Ported from .legacy/widgets/photos -->
+<!-- v2.0 - Phase 5.2 - Adapted to new dashboard architecture -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Photos Widget</title>
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: var(--bg-primary, #000);
+      color: var(--text-primary, #fff);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      height: 100%;
+      width: 100%;
+    }
+
+    /* Photo container */
+    #photo-container {
+      width: 100%;
+      height: 100%;
+      background: var(--bg-primary, #000);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Loading state */
+    #loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary, #999);
+      font-size: 1.2rem;
+      text-align: center;
+    }
+
+    #loading .status {
+      margin-top: 10px;
+      font-size: 2rem;
+      animation: pulse 2s ease-in-out infinite alternate;
+    }
+
+    @keyframes pulse {
+      from { opacity: 0.5; }
+      to { opacity: 1.0; }
+    }
+
+    /* Empty state */
+    #empty-state {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      user-select: none;
+    }
+
+    #empty-state:hover {
+      opacity: 0.8;
+    }
+
+    .plus-sign {
+      font-size: 120px;
+      line-height: 1;
+      color: #EE9828;
+      font-weight: 300;
+      margin-bottom: 20px;
+    }
+
+    .empty-helper-text {
+      font-size: 16px;
+      color: #8e8e93;
+      text-align: center;
+    }
+
+    /* Photo display */
+    #photo-display {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      bottom: 10px;
+      width: calc(100% - 20px);
+      height: calc(100% - 20px);
+      object-fit: contain;
+      object-position: center center;
+      display: none;
+      opacity: 1;
+      transition: opacity 0.3s ease;
+      border-radius: 4px;
+    }
+
+    #photo-display.transitioning {
+      opacity: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="photo-container">
+    <div id="loading">
+      <div>Loading photos...</div>
+      <div class="status">📸</div>
+    </div>
+    <div id="empty-state">
+      <div class="plus-sign">+</div>
+      <div class="empty-helper-text">Click to add photos</div>
+    </div>
+    <img id="photo-display" src="" alt="Photo" />
+  </div>
+
+  <script type="module" src="./photos.js"></script>
+</body>
+</html>

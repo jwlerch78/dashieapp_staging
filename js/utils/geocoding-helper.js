@@ -1,4 +1,5 @@
 // js/utils/geocoding-helper.js
+// v1.5 - 10/18/25 - Major update: Zippopotam.us as primary service, persistent localStorage cache
 // v1.4 - 10/9/25 - Reduced logging noise: changed info logs to debug
 // v1.3 - 10/9/25 - Fixed getLocationName to use reverse geocoding for reliable city/state display
 // v1.2 - 10/9/25 - Added reverse geocoding and browser geolocation for automatic zip detection
@@ -8,111 +9,236 @@
 import { createLogger } from './logger.js';
 const logger = createLogger('GeocodingHelper');
 
+// localStorage key for persistent geocoding cache
+const GEOCODE_CACHE_KEY = 'dashie-geocode-cache';
+
 /**
- * Geocode a US zip code to latitude/longitude coordinates
- * Uses Nominatim OpenStreetMap API (free, no API key required)
- * 
+ * Geocode a US zip code using Zippopotam.us API (primary)
+ * Falls back to Nominatim if Zippopotam fails
+ *
+ * @param {string} zipCode - US zip code (5 or 9 digit format)
+ * @returns {Promise<{latitude: number, longitude: number, city?: string, state?: string}|null>}
+ */
+async function geocodeZipCodeViaZippopotam(zipCode) {
+  const zip5 = zipCode.substring(0, 5);
+
+  try {
+    logger.debug('Trying Zippopotam.us API', { zipCode: zip5 });
+
+    const url = `https://api.zippopotam.us/us/${zip5}`;
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    if (!data || !data.places || data.places.length === 0) {
+      logger.warn('No results from Zippopotam', { zipCode: zip5 });
+      return null;
+    }
+
+    const place = data.places[0];
+    const result = {
+      latitude: parseFloat(place.latitude),
+      longitude: parseFloat(place.longitude),
+      city: place['place name'],
+      state: place['state abbreviation']
+    };
+
+    logger.debug('Zippopotam geocoding successful', {
+      zipCode: zip5,
+      city: result.city,
+      state: result.state,
+      latitude: result.latitude,
+      longitude: result.longitude
+    });
+
+    return result;
+
+  } catch (error) {
+    logger.warn('Zippopotam geocoding failed, will try fallback', {
+      zipCode: zip5,
+      error: error.message
+    });
+    return null;
+  }
+}
+
+/**
+ * Geocode a US zip code using Nominatim OpenStreetMap API (fallback)
+ *
  * @param {string} zipCode - US zip code (5 or 9 digit format)
  * @returns {Promise<{latitude: number, longitude: number}|null>}
+ */
+async function geocodeZipCodeViaNominatim(zipCode) {
+  const zip5 = zipCode.substring(0, 5);
+
+  try {
+    logger.debug('Trying Nominatim API (fallback)', { zipCode: zip5 });
+
+    // Nominatim requires a User-Agent header
+    const url = `https://nominatim.openstreetmap.org/search?postalcode=${zip5}&country=us&format=json&limit=1`;
+
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Dashie/1.0 (Family Dashboard)'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    const data = await response.json();
+
+    if (!data || data.length === 0) {
+      logger.warn('No results from Nominatim', { zipCode: zip5 });
+      return null;
+    }
+
+    const result = {
+      latitude: parseFloat(data[0].lat),
+      longitude: parseFloat(data[0].lon)
+    };
+
+    logger.debug('Nominatim geocoding successful', {
+      zipCode: zip5,
+      latitude: result.latitude,
+      longitude: result.longitude
+    });
+
+    return result;
+
+  } catch (error) {
+    logger.error('Nominatim geocoding failed', {
+      zipCode: zip5,
+      error: error.message
+    });
+    return null;
+  }
+}
+
+/**
+ * Geocode a US zip code to latitude/longitude coordinates
+ * Tries Zippopotam.us first, falls back to Nominatim
+ *
+ * @param {string} zipCode - US zip code (5 or 9 digit format)
+ * @returns {Promise<{latitude: number, longitude: number, city?: string, state?: string}|null>}
  */
 export async function geocodeZipCode(zipCode) {
   if (!zipCode || typeof zipCode !== 'string') {
     logger.warn('Invalid zip code provided', { zipCode });
     return null;
   }
-  
+
   // Clean the zip code (remove spaces, dashes)
   const cleanZip = zipCode.trim().replace(/[\s-]/g, '');
-  
+
   // Validate format (5 or 9 digits)
   if (!/^\d{5}(\d{4})?$/.test(cleanZip)) {
     logger.warn('Zip code format invalid', { zipCode, cleanZip });
     return null;
   }
-  
+
   // Use first 5 digits for geocoding
   const zip5 = cleanZip.substring(0, 5);
-  
-  try {
-    logger.debug('Geocoding zip code', { zipCode: zip5 });
-    
-    // Nominatim requires a User-Agent header
-    const url = `https://nominatim.openstreetmap.org/search?postalcode=${zip5}&country=us&format=json&limit=1`;
-    
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Dashie/1.0 (Family Dashboard)'
-      }
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-    
-    const data = await response.json();
-    
-    if (!data || data.length === 0) {
-      logger.warn('No results found for zip code', { zipCode: zip5 });
-      return null;
-    }
-    
-    const result = {
-      latitude: parseFloat(data[0].lat),
-      longitude: parseFloat(data[0].lon)
-    };
-    
-    logger.debug('Geocoding successful', { 
-      zipCode: zip5, 
-      latitude: result.latitude, 
-      longitude: result.longitude 
-    });
-    
-    return result;
-    
-  } catch (error) {
-    logger.error('Geocoding failed', { 
-      zipCode: zip5, 
-      error: error.message 
-    });
+
+  logger.debug('Geocoding zip code', { zipCode: zip5 });
+
+  // Try Zippopotam first (more reliable for FireTV)
+  let result = await geocodeZipCodeViaZippopotam(zip5);
+
+  // Fall back to Nominatim if Zippopotam fails
+  if (!result) {
+    logger.debug('Falling back to Nominatim');
+    result = await geocodeZipCodeViaNominatim(zip5);
+  }
+
+  if (!result) {
+    logger.error('All geocoding services failed', { zipCode: zip5 });
     return null;
   }
-}
 
-/**
- * Geocode with caching to reduce API calls
- * Cache persists in memory for the session
- */
-const geocodeCache = new Map();
-
-export async function geocodeZipCodeCached(zipCode) {
-  const cleanZip = zipCode?.trim().replace(/[\s-]/g, '').substring(0, 5);
-  
-  if (!cleanZip) {
-    return null;
-  }
-  
-  // Check cache first
-  if (geocodeCache.has(cleanZip)) {
-    logger.debug('Using cached geocoding result', { zipCode: cleanZip });
-    return geocodeCache.get(cleanZip);
-  }
-  
-  // Fetch and cache
-  const result = await geocodeZipCode(zipCode);
-  
-  if (result) {
-    geocodeCache.set(cleanZip, result);
-  }
-  
   return result;
 }
 
 /**
- * Clear the geocoding cache
+ * Load geocoding cache from localStorage
+ * @returns {Map} - Cache map
+ */
+function loadGeocodeCache() {
+  try {
+    const cacheJson = localStorage.getItem(GEOCODE_CACHE_KEY);
+    if (!cacheJson) {
+      return new Map();
+    }
+
+    const cacheData = JSON.parse(cacheJson);
+    return new Map(Object.entries(cacheData));
+  } catch (error) {
+    logger.warn('Failed to load geocode cache from localStorage', { error: error.message });
+    return new Map();
+  }
+}
+
+/**
+ * Save geocoding cache to localStorage
+ * @param {Map} cache - Cache map
+ */
+function saveGeocodeCache(cache) {
+  try {
+    const cacheData = Object.fromEntries(cache);
+    localStorage.setItem(GEOCODE_CACHE_KEY, JSON.stringify(cacheData));
+    logger.debug('Geocode cache saved to localStorage', { entries: cache.size });
+  } catch (error) {
+    logger.warn('Failed to save geocode cache to localStorage', { error: error.message });
+  }
+}
+
+/**
+ * Geocode with persistent localStorage caching to reduce API calls
+ * Cache never expires - only cleared manually
+ */
+const geocodeCache = loadGeocodeCache();
+
+export async function geocodeZipCodeCached(zipCode) {
+  const cleanZip = zipCode?.trim().replace(/[\s-]/g, '').substring(0, 5);
+
+  if (!cleanZip) {
+    return null;
+  }
+
+  // Check cache first (persistent across sessions)
+  if (geocodeCache.has(cleanZip)) {
+    logger.debug('Using cached geocoding result from localStorage', { zipCode: cleanZip });
+    return geocodeCache.get(cleanZip);
+  }
+
+  // Fetch and cache
+  const result = await geocodeZipCode(zipCode);
+
+  if (result) {
+    geocodeCache.set(cleanZip, result);
+    saveGeocodeCache(geocodeCache);
+    logger.debug('Geocoding result cached to localStorage', { zipCode: cleanZip });
+  }
+
+  return result;
+}
+
+/**
+ * Clear the geocoding cache (both memory and localStorage)
  */
 export function clearGeocodeCache() {
   geocodeCache.clear();
-  logger.debug('Geocoding cache cleared');
+  try {
+    localStorage.removeItem(GEOCODE_CACHE_KEY);
+    logger.debug('Geocoding cache cleared from memory and localStorage');
+  } catch (error) {
+    logger.warn('Failed to clear geocode cache from localStorage', { error: error.message });
+  }
 }
 
 /**

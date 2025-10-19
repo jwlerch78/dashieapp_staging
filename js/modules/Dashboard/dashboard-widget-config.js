@@ -83,7 +83,7 @@ export const widgetConfig = [
     rowSpan: 1,
     colSpan: 1,
     label: 'Photos',
-    url: null,
+    path: 'js/widgets/photos/photos.html',
     noCenter: false,
     focusScale: 1.4,
     selectable: true

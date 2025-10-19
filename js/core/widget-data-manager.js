@@ -134,7 +134,7 @@ export class WidgetDataManager {
                     logger.debug('Clock widget ready (no data needed)');
                     break;
 
-                case 'calendar':
+                case 'main': // Calendar widget (id='main' in config)
                     await this.loadCalendarData();
                     break;
 
@@ -208,11 +208,51 @@ export class WidgetDataManager {
     }
 
     /**
-     * Load photos data (placeholder for Phase 5)
+     * Load photos data and send to photos widget
      */
     async loadPhotosData() {
-        logger.info('Photos data loading not implemented yet');
-        // TODO: Implement in Phase 5
+        try {
+            logger.info('Loading photos data');
+
+            // Get edge client
+            const edgeClient = window.edgeClient;
+            if (!edgeClient) {
+                logger.warn('EdgeClient not available');
+                this.sendToWidget('photos', 'data', {
+                    dataType: 'photos',
+                    payload: { urls: [], folder: null }
+                });
+                return;
+            }
+
+            // Call edge function to get photo URLs
+            const result = await edgeClient.callEdgeFunction('list_photos', {
+                folder: null, // Get all photos
+                limit: 100
+            });
+
+            logger.success('Photos data loaded', { count: result?.urls?.length || 0 });
+
+            // Send photos to widget
+            this.sendToWidget('photos', 'data', {
+                dataType: 'photos',
+                payload: {
+                    urls: result?.urls || [],
+                    folder: result?.folder || null
+                }
+            });
+
+        } catch (error) {
+            logger.error('Failed to load photos data', {
+                error: error.message
+            });
+
+            // Send empty array on error
+            this.sendToWidget('photos', 'data', {
+                dataType: 'photos',
+                payload: { urls: [], folder: null }
+            });
+        }
     }
 
     /**

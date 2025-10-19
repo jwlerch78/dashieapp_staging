@@ -1,5 +1,5 @@
 // ============================================================================
-// Database Operations Edge Function - Phase 4.3
+// Database Operations Edge Function - Phase 4.3+
 // ============================================================================
 // Handles database CRUD operations requiring JWT authentication
 //
@@ -16,6 +16,9 @@
 // - list_folders: List all photo folders for user from user_photos
 // - delete_photo: Delete a single photo record from user_photos
 // - delete_all_photos: Delete all photo records for user from user_photos
+//
+// ACCOUNT OPERATIONS:
+// - delete_account: Delete user account and all associated data
 // ============================================================================
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -35,6 +38,55 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 if (!JWT_SECRET || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error('Missing required environment variables');
 }
+
+// ============================================================================
+// ACCOUNT DELETION CONFIGURATION
+// ============================================================================
+
+/**
+ * DELETION CONFIGURATION
+ *
+ * Explicitly list all tables to delete during account deletion.
+ * Updated based on current schema (2025-10-18).
+ *
+ * Tables with auth_user_id that should be deleted:
+ * - user_profiles: User subscription, tier, billing info
+ * - user_auth_tokens: OAuth tokens (Google Calendar, etc.)
+ * - user_calendar_config: Calendar selections and settings
+ * - user_photos: Photo metadata
+ * - user_storage_quota: Storage usage tracking
+ * - user_settings: General user settings (theme, etc.)
+ * - dashboard_heartbeats: Dashboard activity tracking (optional)
+ *
+ * Tables with auth_user_id that should NOT be deleted:
+ * - None currently (all user data should be removed)
+ *
+ * Tables without auth_user_id (global/admin tables):
+ * - beta_whitelist: Beta access control (keep for audit)
+ * - access_control_config: Global configuration (keep)
+ */
+const DELETION_CONFIG = {
+  // Tables to delete during account deletion (in order)
+  tablesToDelete: [
+    'user_photos',           // Delete photos first
+    'user_storage_quota',    // Then storage quota
+    'user_calendar_config',  // Calendar config
+    'user_auth_tokens',      // OAuth tokens
+    'user_settings',         // User settings
+    'dashboard_heartbeats',  // Activity tracking
+    'user_profiles'          // Finally, user profile
+    // Note: auth.users record deleted separately via supabase.auth.admin.deleteUser()
+  ],
+
+  // Tables with storage bucket files that need cleanup
+  tablesWithStorage: [
+    {
+      table: 'user_photos',
+      storagePathColumns: ['storage_path', 'thumbnail_path'],
+      bucket: 'photos'
+    }
+  ]
+};
 
 // ============================================================================
 // MAIN HANDLER
@@ -97,6 +149,11 @@ serve(async (req) => {
       result = await handleDeletePhoto(supabase, userId, data);
     } else if (operation === 'delete_all_photos') {
       result = await handleDeleteAllPhotos(supabase, userId);
+
+    // Account operations
+    } else if (operation === 'delete_account') {
+      result = await handleDeleteAccount(supabase, userId);
+
     } else {
       return jsonResponse({ error: 'Invalid operation' }, 400);
     }
@@ -534,6 +591,144 @@ async function handleDeleteAllPhotos(supabase: any, authUserId: string) {
     };
   } catch (error) {
     console.error('🚨 handleDeleteAllPhotos error:', error);
+    throw error;
+  }
+}
+
+// ============================================================================
+// ACCOUNT DELETION OPERATIONS
+// ============================================================================
+
+async function handleDeleteAccount(supabase: any, authUserId: string) {
+  try {
+    console.log(`🗑️ DELETING ACCOUNT for user: ${authUserId}`);
+
+    const deletionResults = {
+      deleted: true,
+      user_id: authUserId,
+      storage_paths: [] as Array<{ path: string; bucket: string; table: string }>,
+      tables_deleted: {} as Record<string, number>,
+      total_records_deleted: 0,
+      errors: [] as Array<{ table: string; error: string }>
+    };
+
+    // STEP 1: Collect storage paths from all relevant tables BEFORE deleting
+    console.log('📦 Collecting storage paths...');
+
+    for (const tableConfig of DELETION_CONFIG.tablesWithStorage) {
+      try {
+        const columns = tableConfig.storagePathColumns;
+
+        const { data: rows } = await supabase
+          .from(tableConfig.table)
+          .select(columns.join(', '))
+          .eq('auth_user_id', authUserId);
+
+        if (rows && rows.length > 0) {
+          const paths: string[] = [];
+
+          rows.forEach((row: any) => {
+            columns.forEach((col) => {
+              if (row[col]) {
+                paths.push(row[col]);
+              }
+            });
+          });
+
+          deletionResults.storage_paths.push(
+            ...paths.map((path) => ({
+              path,
+              bucket: tableConfig.bucket,
+              table: tableConfig.table
+            }))
+          );
+
+          console.log(
+            `📦 Collected ${paths.length} storage paths from ${tableConfig.table}`
+          );
+        }
+      } catch (error: any) {
+        console.warn(
+          `⚠️ Failed to collect storage paths from ${tableConfig.table}:`,
+          error
+        );
+        deletionResults.errors.push({
+          table: tableConfig.table,
+          error: `collect_storage: ${error?.message || 'Unknown error'}`
+        });
+      }
+    }
+
+    // STEP 2: Delete from all configured tables
+    console.log('🗑️ Deleting from tables...');
+
+    for (const tableName of DELETION_CONFIG.tablesToDelete) {
+      try {
+        const { data, error } = await supabase
+          .from(tableName)
+          .delete()
+          .eq('auth_user_id', authUserId)
+          .select();
+
+        if (error) {
+          // PGRST116 = no rows found (not an error for deletion)
+          if (error.code !== 'PGRST116') {
+            console.error(`❌ Failed to delete from ${tableName}:`, error);
+            deletionResults.errors.push({
+              table: tableName,
+              error: error.message
+            });
+          } else {
+            console.log(`✅ No records in ${tableName} (already empty)`);
+            deletionResults.tables_deleted[tableName] = 0;
+          }
+        } else {
+          const count = data?.length || 0;
+          console.log(`✅ Deleted ${count} records from ${tableName}`);
+          deletionResults.tables_deleted[tableName] = count;
+          deletionResults.total_records_deleted += count;
+        }
+      } catch (error: any) {
+        console.error(`❌ Exception deleting from ${tableName}:`, error);
+        deletionResults.errors.push({
+          table: tableName,
+          error: error?.message || 'Unknown error'
+        });
+      }
+    }
+
+    // STEP 3: Delete auth user (CASCADE will clean up any remaining records)
+    console.log('🗑️ Deleting auth user...');
+
+    try {
+      const { error: authError } = await supabase.auth.admin.deleteUser(
+        authUserId
+      );
+
+      if (authError) {
+        throw new Error(`Failed to delete auth user: ${authError.message}`);
+      }
+
+      console.log(`✅ Auth user deleted: ${authUserId}`);
+    } catch (error: any) {
+      console.error('❌ Failed to delete auth user:', error);
+      deletionResults.errors.push({
+        table: 'auth.users',
+        error: error?.message || 'Unknown error'
+      });
+      // Don't throw - we want to return partial results
+    }
+
+    console.log(`🗑️ ✅ Account deletion complete:`, {
+      tables_deleted: Object.keys(deletionResults.tables_deleted).length,
+      total_records: deletionResults.total_records_deleted,
+      storage_items: deletionResults.storage_paths.length,
+      errors: deletionResults.errors.length
+    });
+
+    return deletionResults;
+  } catch (error) {
+    console.error('🗑️ ❌ Account deletion failed:', error);
     throw error;
   }
 }
