@@ -381,17 +381,21 @@ export class SettingsDisplayPage {
     async setTheme(theme) {
         logger.info('Setting theme', { theme });
 
-        // Apply theme FIRST for instant visual feedback
+        // Save to settings store FIRST so getCurrentTheme() returns correct value
+        if (window.settingsStore) {
+            window.settingsStore.set('interface.theme', theme);
+        }
+
+        // Apply theme for instant visual feedback
         if (window.themeApplier) {
             window.themeApplier.applyTheme(theme, true);
         }
 
         // Update the theme display on the main Display screen
-        this.updateThemeDisplay();
+        this.updateThemeDisplay(theme);
 
-        // Save to settings store in the background (non-blocking for UI)
+        // Save to database in the background (non-blocking for UI)
         if (window.settingsStore) {
-            window.settingsStore.set('interface.theme', theme);
             await window.settingsStore.save();
         }
     }
@@ -464,15 +468,16 @@ export class SettingsDisplayPage {
 
     /**
      * Update theme display value after selection
+     * @param {string} theme - Optional theme to display (if not provided, reads from store)
      */
-    updateThemeDisplay() {
-        const theme = this.getCurrentTheme();
-        const themeDisplay = theme.charAt(0).toUpperCase() + theme.slice(1);
+    updateThemeDisplay(theme = null) {
+        const themeToDisplay = theme || this.getCurrentTheme();
+        const themeDisplay = themeToDisplay.charAt(0).toUpperCase() + themeToDisplay.slice(1);
         const displayElement = document.getElementById('theme-display');
 
         if (displayElement) {
             displayElement.textContent = themeDisplay;
-            logger.debug('Updated theme display', { theme, themeDisplay });
+            logger.debug('Updated theme display', { theme: themeToDisplay, themeDisplay });
         }
     }
 

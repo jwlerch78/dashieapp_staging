@@ -10,6 +10,7 @@ import {
   getThemeIds,
   isValidTheme
 } from '../themes/theme-registry.js';
+import { themeOverlay } from './theme-overlay-v2.js';
 
 const logger = createLogger('ThemeApplier');
 
@@ -36,6 +37,11 @@ class ThemeApplier {
     }
 
     logger.info('Initializing ThemeApplier (ready to apply themes)...');
+
+    // Initialize theme overlay
+    if (themeOverlay) {
+      themeOverlay.initialize();
+    }
 
     this.initialized = true;
     logger.success('ThemeApplier initialized and ready', { currentTheme: this.currentTheme });
@@ -145,6 +151,11 @@ class ThemeApplier {
 
     // Update sidebar logo src based on theme
     this.updateSidebarLogo(theme);
+
+    // Apply theme overlay (Halloween decorations, etc.)
+    if (themeOverlay) {
+      themeOverlay.applyOverlay(theme);
+    }
 
     logger.debug('Theme classes applied to DOM', { theme, cssClass: themeObj.cssClass });
   }

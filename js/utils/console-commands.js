@@ -95,6 +95,10 @@ class ConsoleCommands {
     window.ToggleTheme = this.toggleTheme.bind(this);
     window.toggleTheme = this.toggleTheme.bind(this);
 
+    // Theme Overlay Commands
+    window.InspectOverlay = this.inspectOverlay.bind(this);
+    window.inspectOverlay = this.inspectOverlay.bind(this);
+
     // Input Handler Debug Commands
     window.GetListeners = this.getListeners.bind(this);
     window.getListeners = this.getListeners.bind(this);
@@ -185,6 +189,7 @@ class ConsoleCommands {
   setTheme('light')         - Set theme to light mode
   setTheme('dark')          - Set theme to dark mode
   toggleTheme()             - Toggle between light and dark
+  inspectOverlay()          - Inspect theme overlay status 🎃
 
 🔧 INPUT HANDLER DEBUG:
   getListeners()            - Show active event listeners status
@@ -209,8 +214,22 @@ class ConsoleCommands {
     // Store in localStorage
     localStorage.setItem('dashie-log-level', level);
 
-    console.log(`✅ Log level set to: ${level}`);
-    console.log('⚠️  Reload page for changes to take effect');
+    // Apply immediately via logger configureLogging()
+    if (window.Logger && window.Logger.configureLogging) {
+      const LOG_LEVELS = {
+        DEBUG: 0,
+        VERBOSE: 0.5,
+        INFO: 1,
+        WARN: 2,
+        ERROR: 3
+      };
+      const levelValue = LOG_LEVELS[level.toUpperCase()];
+      if (levelValue !== undefined) {
+        window.Logger.configureLogging({ level: levelValue });
+      }
+    }
+
+    console.log(`✅ Log level set to: ${level} (effective immediately)`);
 
     return level;
   }
@@ -507,6 +526,66 @@ class ConsoleCommands {
     console.log(`✅ Theme toggled to: ${newTheme}`);
 
     return { success: true, theme: newTheme };
+  }
+
+  /**
+   * Inspect theme overlay status
+   */
+  inspectOverlay() {
+    console.log('🎃 Inspecting Theme Overlay...\n');
+
+    // Get themeOverlay from themeApplier module
+    import('../ui/theme-overlay-v2.js').then(module => {
+      const overlay = module.themeOverlay;
+
+      if (!overlay) {
+        console.error('❌ ThemeOverlay not initialized');
+        return;
+      }
+
+      console.log('📊 Overlay Status:');
+      console.log(`  Enabled: ${overlay.enabled}`);
+      console.log(`  Current Theme: ${overlay.currentTheme || 'none'}`);
+      console.log(`  Active Elements: ${overlay.activeElements.size}`);
+
+      if (overlay.activeElements.size > 0) {
+        console.log('\n🎨 Active Elements:');
+        overlay.activeElements.forEach((data, id) => {
+          const config = data.config;
+          console.log(`\n  ${id}:`);
+          console.log(`    Container: ${config.container || 'dashboard'}`);
+          console.log(`    Position: ${config.position.type}`);
+          console.log(`    Movement: ${config.movement?.type || 'none'}`);
+          console.log(`    Visibility: ${config.visibility?.type || 'always'}`);
+          console.log(`    Visible: ${data.element.style.display !== 'none'}`);
+        });
+      }
+
+      // Check widget iframe overlays
+      console.log('\n🖼️ Widget Iframe Overlays:');
+      const widgetIframes = document.querySelectorAll('.widget-iframe');
+      widgetIframes.forEach(iframe => {
+        try {
+          const iframeDoc = iframe.contentDocument;
+          if (iframeDoc) {
+            const overlayContainer = iframeDoc.body.querySelector('.widget-theme-overlay');
+            if (overlayContainer) {
+              const elementCount = overlayContainer.children.length;
+              console.log(`  ${iframe.id}: ${elementCount} element(s)`);
+            } else {
+              console.log(`  ${iframe.id}: no overlay`);
+            }
+          }
+        } catch (error) {
+          console.log(`  ${iframe.id}: cannot access (cross-origin?)`);
+        }
+      });
+
+    }).catch(error => {
+      console.error('❌ Failed to load theme overlay module:', error);
+    });
+
+    return { info: 'Inspecting overlay... (async, check console)' };
   }
 
   /**

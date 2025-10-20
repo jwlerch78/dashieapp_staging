@@ -51,6 +51,17 @@ class WidgetMessenger {
     try {
       logger.verbose('Initializing WidgetMessenger...');
 
+      // Load current theme from localStorage
+      try {
+        const savedTheme = localStorage.getItem('dashie-theme');
+        if (savedTheme) {
+          this.currentState.theme = savedTheme;
+          logger.debug('WidgetMessenger loaded theme from localStorage', { theme: savedTheme });
+        }
+      } catch (e) {
+        logger.debug('Could not read theme from localStorage, using default');
+      }
+
       // Set up widget message listener
       this.setupMessageListener();
 
@@ -59,7 +70,7 @@ class WidgetMessenger {
 
       this.isInitialized = true;
 
-      logger.verbose('WidgetMessenger initialized');
+      logger.verbose('WidgetMessenger initialized', { initialTheme: this.currentState.theme });
       return true;
     } catch (error) {
       logger.error('Failed to initialize WidgetMessenger', error);

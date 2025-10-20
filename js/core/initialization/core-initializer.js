@@ -54,9 +54,15 @@ export async function initializeCore(options = {}) {
       // Initialize Settings in bypass mode (no database operations)
       await Settings.initialize({ bypassAuth: true });
 
-      // Apply default theme without loading from database
-      themeApplier.applyTheme('light', false); // Don't save to localStorage
-      logger.info('Applied default light theme (bypass mode)');
+      // Apply theme from localStorage (or default to light if not set)
+      try {
+        const savedTheme = localStorage.getItem('dashie-theme') || 'light';
+        themeApplier.applyTheme(savedTheme, false); // Don't save to localStorage (already there)
+        logger.info('Applied theme from localStorage (bypass mode)', { theme: savedTheme });
+      } catch (e) {
+        themeApplier.applyTheme('light', false);
+        logger.info('Applied default light theme (bypass mode - localStorage unavailable)');
+      }
     }
 
     // Initialize core components

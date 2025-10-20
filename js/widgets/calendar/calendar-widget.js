@@ -1,5 +1,6 @@
 // js/widgets/calendar/calendar-widget.js - Calendar Widget Class
 // Migrated from legacy dcal widget - Phase 4.5
+// v1.17 - 10/20/25 - Improved theme detection robustness
 // v1.16 - 10/12/25 10:30pm - FIXED: LEFT at home returns to menu without navigating (prevents going into past)
 // v1.15 - 10/12/25 10:25pm - FIXED: Simplified left navigation - returns to menu when arriving at home position
 // v1.14 - 10/12/25 9:45pm - FIXED: D-pad left navigation now only returns to menu when AT home position
@@ -8,6 +9,7 @@
 // CHANGE SUMMARY: Check isAtHome AFTER navigation, not wasAtHome before - simpler and correct
 
 import { createLogger } from '/js/utils/logger.js';
+import { detectCurrentTheme, applyThemeToWidget } from '/js/widgets/shared/widget-theme-detector.js';
 import { CalendarConfig } from './calendar-config.js';
 import { CalendarEvents } from './calendar-events.js';
 import { CalendarWeekly } from './calendar-weekly.js';
@@ -201,44 +203,9 @@ export class CalendarWidget {
   }
 
   detectAndApplyInitialTheme() {
-    let detectedTheme = null;
-
-    // Try to get theme from parent window first (since we're in an iframe)
-    try {
-      if (window.parent && window.parent !== window && window.parent.document) {
-        const parentBody = window.parent.document.body;
-        if (parentBody.classList.contains('theme-light')) {
-          detectedTheme = 'light';
-        } else if (parentBody.classList.contains('theme-dark')) {
-          detectedTheme = 'dark';
-        }
-      }
-    } catch (e) {
-      // Cross-origin error - can't access parent
-      logger.debug('Cannot access parent window for theme detection');
-    }
-
-    // Fallback: try localStorage
-    if (!detectedTheme) {
-      try {
-        const savedTheme = localStorage.getItem('dashie-theme');
-        if (savedTheme === 'light' || savedTheme === 'dark') {
-          detectedTheme = savedTheme;
-        }
-      } catch (e) {
-        logger.debug('Cannot read theme from localStorage');
-      }
-    }
-
-    // Apply detected theme or default to light
-    if (detectedTheme) {
-      this.currentTheme = detectedTheme;
-      this.applyThemeToElements(detectedTheme);
-      logger.debug('Initial theme detected', { theme: detectedTheme });
-    } else {
-      this.applyTheme('light'); // Default to light theme
-      logger.debug('No initial theme detected, using default light theme');
-    }
+    const initialTheme = detectCurrentTheme('light');
+    this.applyTheme(initialTheme);
+    logger.debug('Initial theme detected', { theme: initialTheme });
   }
 
   setupKeyboardControls() {
@@ -621,13 +588,8 @@ export class CalendarWidget {
 
   // FIXED: Apply theme to both html and body elements
   applyThemeToElements(theme) {
-    // Remove both theme classes
-    document.documentElement.classList.remove('theme-dark', 'theme-light');
-    document.body.classList.remove('theme-dark', 'theme-light');
-    
-    // Add new theme class to both elements
-    document.documentElement.classList.add(`theme-${theme}`);
-    document.body.classList.add(`theme-${theme}`);
+    // Use utility to apply theme classes (removes all existing theme classes automatically)
+    applyThemeToWidget(theme);
   }
 
   // ==================== LAST UPDATED DISPLAY ====================

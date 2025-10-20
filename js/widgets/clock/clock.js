@@ -1,10 +1,10 @@
 // widgets/clock/clock.js
 // Clock widget with weather display
-// Migrated from legacy (.legacy/widgets/clock/clock.html inline script)
-// Minimal changes: extracted to external file, updated widget-ready protocol
+// v2.0 - 10/20/25 - Improved theme detection robustness
 
 import { createLogger } from '/js/utils/logger.js';
 import { geocodeZipCodeCached } from '/js/utils/geocoding-helper.js';
+import { detectCurrentTheme, applyThemeToWidget } from '/js/widgets/shared/widget-theme-detector.js';
 
 const DEFAULT_THEME = 'dark'; // Local constant instead of importing from theme.js
 
@@ -52,28 +52,10 @@ class ClockWidget {
     // Weather will update when location is received via postMessage
   }
 
-  // Detect initial theme from DOM or localStorage
+  // Detect initial theme from parent window or localStorage
   detectAndApplyInitialTheme() {
-    let initialTheme = DEFAULT_THEME; // fallback
-
-    // Try to detect theme from body class (applied by early theme loading)
-    if (document.body.classList.contains('theme-light')) {
-      initialTheme = 'light';
-    } else if (document.body.classList.contains('theme-dark')) {
-      initialTheme = 'dark';
-    } else {
-      // Fallback: try localStorage
-      try {
-        const savedTheme = localStorage.getItem('dashie-theme');
-        if (savedTheme && (savedTheme === 'dark' || savedTheme === 'light')) {
-          initialTheme = savedTheme;
-        }
-      } catch (error) {
-        logger.debug('Could not read theme from localStorage, using default');
-      }
-    }
-
-    // Apply the detected theme immediately
+    const initialTheme = detectCurrentTheme(DEFAULT_THEME);
+    logger.debug('Initial theme detected', { theme: initialTheme });
     this.applyTheme(initialTheme);
   }
 
@@ -132,6 +114,7 @@ class ClockWidget {
   handleDataServiceMessage(data) {
     switch (data.type) {
       case 'widget-update':
+      case 'data':  // Handle both widget-update and data types
         if (data.action === 'state-update') {
           // Check if this update contains anything relevant to clock widget
           const hasTheme = data.payload?.theme;
@@ -269,11 +252,10 @@ class ClockWidget {
     const previousTheme = this.currentTheme;
     this.currentTheme = theme;
 
-    // Remove any existing theme classes
-    document.body.classList.remove('theme-dark', 'theme-light');
+    // Use utility to apply theme classes (removes all existing theme classes automatically)
+    applyThemeToWidget(theme);
 
-    // Apply new theme class
-    document.body.classList.add(`theme-${theme}`);
+    logger.debug('Theme applied', { theme, previousTheme });
   }
 
   updateTime() {

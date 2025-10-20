@@ -229,10 +229,20 @@ ${'='.repeat(80)}
  */
 function loadLogConfig() {
   try {
+    // Load from main config storage
     const saved = localStorage.getItem(LOG_CONFIG_STORAGE_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
       GLOBAL_LOG_CONFIG = { ...GLOBAL_LOG_CONFIG, ...parsed };
+    }
+
+    // Also check for 'dashie-log-level' (set by console commands)
+    const logLevel = localStorage.getItem('dashie-log-level');
+    if (logLevel) {
+      const level = LOG_LEVELS[logLevel.toUpperCase()];
+      if (level !== undefined) {
+        GLOBAL_LOG_CONFIG.level = level;
+      }
     }
   } catch (error) {
     console.warn('Failed to load log config from localStorage:', error);
@@ -365,17 +375,18 @@ export class Logger {
 
   /**
    * Debug level logging - for detailed development information
-   * Only shows if debug mode is enabled via dashieDebug.enable()
+   * Shows if either: 1) log level is DEBUG, OR 2) dashieDebug.enable() was called
    * @param {string} message - Log message
    * @param {any} data - Optional additional data
    */
   debug(message, data = null) {
-    // Check if debug logs are enabled globally
-    if (!LoggerConfig.enableDebugLogs) {
-      return; // Silently skip debug logs in production mode
-    }
+    // Check if debug logs are enabled (either via log level OR via LoggerConfig)
+    const debugEnabledViaConfig = LoggerConfig.enableDebugLogs;
+    const debugEnabledViaLevel = this.shouldLog(LOG_LEVELS.DEBUG);
 
-    if (!this.shouldLog(LOG_LEVELS.DEBUG)) return;
+    if (!debugEnabledViaConfig && !debugEnabledViaLevel) {
+      return; // Skip debug logs unless enabled via either method
+    }
 
     const args = this.formatMessage(LOG_LEVELS.DEBUG, `🔍 ${message}`, data);
     console.log(...args);
