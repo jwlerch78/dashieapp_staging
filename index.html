@@ -8,6 +8,7 @@
   <!-- Core CSS -->
   <link rel="stylesheet" href="./css/core/base.css">
   <link rel="stylesheet" href="./css/core/variables.css">
+  <link rel="stylesheet" href="./css/core/themes.css">
   <link rel="stylesheet" href="./css/core/utilities.css">
 
   <!-- Component CSS -->
@@ -37,15 +38,19 @@
       <!-- Loading Dashboard State (shown when authenticated and loading) -->
       <div class="loading-dashboard-state" id="loading-dashboard-state" style="display: none;">
         <div class="loading-dashboard-welcome" id="loading-dashboard-welcome">Welcome</div>
-        <div class="loading-dashboard-spinner"></div>
-        <div class="loading-dashboard-text">Loading Dashboard</div>
+        <div class="loading-dashboard-spinner" id="loading-dashboard-spinner"></div>
+        <div class="loading-dashboard-text" id="loading-dashboard-text">Loading Dashboard</div>
+        <div class="loading-dashboard-error" id="loading-dashboard-error" style="display: none;"></div>
+        <button class="signin-button secondary" id="loading-cancel-button" style="display: none;">
+          Cancel
+        </button>
       </div>
 
       <!-- Sign In State (shown when not authenticated) -->
       <div class="sign-in-state" id="sign-in-state">
         <div class="sign-in-header">
           <h2>Welcome to Dashie!</h2>
-          <p>Helping active families manage the chaos</p>
+          <p id="app-tagline"><!-- Populated by JavaScript --></p>
         </div>
 
         <div class="sign-in-content">

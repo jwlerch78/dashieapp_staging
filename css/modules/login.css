@@ -125,6 +125,19 @@
   font-weight: 500;
 }
 
+.loading-dashboard-error {
+  background: #ffebee;
+  padding: 16px 20px;
+  border-radius: 8px;
+  border-left: 4px solid #d32f2f;
+  color: #d32f2f;
+  margin-top: 10px;
+  font-size: 15px;
+  line-height: 1.5;
+  max-width: 320px;
+  text-align: center;
+}
+
 .loading-dashboard-message {
   color: #757575;
   font-size: 15px;

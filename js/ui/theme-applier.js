@@ -1,15 +1,20 @@
 // js/ui/theme-applier.js
 // Theme management and application
-// Replaces legacy theme.js with modern AppComms-based system
+// v1.1 - Modularized to use theme registry
 
 import { createLogger } from '../utils/logger.js';
 import AppComms from '../core/app-comms.js';
-import { DEFAULT_THEME as CONFIG_DEFAULT_THEME } from '../../config.js';
+import {
+  DEFAULT_THEME_ID,
+  getTheme,
+  getThemeIds,
+  isValidTheme
+} from '../themes/theme-registry.js';
 
 const logger = createLogger('ThemeApplier');
 
-export const DEFAULT_THEME = CONFIG_DEFAULT_THEME || 'light';
-export const VALID_THEMES = ['light', 'dark'];
+export const DEFAULT_THEME = DEFAULT_THEME_ID;
+export const VALID_THEMES = getThemeIds();
 
 class ThemeApplier {
   constructor() {
@@ -44,7 +49,7 @@ class ThemeApplier {
     try {
       const savedTheme = localStorage.getItem('dashie-theme');
 
-      if (savedTheme && VALID_THEMES.includes(savedTheme)) {
+      if (savedTheme && isValidTheme(savedTheme)) {
         logger.info('Theme loaded from localStorage', { theme: savedTheme });
         return savedTheme;
       }
@@ -71,13 +76,13 @@ class ThemeApplier {
 
   /**
    * Apply theme to the application
-   * @param {string} theme - Theme name ('light' or 'dark')
+   * @param {string} theme - Theme name (from registry)
    * @param {boolean} save - Whether to save to localStorage (default: true)
    */
   applyTheme(theme, save = true) {
     // Validate theme
-    if (!VALID_THEMES.includes(theme)) {
-      logger.error('Invalid theme', { theme, validThemes: VALID_THEMES });
+    if (!isValidTheme(theme)) {
+      logger.error('Invalid theme', { theme, validThemes: getThemeIds() });
       return;
     }
 
@@ -117,14 +122,23 @@ class ThemeApplier {
    */
   applyThemeToDOM(theme, previousTheme) {
     const body = document.body;
+    const themeObj = getTheme(theme);
 
-    // Remove old theme class
-    if (previousTheme) {
-      body.classList.remove(`theme-${previousTheme}`);
+    if (!themeObj) {
+      logger.error('Theme object not found', { theme });
+      return;
     }
 
+    // Remove all existing theme classes
+    getThemeIds().forEach(id => {
+      const themeToRemove = getTheme(id);
+      if (themeToRemove) {
+        body.classList.remove(themeToRemove.cssClass);
+      }
+    });
+
     // Add new theme class
-    body.classList.add(`theme-${theme}`);
+    body.classList.add(themeObj.cssClass);
 
     // Update data attribute for CSS selectors
     body.setAttribute('data-theme', theme);
@@ -132,7 +146,7 @@ class ThemeApplier {
     // Update sidebar logo src based on theme
     this.updateSidebarLogo(theme);
 
-    logger.debug('Theme classes applied to DOM', { theme });
+    logger.debug('Theme classes applied to DOM', { theme, cssClass: themeObj.cssClass });
   }
 
   /**
@@ -145,12 +159,14 @@ class ThemeApplier {
       return;
     }
 
-    // Set logo source based on theme
-    if (theme === 'light') {
-      logo.src = '/artwork/Dashie_Full_Logo_Black_Transparent.png';
-    } else {
-      logo.src = '/artwork/Dashie_Full_Logo_White_Transparent.png';
+    const themeObj = getTheme(theme);
+    if (!themeObj) {
+      logger.error('Theme object not found for logo update', { theme });
+      return;
     }
+
+    // Set logo source from theme registry
+    logo.src = themeObj.logoSrc;
 
     logger.debug('Logo updated for theme', { theme, src: logo.src });
   }

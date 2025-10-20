@@ -1,36 +1,32 @@
 // js/core/theme.js - Simplified Theme System
-// v1.1 - 10/9/25 - Changed default theme from dark to light
-// CHANGE SUMMARY: Drastically simplified - only manages body/logo, WidgetMessenger handles all widget communication
+// v1.2 - Modularized to use theme registry
+// CHANGE SUMMARY: Now uses centralized theme registry for theme definitions
 
 import { createLogger } from '../utils/logger.js';
 import AppComms from './app-comms.js';
+import {
+  THEME_REGISTRY,
+  DEFAULT_THEME_ID,
+  getTheme,
+  getThemeIds,
+  getAllThemes,
+  isValidTheme
+} from '../themes/theme-registry.js';
 
 const logger = createLogger('Theme');
 
 // ---------------------
-// THEME CONSTANTS
+// THEME CONSTANTS (from registry)
 // ---------------------
 
+// Export theme IDs for backwards compatibility
 export const THEMES = {
   DARK: 'dark',
   LIGHT: 'light'
 };
 
-
-// SINGLE SOURCE OF TRUTH for default theme
-export const DEFAULT_THEME = THEMES.LIGHT;
-
-
-const THEME_CONFIG = {
-  [THEMES.DARK]: {
-    name: 'Dark Theme',
-    logoSrc: '/icons/Dashie_Full_Logo_White_Transparent.png'
-  },
-  [THEMES.LIGHT]: {
-    name: 'Light Theme', 
-    logoSrc: '/icons/Dashie_Full_Logo_Black_Transparent.png'
-  }
-};
+// SINGLE SOURCE OF TRUTH for default theme (from registry)
+export const DEFAULT_THEME = DEFAULT_THEME_ID;
 
 
 
@@ -72,7 +68,7 @@ async function loadTheme() {
   // Try localStorage first (fast, cached user preference)
   try {
     const saved = localStorage.getItem('dashie-theme');
-    if (Object.values(THEMES).includes(saved)) {
+    if (isValidTheme(saved)) {
       logger.debug('Theme loaded from localStorage:', saved);
       return saved;
     }
@@ -111,25 +107,40 @@ async function saveTheme(theme) {
 // ---------------------
 
 function applyThemeToBody(theme) {
-  // Remove existing theme classes
-  document.body.classList.remove('theme-dark', 'theme-light');
+  const themeObj = getTheme(theme);
+  if (!themeObj) {
+    logger.warn('Invalid theme object for:', theme);
+    return;
+  }
+
+  // Remove all existing theme classes
+  getThemeIds().forEach(id => {
+    document.body.classList.remove(`theme-${id}`);
+  });
+
   // Add new theme class
-  document.body.classList.add(`theme-${theme}`);
-  
+  document.body.classList.add(themeObj.cssClass);
+
   logger.debug('Body theme applied:', theme);
 }
 
 function updateLogo(theme) {
+  const themeObj = getTheme(theme);
+  if (!themeObj) {
+    logger.warn('Invalid theme object for logo update:', theme);
+    return;
+  }
+
   const logo = document.querySelector('.dashie-logo');
   if (logo) {
-    logo.src = THEME_CONFIG[theme].logoSrc;
+    logo.src = themeObj.logoSrc;
     logger.debug('Logo updated:', theme);
   } else {
     // Retry once after delay
     setTimeout(() => {
       const retryLogo = document.querySelector('.dashie-logo');
       if (retryLogo) {
-        retryLogo.src = THEME_CONFIG[theme].logoSrc;
+        retryLogo.src = themeObj.logoSrc;
         logger.debug('Logo updated on retry:', theme);
       }
     }, 500);
@@ -145,37 +156,38 @@ export function getCurrentTheme() {
 }
 
 export function getAvailableThemes() {
-  return Object.keys(THEME_CONFIG).map(key => ({
-    id: key,
-    name: THEME_CONFIG[key].name
+  return getAllThemes().map(theme => ({
+    id: theme.id,
+    name: theme.name
   }));
 }
 
 export async function switchTheme(newTheme) {
-  if (!Object.values(THEMES).includes(newTheme)) {
+  if (!isValidTheme(newTheme)) {
     logger.warn('Invalid theme:', newTheme);
     return false;
   }
-  
+
   // Skip if already the current theme
   if (newTheme === currentTheme) {
     logger.debug('Theme already set, skipping switch:', newTheme);
     return true;
   }
-  
+
+  const themeObj = getTheme(newTheme);
   logger.info('Switching theme', { from: currentTheme, to: newTheme });
-  
+
   currentTheme = newTheme;
-  
+
   // Apply theme to body and logo only
   applyThemeToBody(newTheme);
   updateLogo(newTheme);
   await saveTheme(newTheme);
-  
+
   // Emit ONE event - WidgetMessenger will handle all widget communication
   AppComms.publish(AppComms.events.THEME_CHANGED, { theme: newTheme });
-  
-  logger.info('Theme switched to:', THEME_CONFIG[newTheme].name);
+
+  logger.info('Theme switched to:', themeObj.name);
   return true;
 }
 
@@ -204,7 +216,7 @@ export async function initializeThemeSystem() {
     if (settingsConnected && settingsSystem) {
       try {
         const settingsTheme = settingsSystem.getSettingValue('interface.theme', currentTheme);
-        if (settingsTheme !== currentTheme && Object.values(THEMES).includes(settingsTheme)) {
+        if (settingsTheme !== currentTheme && isValidTheme(settingsTheme)) {
           logger.info('Settings system has different theme, switching:', { from: currentTheme, to: settingsTheme });
           await switchTheme(settingsTheme);
         } else {
@@ -223,7 +235,8 @@ export async function initializeThemeSystem() {
       }
     });
 
-    logger.info('Theme system initialized:', THEME_CONFIG[currentTheme].name);
+    const themeObj = getTheme(currentTheme);
+    logger.info('Theme system initialized:', themeObj?.name || currentTheme);
 
   } catch (error) {
     logger.error('Theme system initialization failed:', error);

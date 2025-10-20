@@ -15,6 +15,7 @@
 export const APP_VERSION = '2.0.0';
 export const APP_NAME = 'Dashie';
 export const APP_DESCRIPTION = 'Smart Home Dashboard';
+export const APP_TAGLINE = 'Helping active families manage the chaos';
 
 // =============================================================================
 // PLATFORM DETECTION
@@ -459,6 +460,7 @@ export default {
   APP_VERSION,
   APP_NAME,
   APP_DESCRIPTION,
+  APP_TAGLINE,
 
   // Enums
   PLATFORMS,

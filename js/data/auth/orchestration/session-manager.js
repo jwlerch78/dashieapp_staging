@@ -282,7 +282,19 @@ export class SessionManager {
 
                 } catch (error) {
                     logger.error('Failed to complete OAuth callback flow', error);
-                    // Fall through to session restoration or login
+
+                    // Check if this is an access denied error (user not in beta)
+                    if (error.message && error.message.includes('Access denied')) {
+                        this.isInitialized = true;
+                        return {
+                            authenticated: false,
+                            user: null,
+                            error: error.message,
+                            oauthCallback: true
+                        };
+                    }
+
+                    // Other errors - fall through to session restoration or login
                     this.isAuthenticated = false;
                     this.user = null;
                 }

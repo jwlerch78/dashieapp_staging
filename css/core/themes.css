@@ -1,0 +1,92 @@
+/* css/core/themes.css - Theme Color Definitions */
+/* v1.1 - Cleaned up to only include actively used variables */
+/* Add new themes here - only color overrides needed! */
+/* Note: All unused variables have been removed. :root in variables.css provides fallbacks. */
+
+/* ============================================================================
+   DARK THEME - Essential Color Overrides Only
+   ============================================================================ */
+
+body.theme-dark {
+  /* ===== BACKGROUNDS (9 variables) ===== */
+  --bg-primary: #222;
+  --bg-secondary: #333;
+  --bg-tertiary: #444;
+  --bg-modal-backdrop: rgba(0, 0, 0, 0.7);
+  --bg-sleep: #000;
+  --bg-button: #666;
+  --bg-active: rgba(255, 255, 255, 0.2);
+  --bg-primary-semi-transparent: rgba(34, 34, 34, 0.9);
+  --bg-selected-fill: rgba(168, 176, 184, 0.2);
+
+  /* ===== TEXT (3 variables) ===== */
+  --text-primary: #fff;
+  --text-secondary: #ccc;
+  --text-muted: #999;
+
+  /* ===== ACCENTS (4 variables) ===== */
+  --accent-orange: #ffaa00;
+  --accent-blue: #00aaff;
+  --accent-silver: #a8b0b8;
+  --grid-gap-color: #333;
+
+  /* ===== GLOW EFFECTS (1 variable) ===== */
+  --glow-selected: 0 0 20px rgba(168, 176, 184, 0.6), 0 0 45px rgba(168, 176, 184, 0.3);
+
+  /* ===== THEME ASSETS (2 variables) ===== */
+  --sidebar-logo-src: url('/artwork/Dashie_Full_Logo_White_Transparent.png');
+  --sidebar-icon-filter: invert(100%);
+}
+
+/* ============================================================================
+   LIGHT THEME - Essential Color Overrides Only
+   ============================================================================ */
+
+body.theme-light,
+body:not([class*="theme-"]) {
+  /* ===== BACKGROUNDS (9 variables) ===== */
+  --bg-primary: #FCFCFF;
+  --bg-secondary: #FCFCFF;
+  --bg-tertiary: #eeeeee;
+  --bg-modal-backdrop: rgba(0, 0, 0, 0.5);
+  --bg-sleep: #000;
+  --bg-button: #90a4ae;
+  --bg-active: rgba(33, 150, 243, 0.2);
+  --bg-primary-semi-transparent: rgba(227, 242, 253, 0.9);
+  --bg-selected-fill: rgba(33, 150, 243, 0.2);
+
+  /* ===== TEXT (3 variables) ===== */
+  --text-primary: #424242;
+  --text-secondary: #616161;
+  --text-muted: #9e9e9e;
+
+  /* ===== ACCENTS (4 variables) ===== */
+  --accent-orange: #ff9800;
+  --accent-blue: #2196f3;
+  --accent-silver: #6b7280;
+  --grid-gap-color: #9eb4fe;
+
+  /* ===== GLOW EFFECTS (1 variable) ===== */
+  --glow-selected: 0 0 15px rgba(107, 114, 128, 0.5), 0 0 30px rgba(107, 114, 128, 0.25);
+
+  /* ===== THEME ASSETS (2 variables) ===== */
+  --sidebar-logo-src: url('/artwork/Dashie_Full_Logo_Black_Transparent.png');
+  --sidebar-icon-filter: invert(20%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(0.3);
+}
+
+/* ============================================================================
+   THEME TRANSITIONS
+   ============================================================================ */
+
+/* Smooth transitions when switching themes */
+* {
+  transition: background-color var(--transition-medium),
+              color var(--transition-medium),
+              border-color var(--transition-medium),
+              box-shadow var(--transition-medium);
+}
+
+/* Prevent transition on page load */
+body.no-transitions * {
+  transition: none !important;
+}

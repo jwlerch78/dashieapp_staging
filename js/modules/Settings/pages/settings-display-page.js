@@ -1,8 +1,10 @@
 // js/modules/Settings/pages/settings-display-page.js
 // Display settings page with theme, sleep/wake timer, and dynamic greeting
+// v1.1 - Updated to use theme registry
 
 import { createLogger } from '../../../utils/logger.js';
 import { TimeSelectionHandler } from '../utils/time-selection-handler.js';
+import { getAllThemes } from '../../../themes/theme-registry.js';
 
 const logger = createLogger('SettingsDisplayPage');
 
@@ -116,21 +118,20 @@ export class SettingsDisplayPage {
      */
     renderThemeScreen() {
         const currentTheme = this.getCurrentTheme();
-        const themes = ['Dark', 'Light']; // Can easily add more themes here
+        const themes = getAllThemes(); // Get all themes from registry
 
         return `
             <div class="settings-modal__list">
                 <div class="settings-modal__section">
                     ${themes.map(theme => {
-                        const themeValue = theme.toLowerCase();
                         return `
-                            <div class="settings-modal__menu-item settings-modal__menu-item--selectable ${themeValue === currentTheme ? 'settings-modal__menu-item--checked' : ''}"
+                            <div class="settings-modal__menu-item settings-modal__menu-item--selectable ${theme.id === currentTheme ? 'settings-modal__menu-item--checked' : ''}"
                                  data-setting="interface.theme"
-                                 data-value="${themeValue}"
+                                 data-value="${theme.id}"
                                  role="button"
                                  tabindex="0">
-                                <span class="settings-modal__menu-label">${theme}</span>
-                                <span class="settings-modal__cell-checkmark">${themeValue === currentTheme ? '✓' : ''}</span>
+                                <span class="settings-modal__menu-label">${theme.name}</span>
+                                <span class="settings-modal__cell-checkmark">${theme.id === currentTheme ? '✓' : ''}</span>
                             </div>
                         `;
                     }).join('')}

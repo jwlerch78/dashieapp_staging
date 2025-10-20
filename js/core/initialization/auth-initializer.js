@@ -6,6 +6,7 @@ import { createLogger } from '../../utils/logger.js';
 import { sessionManager } from '../../data/auth/orchestration/session-manager.js';
 import { AuthCoordinator } from '../../data/auth/orchestration/auth-coordinator.js';
 import { getPlatformDetector } from '../../utils/platform-detector.js';
+import { APP_TAGLINE } from '../../../config.js';
 
 const logger = createLogger('AuthInitializer');
 
@@ -55,6 +56,56 @@ function showLoginError(message) {
 }
 
 /**
+ * UI Helper: Show loading screen with optional text
+ */
+function showLoadingScreen(text = 'Loading Dashboard') {
+  document.getElementById('sign-in-state').style.display = 'none';
+  document.getElementById('loading-dashboard-state').style.display = 'flex';
+  document.getElementById('loading-dashboard-text').textContent = text;
+  document.getElementById('loading-dashboard-spinner').style.display = 'block';
+  document.getElementById('loading-dashboard-error').style.display = 'none';
+  document.getElementById('loading-cancel-button').style.display = 'block';
+}
+
+/**
+ * UI Helper: Show error on loading screen
+ */
+function showLoadingError(message) {
+  const errorEl = document.getElementById('loading-dashboard-error');
+  errorEl.textContent = message;
+  errorEl.style.display = 'block';
+
+  // Hide spinner and loading text when error is shown
+  document.getElementById('loading-dashboard-spinner').style.display = 'none';
+  document.getElementById('loading-dashboard-text').style.display = 'none';
+
+  // Show cancel button
+  document.getElementById('loading-cancel-button').style.display = 'block';
+}
+
+/**
+ * UI Helper: Setup cancel button for loading screen
+ */
+function setupLoadingCancelButton() {
+  const cancelButton = document.getElementById('loading-cancel-button');
+
+  const handleCancel = () => {
+    logger.info('Loading cancelled by user');
+    window.location.reload();
+  };
+
+  cancelButton.addEventListener('click', handleCancel);
+
+  cancelButton.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.keyCode === 13 || e.keyCode === 23) {
+      e.preventDefault();
+      e.stopPropagation();
+      handleCancel();
+    }
+  });
+}
+
+/**
  * UI Helper: Hide login screen and show dashboard
  */
 export function hideLoginScreen() {
@@ -83,9 +134,15 @@ export function hideLoginScreen() {
 }
 
 /**
- * Populate site info (dev vs prod link)
+ * Populate site info (dev vs prod link) and tagline
  */
 function populateSiteInfo() {
+  // Populate tagline from config
+  const taglineEl = document.getElementById('app-tagline');
+  if (taglineEl) {
+    taglineEl.textContent = APP_TAGLINE;
+  }
+
   const hostname = window.location.hostname;
   const isDev = hostname.includes('dev') || hostname === 'localhost' || hostname.startsWith('localhost');
   const platform = getPlatformDetector();
@@ -96,7 +153,7 @@ function populateSiteInfo() {
 
   if (isDev) {
     siteInfoDiv.innerHTML = `
-      <p>Running in <strong>Development Mode</strong> on ${platformDesc}</p>
+      <p><strong>Development Mode</strong> | ${platformDesc}</p>
       <p>
         <a href="https://dashie.family" class="prod-site-link" target="_blank">
           Visit Production Site →
@@ -174,11 +231,13 @@ export async function initializeAuth(onAuthComplete) {
     const urlParams = new URLSearchParams(window.location.search);
     const isOAuthCallback = urlParams.has('code') && urlParams.has('state');
 
+    // Setup loading cancel button first
+    setupLoadingCancelButton();
+
     // If OAuth callback detected, immediately show loading dashboard state
     if (isOAuthCallback) {
       logger.debug('OAuth callback detected, showing loading dashboard state');
-      document.getElementById('sign-in-state').style.display = 'none';
-      document.getElementById('loading-dashboard-state').style.display = 'flex';
+      showLoadingScreen('Completing sign-in...');
     } else {
       updateLoginStatus('Setting up authentication system...');
     }
@@ -200,8 +259,7 @@ export async function initializeAuth(onAuthComplete) {
 
       // Show loading dashboard state if not already shown
       if (!isOAuthCallback) {
-        document.getElementById('sign-in-state').style.display = 'none';
-        document.getElementById('loading-dashboard-state').style.display = 'flex';
+        showLoadingScreen('Loading Dashboard');
       }
 
       // Update welcome message with user's name
@@ -220,6 +278,14 @@ export async function initializeAuth(onAuthComplete) {
       }
 
       return true;
+    }
+
+    // Check if authentication failed with an error message
+    if (result.error) {
+      logger.error('Authentication failed', result.error);
+      showLoadingScreen('Authentication Failed');
+      showLoadingError(result.error);
+      return false;
     }
 
     // Not authenticated - show sign in button
@@ -251,9 +317,8 @@ export async function initializeAuth(onAuthComplete) {
 
         // Sign-in successful
         if (signInResult && signInResult.email) {
-          // Hide sign-in state and show loading dashboard state
-          document.getElementById('sign-in-state').style.display = 'none';
-          document.getElementById('loading-dashboard-state').style.display = 'flex';
+          // Show loading dashboard state
+          showLoadingScreen('Loading Dashboard');
 
           // Update welcome message with user's name
           const welcomeEl = document.getElementById('loading-dashboard-welcome');
@@ -273,8 +338,15 @@ export async function initializeAuth(onAuthComplete) {
 
       } catch (error) {
         logger.error('Sign-in failed', error);
-        showLoginError(`Sign-in failed: ${error.message}`);
-        updateLoginButton('Sign in with Google', true, false);
+
+        // If we're on the loading screen, show error there; otherwise show on login screen
+        const loadingState = document.getElementById('loading-dashboard-state');
+        if (loadingState && loadingState.style.display === 'flex') {
+          showLoadingError(`Sign-in failed: ${error.message}`);
+        } else {
+          showLoginError(`Sign-in failed: ${error.message}`);
+          updateLoginButton('Sign in with Google', true, false);
+        }
       }
     };
 

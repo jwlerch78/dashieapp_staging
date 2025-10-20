@@ -29,12 +29,30 @@
 
 Hybrid Device Flow is a custom OAuth authentication flow that enables **dual-device authentication** with a single OAuth consent. A user scans a QR code on their Fire TV with their phone, signs in with Google once, and both devices are authenticated simultaneously.
 
+### Key Concept: One OAuth, Two JWTs
+
+```
+User signs in with Google on phone
+         ↓
+tokens.google.primary stored in database
+         ↓
+    ┌────────────────────────┐
+    │   Phone gets JWT #1    │  (device_type: "phone")
+    │   Fire TV gets JWT #2  │  (device_type: "firetv")
+    └────────────────────────┘
+         ↓
+Both JWTs access same tokens.google.primary
+         ↓
+Independent sign-out per device
+```
+
 ### Key Features
 
 - ✅ **Single OAuth Consent** - User signs in with Google once on their phone
-- ✅ **Dual Device Auth** - Both Fire TV and phone get authenticated
+- ✅ **Two Separate JWTs** - Phone gets one JWT, Fire TV gets another (independent sessions)
 - ✅ **Unified Token Management** - Both devices share the same OAuth tokens (`primary`)
 - ✅ **No Device-Specific Tokens** - Eliminates `primary-tv` complexity
+- ✅ **Independent Sign-Out** - Each device can sign out without affecting the other
 - ✅ **Better UX** - No typing codes on Fire TV remote
 - ✅ **Provider Agnostic** - Works with any OAuth provider
 - ✅ **Your Control** - Custom device flow, not Google's
@@ -83,29 +101,33 @@ All devices share the same OAuth tokens stored at `tokens.google.primary`. Devic
 
 ### 2. **JWT-Based Device Identity**
 
-Each device gets a unique JWT with device metadata:
+**Each device gets its own unique JWT with device metadata:**
 
 ```javascript
-// Fire TV JWT
-{
-  sub: "user-id-123",
-  email: "user@gmail.com",
-  device_type: "firetv",
-  device_id: "unique-firetv-id",
-  session_id: "session-abc"
-}
-
-// Phone JWT
+// Phone JWT (generated when phone authorizes)
 {
   sub: "user-id-123",
   email: "user@gmail.com",
   device_type: "phone",
-  device_id: "unique-phone-id",
-  session_id: "session-xyz"
+  device_id: "phone-1729612345-a1b2c3d4",
+  session_id: "sess-phone-1729612345"
+}
+
+// Fire TV JWT (generated when Fire TV polls after authorization)
+{
+  sub: "user-id-123",          // Same user!
+  email: "user@gmail.com",     // Same user!
+  device_type: "firetv",       // Different device type
+  device_id: "firetv-1729612567-x9y8z7w6",  // Different device ID
+  session_id: "sess-firetv-1729612567"      // Different session ID
 }
 ```
 
-Both JWTs grant access to the same `tokens.google.primary` when accessing Google Calendar API.
+**Key Points:**
+- Both JWTs authenticate the same user (`sub`, `email` are identical)
+- Both JWTs grant access to the same `tokens.google.primary` OAuth tokens
+- Each device can sign out independently (delete its own JWT)
+- Device activity can be tracked separately via `device_type` and `device_id`
 
 ### 3. **Server-Side Security**
 
@@ -262,9 +284,9 @@ Keep existing `WebOAuthProvider` and `DeviceFlowProvider` as fallback options du
 }
 ```
 
-### JWT Session Differentiation
+### Two Separate JWTs (One Per Device)
 
-**Fire TV Session:**
+**Phone JWT** (generated when phone completes OAuth):
 ```javascript
 {
   aud: "authenticated",
@@ -275,46 +297,38 @@ Keep existing `WebOAuthProvider` and `DeviceFlowProvider` as fallback options du
   email: "user@gmail.com",
   role: "authenticated",
 
-  // Device-specific metadata
-  device_type: "firetv",
-  device_id: "firetv-abc123-xyz",
-  session_id: "sess-firetv-20251020-001",
-
-  app_metadata: {
-    provider: "google",
-    providers: ["google"]
-  },
-  user_metadata: {
-    email: "user@gmail.com"
-  }
-}
-```
-
-**Phone Session:**
-```javascript
-{
-  aud: "authenticated",
-  exp: 1729612800,
-  iat: 1729351600,
-  iss: "supabase",
-  sub: "user-123",
-  email: "user@gmail.com",
-  role: "authenticated",
-
-  // Device-specific metadata
+  // Phone-specific metadata
   device_type: "phone",
-  device_id: "phone-xyz789-abc",
-  session_id: "sess-phone-20251020-001",
+  device_id: "phone-1729612345-a1b2c3d4",
+  session_id: "sess-phone-1729612345",
 
-  app_metadata: {
-    provider: "google",
-    providers: ["google"]
-  },
-  user_metadata: {
-    email: "user@gmail.com"
-  }
+  app_metadata: { provider: "google", providers: ["google"] },
+  user_metadata: { email: "user@gmail.com" }
 }
 ```
+
+**Fire TV JWT** (generated when Fire TV polls after authorization):
+```javascript
+{
+  aud: "authenticated",
+  exp: 1729612800,
+  iat: 1729351600,
+  iss: "supabase",
+  sub: "user-123",              // Same user
+  email: "user@gmail.com",      // Same email
+  role: "authenticated",
+
+  // Fire TV-specific metadata
+  device_type: "firetv",        // Different device
+  device_id: "firetv-1729612567-x9y8z7w6",  // Different ID
+  session_id: "sess-firetv-1729612567",     // Different session
+
+  app_metadata: { provider: "google", providers: ["google"] },
+  user_metadata: { email: "user@gmail.com" }
+}
+```
+
+**Important:** These are **two completely separate JWT tokens** - not one shared token. Each device stores its own JWT in localStorage and uses it for all API calls.
 
 ### Token Access Flow
 
@@ -336,84 +350,57 @@ const token = await edgeClient.getValidToken('google', 'primary');
 
 ### device_auth_sessions Table
 
+**Purpose:** Temporary bridge between Fire TV and phone during authentication. Sessions are deleted once Fire TV receives its JWT.
+
 ```sql
 -- Create device_auth_sessions table
 CREATE TABLE device_auth_sessions (
-  -- Primary Key
+  -- Device codes
   device_code VARCHAR(64) PRIMARY KEY,
-
-  -- User-facing code (displayed on TV)
   user_code VARCHAR(8) NOT NULL UNIQUE,
 
-  -- Status tracking
+  -- Status: 'pending' or 'authorized' (then deleted)
   status VARCHAR(20) NOT NULL DEFAULT 'pending',
-  -- Values: 'pending', 'authorized', 'expired', 'consumed'
 
-  -- User linkage (set when authorized)
-  user_id UUID REFERENCES auth.users(id),
+  -- Set when phone authorizes (used to generate Fire TV JWT)
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_email VARCHAR(255),
 
-  -- OAuth token data (stored when authorized)
-  google_token_data JSONB,
-  -- Structure: { access_token, refresh_token, expires_in, scope }
+  -- Device type (included in Fire TV JWT metadata)
+  device_type VARCHAR(50) DEFAULT 'firetv',
 
-  -- Device metadata
-  device_type VARCHAR(50),
-  -- Values: 'firetv', 'androidtv', 'appletv', etc.
-  device_info JSONB,
-  -- Structure: { model, os_version, app_version, ip_address }
-
-  -- Phone metadata (recorded during authorization)
-  phone_user_agent TEXT,
-  phone_ip_address INET,
-
-  -- Timestamps
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  authorized_at TIMESTAMP WITH TIME ZONE,
+  -- Expiration (10 minutes from creation)
   expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
-  consumed_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 
-  -- Verification URL
-  verification_url TEXT NOT NULL,
-
-  -- Indexes
-  CONSTRAINT valid_status CHECK (status IN ('pending', 'authorized', 'expired', 'consumed'))
+  -- Constraint
+  CONSTRAINT valid_status CHECK (status IN ('pending', 'authorized'))
 );
 
 -- Indexes
 CREATE INDEX idx_device_auth_user_code ON device_auth_sessions(user_code);
-CREATE INDEX idx_device_auth_status ON device_auth_sessions(status);
 CREATE INDEX idx_device_auth_expires ON device_auth_sessions(expires_at);
-CREATE INDEX idx_device_auth_status_expires ON device_auth_sessions(status, expires_at);
 
 -- Comments
-COMMENT ON TABLE device_auth_sessions IS 'Hybrid device flow authentication sessions';
-COMMENT ON COLUMN device_auth_sessions.device_code IS 'Server-side device code (64 char hex)';
-COMMENT ON COLUMN device_auth_sessions.user_code IS 'User-facing code displayed on TV (8 chars)';
-COMMENT ON COLUMN device_auth_sessions.status IS 'Session status: pending, authorized, expired, consumed';
-COMMENT ON COLUMN device_auth_sessions.consumed_at IS 'When JWT was issued to Fire TV (prevents replay)';
+COMMENT ON TABLE device_auth_sessions IS 'Temporary sessions for hybrid device flow - deleted once Fire TV gets JWT';
+COMMENT ON COLUMN device_auth_sessions.device_code IS 'Server-side device code (64 char hex) - used for polling';
+COMMENT ON COLUMN device_auth_sessions.user_code IS 'User-facing code displayed on TV (8 chars, format: XXXX-XXXX)';
+COMMENT ON COLUMN device_auth_sessions.status IS 'pending (waiting for phone) or authorized (phone completed OAuth)';
+COMMENT ON COLUMN device_auth_sessions.user_email IS 'Email to generate Fire TV JWT (set when phone authorizes)';
 ```
 
 ### Cleanup Function
 
 ```sql
--- Auto-cleanup expired sessions
+-- Auto-cleanup expired sessions (simple delete)
 CREATE OR REPLACE FUNCTION cleanup_expired_device_sessions()
 RETURNS void AS $$
 BEGIN
-  -- Delete expired sessions older than 24 hours (for audit)
+  -- Delete all expired sessions
   DELETE FROM device_auth_sessions
-  WHERE status = 'expired' AND expires_at < NOW() - INTERVAL '24 hours';
+  WHERE expires_at < NOW();
 
-  -- Delete old consumed sessions (older than 7 days)
-  DELETE FROM device_auth_sessions
-  WHERE status = 'consumed' AND consumed_at < NOW() - INTERVAL '7 days';
-
-  -- Mark pending sessions as expired if past expiration
-  UPDATE device_auth_sessions
-  SET status = 'expired'
-  WHERE status = 'pending' AND expires_at < NOW();
-
-  RAISE NOTICE 'Cleaned up expired device sessions';
+  RAISE NOTICE 'Deleted expired device sessions';
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -620,11 +607,11 @@ async function handlePollDeviceCodeStatus(data: any) {
     return { success: false, status: 'invalid_code', message: 'Invalid device code' };
   }
 
-  // 2. Check if expired
+  // 2. Check if expired - delete and return error
   if (new Date() > new Date(session.expires_at)) {
     await supabase
       .from('device_auth_sessions')
-      .update({ status: 'expired' })
+      .delete()
       .eq('device_code', device_code);
 
     return { success: false, status: 'expired_token', message: 'Device code has expired' };
@@ -636,41 +623,31 @@ async function handlePollDeviceCodeStatus(data: any) {
   }
 
   if (session.status === 'authorized') {
-    // 4. Generate Fire TV JWT
+    // 4. Generate Fire TV JWT (unique for this device)
     const jwtToken = await generateSupabaseJWT(
       session.user_id,
-      session.google_token_data.email,
+      session.user_email,
       {
         device_type: session.device_type || 'firetv',
-        device_id: `${session.device_type}-${Date.now()}`,
-        session_id: `sess-${session.device_type}-${Date.now()}`
+        device_id: `firetv-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
+        session_id: `sess-firetv-${Date.now()}`
       }
     );
 
-    // 5. Mark as consumed (prevent replay)
+    // 5. Delete session (we're done with it!)
     await supabase
       .from('device_auth_sessions')
-      .update({ status: 'consumed', consumed_at: new Date().toISOString() })
+      .delete()
       .eq('device_code', device_code);
 
-    // 6. Get user info
-    const { data: tokenData } = await supabase
-      .from('user_auth_tokens')
-      .select('tokens')
-      .eq('auth_user_id', session.user_id)
-      .single();
-
-    const userEmail = tokenData?.tokens?.google?.primary?.email || session.google_token_data.email;
-    const displayName = tokenData?.tokens?.google?.primary?.display_name || '';
-
+    // 6. Return Fire TV JWT
     return {
       success: true,
       status: 'authorized',
-      jwtToken,
+      jwtToken,  // Fire TV's unique JWT
       user: {
         id: session.user_id,
-        email: userEmail,
-        name: displayName,
+        email: session.user_email,
         provider: 'google'
       }
     };
@@ -701,10 +678,6 @@ Content-Type: application/json
       "refresh_token": "1//0g...",
       "expires_in": 3600,
       "scope": "profile email calendar.readonly"
-    },
-    "phone_info": {
-      "user_agent": "Mozilla/5.0...",
-      "ip_address": "192.168.1.101"
     }
   }
 }
@@ -794,38 +767,31 @@ async function handleAuthorizeDeviceCode(data: any, googleAccessToken: string) {
     'primary'  // Always primary!
   );
 
-  // 8. Update device session
+  // 8. Update device session (mark as authorized)
   await supabase
     .from('device_auth_sessions')
     .update({
       status: 'authorized',
       user_id: authUserId,
-      google_token_data: {
-        email: googleUser.email,
-        name: googleUser.name,
-        picture: googleUser.picture
-      },
-      phone_user_agent: phone_info?.user_agent,
-      phone_ip_address: phone_info?.ip_address,
-      authorized_at: new Date().toISOString()
+      user_email: googleUser.email
     })
     .eq('device_code', device_code);
 
-  // 9. Generate Phone JWT
-  const jwtToken = await generateSupabaseJWT(
+  // 9. Generate Phone JWT (unique for this device)
+  const phoneJWT = await generateSupabaseJWT(
     authUserId,
     googleUser.email,
     {
       device_type: 'phone',
-      device_id: `phone-${Date.now()}`,
+      device_id: `phone-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
       session_id: `sess-phone-${Date.now()}`
     }
   );
 
-  // 10. Return response
+  // 10. Return response with Phone JWT
   return {
     success: true,
-    jwtToken,
+    jwtToken: phoneJWT,  // Phone's unique JWT
     user: {
       id: authUserId,
       email: googleUser.email,
