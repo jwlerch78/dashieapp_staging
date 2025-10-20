@@ -1,4 +1,9 @@
 {
-    "claude-code.useTerminal": false,
-    "claude-code.environmentVariables": []
+  "claude-code.useTerminal": false,
+  "claude-code.environmentVariables": [],
+  "liveServer.settings.host": "0.0.0.0",
+  "liveServer.settings.useLocalIp": false,
+  "liveServer.settings.port": 3000,
+  "liveServer.settings.noBrowser": false,
+  "liveServer.settings.CustomBrowser": "chrome:localhost:3000"
 }
