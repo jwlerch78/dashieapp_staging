@@ -14,30 +14,50 @@ import Settings from '../../modules/Settings/settings.js';
 import modals from '../../modules/Modals/modals.js';
 import welcome from '../../modules/Welcome/welcome.js';
 import themeApplier from '../../ui/theme-applier.js';
-import { initializeServices } from './service-initializer.js';
 import { initializeWidgets } from './widget-initializer.js';
 import '../../utils/modal-navigation-manager.js'; // Initialize global dashieModalManager
+
+// NOTE: service-initializer is imported dynamically to avoid loading Supabase in bypass mode
 
 const logger = createLogger('CoreInitializer');
 
 /**
  * Initialize core components and modules
+ * @param {object} options - Initialization options
+ * @param {boolean} options.bypassAuth - Skip auth-dependent features
  * @returns {Promise<void>}
  */
-export async function initializeCore() {
+export async function initializeCore(options = {}) {
+  const { bypassAuth = false } = options;
+
   try {
-    logger.verbose('Starting core initialization...');
+    logger.verbose('Starting core initialization...', { bypassAuth });
 
     // Initialize AppStateManager
     await AppStateManager.initialize();
     window.themeApplier = themeApplier;
 
-    // STEP 1: Initialize data services (EdgeClient + SettingsService)
-    await initializeServices();
+    if (!bypassAuth) {
+      // STEP 1: Initialize data services (EdgeClient + SettingsService)
+      // Dynamic import to avoid loading Supabase modules in bypass mode
+      const { initializeServices } = await import('./service-initializer.js');
+      await initializeServices();
 
-    // STEP 2: Initialize Settings (loads from database, applies theme to localStorage)
-    await Settings.initialize();
-    logger.verbose('Settings initialized (theme loaded from database and applied)');
+      // STEP 2: Initialize Settings (loads from database, applies theme to localStorage)
+      await Settings.initialize();
+      logger.verbose('Settings initialized (theme loaded from database and applied)');
+    } else {
+      // Bypass mode: Initialize Settings without database
+      logger.warn('⚠️ BYPASS MODE: Skipping service initialization');
+      logger.warn('⚠️ BYPASS MODE: Initializing Settings in read-only mode (no database)');
+
+      // Initialize Settings in bypass mode (no database operations)
+      await Settings.initialize({ bypassAuth: true });
+
+      // Apply default theme without loading from database
+      themeApplier.applyTheme('light', false); // Don't save to localStorage
+      logger.info('Applied default light theme (bypass mode)');
+    }
 
     // Initialize core components
     await InputHandler.initialize();
@@ -70,16 +90,25 @@ export async function initializeCore() {
     // STEP 5: Hide login screen after widgets have been initialized and received themes
     // Wait a brief moment for widgets to receive theme messages via postMessage
     setTimeout(async () => {
-      const { hideLoginScreen } = await import('./auth-initializer.js');
-      hideLoginScreen();
-      logger.verbose('Login screen hidden - dashboard fully initialized');
+      if (!bypassAuth) {
+        const { hideLoginScreen } = await import('./auth-initializer.js');
+        hideLoginScreen();
+        logger.verbose('Login screen hidden - dashboard fully initialized');
+      } else {
+        // In bypass mode, just show dashboard immediately (no login screen)
+        const loginScreen = document.getElementById('oauth-login-screen');
+        const dashboardContainer = document.getElementById('dashboard-container');
+        if (loginScreen) loginScreen.style.display = 'none';
+        if (dashboardContainer) dashboardContainer.classList.add('visible');
+        logger.verbose('Dashboard shown (bypass mode)');
+      }
 
       // STEP 6: Check if welcome wizard should be shown for new users
-      if (welcome.shouldShow()) {
+      if (!bypassAuth && welcome.shouldShow()) {
         logger.info('New user detected - showing welcome wizard');
         await welcome.activate();
       } else {
-        logger.debug('Welcome wizard not needed - user has completed onboarding');
+        logger.debug('Welcome wizard skipped (bypass mode or already completed)');
       }
     }, 300); // 300ms delay to ensure widgets receive theme
 

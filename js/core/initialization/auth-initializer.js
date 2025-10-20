@@ -227,8 +227,27 @@ export async function initializeAuth(onAuthComplete) {
   try {
     logger.info('🔐 Initializing authentication...');
 
-    // Check if we're in an OAuth callback flow (redirect from Google)
+    // Check for developer bypass (for UI development without data)
     const urlParams = new URLSearchParams(window.location.search);
+    const bypassAuth = urlParams.has('bypass-auth');
+
+    if (bypassAuth) {
+      logger.warn('⚠️ AUTH BYPASS ACTIVE - Developer Mode');
+      logger.warn('Dashboard will load without authentication or data');
+      logger.warn('To disable: Remove ?bypass-auth from URL');
+
+      // Mark as "authenticated" but with no real user
+      isAuthenticated = true;
+
+      // Skip login screen immediately
+      if (onAuthComplete) {
+        onAuthComplete();
+      }
+
+      return true;
+    }
+
+    // Check if we're in an OAuth callback flow (redirect from Google)
     const isOAuthCallback = urlParams.has('code') && urlParams.has('state');
 
     // Setup loading cancel button first

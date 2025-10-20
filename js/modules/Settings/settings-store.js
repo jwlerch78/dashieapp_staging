@@ -23,13 +23,25 @@ export class SettingsStore {
 
     /**
      * Initialize and load settings
+     * @param {object} options - Initialization options
+     * @param {boolean} options.bypassAuth - Skip database loading
      */
-    async initialize() {
+    async initialize(options = {}) {
+        const { bypassAuth = false } = options;
+
         if (this.initialized) return;
 
-        logger.verbose('Initializing SettingsStore');
+        logger.verbose('Initializing SettingsStore', { bypassAuth });
 
         try {
+            if (bypassAuth) {
+                // Bypass mode: Use defaults without database
+                logger.warn('⚠️ BYPASS MODE: Using default settings (no database)');
+                this.settings = getDefaultSettings();
+                this.initialized = true;
+                return;
+            }
+
             // Load settings using SettingsService
             this.settings = await this.service.load();
             this.initialized = true;
@@ -60,6 +72,13 @@ export class SettingsStore {
      * @param {boolean} showNotification - Whether to show toast notification (default: true)
      */
     async save(showNotification = true) {
+        // Check if service is available (won't be in bypass mode)
+        if (!this.service || !this.service.edgeClient) {
+            logger.warn('⚠️ BYPASS MODE: Settings save skipped (no database connection)');
+            // Still update in-memory settings so theme changes work
+            return { success: true, message: 'Settings updated locally (bypass mode)' };
+        }
+
         logger.debug('Saving settings via SettingsService');
 
         try {

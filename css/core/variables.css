@@ -46,6 +46,9 @@
   --z-modal: 999;
   --z-sleep: 1000;
   --z-modal-confirmation: 15000;
+
+  /* ===== UNIVERSAL COLORS (never themed) ===== */
+  --bg-sleep: #000; /* Sleep screen is always black */
 }
 
 /* ============================================================================
@@ -59,7 +62,6 @@
   --bg-secondary: #333;
   --bg-tertiary: #444;
   --bg-modal-backdrop: rgba(0, 0, 0, 0.7);
-  --bg-sleep: #000;
   --bg-button: #666;
   --bg-button-semi: rgba(102, 102, 102, 0.6);
   --bg-active: rgba(255, 255, 255, 0.2);
@@ -81,6 +83,7 @@
   --accent-orange: #ffaa00;
   --accent-blue: #00aaff;
   --accent-silver: #a8b0b8;
+  --accent-current-time: #ea4335; /* Red - current time indicator */
 
   /* ===== SEMANTIC COLORS ===== */
   --color-error: #ff6b6b;
@@ -88,11 +91,13 @@
   --color-warning: #ffd43b;
 
   /* ===== INTERACTIVE STATES (colors only) ===== */
-  --grid-gap-color: #333;
   --outline-color-nav: #a8b0b8;
   --outline-selected: var(--accent-silver);
   --outline-focused: var(--accent-blue);
   --outline-selected-legacy: var(--accent-orange);
+
+  /* ===== DASHBOARD-SPECIFIC ===== */
+  --grid-gap-color: #333;
 
   /* ===== GLOW EFFECTS (Enhanced Focus Mode) ===== */
   --glow-selected: 0 0 20px rgba(168, 176, 184, 0.6), 0 0 45px rgba(168, 176, 184, 0.3);

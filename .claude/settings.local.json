@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git checkout index.html)"
+      "Bash(git checkout index.html)",
+      "Bash(del nul)"
     ],
     "deny": [],
     "ask": []

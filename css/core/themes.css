@@ -8,12 +8,11 @@
    ============================================================================ */
 
 body.theme-dark {
-  /* ===== BACKGROUNDS (9 variables) ===== */
+  /* ===== BACKGROUNDS (8 variables) ===== */
   --bg-primary: #222;
   --bg-secondary: #333;
   --bg-tertiary: #444;
   --bg-modal-backdrop: rgba(0, 0, 0, 0.7);
-  --bg-sleep: #000;
   --bg-button: #666;
   --bg-active: rgba(255, 255, 255, 0.2);
   --bg-primary-semi-transparent: rgba(34, 34, 34, 0.9);
@@ -24,10 +23,11 @@ body.theme-dark {
   --text-secondary: #ccc;
   --text-muted: #999;
 
-  /* ===== ACCENTS (4 variables) ===== */
+  /* ===== ACCENTS (5 variables) ===== */
   --accent-orange: #ffaa00;
   --accent-blue: #00aaff;
   --accent-silver: #a8b0b8;
+  --accent-current-time: #00aaff; /* Red - current time indicator & today marker */
   --grid-gap-color: #333;
 
   /* ===== GLOW EFFECTS (1 variable) ===== */
@@ -44,12 +44,11 @@ body.theme-dark {
 
 body.theme-light,
 body:not([class*="theme-"]) {
-  /* ===== BACKGROUNDS (9 variables) ===== */
+  /* ===== BACKGROUNDS (8 variables) ===== */
   --bg-primary: #FCFCFF;
-  --bg-secondary: #FCFCFF;
+  --bg-secondary: #FCFCFF; /* Same as primary in light theme */
   --bg-tertiary: #eeeeee;
   --bg-modal-backdrop: rgba(0, 0, 0, 0.5);
-  --bg-sleep: #000;
   --bg-button: #90a4ae;
   --bg-active: rgba(33, 150, 243, 0.2);
   --bg-primary-semi-transparent: rgba(227, 242, 253, 0.9);
@@ -60,14 +59,122 @@ body:not([class*="theme-"]) {
   --text-secondary: #616161;
   --text-muted: #9e9e9e;
 
-  /* ===== ACCENTS (4 variables) ===== */
+  /* ===== ACCENTS (5 variables) ===== */
   --accent-orange: #ff9800;
   --accent-blue: #2196f3;
   --accent-silver: #6b7280;
+  --accent-current-time: #00aaff; /* Red - current time indicator & today marker */
   --grid-gap-color: #9eb4fe;
 
   /* ===== GLOW EFFECTS (1 variable) ===== */
   --glow-selected: 0 0 15px rgba(107, 114, 128, 0.5), 0 0 30px rgba(107, 114, 128, 0.25);
+
+  /* ===== THEME ASSETS (2 variables) ===== */
+  --sidebar-logo-src: url('/artwork/Dashie_Full_Logo_Black_Transparent.png');
+  --sidebar-icon-filter: invert(20%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(0.3);
+}
+
+/* ============================================================================
+   HALLOWEEN DARK THEME - Spooky colors with dark purple/orange palette
+   ============================================================================ */
+
+body.theme-halloween-dark {
+  /* ===== BACKGROUNDS (8 variables) ===== */
+  --bg-primary: #1A0A1F; /* Near-black with purple tint */
+  --bg-secondary: #2D1F1A; /* Dark with orange tint */
+  --bg-tertiary: #3D2F2A; /* Lighter brown-purple */
+  --bg-modal-backdrop: rgba(26, 10, 31, 0.8); /* Purple-tinted backdrop */
+  --bg-button: #6B1FA0; /* Deep purple */
+  --bg-active: rgba(255, 107, 26, 0.3); /* Orange highlight */
+  --bg-primary-semi-transparent: rgba(26, 10, 31, 0.9);
+  --bg-selected-fill: rgba(255, 107, 26, 0.2); /* Orange selection */
+
+  /* ===== TEXT (3 variables) ===== */
+  --text-primary: #fff;
+  --text-secondary: #ccc;
+  --text-muted: #999;
+
+  /* ===== ACCENTS (5 variables) ===== */
+  --accent-orange: #FF6B1A; /* Bright Halloween orange */
+  --accent-blue: #39FF14; /* Neon green instead of blue */
+  --accent-silver: #a8b0b8;
+  --accent-current-time: #FF6B1A; /* Orange current time indicator */
+  --grid-gap-color: #1A0A1F; /* Match bg-primary for seamless look */
+
+  /* ===== GLOW EFFECTS (1 variable) ===== */
+  --glow-selected: 0 0 20px rgba(255, 107, 26, 0.6), 0 0 45px rgba(255, 107, 26, 0.3); /* Orange glow */
+
+  /* ===== THEME ASSETS (2 variables) ===== */
+  --sidebar-logo-src: url('/artwork/Dashie_Full_Logo_White_Transparent.png');
+  --sidebar-icon-filter: invert(100%);
+}
+
+
+/* ============================================================================
+   HALLOWEEN LIGHT THEME - Festive autumn colors with light backgrounds (Backup)
+   ============================================================================ */
+
+body.theme-halloween-light {
+  --bg-primary: #FCFCFF;
+  --bg-secondary: #FCFCFF; /* Same as primary in light theme */
+  --bg-tertiary: #eeeeee;
+  --bg-modal-backdrop: rgba(0, 0, 0, 0.5);
+  --bg-button: #90a4ae;
+  --bg-active: #FFD4A3;
+  --bg-primary-semi-transparent: rgba(227, 242, 253, 0.9);
+  --bg-selected-fill: rgba(33, 150, 243, 0.2);
+
+  /* ===== TEXT (3 variables) ===== */
+  --text-primary: #424242;
+  --text-secondary: #616161;
+  --text-muted: #9e9e9e;
+
+  /* ===== ACCENTS (5 variables) ===== */
+  --accent-orange: #ff9800;
+  --accent-blue: #2196f3;
+  --accent-silver: #6b7280;
+  --accent-current-time: #ff9800; 
+  --grid-gap-color: #ff9800;
+
+  /* ===== GLOW EFFECTS (1 variable) ===== */
+  --glow-selected: 0 0 15px rgba(107, 114, 128, 0.5), 0 0 30px rgba(107, 114, 128, 0.25);
+
+  /* ===== THEME ASSETS (2 variables) ===== */
+  --sidebar-logo-src: url('/artwork/Dashie_Full_Logo_Black_Transparent.png');
+  --sidebar-icon-filter: invert(20%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(0.3);
+}
+
+
+
+/* ============================================================================
+   HALLOWEEN LIGHT THEME - Festive autumn colors with light backgrounds (Backup)
+   ============================================================================ */
+
+body.theme-halloween-light-backup {
+  /* ===== BACKGROUNDS (8 variables) ===== */
+  --bg-primary: #FFF5E6; /* Warm cream */
+  --bg-secondary: #FFE8CC; /* Light peach */
+  --bg-tertiary: #FFD4A3; /* Soft orange */
+  --bg-modal-backdrop: rgba(107, 31, 160, 0.5); /* Purple-tinted backdrop */
+  --bg-button: #FF9800; /* Bright orange button */
+  --bg-active: rgba(255, 107, 26, 0.2); /* Orange highlight */
+  --bg-primary-semi-transparent: rgba(255, 245, 230, 0.9);
+  --bg-selected-fill: rgba(255, 107, 26, 0.2); /* Orange selection */
+
+  /* ===== TEXT (3 variables) ===== */
+  --text-primary: #2D1B0E; /* Dark brown */
+  --text-secondary: #5D4E3A; /* Medium brown */
+  --text-muted: #8D7E6A; /* Light brown */
+
+  /* ===== ACCENTS (5 variables) ===== */
+  --accent-orange: #FF6B1A; /* Bright Halloween orange */
+  --accent-blue: #228B22; /* Forest green instead of blue */
+  --accent-silver: #8B7355; /* Bronze/brown */
+  --accent-current-time: #FF6B1A; /* Orange current time indicator */
+  --grid-gap-color: #FFD4A3; /* Match bg-tertiary */
+
+  /* ===== GLOW EFFECTS (1 variable) ===== */
+  --glow-selected: 0 0 15px rgba(255, 107, 26, 0.5), 0 0 30px rgba(255, 107, 26, 0.25); /* Orange glow */
 
   /* ===== THEME ASSETS (2 variables) ===== */
   --sidebar-logo-src: url('/artwork/Dashie_Full_Logo_Black_Transparent.png');

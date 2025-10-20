@@ -166,6 +166,29 @@ export const FOCUS_TIMEOUT = 60;
 export const AUTO_SAVE_DELAY = 2000;
 
 // =============================================================================
+// CACHE CONFIGURATION
+// =============================================================================
+
+// Calendar data cache TTL (time-to-live)
+// How long cached calendar data is considered "fresh" before marking as stale
+// IMPORTANT: Even after TTL expires, stale data is STILL SERVED to users
+// (they never see "loading" again after first fetch - refreshes happen in background)
+// Default: 5 minutes
+export const CALENDAR_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+// Background refresh threshold
+// If cache is older than this threshold, trigger background refresh while serving cached data
+// This keeps data feeling fresh without blocking the UI
+// Default: 2 minutes (starts background refresh after 2 min, but still serves cached data)
+export const CALENDAR_CACHE_REFRESH_THRESHOLD_MS = 2 * 60 * 1000; // 2 minutes
+
+// CACHE BEHAVIOR SUMMARY:
+// - Age 0-2 min:  Serve cache, no refresh needed (fresh!)
+// - Age 2-5 min:  Serve cache, background refresh starts (keeping it fresh)
+// - Age 5+ min:   Serve stale cache, background refresh starts (never shows "loading")
+// - Only shows "loading" on very first fetch when no cache exists at all
+
+// =============================================================================
 // JWT & AUTH DEFAULTS
 // =============================================================================
 
@@ -495,6 +518,10 @@ export default {
   SELECTION_TIMEOUT,
   FOCUS_TIMEOUT,
   AUTO_SAVE_DELAY,
+
+  // Cache
+  CALENDAR_CACHE_TTL_MS,
+  CALENDAR_CACHE_REFRESH_THRESHOLD_MS,
 
   // JWT & Auth
   JWT_EXPIRY_HOURS,

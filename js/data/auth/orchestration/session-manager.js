@@ -476,6 +476,16 @@ export class SessionManager {
                 logger.warn('Failed to clear user data from localStorage', error);
             }
 
+            // Clear calendar cache
+            try {
+                if (window.widgetDataManager) {
+                    await window.widgetDataManager.clearCalendarCache();
+                    logger.debug('Cleared calendar cache');
+                }
+            } catch (error) {
+                logger.warn('Failed to clear calendar cache', error);
+            }
+
             // Clear user state
             this.user = null;
             this.isAuthenticated = false;

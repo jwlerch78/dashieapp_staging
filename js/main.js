@@ -4,8 +4,6 @@
 
 import { createLogger } from './utils/logger.js';
 import consoleCommands from './utils/console-commands.js';
-import { sessionManager } from './data/auth/orchestration/session-manager.js';
-import { initializeAuth } from './core/initialization/auth-initializer.js';
 import { initializeCore } from './core/initialization/core-initializer.js';
 
 const logger = createLogger('Main');
@@ -13,8 +11,14 @@ const logger = createLogger('Main');
 // Initialize console commands (for debugging)
 consoleCommands.initialize();
 
-// Expose sessionManager globally for console commands
-window.sessionManager = sessionManager;
+/**
+ * Check if auth bypass is enabled
+ * @returns {boolean}
+ */
+function isAuthBypassEnabled() {
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.has('bypass-auth');
+}
 
 /**
  * Main initialization function
@@ -23,6 +27,26 @@ window.sessionManager = sessionManager;
 async function initialize() {
   try {
     logger.info('🚀 Starting Dashie Dashboard...');
+
+    // Check for auth bypass FIRST (before importing auth modules)
+    const bypassAuth = isAuthBypassEnabled();
+
+    if (bypassAuth) {
+      logger.warn('⚠️ AUTH BYPASS ACTIVE - Developer Mode');
+      logger.warn('Dashboard will load without authentication or data');
+      logger.warn('To disable: Remove ?bypass-auth from URL');
+
+      // Skip auth entirely - go straight to dashboard with bypass flag
+      await initializeCore({ bypassAuth: true });
+      return;
+    }
+
+    // Normal auth flow - dynamically import to avoid loading Supabase if bypassed
+    const { sessionManager } = await import('./data/auth/orchestration/session-manager.js');
+    const { initializeAuth } = await import('./core/initialization/auth-initializer.js');
+
+    // Expose sessionManager globally for console commands
+    window.sessionManager = sessionManager;
 
     // Step 1: Initialize auth (may show login screen)
     const authenticated = await initializeAuth(async () => {
@@ -39,6 +63,13 @@ async function initialize() {
 
   } catch (error) {
     logger.error('Initialization failed', error);
+
+    // If error is Supabase-related, offer helpful message
+    if (error.message && (error.message.includes('tslib') || error.message.includes('supabase'))) {
+      logger.error('⚠️ Supabase dependency error detected');
+      logger.error('This may indicate a service outage or CDN issue');
+      logger.error('💡 To bypass for UI work: Add ?bypass-auth to URL');
+    }
   }
 }
 

@@ -99,6 +99,22 @@ class ConsoleCommands {
     window.GetListeners = this.getListeners.bind(this);
     window.getListeners = this.getListeners.bind(this);
 
+    // Calendar Cache Commands
+    window.GetCacheStatus = this.getCacheStatus.bind(this);
+    window.getCacheStatus = this.getCacheStatus.bind(this);
+    window.RefreshCalendar = this.refreshCalendar.bind(this);
+    window.refreshCalendar = this.refreshCalendar.bind(this);
+    window.ClearCache = this.clearCache.bind(this);
+    window.clearCache = this.clearCache.bind(this);
+
+    // Connection Testing Commands
+    window.SimulateOffline = this.simulateOffline.bind(this);
+    window.simulateOffline = this.simulateOffline.bind(this);
+    window.SimulateOnline = this.simulateOnline.bind(this);
+    window.simulateOnline = this.simulateOnline.bind(this);
+    window.GetConnectionStatus = this.getConnectionStatus.bind(this);
+    window.getConnectionStatus = this.getConnectionStatus.bind(this);
+
     console.log('✅ Console commands loaded! Type help() or Help() to see available commands.');
   }
 
@@ -144,6 +160,16 @@ class ConsoleCommands {
 
 🎨 WIDGET MANAGEMENT:
   listWidgets()             - List all registered widgets
+
+📅 CALENDAR CACHE:
+  getCacheStatus()          - View cache status & metadata
+  refreshCalendar()         - Force refresh calendar data
+  clearCache()              - Clear calendar cache
+
+🧪 CONNECTION TESTING:
+  simulateOffline()         - Simulate internet outage ⭐ NEW!
+  simulateOnline()          - Restore normal connection ⭐ NEW!
+  getConnectionStatus()     - View connection status ⭐ NEW!
 
 🏗️  APPLICATION STATE:
   getAppState()             - Get current application state
@@ -582,6 +608,198 @@ class ConsoleCommands {
     }
 
     return window.InputHandler.getListenerStatus();
+  }
+
+  /**
+   * Get calendar cache status
+   */
+  async getCacheStatus() {
+    console.log('📅 Checking Calendar Cache Status...\n');
+
+    try {
+      const widgetDataManager = window.widgetDataManager;
+      if (!widgetDataManager) {
+        console.error('❌ WidgetDataManager not available');
+        return { success: false, error: 'WidgetDataManager not available' };
+      }
+
+      const metadata = await widgetDataManager.getCalendarCacheMetadata();
+
+      if (!metadata) {
+        console.log('ℹ️  No cached data found\n');
+        console.log('💡 Calendar data will be fetched fresh on next load');
+        return { success: true, cached: false };
+      }
+
+      const ageMinutes = Math.round(metadata.age / 60000);
+      const ageSeconds = Math.round(metadata.age / 1000);
+      const ttlMinutes = Math.round(metadata.ttl / 60000);
+      const sizeKB = Math.round(metadata.sizeEstimate / 1024);
+
+      console.log('✅ Cache Status:');
+      console.log(`   Cached: ${metadata.eventsCount} events from ${metadata.calendarsCount} calendars`);
+      console.log(`   Size: ~${sizeKB} KB`);
+      console.log(`   Age: ${ageMinutes}m ${ageSeconds % 60}s`);
+      console.log(`   TTL: ${ttlMinutes} minutes`);
+      console.log(`   Valid: ${!metadata.isExpired ? '✅ Yes' : '❌ Expired'}\n`);
+
+      if (metadata.isExpired) {
+        console.log('⚠️  Cache has expired and will be refreshed on next load');
+      } else {
+        const remainingMs = metadata.ttl - metadata.age;
+        const remainingMinutes = Math.round(remainingMs / 60000);
+        console.log(`✨ Cache is fresh! Expires in ~${remainingMinutes} minutes`);
+      }
+
+      return {
+        success: true,
+        cached: true,
+        metadata
+      };
+    } catch (error) {
+      console.error('❌ Failed to check cache status:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Force refresh calendar data
+   */
+  async refreshCalendar() {
+    console.log('🔄 Force refreshing calendar data...\n');
+
+    try {
+      const widgetDataManager = window.widgetDataManager;
+      if (!widgetDataManager) {
+        console.error('❌ WidgetDataManager not available');
+        return { success: false, error: 'WidgetDataManager not available' };
+      }
+
+      const startTime = performance.now();
+      await widgetDataManager.refreshCalendarData();
+      const duration = Math.round(performance.now() - startTime);
+
+      console.log(`✅ Calendar data refreshed successfully!`);
+      console.log(`   Duration: ${duration}ms\n`);
+
+      // Show updated cache status
+      await this.getCacheStatus();
+
+      return { success: true, duration };
+    } catch (error) {
+      console.error('❌ Failed to refresh calendar data:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Clear calendar cache
+   */
+  async clearCache() {
+    console.log('🗑️  Clearing calendar cache...\n');
+
+    try {
+      const widgetDataManager = window.widgetDataManager;
+      if (!widgetDataManager) {
+        console.error('❌ WidgetDataManager not available');
+        return { success: false, error: 'WidgetDataManager not available' };
+      }
+
+      await widgetDataManager.clearCalendarCache();
+
+      console.log('✅ Calendar cache cleared successfully!\n');
+      console.log('💡 Next calendar load will fetch fresh data from API\n');
+
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Failed to clear cache:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Simulate offline mode (for testing)
+   */
+  simulateOffline() {
+    console.log('🧪 Simulating offline mode...\n');
+
+    try {
+      // Import and use connectionStatus
+      import('../utils/connection-status.js').then(({ connectionStatus }) => {
+        connectionStatus.enableTestMode('offline');
+
+        console.log('⚠️  OFFLINE MODE SIMULATION ACTIVE\n');
+        console.log('📡 All API calls will be blocked');
+        console.log('💾 Dashboard will run on cached data only');
+        console.log('🔄 Offline indicator should appear\n');
+        console.log('💡 To restore: simulateOnline()\n');
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Failed to simulate offline:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Restore normal online mode
+   */
+  simulateOnline() {
+    console.log('✅ Restoring online mode...\n');
+
+    try {
+      import('../utils/connection-status.js').then(({ connectionStatus }) => {
+        connectionStatus.disableTestMode();
+
+        console.log('✅ NORMAL MODE RESTORED\n');
+        console.log('📡 API calls will work normally');
+        console.log('🔄 Offline indicator should disappear\n');
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Failed to restore online mode:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * Get connection status
+   */
+  async getConnectionStatus() {
+    console.log('📡 Checking connection status...\n');
+
+    try {
+      const { connectionStatus } = await import('../utils/connection-status.js');
+      const status = connectionStatus.getStatus();
+
+      console.log('✅ Connection Status:');
+      console.log(`   Network: ${status.isOnline ? '✅ Online' : '❌ Offline'}`);
+      console.log(`   Backend: ${status.isBackendAvailable ? '✅ Available' : '❌ Unavailable'}`);
+      console.log(`   Mode: ${status.isDegraded ? '🟡 Degraded' : '✅ Normal'}`);
+
+      if (status.isDegraded) {
+        console.log(`   Reason: ${status.degradedReason}`);
+      }
+
+      const timeSince = Math.round(status.timeSinceLastConnection / 1000);
+      console.log(`   Last Success: ${timeSince}s ago`);
+
+      if (connectionStatus.isTestMode()) {
+        console.log(`\n   ⚠️  TEST MODE ACTIVE: ${connectionStatus.testModeType}`);
+      }
+
+      console.log('');
+
+      return {
+        success: true,
+        status
+      };
+    } catch (error) {
+      console.error('❌ Failed to get connection status:', error.message);
+      return { success: false, error: error.message };
+    }
   }
 }
 

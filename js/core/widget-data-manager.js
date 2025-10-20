@@ -4,6 +4,8 @@
 
 import { createLogger } from '../utils/logger.js';
 import { getCalendarService } from '../data/services/calendar-service.js';
+import { calendarCache } from '../utils/calendar-cache.js';
+import { CALENDAR_CACHE_REFRESH_THRESHOLD_MS } from '../../config.js';
 
 const logger = createLogger('WidgetDataManager');
 
@@ -23,8 +25,16 @@ export class WidgetDataManager {
     /**
      * Initialize the widget data manager
      */
-    initialize() {
+    async initialize() {
         logger.info('WidgetDataManager initializing');
+
+        // Initialize calendar cache
+        try {
+            await calendarCache.initialize();
+            logger.debug('Calendar cache initialized');
+        } catch (error) {
+            logger.warn('Failed to initialize calendar cache, will fallback to fetch-only', error);
+        }
 
         // Set up global message listener for all widgets
         window.addEventListener('message', (event) => {
@@ -171,8 +181,9 @@ export class WidgetDataManager {
     /**
      * Load calendar data and send to calendar widget
      * Loads events from all active calendars configured by the user
+     * Uses persistent cache for fast loading
      */
-    async loadCalendarData() {
+    async loadCalendarData(options = {}) {
         try {
             // If there's already a fetch in progress, wait for it instead of starting a new one
             if (this.calendarDataPromise) {
@@ -180,13 +191,49 @@ export class WidgetDataManager {
                 return await this.calendarDataPromise;
             }
 
-            // If we have cached data, return it
-            if (this.calendarDataCache) {
-                logger.debug('Returning cached calendar data');
+            // If we have in-memory cached data, return it (fastest path)
+            if (this.calendarDataCache && !options.forceRefresh) {
+                logger.debug('Returning in-memory cached calendar data');
                 return this.calendarDataCache;
             }
 
-            logger.info('Loading calendar data');
+            // Try to load from persistent cache (fast path - survives page reloads)
+            // This serves stale data by default, so users never see loading after first fetch
+            if (!options.forceRefresh) {
+                try {
+                    const cachedData = await calendarCache.get('calendar-data', { allowStale: true });
+                    if (cachedData) {
+                        // Get metadata to check if we need to refresh
+                        const metadata = await calendarCache.getMetadata('calendar-data');
+
+                        logger.success('Loaded calendar data from persistent cache', {
+                            events: cachedData.events?.length,
+                            calendars: cachedData.calendars?.length,
+                            age: metadata ? `${Math.round(metadata.age / 1000)}s` : 'unknown',
+                            isStale: metadata ? metadata.isExpired : false
+                        });
+
+                        this.calendarDataCache = cachedData;
+
+                        // Start background refresh if cache is stale (expired) OR older than threshold
+                        // This ensures users never see "loading" - we serve cached data and refresh behind the scenes
+                        if (metadata && (metadata.isExpired || metadata.age > CALENDAR_CACHE_REFRESH_THRESHOLD_MS)) {
+                            logger.info('Cache needs refresh, updating in background', {
+                                age: `${Math.round(metadata.age / 1000)}s`,
+                                isExpired: metadata.isExpired,
+                                threshold: `${CALENDAR_CACHE_REFRESH_THRESHOLD_MS / 1000}s`
+                            });
+                            this._refreshCalendarDataInBackground();
+                        }
+
+                        return cachedData;
+                    }
+                } catch (cacheError) {
+                    logger.warn('Failed to load from cache, will fetch fresh', cacheError);
+                }
+            }
+
+            logger.info('Loading calendar data from API');
 
             // Create a promise for this fetch so other simultaneous calls can wait for it
             this.calendarDataPromise = this._fetchCalendarData();
@@ -194,6 +241,14 @@ export class WidgetDataManager {
             try {
                 const data = await this.calendarDataPromise;
                 this.calendarDataCache = data;
+
+                // Store in persistent cache for next time
+                try {
+                    await calendarCache.set('calendar-data', data);
+                } catch (cacheError) {
+                    logger.warn('Failed to cache calendar data', cacheError);
+                }
+
                 return data;
             } finally {
                 // Clear the in-flight promise
@@ -204,6 +259,32 @@ export class WidgetDataManager {
             logger.error('Failed to load calendar data', error);
             throw error;
         }
+    }
+
+    /**
+     * Refresh calendar data in background without blocking
+     * @private
+     */
+    _refreshCalendarDataInBackground() {
+        // Don't start multiple background refreshes
+        if (this._backgroundRefreshInProgress) {
+            return;
+        }
+
+        this._backgroundRefreshInProgress = true;
+
+        this._fetchCalendarData()
+            .then(async (data) => {
+                this.calendarDataCache = data;
+                await calendarCache.set('calendar-data', data);
+                logger.success('Background refresh completed');
+            })
+            .catch((error) => {
+                logger.warn('Background refresh failed', error);
+            })
+            .finally(() => {
+                this._backgroundRefreshInProgress = false;
+            });
     }
 
     /**
@@ -550,6 +631,62 @@ export class WidgetDataManager {
     isWidgetReady(widgetId) {
         const state = this.widgetStates.get(widgetId);
         return state ? state.ready : false;
+    }
+
+    /**
+     * Force refresh calendar data (bypass cache)
+     * Useful for manual refresh or when calendar settings change
+     * @returns {Promise<object>} Fresh calendar data
+     */
+    async refreshCalendarData() {
+        logger.info('Force refreshing calendar data');
+
+        // Clear in-memory cache
+        this.calendarDataCache = null;
+
+        // Clear persistent cache
+        try {
+            await calendarCache.clear('calendar-data');
+        } catch (error) {
+            logger.warn('Failed to clear calendar cache', error);
+        }
+
+        // Load fresh data (will automatically cache it)
+        return await this.loadCalendarData({ forceRefresh: true });
+    }
+
+    /**
+     * Get calendar cache metadata
+     * @returns {Promise<object|null>} Cache metadata or null if not cached
+     */
+    async getCalendarCacheMetadata() {
+        try {
+            return await calendarCache.getMetadata('calendar-data');
+        } catch (error) {
+            logger.warn('Failed to get cache metadata', error);
+            return null;
+        }
+    }
+
+    /**
+     * Clear all calendar cache
+     * Useful for troubleshooting or logout
+     * @returns {Promise<void>}
+     */
+    async clearCalendarCache() {
+        logger.info('Clearing all calendar cache');
+
+        // Clear in-memory cache
+        this.calendarDataCache = null;
+
+        // Clear persistent cache
+        try {
+            await calendarCache.clearAll();
+            logger.success('Calendar cache cleared');
+        } catch (error) {
+            logger.error('Failed to clear calendar cache', error);
+            throw error;
+        }
     }
 
     /**

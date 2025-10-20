@@ -116,12 +116,12 @@ class WidgetMessenger {
     // Listen for theme changes
     AppComms.subscribe(AppComms.events.THEME_CHANGED, (data) => {
       const oldTheme = this.currentState.theme;
-      this.currentState.theme = data.newTheme;
+      this.currentState.theme = data.theme;
 
-      if (oldTheme !== data.newTheme) {
+      if (oldTheme !== data.theme) {
         logger.info('Theme changed, broadcasting to widgets', {
           from: oldTheme,
-          to: data.newTheme
+          to: data.theme
         });
         this.broadcastCurrentState();
       }

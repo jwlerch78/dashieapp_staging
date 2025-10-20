@@ -30,18 +30,20 @@ class Settings {
      * Initialize the Settings module
      * Called once during app initialization
      */
-    async initialize() {
+    async initialize(options = {}) {
+        const { bypassAuth = false } = options;
+
         if (this.initialized) {
             logger.warn('Settings module already initialized');
             return;
         }
 
-        logger.verbose('Initializing Settings module');
+        logger.verbose('Initializing Settings module', { bypassAuth });
 
         try {
             // Initialize Settings Store first
             this.store = new SettingsStore();
-            await this.store.initialize();
+            await this.store.initialize({ bypassAuth });
 
             // Make store globally accessible
             window.settingsStore = this.store;

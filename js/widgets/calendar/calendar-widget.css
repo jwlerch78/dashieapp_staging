@@ -111,7 +111,7 @@ html, body {
 
 /* ===== ALL-DAY EVENTS SECTION ===== */
 .allday-section {
-  background: var(--bg-secondary, #333);
+  background: var(--bg-primary, #222);
   border-bottom: 1px solid rgba(153, 153, 153, 0.3);
   min-height: 40px;
   max-height: 150px;
@@ -233,7 +233,7 @@ html, body {
   bottom: 0;
   width: var(--today-column-width, calc(100% / 7)); /* Dynamic width based on dayCount */
   left: var(--today-column-left, 0); /* Dynamic position based on todayIndex */
-  background: rgba(0, 123, 255, 0.08);
+  background: var(--bg-active);
   pointer-events: none;
   z-index: 0;
   display: none; /* Hidden by default, shown via JS */
@@ -247,14 +247,6 @@ html, body {
 .allday-events-grid.today-column-5::before,
 .allday-events-grid.today-column-6::before {
   display: block;
-}
-
-.theme-dark .allday-events-grid::before {
-  background: rgba(0, 123, 255, 0.12);
-}
-
-.theme-light .allday-events-grid::before {
-  background: rgba(0, 123, 255, 0.05);
 }
 
 .allday-event {
@@ -328,17 +320,7 @@ html, body {
 }
 
 .day-column.today-column {
-  background: rgba(0, 123, 255, 0.08); /* Subtle blue tint for light theme */
-}
-
-/* Dark theme: use slightly lighter shade */
-.theme-dark .day-column.today-column {
-  background: rgba(0, 123, 255, 0.12);
-}
-
-/* Light theme: use slightly darker shade */
-.theme-light .day-column.today-column {
-  background: rgba(0, 123, 255, 0.05);
+  background: var(--bg-active);
 }
 
 .day-column.focused {
@@ -418,7 +400,7 @@ html, body {
   left: 0;
   right: 0;
   height: 2px;
-  background: #ea4335;
+  background: var(--accent-current-time);
   z-index: 100;
   pointer-events: none;
 }
@@ -431,7 +413,7 @@ html, body {
   width: 12px;
   height: 12px;
   border-radius: 50%;
-  background: #ea4335;
+  background: var(--accent-current-time);
 }
 
 /* Scrollbar styling */

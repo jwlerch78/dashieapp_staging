@@ -28,6 +28,22 @@ export const THEME_REGISTRY = {
     name: 'Dark',
     logoSrc: '/artwork/Dashie_Full_Logo_White_Transparent.png',
     cssClass: 'theme-dark'
+  },
+
+  'halloween-dark': {
+    id: 'halloween-dark',
+    name: 'Halloween Dark',
+    logoSrc: '/artwork/Dashie_Full_Logo_White_Transparent.png',
+    cssClass: 'theme-halloween-dark',
+    seasonal: { month: 10 } // Auto-activate in October
+  },
+
+  'halloween-light': {
+    id: 'halloween-light',
+    name: 'Halloween Light',
+    logoSrc: '/artwork/Dashie_Full_Logo_Black_Transparent.png',
+    cssClass: 'theme-halloween-light',
+    seasonal: { month: 10 } // Auto-activate in October
   }
 };
 
