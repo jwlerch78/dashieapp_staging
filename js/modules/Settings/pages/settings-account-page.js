@@ -2,6 +2,7 @@
 // Account settings page - User account management and deletion
 
 import { createLogger } from '../../../utils/logger.js';
+import DashieModal from '../../../utils/dashie-modal.js';
 
 const logger = createLogger('SettingsAccountPage');
 
@@ -101,9 +102,8 @@ export class SettingsAccountPage {
                         </div>
 
                         <!-- Delete Account -->
-                        <div class="settings-modal__menu-item settings-modal__menu-item--selectable settings-modal__menu-item--danger"
+                        <div class="settings-modal__menu-item settings-modal__menu-item--selectable settings-modal__menu-item--danger delete-account-item"
                              id="delete-account-item"
-                             data-navigate="account-delete"
                              tabindex="3">
                             <span class="settings-modal__menu-label">Delete Account</span>
                             <span class="settings-modal__menu-arrow">›</span>
@@ -159,13 +159,13 @@ export class SettingsAccountPage {
                         <h3 class="settings-modal__section-title" style="color: #FF3B30;">Delete Account</h3>
                     </div>
                     <div class="settings-modal__section-content">
-                        <p class="settings-modal__section-description">
+                        <p class="settings-modal__section-description" style="color: var(--text-secondary);">
                             Are you sure you want to permanently delete your account?
                         </p>
-                        <p class="settings-modal__section-description" style="margin-top: 12px;">
+                        <p class="settings-modal__section-description" style="margin-top: 12px; color: var(--text-secondary);">
                             This will delete all your data including:
                         </p>
-                        <ul style="margin: 12px 0; padding-left: 24px; font-size: 14px; color: #666;">
+                        <ul style="margin: 12px 0; padding-left: 24px; font-size: 14px; color: var(--text-secondary);">
                             <li style="margin: 6px 0;">Calendar settings and connections</li>
                             <li style="margin: 6px 0;">Uploaded photos and albums</li>
                             <li style="margin: 6px 0;">All settings and preferences</li>
@@ -174,13 +174,22 @@ export class SettingsAccountPage {
                         <p class="settings-modal__section-description" style="margin-top: 12px; color: #FF3B30; font-weight: 600;">
                             This action cannot be undone!
                         </p>
-                        <button
-                            class="settings-button settings-button--danger"
-                            id="confirm-delete-account-btn"
-                            tabindex="1"
-                            style="margin-top: 20px;">
-                            Delete My Account
-                        </button>
+                        <div style="display: flex; gap: 12px; margin-top: 20px;">
+                            <button
+                                class="settings-button"
+                                id="cancel-delete-account-btn"
+                                tabindex="0"
+                                style="flex: 1;">
+                                Cancel
+                            </button>
+                            <button
+                                class="settings-button settings-button--danger"
+                                id="confirm-delete-account-btn"
+                                tabindex="1"
+                                style="flex: 1;">
+                                Delete My Account
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -197,9 +206,13 @@ export class SettingsAccountPage {
         const screenName = currentScreen?.dataset?.screen;
 
         if (screenName === 'account-delete') {
-            // Delete account confirmation screen
+            // Delete account confirmation screen - return both buttons with Cancel first
+            const cancelBtn = document.getElementById('cancel-delete-account-btn');
             const confirmBtn = document.getElementById('confirm-delete-account-btn');
-            return confirmBtn ? [confirmBtn] : [];
+            const elements = [];
+            if (cancelBtn) elements.push(cancelBtn);
+            if (confirmBtn) elements.push(confirmBtn);
+            return elements;
         } else {
             // Main screen
             const manageItem = document.getElementById('manage-account-item');
@@ -221,27 +234,26 @@ export class SettingsAccountPage {
     activate() {
         logger.debug('Account page activated');
 
-        // Attach event listeners for navigation items
-        const manageItem = document.getElementById('manage-account-item');
-        const eraseItem = document.getElementById('erase-all-data-item');
-        const deleteItem = document.getElementById('delete-account-item');
-        const confirmDeleteBtn = document.getElementById('confirm-delete-account-btn');
+        // Note: Navigation between account sub-screens is now handled by the modal renderer
+        // via data-navigate attributes. No need to attach click handlers here.
+        // Event listeners for interactive elements (like the delete button) are attached
+        // by the modal renderer when the sub-screen is shown.
+    }
 
-        if (manageItem) {
-            manageItem.addEventListener('click', () => this.navigateToScreen('account-manage'));
+    /**
+     * Handle item click
+     * @param {HTMLElement} item - The clicked item
+     * @returns {Promise<object>} - { shouldNavigate: boolean, navigateTo?: string }
+     */
+    async handleItemClick(item) {
+        // Handle delete account clicks
+        if (item.classList.contains('delete-account-item')) {
+            await this.handleDeleteAccount();
+            return { shouldNavigate: false };
         }
 
-        if (eraseItem) {
-            eraseItem.addEventListener('click', () => this.navigateToScreen('account-erase'));
-        }
-
-        if (deleteItem) {
-            deleteItem.addEventListener('click', () => this.navigateToScreen('account-delete'));
-        }
-
-        if (confirmDeleteBtn) {
-            confirmDeleteBtn.addEventListener('click', () => this.handleDeleteAccount());
-        }
+        // Default: allow navigation
+        return { shouldNavigate: true };
     }
 
     /**
@@ -308,13 +320,6 @@ export class SettingsAccountPage {
             return;
         }
 
-        // Show loading state
-        const deleteBtn = document.getElementById('delete-account-btn');
-        if (deleteBtn) {
-            deleteBtn.disabled = true;
-            deleteBtn.textContent = 'Deleting...';
-        }
-
         try {
             // Call edge function to delete account
             await this.deleteAccount();
@@ -325,20 +330,14 @@ export class SettingsAccountPage {
             this.clearLocalData();
 
             // Show success message
-            alert('Your account has been deleted. You will now be redirected to the login screen.');
+            await DashieModal.info('Account Deleted', 'Your account has been deleted. You will now be redirected to the login screen.');
 
             // Reload page to return to login
             window.location.reload();
 
         } catch (error) {
             logger.error('Failed to delete account', error);
-            alert(`Failed to delete account: ${error.message}\n\nPlease try again or contact support.`);
-
-            // Re-enable button
-            if (deleteBtn) {
-                deleteBtn.disabled = false;
-                deleteBtn.textContent = 'Delete Account';
-            }
+            await DashieModal.error('Failed to Delete Account', `Unable to delete your account:\n\n${error.message}\n\nPlease try again or contact support.`);
         }
     }
 
@@ -348,9 +347,9 @@ export class SettingsAccountPage {
      */
     async showDeleteConfirmation() {
         // Use DashieModal like the remove calendar confirmation
-        const confirmed = await window.DashieModal.confirm(
+        const confirmed = await DashieModal.confirm(
             'Delete Account',
-            `Are you sure you want to delete your account?\n\n${this.user.email}\n\nAll your data including calendars, photos, and settings will be permanently deleted.`
+            `Are you sure you want to permanently delete your account?\n\n${this.user.email}\n\nThis will delete all your data including:\n• Calendar settings and connections\n• Uploaded photos and albums\n• All settings and preferences\n• Account information and login access\n\nThis action cannot be undone!`
         );
 
         return confirmed;
@@ -368,7 +367,7 @@ export class SettingsAccountPage {
         }
 
         // Call database-operations edge function
-        const result = await edgeClient.databaseRequest('delete_account', {});
+        const result = await edgeClient.databaseRequest({ operation: 'delete_account' });
 
         logger.info('Account deletion response', result);
 

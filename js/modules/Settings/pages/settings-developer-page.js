@@ -34,11 +34,36 @@ export class SettingsDeveloperPage {
      */
     async loadSystemStatus() {
         try {
+            const edgeClient = window.sessionManager?.getEdgeClient();
+            const jwtExpiry = edgeClient?.jwtExpiry;
+
+            // Calculate JWT expiry time with better formatting
+            let jwtStatusText = '✗ Expired';
+            if (jwtExpiry && edgeClient?.jwtToken && !edgeClient?.isJWTExpired()) {
+                const remainingMs = jwtExpiry - Date.now();
+                const remainingMinutes = Math.floor(remainingMs / 1000 / 60);
+
+                const days = Math.floor(remainingMinutes / 1440);
+                const hours = Math.floor((remainingMinutes % 1440) / 60);
+                const minutes = remainingMinutes % 60;
+
+                if (days >= 1) {
+                    // Show days and hours when >= 1 day
+                    jwtStatusText = `✓ Valid (${days} day${days !== 1 ? 's' : ''}, ${hours}hr${hours !== 1 ? 's' : ''} remaining)`;
+                } else {
+                    // Show hours and minutes when < 1 day
+                    jwtStatusText = `✓ Valid (${hours} hr${hours !== 1 ? 's' : ''} ${minutes} min remaining)`;
+                }
+            }
+
             this.systemStatus = {
                 // Authentication
                 isAuthenticated: window.sessionManager?.isAuthenticated || false,
                 userId: window.sessionManager?.getUser()?.id || 'N/A',
                 userEmail: window.sessionManager?.getUser()?.email || 'N/A',
+
+                // JWT Token
+                jwtStatusText: jwtStatusText,
 
                 // Services
                 calendarServiceReady: !!window.calendarService,
@@ -104,6 +129,12 @@ export class SettingsDeveloperPage {
                             <span class="settings-info-value monospace">${status.userId ? status.userId.substring(0, 8) + '...' : 'N/A'}</span>
                         </div>
                         <div class="settings-info-row">
+                            <span class="settings-info-label">JWT Token:</span>
+                            <span class="settings-info-value ${status.jwtStatusText?.startsWith('✓') ? 'status-ok' : 'status-error'}">
+                                ${status.jwtStatusText || '✗ Expired'}
+                            </span>
+                        </div>
+                        <div class="settings-info-row">
                             <span class="settings-info-label">Calendar Service:</span>
                             <span class="settings-info-value ${status.calendarServiceReady ? 'status-ok' : 'status-error'}">
                                 ${status.calendarServiceReady ? '✓ Ready' : '✗ Not Ready'}
@@ -151,7 +182,7 @@ export class SettingsDeveloperPage {
                         <h3 class="settings-modal__section-title">Beta Features</h3>
                     </div>
                     <div class="settings-modal__section-content">
-                        <p class="settings-modal__section-description">
+                        <p class="settings-modal__section-description" style="color: var(--text-secondary); margin-bottom: 12px;">
                             You have access to all beta features as a beta tester
                         </p>
                         <div class="settings-info-row">
@@ -209,10 +240,13 @@ export class SettingsDeveloperPage {
         logger.debug('Developer page activated');
         // Reload system status when page is shown
         this.loadSystemStatus().then(() => {
-            // Re-render if needed
-            const content = document.querySelector('.settings-modal__page-content');
-            if (content) {
-                content.outerHTML = this.render();
+            // Re-render if needed - find the developer screen specifically
+            const developerScreen = document.querySelector('[data-screen="developer"]');
+            if (developerScreen) {
+                const content = developerScreen.querySelector('.settings-modal__page-content');
+                if (content) {
+                    content.outerHTML = this.render();
+                }
             }
         });
     }

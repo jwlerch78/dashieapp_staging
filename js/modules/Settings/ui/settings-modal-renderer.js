@@ -162,6 +162,11 @@ export class SettingsModalRenderer {
                 html += this.buildCalendarSubScreens();
             }
 
+            // Add sub-screens for Account page
+            if (pageId === 'account') {
+                html += this.buildAccountSubScreens();
+            }
+
             return html;
         }).join('');
 
@@ -241,6 +246,28 @@ export class SettingsModalRenderer {
             <div class="settings-modal__screen" data-screen="calendar-remove" data-title="Remove Calendar Accounts" data-parent="calendar">
                 ${calendarPage.renderRemoveAccount()}
             </div>
+        `;
+    }
+
+    /**
+     * Build Account page sub-screens
+     * @returns {string} - HTML string
+     */
+    buildAccountSubScreens() {
+        const accountPage = this.pages.account;
+
+        return `
+            <!-- Manage Account -->
+            <div class="settings-modal__screen" data-screen="account-manage" data-title="Manage Account" data-parent="account">
+                ${accountPage.renderManageAccountScreen()}
+            </div>
+
+            <!-- Erase All Data -->
+            <div class="settings-modal__screen" data-screen="account-erase" data-title="Erase All Data" data-parent="account">
+                ${accountPage.renderEraseAllDataScreen()}
+            </div>
+
+            <!-- Delete Account uses DashieModal.confirm() - no sub-screen needed -->
         `;
     }
 
@@ -424,6 +451,16 @@ export class SettingsModalRenderer {
                         this.stateManager.setSelectedIndex(0);
                     }
                 }
+
+                // Handle Account sub-screens (account-manage, account-erase)
+                // Note: account-delete uses DashieModal.confirm() and doesn't have a sub-screen
+                if (screenId.startsWith('account-') && direction === 'forward') {
+                    // Reset selection to first focusable element and update UI
+                    setTimeout(() => {
+                        this.stateManager.setSelectedIndex(0);
+                        this.updateSelection();
+                    }, 50);
+                }
             } else {
                 screen.classList.remove('settings-modal__screen--active');
             }
@@ -475,6 +512,17 @@ export class SettingsModalRenderer {
                 if (menuItems[selectedIndex]) {
                     menuItems[selectedIndex].classList.add('settings-modal__menu-item--selected');
                     selectedElement = menuItems[selectedIndex];
+                }
+            }
+        } else if (currentPage.startsWith('account-')) {
+            // Account sub-screens: query the active screen directly
+            const activeScreen = this.modalElement.querySelector(`[data-screen="${currentPage}"].settings-modal__screen--active`);
+            if (activeScreen) {
+                // Select buttons and menu items
+                const elements = activeScreen.querySelectorAll('button, .settings-modal__menu-item');
+                if (elements[selectedIndex]) {
+                    elements[selectedIndex].classList.add('settings-modal__menu-item--selected');
+                    selectedElement = elements[selectedIndex];
                 }
             }
         } else {
@@ -571,11 +619,13 @@ export class SettingsModalRenderer {
 
         if (currentPage === 'main') {
             return Array.from(this.modalElement.querySelectorAll('[data-screen="main"] .settings-modal__menu-item'));
-        } else if (currentPage.startsWith('display-') || currentPage.startsWith('calendar-')) {
+        } else if (currentPage.startsWith('display-') || currentPage.startsWith('calendar-') || currentPage.startsWith('account-')) {
             // Sub-screens: query the active screen directly
             const activeScreen = this.modalElement.querySelector(`[data-screen="${currentPage}"].settings-modal__screen--active`);
             if (activeScreen) {
-                return Array.from(activeScreen.querySelectorAll('.settings-modal__menu-item'));
+                // For account-delete and similar screens with buttons, query both buttons and menu items
+                const elements = activeScreen.querySelectorAll('button, .settings-modal__menu-item');
+                return Array.from(elements);
             }
             return [];
         } else {

@@ -476,7 +476,11 @@ export class SettingsCalendarPage extends SettingsPageBase {
 
             logger.info('Found Google accounts', {
                 count: accountTypes.length,
-                accounts: accountTypes
+                accounts: accountTypes,
+                accountDetails: Object.keys(googleAccounts).map(at => ({
+                    type: at,
+                    email: googleAccounts[at].email
+                }))
             });
 
             // Clear existing calendar data
@@ -491,9 +495,10 @@ export class SettingsCalendarPage extends SettingsPageBase {
 
                     const calendars = await this.calendarService.getCalendars(accountType);
 
-                    logger.debug(`Calendars loaded from ${accountType}`, {
+                    logger.info(`Calendars loaded from ${accountType}`, {
                         count: calendars.length,
-                        activeCount: calendars.filter(c => c.isActive).length
+                        activeCount: calendars.filter(c => c.isActive).length,
+                        calendarNames: calendars.map(c => c.summary)
                     });
 
                     this.calendarData[accountType] = {
@@ -503,7 +508,7 @@ export class SettingsCalendarPage extends SettingsPageBase {
                     };
 
                 } catch (error) {
-                    logger.warn(`Failed to load calendars from ${accountType}`, error);
+                    logger.error(`Failed to load calendars from ${accountType}`, error);
                     // Continue loading other accounts even if one fails
                 }
             }

@@ -258,6 +258,10 @@ export class SessionManager {
 
                     logger.success('OAuth tokens stored to Supabase');
 
+                    // Refresh TokenStore to populate in-memory cache
+                    await this.tokenStore.refresh();
+                    logger.debug('TokenStore refreshed after OAuth token storage');
+
                     // Set authenticated user
                     // IMPORTANT: Use jwtResult.user (Supabase UUID), not oauthResult.user (Google ID)
                     this.isAuthenticated = true;
@@ -368,6 +372,10 @@ export class SessionManager {
 
             // Update TokenStore with authenticated EdgeClient
             this.tokenStore.edgeClient = this.edgeClient;
+
+            // Refresh TokenStore to populate in-memory cache
+            await this.tokenStore.refresh();
+            logger.debug('TokenStore refreshed after session restoration');
 
             // Set user from JWT
             // Note: We don't have full user details (name, picture) from JWT

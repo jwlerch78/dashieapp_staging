@@ -577,3 +577,16 @@
 .settings-modal__menu-item--danger:active {
   background: rgba(255, 59, 48, 0.1);
 }
+
+/* Disabled menu item (for sleep/wake time when timer is off) */
+.settings-modal__menu-item--disabled {
+  opacity: 0.4;
+  pointer-events: none;
+  cursor: not-allowed;
+}
+
+.settings-modal__menu-item--disabled .settings-modal__menu-label,
+.settings-modal__menu-item--disabled .settings-modal__cell-value,
+.settings-modal__menu-item--disabled .settings-modal__cell-chevron {
+  color: #C7C7CC;
+}

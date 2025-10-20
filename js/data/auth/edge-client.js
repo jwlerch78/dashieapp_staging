@@ -473,6 +473,15 @@ export class EdgeClient {
             operation: 'list_accounts'
         });
 
+        logger.info('list_accounts response from edge function', {
+            accountCount: response.accounts?.length || 0,
+            accounts: response.accounts?.map(a => ({
+                provider: a.provider,
+                accountType: a.account_type,
+                email: a.email
+            }))
+        });
+
         if (!response.accounts || response.accounts.length === 0) {
             logger.debug('No accounts found in Supabase');
             return { tokens: {} };

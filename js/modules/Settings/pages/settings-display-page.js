@@ -35,6 +35,7 @@ export class SettingsDisplayPage {
         const sleepTime = this.getSleepTime();
         const wakeTime = this.getWakeTime();
         const dynamicGreeting = this.getDynamicGreeting();
+        const sleepTimerEnabled = this.getSleepTimerEnabled();
 
         // Format times for display
         const sleepTimeDisplay = this.timeHandler.formatTime(sleepTime);
@@ -42,6 +43,9 @@ export class SettingsDisplayPage {
 
         // Format theme for display (capitalize first letter)
         const themeDisplay = currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1);
+
+        // Add disabled class if sleep timer is off
+        const timeDisabledClass = sleepTimerEnabled ? '' : 'settings-modal__menu-item--disabled';
 
         return `
             <div class="settings-modal__list">
@@ -58,22 +62,33 @@ export class SettingsDisplayPage {
                 </div>
 
                 <div class="settings-modal__section">
-                    <!-- Sleep Timer -->
-                    <div class="settings-modal__menu-item settings-modal__menu-item--navigable"
+                    <!-- Sleep/Wake Timer Toggle -->
+                    <div class="settings-modal__menu-item settings-modal__menu-item--toggle"
+                         role="button"
+                         tabindex="0">
+                        <span class="settings-modal__menu-label">Sleep/Wake Timer</span>
+                        <label class="settings-modal__toggle-switch">
+                            <input type="checkbox" ${sleepTimerEnabled ? 'checked' : ''} id="sleep-timer-enabled-toggle" data-setting="interface.sleepTimerEnabled">
+                            <span class="settings-modal__toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Sleep Time -->
+                    <div class="settings-modal__menu-item settings-modal__menu-item--navigable sleep-time-cell ${timeDisabledClass}"
                          data-navigate="display-sleep-time-hour"
                          role="button"
                          tabindex="0">
-                        <span class="settings-modal__menu-label">Sleep Timer</span>
+                        <span class="settings-modal__menu-label">Sleep Time</span>
                         <span class="settings-modal__cell-value" id="sleep-time-display">${sleepTimeDisplay}</span>
                         <span class="settings-modal__cell-chevron">›</span>
                     </div>
 
-                    <!-- Wake Timer -->
-                    <div class="settings-modal__menu-item settings-modal__menu-item--navigable"
+                    <!-- Wake Time -->
+                    <div class="settings-modal__menu-item settings-modal__menu-item--navigable wake-time-cell ${timeDisabledClass}"
                          data-navigate="display-wake-time-hour"
                          role="button"
                          tabindex="0">
-                        <span class="settings-modal__menu-label">Wake Timer</span>
+                        <span class="settings-modal__menu-label">Wake Time</span>
                         <span class="settings-modal__cell-value" id="wake-time-display">${wakeTimeDisplay}</span>
                         <span class="settings-modal__cell-chevron">›</span>
                     </div>
@@ -347,6 +362,18 @@ export class SettingsDisplayPage {
     }
 
     /**
+     * Get sleep timer enabled setting
+     * @returns {boolean}
+     */
+    getSleepTimerEnabled() {
+        if (window.settingsStore) {
+            // Default to false (disabled by default, as per legacy v1.5)
+            return window.settingsStore.get('interface.sleepTimerEnabled') !== false;
+        }
+        return true;
+    }
+
+    /**
      * Set theme and persist
      * @param {string} theme - 'dark' or 'light'
      */
@@ -379,6 +406,41 @@ export class SettingsDisplayPage {
             window.settingsStore.set('interface.dynamicGreeting', enabled);
             await window.settingsStore.save();
         }
+    }
+
+    /**
+     * Set sleep timer enabled and persist
+     * @param {boolean} enabled
+     */
+    async setSleepTimerEnabled(enabled) {
+        logger.info('Setting sleep timer enabled', { enabled });
+
+        if (window.settingsStore) {
+            window.settingsStore.set('interface.sleepTimerEnabled', enabled);
+            await window.settingsStore.save();
+        }
+
+        // Update UI to gray out or enable sleep/wake time cells
+        this.updateSleepTimerStates(enabled);
+    }
+
+    /**
+     * Update sleep/wake time cell states (enabled/disabled)
+     * @param {boolean} enabled
+     */
+    updateSleepTimerStates(enabled) {
+        const sleepTimeCell = document.querySelector('.sleep-time-cell');
+        const wakeTimeCell = document.querySelector('.wake-time-cell');
+
+        if (enabled) {
+            sleepTimeCell?.classList.remove('settings-modal__menu-item--disabled');
+            wakeTimeCell?.classList.remove('settings-modal__menu-item--disabled');
+        } else {
+            sleepTimeCell?.classList.add('settings-modal__menu-item--disabled');
+            wakeTimeCell?.classList.add('settings-modal__menu-item--disabled');
+        }
+
+        logger.debug('Sleep timer states updated', { enabled });
     }
 
     /**
@@ -426,14 +488,22 @@ export class SettingsDisplayPage {
     }
 
     /**
-     * Attach event listeners to dynamic greeting toggle
+     * Attach event listeners to toggles
      * (Theme cells are handled by input handler via ENTER key)
      */
     attachEventListeners() {
+        // Sleep Timer Enabled toggle
+        const sleepTimerToggle = document.getElementById('sleep-timer-enabled-toggle');
+        if (sleepTimerToggle) {
+            sleepTimerToggle.addEventListener('change', async (e) => {
+                await this.setSleepTimerEnabled(e.target.checked);
+            });
+        }
+
         // Dynamic Greeting toggle
-        const toggleInput = document.getElementById('dynamic-greeting-toggle');
-        if (toggleInput) {
-            toggleInput.addEventListener('change', async (e) => {
+        const greetingToggle = document.getElementById('dynamic-greeting-toggle');
+        if (greetingToggle) {
+            greetingToggle.addEventListener('change', async (e) => {
                 await this.setDynamicGreeting(e.target.checked);
             });
         }

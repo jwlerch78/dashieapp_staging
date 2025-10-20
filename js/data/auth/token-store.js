@@ -125,11 +125,27 @@ export class TokenStore {
     }
 
     /**
+     * Refresh tokens from Supabase
+     * Call this after JWT bootstrap completes to populate the in-memory cache
+     * @returns {Promise<void>}
+     */
+    async refresh() {
+        logger.info('Refreshing TokenStore from Supabase');
+        await this.loadTokens();
+        logger.info('TokenStore refreshed', {
+            hasTokens: this.tokens && Object.keys(this.tokens).length > 0,
+            providers: this.tokens ? Object.keys(this.tokens) : [],
+            accountCount: this.countAccounts()
+        });
+    }
+
+    /**
      * Count total number of accounts across all providers
      * @private
      * @returns {number} Total account count
      */
     countAccounts() {
+        if (!this.tokens) return 0;
         return Object.values(this.tokens).reduce(
             (sum, provider) => sum + Object.keys(provider).length,
             0

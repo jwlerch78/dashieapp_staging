@@ -697,7 +697,34 @@ async function handleDeleteAccount(supabase: any, authUserId: string) {
       }
     }
 
-    // STEP 3: Delete auth user (CASCADE will clean up any remaining records)
+    // STEP 3: Delete storage files
+    if (deletionResults.storage_paths.length > 0) {
+      console.log(`🗑️ Deleting ${deletionResults.storage_paths.length} storage files...`);
+
+      try {
+        const { data: storageData, error: storageError } = await supabase.storage
+          .from('user-uploads')
+          .remove(deletionResults.storage_paths);
+
+        if (storageError) {
+          console.error('❌ Failed to delete storage files:', storageError);
+          deletionResults.errors.push({
+            table: 'storage.user-uploads',
+            error: storageError.message
+          });
+        } else {
+          console.log(`✅ Deleted ${deletionResults.storage_paths.length} storage files`);
+        }
+      } catch (error: any) {
+        console.error('❌ Exception deleting storage files:', error);
+        deletionResults.errors.push({
+          table: 'storage.user-uploads',
+          error: error?.message || 'Unknown error'
+        });
+      }
+    }
+
+    // STEP 4: Delete auth user (CASCADE will clean up any remaining records)
     console.log('🗑️ Deleting auth user...');
 
     try {
