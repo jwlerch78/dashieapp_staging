@@ -148,38 +148,18 @@ export class SessionManager {
                             email: oauthResult.user.email
                         });
 
-                        // Auto-enable primary calendar from the new account
-                        logger.info('Auto-enabling primary calendar from new account', {
+                        // Auto-enable all calendars from the new account
+                        logger.info('Auto-enabling all calendars from new account', {
                             accountType: pendingAccountType
                         });
 
                         try {
                             const calendarService = window.calendarService;
                             if (calendarService) {
-                                // Fetch calendars from the new account
-                                const calendars = await calendarService.getCalendars(pendingAccountType);
-
-                                // Find the primary calendar
-                                const primaryCalendar = calendars.find(cal => cal.primary === true);
-
-                                if (primaryCalendar) {
-                                    // Create prefixed ID for the primary calendar
-                                    const primaryCalendarId = calendarService.createPrefixedId(pendingAccountType, primaryCalendar.id);
-
-                                    // Add to active calendars
-                                    if (!calendarService.activeCalendarIds.includes(primaryCalendarId)) {
-                                        calendarService.activeCalendarIds.push(primaryCalendarId);
-                                        await calendarService.saveActiveCalendars();
-
-                                        logger.success('Primary calendar auto-enabled for new account', {
-                                            accountType: pendingAccountType,
-                                            calendarId: primaryCalendarId
-                                        });
-                                    }
-                                }
+                                await calendarService.autoEnableAllCalendars(pendingAccountType);
                             }
                         } catch (calendarError) {
-                            logger.warn('Failed to auto-enable primary calendar for new account', calendarError);
+                            logger.warn('Failed to auto-enable calendars for new account', calendarError);
                             // Don't fail the whole flow if calendar enabling fails
                         }
 
@@ -338,15 +318,15 @@ export class SessionManager {
      * @returns {Promise<boolean>} True if session restored
      */
     async restoreSession() {
-        logger.info('Checking for stored JWT...');
+        logger.verbose('Checking for stored JWT...');
 
         if (!this.edgeClient.jwtToken) {
-            logger.info('No JWT found - user must sign in');
+            logger.verbose('No JWT found - user must sign in');
             return false;
         }
 
         try {
-            logger.info('Found JWT, checking if valid and refreshing if needed');
+            logger.verbose('Found JWT, checking if valid and refreshing if needed');
 
             // Check if JWT is expired or expiring soon (< 60 min remaining)
             if (this.edgeClient.isJWTExpired(60)) {

@@ -164,6 +164,13 @@ class WidgetMessenger {
       this.broadcastCurrentState();
     });
 
+    // Listen for settings loaded (initial load)
+    AppComms.subscribe(AppComms.events.SETTINGS_LOADED, (data) => {
+      this.currentState.settings = data;
+      logger.debug('Settings loaded, broadcasting to widgets');
+      this.broadcastCurrentState();
+    });
+
     logger.debug('Event subscriptions configured');
   }
 

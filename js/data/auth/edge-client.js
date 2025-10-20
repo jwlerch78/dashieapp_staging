@@ -54,7 +54,7 @@ export class EdgeClient {
             this.jwtUserEmail = data.userEmail;
 
             const minutesRemaining = Math.round((data.expiry - Date.now()) / 1000 / 60);
-            logger.info('JWT loaded from localStorage', {
+            logger.verbose('JWT loaded from localStorage', {
                 expiresIn: `${minutesRemaining} minutes`,
                 userId: data.userId,
                 userEmail: data.userEmail
@@ -473,7 +473,7 @@ export class EdgeClient {
             operation: 'list_accounts'
         });
 
-        logger.info('list_accounts response from edge function', {
+        logger.verbose('list_accounts response from edge function', {
             accountCount: response.accounts?.length || 0,
             accounts: response.accounts?.map(a => ({
                 provider: a.provider,
@@ -510,7 +510,7 @@ export class EdgeClient {
             };
         }
 
-        logger.info('Loaded token metadata from Supabase', {
+        logger.verbose('Loaded token metadata from Supabase', {
             accountCount: response.accounts.length
         });
 
@@ -607,7 +607,7 @@ export class EdgeClient {
             operation: 'load'
         });
 
-        logger.info('Successfully loaded settings from Supabase');
+        logger.verbose('Successfully loaded settings from Supabase');
         return response.settings || {};
     }
 
@@ -617,7 +617,7 @@ export class EdgeClient {
      * @returns {Promise<object>} Save result
      */
     async saveCalendarConfig(activeCalendarIds) {
-        logger.info('🔍 DEBUG: Saving calendar config to user_calendar_config table', {
+        logger.verbose('🔍 DEBUG: Saving calendar config to user_calendar_config table', {
             count: activeCalendarIds.length,
             ids: activeCalendarIds
         });
@@ -627,7 +627,7 @@ export class EdgeClient {
             active_calendar_ids: activeCalendarIds
         });
 
-        logger.info('🔍 DEBUG: Successfully saved calendar config, response:', response);
+        logger.verbose('🔍 DEBUG: Successfully saved calendar config, response:', response);
         return response;
     }
 
@@ -636,13 +636,13 @@ export class EdgeClient {
      * @returns {Promise<Array<string>>} Array of active calendar IDs
      */
     async loadCalendarConfig() {
-        logger.info('🔍 DEBUG: Loading calendar config from user_calendar_config table');
+        logger.verbose('🔍 DEBUG: Loading calendar config from user_calendar_config table');
 
         const response = await this.databaseRequest({
             operation: 'load_calendar_config'
         });
 
-        logger.info('🔍 DEBUG: Successfully loaded calendar config, response:', {
+        logger.verbose('🔍 DEBUG: Successfully loaded calendar config, response:', {
             response,
             activeCalendarIds: response.active_calendar_ids || []
         });

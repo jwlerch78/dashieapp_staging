@@ -61,6 +61,13 @@ export function hideLoginScreen() {
   document.getElementById('oauth-login-screen').classList.add('hidden');
   document.getElementById('dashboard-container').classList.add('visible');
 
+  // Clean up loading message interval
+  if (window._loadingMessageInterval) {
+    clearInterval(window._loadingMessageInterval);
+    delete window._loadingMessageInterval;
+    logger.debug('Loading message interval cleared');
+  }
+
   // Clean up login screen input handler
   if (window._loginInputHandler) {
     document.removeEventListener('keydown', window._loginInputHandler, true);

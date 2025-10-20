@@ -27,7 +27,7 @@ export class PhotoStorageService {
     // Configure edge function URL
     this._configureEdgeFunction();
 
-    logger.info('PhotoStorageService initialized', {
+    logger.debug('PhotoStorageService initialized', {
       userId,
       hasJwtService: !!this.jwtService,
       edgeFunctionUrl: this.edgeFunctionUrl

@@ -5,6 +5,7 @@ import { createLogger } from '../../utils/logger.js';
 import { getDefaultSettings } from '../../../config.js';
 import settingsService from '../../data/services/settings-service.js';
 import { showToast } from '../../ui/toast.js';
+import AppComms from '../../core/app-comms.js';
 
 const logger = createLogger('SettingsStore');
 
@@ -42,7 +43,7 @@ export class SettingsStore {
             // This ensures dashboard and widgets use the same theme on startup
             const theme = this.get('interface.theme');
             if (theme && window.themeApplier) {
-                logger.info('Applying theme from Settings Store', { theme });
+                logger.verbose('Applying theme from Settings Store', { theme });
                 window.themeApplier.applyTheme(theme, true);
             }
         } catch (error) {
@@ -77,6 +78,10 @@ export class SettingsStore {
             } else {
                 throw new Error('Failed to save settings');
             }
+
+            // Publish settings changed event so widgets get updated
+            AppComms.publish(AppComms.events.SETTINGS_CHANGED, this.settings);
+            logger.debug('Published SETTINGS_CHANGED event to AppComms');
 
             return result;
         } catch (error) {

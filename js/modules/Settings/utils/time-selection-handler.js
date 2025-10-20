@@ -18,7 +18,7 @@ const logger = createLogger('TimeSelectionHandler');
 export class TimeSelectionHandler {
     constructor() {
         this.pendingTimeSelection = null;
-        logger.info('TimeSelectionHandler constructed');
+        logger.verbose('TimeSelectionHandler constructed');
     }
 
     /**

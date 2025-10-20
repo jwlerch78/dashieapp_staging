@@ -38,7 +38,7 @@ class HeartbeatService {
    * @param {EdgeClient} edgeClient - EdgeClient instance for making authenticated requests
    */
   async initialize(edgeClient) {
-    logger.info(`Initializing heartbeat service (frequency: ${this.heartbeatFrequency / 1000}s)...`);
+    logger.verbose(`Initializing heartbeat service (frequency: ${this.heartbeatFrequency / 1000}s)...`);
 
     // Store EdgeClient reference
     this.edgeClient = edgeClient;
@@ -97,7 +97,7 @@ class HeartbeatService {
       this.sendHeartbeat();
     }, this.heartbeatFrequency);
 
-    logger.info(`Heartbeat started (every ${this.heartbeatFrequency / 1000}s)`);
+    logger.verbose(`Heartbeat started (every ${this.heartbeatFrequency / 1000}s)`);
   }
 
   /**

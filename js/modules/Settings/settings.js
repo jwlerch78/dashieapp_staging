@@ -7,6 +7,7 @@ import { SettingsModalRenderer } from './ui/settings-modal-renderer.js';
 import { SettingsInputHandler } from './settings-input-handler.js';
 import { SettingsOrchestrator } from './settings-orchestrator.js';
 import { SettingsStore } from './settings-store.js';
+import AppComms from '../../core/app-comms.js';
 
 const logger = createLogger('Settings');
 
@@ -63,6 +64,11 @@ class Settings {
 
             this.initialized = true;
             logger.verbose('Settings module initialized successfully');
+
+            // Publish settings loaded event so WidgetMessenger can broadcast to widgets
+            const settingsData = this.store.getAll();
+            AppComms.publish(AppComms.events.SETTINGS_LOADED, settingsData);
+            logger.debug('Published SETTINGS_LOADED event to AppComms');
 
         } catch (error) {
             logger.error('Failed to initialize Settings module', error);

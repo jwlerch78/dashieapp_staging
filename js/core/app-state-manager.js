@@ -142,7 +142,7 @@ class AppStateManager {
 
     const previousModule = this.state.currentModule;
 
-    logger.info(`Changing module: ${previousModule} → ${moduleName}`);
+    logger.verbose(`Changing module: ${previousModule} → ${moduleName}`);
 
     this.setState({
       previousModule,

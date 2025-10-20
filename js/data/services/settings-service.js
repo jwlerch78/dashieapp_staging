@@ -37,7 +37,7 @@ export class SettingsService {
      * @returns {Promise<object>} Settings object
      */
     async load() {
-        logger.info('Loading settings...');
+        logger.verbose('Loading settings...');
 
         try {
             // 1. Try to load from database if authenticated

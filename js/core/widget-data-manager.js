@@ -13,6 +13,10 @@ export class WidgetDataManager {
         this.refreshIntervals = new Map(); // widgetId → interval ID
         this.widgetStates = new Map(); // widgetId → state object
 
+        // Cache for calendar data to avoid duplicate fetches
+        this.calendarDataCache = null;
+        this.calendarDataPromise = null; // Track in-flight requests
+
         logger.info('WidgetDataManager constructed');
     }
 
@@ -48,7 +52,7 @@ export class WidgetDataManager {
             menuItems: []
         });
 
-        logger.info('Widget registered', {
+        logger.verbose('Widget registered', {
             widgetId,
             iframeId: iframe.id,
             totalRegistered: this.widgets.size,
@@ -111,7 +115,7 @@ export class WidgetDataManager {
      * @param {object} data - Widget metadata
      */
     async handleWidgetReady(widgetId, data = {}) {
-        logger.info('Widget ready', { widgetId, data });
+        logger.verbose('Widget ready', { widgetId, data });
 
         // Update widget state
         const state = this.widgetStates.get(widgetId);
@@ -170,8 +174,44 @@ export class WidgetDataManager {
      */
     async loadCalendarData() {
         try {
+            // If there's already a fetch in progress, wait for it instead of starting a new one
+            if (this.calendarDataPromise) {
+                logger.debug('Calendar data fetch already in progress, waiting...');
+                return await this.calendarDataPromise;
+            }
+
+            // If we have cached data, return it
+            if (this.calendarDataCache) {
+                logger.debug('Returning cached calendar data');
+                return this.calendarDataCache;
+            }
+
             logger.info('Loading calendar data');
 
+            // Create a promise for this fetch so other simultaneous calls can wait for it
+            this.calendarDataPromise = this._fetchCalendarData();
+
+            try {
+                const data = await this.calendarDataPromise;
+                this.calendarDataCache = data;
+                return data;
+            } finally {
+                // Clear the in-flight promise
+                this.calendarDataPromise = null;
+            }
+        } catch (error) {
+            this.calendarDataPromise = null;
+            logger.error('Failed to load calendar data', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Internal method to fetch calendar data (called by loadCalendarData)
+     * @private
+     */
+    async _fetchCalendarData() {
+        try {
             // Get calendar service
             const calendarService = getCalendarService();
 
@@ -377,6 +417,15 @@ export class WidgetDataManager {
     async loadHeaderData() {
         logger.info('Header data loading not implemented yet');
         // TODO: Implement when header widget is built
+    }
+
+    /**
+     * Clear calendar data cache (call when calendar settings change)
+     */
+    clearCalendarCache() {
+        logger.debug('Clearing calendar data cache');
+        this.calendarDataCache = null;
+        this.calendarDataPromise = null;
     }
 
     /**

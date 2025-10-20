@@ -77,7 +77,7 @@ export class TokenStore {
                     const supabaseTokens = await this.loadFromSupabase();
                     if (supabaseTokens && Object.keys(supabaseTokens).length > 0) {
                         this.tokens = supabaseTokens;
-                        logger.info('Loaded token metadata from Supabase', {
+                        logger.verbose('Loaded token metadata from Supabase', {
                             providers: Object.keys(this.tokens),
                             accountCount: this.countAccounts()
                         });
@@ -130,9 +130,9 @@ export class TokenStore {
      * @returns {Promise<void>}
      */
     async refresh() {
-        logger.info('Refreshing TokenStore from Supabase');
+        logger.verbose('Refreshing TokenStore from Supabase');
         await this.loadTokens();
-        logger.info('TokenStore refreshed', {
+        logger.verbose('TokenStore refreshed', {
             hasTokens: this.tokens && Object.keys(this.tokens).length > 0,
             providers: this.tokens ? Object.keys(this.tokens) : [],
             accountCount: this.countAccounts()
@@ -187,7 +187,7 @@ export class TokenStore {
 
         await this.save();
 
-        logger.info('Stored tokens for account', {
+        logger.verbose('Stored tokens for account', {
             provider,
             accountType,
             email: tokenData.email
@@ -372,7 +372,7 @@ export class TokenStore {
 
         // Wait for all stores to complete
         await Promise.all(promises);
-        logger.success('All tokens synced to Supabase');
+        logger.verbose('All tokens synced to Supabase');
     }
 
     /**

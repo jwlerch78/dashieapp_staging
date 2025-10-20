@@ -100,9 +100,9 @@ export class CalendarService {
      * @param {string} accountType - Account type ('primary', 'account2', etc.)
      * @private
      */
-    async autoEnablePrimaryCalendar(accountType = 'primary') {
+    async autoEnableAllCalendars(accountType = 'primary') {
         try {
-            logger.info('Auto-enabling primary calendar for account', { accountType });
+            logger.info('Auto-enabling all calendars for account', { accountType });
 
             // Check if we have this account
             const tokenStore = window.sessionManager?.getTokenStore();
@@ -117,56 +117,66 @@ export class CalendarService {
                 return;
             }
 
-            // Fetch calendars to find the actual primary calendar
+            // Fetch all calendars for this account
             const calendars = await this.getCalendars(accountType);
 
-            // Find the primary calendar (marked as primary=true in Google's response)
-            // It will have either id='primary' or id=user's email
-            const primaryCalendar = calendars.find(cal => cal.primary === true);
-
-            if (!primaryCalendar) {
-                logger.warn('No primary calendar found in calendar list', { accountType });
+            if (!calendars || calendars.length === 0) {
+                logger.warn('No calendars found for account', { accountType });
                 return;
             }
 
-            logger.info('Found primary calendar', {
+            logger.info('Found calendars to enable', {
                 accountType,
-                id: primaryCalendar.id,
-                summary: primaryCalendar.summary,
+                count: calendars.length,
                 email: account.email
             });
 
-            // Create prefixed ID for the actual primary calendar
-            const primaryCalendarId = this.createPrefixedId(accountType, primaryCalendar.id);
+            // Enable all calendars that aren't already enabled
+            let newCalendarsAdded = 0;
+            for (const calendar of calendars) {
+                const calendarId = this.createPrefixedId(accountType, calendar.id);
 
-            // Check if it's already enabled
-            if (this.activeCalendarIds.includes(primaryCalendarId)) {
-                logger.debug('Primary calendar already enabled', { primaryCalendarId });
-                return;
+                // Check if it's already enabled
+                if (!this.activeCalendarIds.includes(calendarId)) {
+                    this.activeCalendarIds.push(calendarId);
+                    newCalendarsAdded++;
+                    logger.debug('Enabled calendar', {
+                        calendarId,
+                        summary: calendar.summary
+                    });
+                }
             }
 
-            // Enable it (add to existing active calendars)
-            this.activeCalendarIds.push(primaryCalendarId);
+            if (newCalendarsAdded > 0) {
+                // Save to database and localStorage
+                await this.saveActiveCalendars();
 
-            // Save to database and localStorage
-            await this.saveActiveCalendars();
-
-            logger.success('Primary calendar auto-enabled', {
-                accountType,
-                calendarId: primaryCalendarId,
-                rawCalendarId: primaryCalendar.id,
-                userEmail: account.email
-            });
+                logger.success('All calendars auto-enabled', {
+                    accountType,
+                    totalCalendars: calendars.length,
+                    newCalendarsAdded,
+                    userEmail: account.email
+                });
+            } else {
+                logger.debug('All calendars already enabled', { accountType });
+            }
 
         } catch (error) {
-            logger.error('Failed to auto-enable primary calendar', { accountType, error });
+            logger.error('Failed to auto-enable calendars', { accountType, error });
             throw error;
         }
     }
 
     /**
-     * Check all Google accounts and auto-enable primary calendar for accounts with no active calendars
-     * This ensures newly added accounts automatically have their primary calendar enabled
+     * @deprecated Use autoEnableAllCalendars instead
+     */
+    async autoEnablePrimaryCalendar(accountType = 'primary') {
+        return this.autoEnableAllCalendars(accountType);
+    }
+
+    /**
+     * Check all Google accounts and auto-enable all calendars for accounts with no active calendars
+     * This ensures newly added accounts automatically have all their calendars enabled
      * @private
      */
     async autoEnableNewAccountCalendars() {
@@ -199,13 +209,13 @@ export class CalendarService {
                     const hasActiveCalendars = this.activeCalendarIds.some(id => id.startsWith(prefix));
 
                     if (!hasActiveCalendars) {
-                        logger.info('Account has no active calendars, auto-enabling primary', { accountType });
-                        await this.autoEnablePrimaryCalendar(accountType);
+                        logger.info('Account has no active calendars, auto-enabling all calendars', { accountType });
+                        await this.autoEnableAllCalendars(accountType);
                     } else {
                         logger.debug('Account already has active calendars', { accountType });
                     }
                 } catch (error) {
-                    logger.warn('Failed to check/enable calendar for account', { accountType, error });
+                    logger.warn('Failed to check/enable calendars for account', { accountType, error });
                     // Continue with other accounts
                 }
             }
@@ -273,7 +283,7 @@ export class CalendarService {
                 isActive: this.isCalendarActive(accountType, cal.id)
             }));
 
-            logger.success('Calendars fetched successfully', {
+            logger.verbose('Calendars fetched successfully', {
                 accountType,
                 count: calendarsWithPrefix.length
             });
@@ -309,7 +319,7 @@ export class CalendarService {
             // Normalize all-day events (Google uses exclusive end dates, we need inclusive)
             const normalizedEvents = events.map(event => this.normalizeAllDayEvent(event));
 
-            logger.success('Events fetched successfully', {
+            logger.verbose('Events fetched successfully', {
                 accountType,
                 calendarId,
                 count: normalizedEvents.length
@@ -441,6 +451,11 @@ export class CalendarService {
 
             // Save to database (async)
             await this.edgeClient.saveCalendarConfig(this.activeCalendarIds);
+
+            // Clear widget data manager cache so next load fetches fresh data
+            if (window.widgetDataManager) {
+                window.widgetDataManager.clearCalendarCache();
+            }
 
             logger.debug('Active calendars saved to database and localStorage', {
                 count: this.activeCalendarIds.length,

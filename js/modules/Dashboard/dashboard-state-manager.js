@@ -186,9 +186,9 @@ class DashboardStateManager {
           selectedMenuItem: parsed.selectedMenuItem || this.state.selectedMenuItem
         };
 
-        logger.info('State loaded from localStorage', { state: this.state });
+        logger.verbose('State loaded from localStorage', { state: this.state });
       } else {
-        logger.info('No saved state found, using defaults');
+        logger.verbose('No saved state found, using defaults');
       }
     } catch (error) {
       logger.error('Failed to load state from localStorage', error);

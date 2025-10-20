@@ -12,6 +12,7 @@ import Dashboard from '../../modules/Dashboard/dashboard.js';
 import DashboardInputHandler from '../../modules/Dashboard/dashboard-input-handler.js';
 import Settings from '../../modules/Settings/settings.js';
 import modals from '../../modules/Modals/modals.js';
+import welcome from '../../modules/Welcome/welcome.js';
 import themeApplier from '../../ui/theme-applier.js';
 import { initializeServices } from './service-initializer.js';
 import { initializeWidgets } from './widget-initializer.js';
@@ -62,12 +63,24 @@ export async function initializeCore() {
     // STEP 3: NOW initialize widgets AFTER Dashboard.activate() has created the iframes
     await initializeWidgets();
 
-    // STEP 4: Hide login screen after widgets have been initialized and received themes
+    // STEP 4: Initialize Welcome module and check if onboarding is needed
+    await welcome.initialize();
+    logger.verbose('Welcome module initialized');
+
+    // STEP 5: Hide login screen after widgets have been initialized and received themes
     // Wait a brief moment for widgets to receive theme messages via postMessage
     setTimeout(async () => {
       const { hideLoginScreen } = await import('./auth-initializer.js');
       hideLoginScreen();
       logger.verbose('Login screen hidden - dashboard fully initialized');
+
+      // STEP 6: Check if welcome wizard should be shown for new users
+      if (welcome.shouldShow()) {
+        logger.info('New user detected - showing welcome wizard');
+        await welcome.activate();
+      } else {
+        logger.debug('Welcome wizard not needed - user has completed onboarding');
+      }
     }, 300); // 300ms delay to ensure widgets receive theme
 
     // Detect platform

@@ -18,8 +18,13 @@
   align-items: center;
   justify-content: center;
   z-index: 10000;
+  opacity: 1;
   transition: opacity 0.3s ease;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+#oauth-login-screen.visible {
+  opacity: 1; /* Fade in when content is ready */
 }
 
 #oauth-login-screen.hidden {
@@ -118,6 +123,16 @@
   color: #616161;
   font-size: 18px;
   font-weight: 500;
+}
+
+.loading-dashboard-message {
+  color: #757575;
+  font-size: 15px;
+  font-weight: 400;
+  font-style: italic;
+  margin-top: 8px;
+  opacity: 0.8;
+  transition: opacity 0.5s ease-in-out;
 }
 
 .login-status {

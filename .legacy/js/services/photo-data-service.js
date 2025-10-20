@@ -44,7 +44,7 @@ export class PhotoDataService {
       this.storage = new PhotoStorageService(userId, jwtService);
       this.isInitialized = true;
       
-      logger.info('Photo data service initialized', { userId });
+      logger.debug('Photo data service initialized', { userId });
       return true;
     } catch (error) {
       logger.error('Failed to initialize photo service', error);
@@ -64,7 +64,7 @@ export class PhotoDataService {
     }
 
     try {
-      logger.info('Loading photos', { folder, shuffle });
+      logger.debug('Loading photos', { folder, shuffle });
 
       // CRITICAL: Clear cached authenticated client to force fresh JWT
       if (this.storage.authenticatedClient) {

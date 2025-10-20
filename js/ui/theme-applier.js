@@ -101,7 +101,7 @@ class ThemeApplier {
     // This ensures widgets get the theme on initialization
     this.broadcastThemeChange(theme);
 
-    logger.info('Theme applied', {
+    logger.verbose('Theme applied', {
       theme,
       previousTheme,
       changed: themeChanged,

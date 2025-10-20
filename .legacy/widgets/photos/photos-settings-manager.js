@@ -19,7 +19,7 @@ export class PhotosSettingsManager {
     this.isOpen = false;
     this.iframeReady = false;
     
-    logger.info('PhotosSettingsManager initialized');
+    logger.debug('PhotosSettingsManager initialized');
     
     // Listen for messages from the modal iframe
     this.setupMessageListener();
