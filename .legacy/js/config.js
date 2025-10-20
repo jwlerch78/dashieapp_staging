@@ -14,7 +14,7 @@ window.APP_VERSION = APP_VERSION;
 // Set to true to use dev database on prod site
 // Set to false to use normal auto-detection
 // ==========================================
-const FORCE_DEV_DATABASE = true;  // ← Change this to false when prod DB is ready
+const FORCE_DEV_DATABASE = false;  // ← Change this to false when prod DB is ready
 // ==========================================
 
 // Brand tagline (shared between loading overlay and login screens)

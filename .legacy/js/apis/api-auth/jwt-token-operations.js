@@ -141,6 +141,14 @@ export class JWTTokenOperations extends JWTServiceCore {
       // Use Supabase JWT in Authorization header (not Google token)
       const headers = this._getSupabaseHeaders(true);
 
+      console.log('🔍 DEBUG - Storing tokens with data:', {
+        provider,
+        account_type: accountType,
+        has_provider_info: !!tokenData.provider_info,
+        provider_info: tokenData.provider_info
+      });
+      
+
       const response = await fetch(this.edgeFunctionUrl, {
         method: 'POST',
         headers: headers,
