@@ -669,6 +669,96 @@ if (handled && originalEvent) {
 
 ---
 
+### 6. ❌ Modal Events Not Being Captured (DashieModal Issue)
+
+**Problem:**
+```javascript
+// Adding event listener in default (bubble) phase
+document.addEventListener('keydown', this.handleKeydown);
+```
+
+**Result:** Other event handlers (like Settings input handler) process the event **before** the modal can intercept it. This causes:
+- Pressing Enter on "Cancel" re-triggers the action that showed the modal
+- Modal doesn't close when expected
+- Background handlers execute even though modal is visible
+- Modal gets shown multiple times ("Modal already visible" warnings)
+
+**Symptoms:**
+```
+[DashieModal] ⚠️ Modal already visible, hiding current modal first
+[SettingsInputHandler] ℹ️ Triggering click on selected element
+```
+
+**Root Cause:** Event listeners fire in this order:
+1. **Capture phase** (window → target) - Parent elements first
+2. **Target phase** - Element itself
+3. **Bubble phase** (target → window) - Back up to parents
+
+By default, `addEventListener` uses **bubble phase**, which fires AFTER other handlers at the same level may have already processed the event.
+
+**Fix:** Use **capture phase** by passing `true` as third parameter:
+
+```javascript
+// ✅ Correct: Capture phase (fires FIRST)
+document.addEventListener('keydown', this.handleKeydown, true);
+
+// Also use capture phase when removing
+document.removeEventListener('keydown', this.handleKeydown, true);
+```
+
+**Complete Example:**
+
+```javascript
+show({ title, message, buttons }) {
+  return new Promise((resolve) => {
+    // ... render modal ...
+
+    // ✅ Add listener in CAPTURE phase to intercept events first
+    document.addEventListener('keydown', this.handleKeydown, true);
+
+    this.isVisible = true;
+  });
+}
+
+hide() {
+  if (!this.isVisible) return;
+
+  // ✅ Remove with same capture flag
+  document.removeEventListener('keydown', this.handleKeydown, true);
+
+  this.isVisible = false;
+}
+
+handleKeydown(event) {
+  if (!this.isVisible) return;
+
+  // ✅ Stop event from reaching other handlers
+  event.preventDefault();
+  event.stopImmediatePropagation();
+
+  switch (event.key) {
+    case 'Enter':
+      // Handle enter
+      break;
+    case 'Escape':
+      // Handle escape
+      break;
+  }
+}
+```
+
+**Why This Works:**
+- **Capture phase** fires before other handlers can see the event
+- `stopImmediatePropagation()` prevents ALL other handlers (including same-level ones) from firing
+- Modal handles the event exclusively, preventing background interference
+
+**When to Use:**
+- ✅ Use capture phase for **overlay modals** that need exclusive input control
+- ✅ Use `stopImmediatePropagation()` when you want to block all other handlers
+- ⚠️ Don't use capture phase for normal UI elements (buttons, inputs, etc.)
+
+---
+
 ## Debugging Guide
 
 ### Enable Debug Logging

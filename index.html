@@ -33,39 +33,64 @@
     <div class="sign-in-modal">
       <img src="./artwork/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie" class="dashie-logo-signin">
 
-      <div class="sign-in-header">
-        <h2>Welcome to Dashie!</h2>
-        <p>Helping active families manage the chaos</p>
+      <!-- Loading Dashboard State (shown when authenticated and loading) -->
+      <div class="loading-dashboard-state" id="loading-dashboard-state" style="display: none;">
+        <div class="loading-dashboard-welcome" id="loading-dashboard-welcome">Welcome</div>
+        <div class="loading-dashboard-spinner"></div>
+        <div class="loading-dashboard-text">Loading Dashboard</div>
       </div>
 
-      <div class="sign-in-content">
-        <div class="login-status" id="login-status">
-          Initializing authentication system...
+      <!-- Sign In State (shown when not authenticated) -->
+      <div class="sign-in-state" id="sign-in-state">
+        <div class="sign-in-header">
+          <h2>Welcome to Dashie!</h2>
+          <p>Helping active families manage the chaos</p>
         </div>
 
-        <button class="signin-button secondary" id="login-button" disabled tabindex="1">
-          <span class="spinner"></span>
-          <span>Loading...</span>
-        </button>
+        <div class="sign-in-content">
+          <div class="login-status" id="login-status">
+            Initializing authentication system...
+          </div>
 
-        <button class="signin-button secondary" id="exit-app-btn" tabindex="2">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
-          </svg>
-          Exit
-        </button>
+          <button class="signin-button secondary" id="login-button" disabled tabindex="1">
+            <span class="spinner"></span>
+            <span>Loading...</span>
+          </button>
 
-        <div class="login-error" id="login-error" style="display: none;"></div>
+          <button class="signin-button secondary" id="exit-app-btn" tabindex="2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.59L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+            </svg>
+            Exit
+          </button>
 
-        <p class="privacy-notice">Your data stays private and secure</p>
-      </div>
+          <div class="login-error" id="login-error" style="display: none;"></div>
 
-      <div class="sign-in-footer">
-        <!-- Site info inside the modal box -->
-        <div class="site-info-external" id="site-info-external">
-          <!-- Will be populated by JavaScript -->
+          <p class="privacy-notice">Your data stays private and secure</p>
+        </div>
+
+        <div class="sign-in-footer">
+          <!-- Site info inside the modal box -->
+          <div class="site-info-external" id="site-info-external">
+            <!-- Will be populated by JavaScript -->
+          </div>
         </div>
       </div>
+
+      <!-- Inline script to detect OAuth callback and set correct initial state -->
+      <!-- This runs immediately to prevent flash between sign-in and loading states -->
+      <script>
+        (function() {
+          const urlParams = new URLSearchParams(window.location.search);
+          const isOAuthCallback = urlParams.has('code') && urlParams.has('state');
+
+          if (isOAuthCallback) {
+            // Hide sign-in state and show loading dashboard state immediately
+            document.getElementById('sign-in-state').style.display = 'none';
+            document.getElementById('loading-dashboard-state').style.display = 'flex';
+          }
+        })();
+      </script>
     </div>
   </div>
 

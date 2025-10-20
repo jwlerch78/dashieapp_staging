@@ -272,6 +272,22 @@ export class SessionManager {
                         signedInAt: Date.now()
                     };
 
+                    // Persist user data (name, picture) to localStorage for session restoration
+                    // JWT doesn't include these fields, so we need to store them separately
+                    try {
+                        const userDataForStorage = {
+                            name: this.user.name,
+                            picture: this.user.picture
+                        };
+                        localStorage.setItem('dashie-user-data', JSON.stringify(userDataForStorage));
+                        logger.debug('Saved user data to localStorage', {
+                            hasName: !!userDataForStorage.name,
+                            hasPicture: !!userDataForStorage.picture
+                        });
+                    } catch (error) {
+                        logger.warn('Failed to save user data to localStorage', error);
+                    }
+
                     this.isInitialized = true;
 
                     return {
@@ -355,12 +371,26 @@ export class SessionManager {
 
             // Set user from JWT
             // Note: We don't have full user details (name, picture) from JWT
-            // Those will be loaded when needed
+            // Restore from localStorage if available
+            let savedUserData = null;
+            try {
+                const storedData = localStorage.getItem('dashie-user-data');
+                if (storedData) {
+                    savedUserData = JSON.parse(storedData);
+                    logger.debug('Loaded user data from localStorage', {
+                        hasName: !!savedUserData.name,
+                        hasPicture: !!savedUserData.picture
+                    });
+                }
+            } catch (error) {
+                logger.warn('Failed to load user data from localStorage', error);
+            }
+
             this.user = {
                 id: this.edgeClient.jwtUserId,
                 email: this.edgeClient.jwtUserEmail,
-                name: this.edgeClient.jwtUserEmail.split('@')[0], // Use email prefix as fallback
-                picture: null,
+                name: savedUserData?.name || this.edgeClient.jwtUserEmail.split('@')[0], // Use saved name or email prefix as fallback
+                picture: savedUserData?.picture || null, // Restore picture from localStorage
                 provider: 'google',
                 authMethod: 'jwt_restoration',
                 signedInAt: Date.now()
@@ -436,6 +466,14 @@ export class SessionManager {
             // Clear JWT (Google tokens stay in Supabase for next login)
             if (this.edgeClient) {
                 this.edgeClient.clearJWT();
+            }
+
+            // Clear user data from localStorage
+            try {
+                localStorage.removeItem('dashie-user-data');
+                logger.debug('Cleared user data from localStorage');
+            } catch (error) {
+                logger.warn('Failed to clear user data from localStorage', error);
             }
 
             // Clear user state

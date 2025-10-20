@@ -113,9 +113,10 @@ export class AgendaWidget {
           widgetId: 'agenda',
           payload: {
             eventType: 'widget-ready',
-            data: {}
+            data: { hasMenu: false }
           }
         }, '*');
+        logger.debug('📤 Sent widget-ready message to parent');
       }
     });
 
@@ -179,8 +180,14 @@ export class AgendaWidget {
         break;
 
       case 'enter':
+        logger.info('Enter pressed in agenda', {
+          selectedEventIndex: this.selectedEventIndex,
+          hasEvents: this.chronologicalEvents.length > 0
+        });
         if (this.selectedEventIndex >= 0) {
           this.showSelectedEventModal();
+        } else {
+          logger.warn('No event selected for modal');
         }
         break;
 
@@ -202,9 +209,19 @@ export class AgendaWidget {
   }
 
   handleCalendarData(data) {
+    // Merge multi-calendar events (events on multiple calendars get combined)
+    const rawEvents = data.events || [];
+    const mergedEvents = this.mergeMultiCalendarEvents(rawEvents);
+
+    logger.debug('Event merge complete', {
+      raw: rawEvents.length,
+      merged: mergedEvents.length,
+      multiCalendar: mergedEvents.filter(e => e.isMultiCalendar).length
+    });
+
     // Store calendar data
     this.calendarData = {
-      events: data.events || [],
+      events: mergedEvents,
       calendars: data.calendars || [],
       lastUpdated: data.lastUpdated
     };
@@ -236,6 +253,78 @@ export class AgendaWidget {
       calendarsCount: calendars.length,
       colorsCount: this.calendarColors.size
     });
+  }
+
+  /**
+   * Merge multi-calendar events
+   * Events that appear on multiple calendars get combined with all calendar colors
+   * @param {Array} events - Array of events
+   * @returns {Array} Events with multi-calendar info merged
+   */
+  mergeMultiCalendarEvents(events) {
+    const eventMap = new Map();
+
+    for (const event of events) {
+      const identifier = this.generateEventIdentifier(event);
+
+      if (!eventMap.has(identifier)) {
+        // First occurrence - create base event with calendar array
+        eventMap.set(identifier, {
+          ...event,
+          calendars: [{
+            id: event.prefixedCalendarId || event.calendarId,
+            backgroundColor: event.backgroundColor,
+            foregroundColor: event.foregroundColor,
+            name: event.calendarName || 'Calendar'
+          }],
+          isMultiCalendar: false
+        });
+      } else {
+        // Duplicate - add this calendar to the existing event
+        const existingEvent = eventMap.get(identifier);
+
+        existingEvent.calendars.push({
+          id: event.prefixedCalendarId || event.calendarId,
+          backgroundColor: event.backgroundColor,
+          foregroundColor: event.foregroundColor,
+          name: event.calendarName || 'Calendar'
+        });
+
+        existingEvent.isMultiCalendar = true;
+      }
+    }
+
+    const mergedEvents = Array.from(eventMap.values());
+
+    const multiCalendarCount = mergedEvents.filter(e => e.isMultiCalendar).length;
+    if (multiCalendarCount > 0) {
+      logger.info('🎨 Multi-calendar events found', {
+        total: mergedEvents.length,
+        multiCalendar: multiCalendarCount,
+        samples: mergedEvents
+          .filter(e => e.isMultiCalendar)
+          .slice(0, 5)
+          .map(e => ({
+            title: e.summary,
+            calendars: e.calendars.map(c => ({ name: c.name, color: c.backgroundColor }))
+          }))
+      });
+    }
+
+    return mergedEvents;
+  }
+
+  /**
+   * Generate a unique identifier for an event
+   * Based on event title, start time, and end time
+   * This catches duplicates across different calendars/accounts
+   */
+  generateEventIdentifier(event) {
+    const title = (event.summary || '').toLowerCase().trim();
+    const startTime = event.start?.dateTime || event.start?.date || '';
+    const endTime = event.end?.dateTime || event.end?.date || '';
+
+    return `${title}::${startTime}::${endTime}`;
   }
 
   renderAgenda() {
@@ -469,18 +558,33 @@ export class AgendaWidget {
   }
 
   renderEvent(event, isAllDay, isPast = false) {
-    const calendarColors = this.calendarColors.get(event.calendarId) ||
-      { backgroundColor: '#1976d2', textColor: '#ffffff' };
-
     const timeDisplay = isAllDay ? 'All day' : this.formatEventStartTime(event);
     const pastClass = isPast ? 'event-past' : '';
     const eventClass = isAllDay ? `event-item all-day-event ${pastClass}` : `event-item ${pastClass}`;
+
+    // Render multiple dots if event is on multiple calendars
+    let dotsHtml = '';
+    if (event.calendars && event.calendars.length > 0) {
+      // Get unique colors only (deduplicate same colors)
+      const uniqueColors = [...new Set(event.calendars.map(cal => cal.backgroundColor))];
+
+      // Multi-calendar event - show a dot for each unique color, centered
+      const dots = uniqueColors
+        .map(color => `<div class="event-dot" style="background-color: ${color}"></div>`)
+        .join('');
+      dotsHtml = `<div class="event-dots-container">${dots}</div>`;
+    } else {
+      // Single calendar event - fallback to old behavior
+      const calendarColors = this.calendarColors.get(event.calendarId) ||
+        { backgroundColor: '#1976d2', textColor: '#ffffff' };
+      dotsHtml = `<div class="event-dots-container"><div class="event-dot" style="background-color: ${calendarColors.backgroundColor}"></div></div>`;
+    }
 
     return `
       <div class="${eventClass}" data-event-id="${event.id}">
         <div class="event-time">${timeDisplay}</div>
         <div class="event-details">
-          <div class="event-dot" style="background-color: ${calendarColors.backgroundColor}"></div>
+          ${dotsHtml}
           <div class="event-title">${this.escapeHtml(event.summary || 'No title')}</div>
         </div>
       </div>
@@ -677,8 +781,8 @@ export class AgendaWidget {
     this.clearSelectionHighlight();
 
     if (this.isActive && this.selectedEventIndex >= 0 && this.selectedEventIndex < this.chronologicalEvents.length) {
-      const selectedEvent = this.chronologicalEvents[this.selectedEventIndex];
-      const eventElement = this.findEventElementById(selectedEvent.id);
+      // Use index directly since chronologicalEvents and eventElements are built in same order
+      const eventElement = this.eventElements[this.selectedEventIndex];
 
       if (eventElement) {
         eventElement.classList.add('selected');
@@ -696,11 +800,21 @@ export class AgendaWidget {
     if (this.selectedEventIndex >= 0 && this.selectedEventIndex < this.chronologicalEvents.length) {
       const selectedEvent = this.chronologicalEvents[this.selectedEventIndex];
 
+      logger.info('Opening event modal', {
+        eventTitle: selectedEvent.summary,
+        eventId: selectedEvent.id
+      });
+
       // Update modal with current calendar colors
       this.eventModal.updateCalendarColors(this.calendarColors);
 
       // Show the modal
       this.eventModal.showModal(selectedEvent);
+    } else {
+      logger.warn('Cannot show modal - invalid event index', {
+        selectedEventIndex: this.selectedEventIndex,
+        totalEvents: this.chronologicalEvents.length
+      });
     }
   }
 
@@ -712,8 +826,8 @@ export class AgendaWidget {
 
   scrollToSelectedEvent() {
     if (this.selectedEventIndex >= 0 && this.selectedEventIndex < this.chronologicalEvents.length) {
-      const selectedEvent = this.chronologicalEvents[this.selectedEventIndex];
-      const eventElement = this.findEventElementById(selectedEvent.id);
+      // Use index directly since chronologicalEvents and eventElements are built in same order
+      const eventElement = this.eventElements[this.selectedEventIndex];
 
       if (eventElement) {
         const container = document.getElementById('agendaContent');

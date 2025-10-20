@@ -228,9 +228,14 @@ class NavigationManager {
       return this.selectMenuItem(state.selectedMenuItem);
     }
 
-    // If widget is focused, defocus it
+    // If widget is focused, send enter command to it
     if (state.focusedWidget) {
-      this.defocusWidget();
+      const widgetMessenger = window.widgetMessenger || AppStateManager.widgetMessenger;
+
+      if (widgetMessenger) {
+        widgetMessenger.sendCommandToWidget(state.focusedWidget, 'enter');
+        logger.debug('Sent enter command to focused widget', { widgetId: state.focusedWidget });
+      }
       return true;
     }
 

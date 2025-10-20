@@ -62,6 +62,14 @@ export async function initializeCore() {
     // STEP 3: NOW initialize widgets AFTER Dashboard.activate() has created the iframes
     await initializeWidgets();
 
+    // STEP 4: Hide login screen after widgets have been initialized and received themes
+    // Wait a brief moment for widgets to receive theme messages via postMessage
+    setTimeout(async () => {
+      const { hideLoginScreen } = await import('./auth-initializer.js');
+      hideLoginScreen();
+      logger.verbose('Login screen hidden - dashboard fully initialized');
+    }, 300); // 300ms delay to ensure widgets receive theme
+
     // Detect platform
     const platform = getPlatformDetector();
     logger.info('Platform detected', { platform: platform.getPlatformDescription() });

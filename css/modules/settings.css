@@ -447,3 +447,133 @@
     border-radius: 0;
   }
 }
+
+/* ===== ACCOUNT SETTINGS PAGE ===== */
+
+.settings-account-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-account-photo {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.settings-account-photo-placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: #E5E5EA;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8E8E93;
+}
+
+.settings-account-details {
+  flex: 1;
+}
+
+.settings-account-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #000;
+  margin-bottom: 2px;
+}
+
+.settings-account-email {
+  font-size: 13px;
+  color: #8E8E93;
+}
+
+/* Info rows for subscription, etc. */
+.settings-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #E5E5EA;
+}
+
+.settings-info-row:last-child {
+  border-bottom: none;
+}
+
+.settings-info-label {
+  font-size: 15px;
+  color: #000;
+}
+
+.settings-info-value {
+  font-size: 15px;
+  color: #8E8E93;
+}
+
+/* Status indicators */
+.settings-info-value.coming-soon {
+  color: #8E8E93;
+  font-style: italic;
+}
+
+.settings-info-value.status-ok {
+  color: #34C759;
+  font-weight: 500;
+}
+
+.settings-info-value.status-error {
+  color: #FF3B30;
+  font-weight: 500;
+}
+
+.settings-info-value.monospace {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-size: 13px;
+}
+
+.settings-button {
+  padding: 12px 24px;
+  border-radius: 8px;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.settings-button--danger {
+  background: #C53030;
+  color: white;
+}
+
+.settings-button--danger:hover {
+  background: #9B2C2C;
+}
+
+.settings-button--danger:active {
+  background: #742A2A;
+}
+
+.settings-button--danger:disabled {
+  background: #CBD5E0;
+  color: #A0AEC0;
+  cursor: not-allowed;
+}
+
+/* Danger menu item (for destructive actions like Erase All Data) */
+.settings-modal__menu-item--danger .settings-modal__menu-label {
+  color: #FF3B30;
+  font-weight: 500;
+}
+
+.settings-modal__menu-item--danger:hover,
+.settings-modal__menu-item--danger:focus {
+  background: rgba(255, 59, 48, 0.05);
+}
+
+.settings-modal__menu-item--danger:active {
+  background: rgba(255, 59, 48, 0.1);
+}

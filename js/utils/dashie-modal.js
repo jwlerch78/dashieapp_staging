@@ -114,9 +114,11 @@ class DashieModal {
                 button.dataset.value = buttonConfig.value || buttonConfig.text.toLowerCase();
 
                 button.addEventListener('click', () => {
+                    const returnValue = buttonConfig.value !== undefined ? buttonConfig.value : buttonConfig.text;
+                    logger.debug('Button clicked', { text: buttonConfig.text, value: returnValue });
                     this.hide();
-                    resolve(buttonConfig.value || buttonConfig.text);
-                    if (onClose) onClose(buttonConfig.value || buttonConfig.text);
+                    resolve(returnValue);
+                    if (onClose) onClose(returnValue);
                 });
 
                 buttonsContainer.appendChild(button);
@@ -131,8 +133,9 @@ class DashieModal {
             this.modalElement.style.display = 'flex';
             this.isVisible = true;
 
-            // Add keyboard listener
-            document.addEventListener('keydown', this.handleKeydown);
+            // Add keyboard listener in CAPTURE phase (fires before other handlers)
+            // This is critical to intercept events before Settings input handler
+            document.addEventListener('keydown', this.handleKeydown, true);
 
             logger.info('Modal shown', { title, type });
         });
@@ -144,11 +147,12 @@ class DashieModal {
     hide() {
         if (!this.isVisible) return;
 
+        // Remove keyboard listener FIRST to prevent any stray events
+        // Must match the capture phase flag used when adding
+        document.removeEventListener('keydown', this.handleKeydown, true);
+
         this.modalElement.style.display = 'none';
         this.isVisible = false;
-
-        // Remove keyboard listener
-        document.removeEventListener('keydown', this.handleKeydown);
 
         logger.debug('Modal hidden');
     }
@@ -157,6 +161,9 @@ class DashieModal {
      * Handle keyboard navigation (d-pad support)
      */
     handleKeydown(event) {
+        // Only handle events if modal is visible
+        if (!this.isVisible) return;
+
         const buttons = Array.from(this.modalElement.querySelectorAll('.dashie-modal__button'));
         const focusedButton = document.activeElement;
         const currentIndex = buttons.indexOf(focusedButton);
@@ -164,7 +171,9 @@ class DashieModal {
         switch (event.key) {
             case 'ArrowLeft':
             case 'Left':
+                logger.debug('Modal handling ArrowLeft');
                 event.preventDefault();
+                event.stopImmediatePropagation(); // Stop ALL other handlers including same-level ones
                 if (currentIndex > 0) {
                     buttons[currentIndex - 1].focus();
                 }
@@ -172,21 +181,27 @@ class DashieModal {
 
             case 'ArrowRight':
             case 'Right':
+                logger.debug('Modal handling ArrowRight');
                 event.preventDefault();
+                event.stopImmediatePropagation(); // Stop ALL other handlers including same-level ones
                 if (currentIndex < buttons.length - 1) {
                     buttons[currentIndex + 1].focus();
                 }
                 break;
 
             case 'Enter':
+                logger.debug('Modal handling Enter', { focusedButton: focusedButton?.textContent, isModalButton: buttons.includes(focusedButton) });
                 event.preventDefault();
+                event.stopImmediatePropagation(); // Stop ALL other handlers including same-level ones
                 if (focusedButton && buttons.includes(focusedButton)) {
                     focusedButton.click();
                 }
                 break;
 
             case 'Escape':
+                logger.debug('Modal handling Escape');
                 event.preventDefault();
+                event.stopImmediatePropagation(); // Stop ALL other handlers including same-level ones
                 // Click first button (usually cancel/ok)
                 if (buttons.length > 0) {
                     buttons[0].click();

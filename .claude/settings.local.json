@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Bash(find \"c:\\Users\\John Lerch\\Dashie\\dashieapp_staging\\js\\modules\\Modals\" -name \"*.js\" -exec sed -i \"s/logger\\.success(''.*initialized'')/logger.verbose(&)/g\" {} +)",
-      "Bash(test -f \"c:\\Users\\John Lerch\\Dashie\\dashieapp_staging\\js\\widgets\\calendar\\index.js\")"
+      "Bash(test -f \"c:\\Users\\John Lerch\\Dashie\\dashieapp_staging\\js\\widgets\\calendar\\index.js\")",
+      "Bash(cat js/widgets/agenda/agenda-widget.js)",
+      "Bash(git config core.autocrlf)"
     ],
     "deny": [],
     "ask": []

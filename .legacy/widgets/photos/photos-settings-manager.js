@@ -38,13 +38,19 @@ export class PhotosSettingsManager {
         this.close();
       } else if (data?.type === 'photos-uploaded') {
         logger.info('Photos uploaded - triggering data refresh');
-        // Trigger DataManager to refresh photos so they appear immediately
-        if (window.dataManager) {
-          window.dataManager.refreshPhotosData(true).catch(err => {
+
+        // Use new WidgetDataManager to refresh photos
+        if (window.widgetDataManager) {
+          window.widgetDataManager.loadPhotosData().catch(err => {
             logger.error('Failed to refresh photos after upload', err);
           });
+        } else if (window.dataManager) {
+          // Fallback to legacy DataManager for backwards compatibility
+          window.dataManager.refreshPhotosData(true).catch(err => {
+            logger.error('Failed to refresh photos after upload (legacy)', err);
+          });
         } else {
-          logger.warn('DataManager not available for photo refresh');
+          logger.warn('No data manager available for photo refresh');
         }
       }
     });

@@ -19,8 +19,9 @@ async function waitForWidgetIframes() {
   while (Date.now() - startTime < maxWait) {
     const photosIframe = document.getElementById('widget-photos');
     const calendarIframe = document.getElementById('widget-main');
+    const agendaIframe = document.getElementById('widget-agenda');
 
-    if (photosIframe && calendarIframe) {
+    if (photosIframe && calendarIframe && agendaIframe) {
       logger.info('🔍 DEBUG: Widget iframes found in DOM', {
         elapsed: Date.now() - startTime
       });
@@ -53,12 +54,14 @@ export async function initializeWidgets() {
     const headerIframe = document.getElementById('widget-header');
     const photosIframe = document.getElementById('widget-photos');
     const calendarIframe = document.getElementById('widget-main');
+    const agendaIframe = document.getElementById('widget-agenda');
 
     logger.info('🔍 DEBUG: Found widget iframes', {
       clock: !!clockIframe,
       header: !!headerIframe,
       photos: !!photosIframe,
-      calendar: !!calendarIframe
+      calendar: !!calendarIframe,
+      agenda: !!agendaIframe
     });
 
     if (clockIframe) {
@@ -75,6 +78,10 @@ export async function initializeWidgets() {
 
     if (calendarIframe) {
       widgetDataManager.registerWidget('main', calendarIframe);
+    }
+
+    if (agendaIframe) {
+      widgetDataManager.registerWidget('agenda', agendaIframe);
     }
 
     logger.verbose('Widgets initialized');

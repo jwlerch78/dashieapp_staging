@@ -654,9 +654,10 @@ export class SettingsModalRenderer {
                         const parentId = currentScreen?.dataset.parent;
 
                         if (parentId) {
-                            // Navigate directly to parent screen (not through history)
+                            // Navigate directly to parent screen (hierarchical)
+                            // Use navigateBackToParent to avoid adding to stack
                             logger.info('Navigating to parent screen', { parent: parentId });
-                            this.stateManager.navigateToPage(parentId);
+                            this.stateManager.navigateBackToParent(parentId);
                         } else {
                             // No parent defined, use navigation history
                             this.stateManager.navigateBack();

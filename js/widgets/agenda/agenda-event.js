@@ -360,18 +360,37 @@ export class AgendaEventModal {
       </div>
     `;
 
-    // Calendar info
-    detailsHtml += `
-      <div class="event-detail-row">
-        <div class="event-detail-label">Calendar:</div>
-        <div class="event-detail-value">
-          <div class="event-calendar-info">
-            <div class="event-calendar-dot" style="background-color: ${calendarColors.backgroundColor}"></div>
-            <span>${this.getCalendarDisplayName(event.calendarId)}</span>
+    // Calendar info - show all calendars if multi-calendar event
+    if (event.calendars && event.calendars.length > 0) {
+      const calendarsHtml = event.calendars.map(cal => `
+        <div class="event-calendar-info" style="margin-bottom: 4px;">
+          <div class="event-calendar-dot" style="background-color: ${cal.backgroundColor}"></div>
+          <span>${cal.name || this.getCalendarDisplayName(cal.id)}</span>
+        </div>
+      `).join('');
+
+      detailsHtml += `
+        <div class="event-detail-row">
+          <div class="event-detail-label">Calendar${event.calendars.length > 1 ? 's' : ''}:</div>
+          <div class="event-detail-value">
+            ${calendarsHtml}
           </div>
         </div>
-      </div>
-    `;
+      `;
+    } else {
+      // Single calendar fallback
+      detailsHtml += `
+        <div class="event-detail-row">
+          <div class="event-detail-label">Calendar:</div>
+          <div class="event-detail-value">
+            <div class="event-calendar-info">
+              <div class="event-calendar-dot" style="background-color: ${calendarColors.backgroundColor}"></div>
+              <span>${this.getCalendarDisplayName(event.calendarId)}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
 
     // Location (if present)
     if (event.location && event.location.trim()) {

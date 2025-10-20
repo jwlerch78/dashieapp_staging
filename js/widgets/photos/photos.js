@@ -18,6 +18,11 @@ class PhotosWidget {
     this.transitionTime = 5000; // 5 seconds default
     this.isTransitioning = false;
 
+    // Failure tracking (circuit breaker)
+    this.consecutiveFailures = 0;
+    this.maxConsecutiveFailures = 10; // Stop after 10 consecutive failures
+    this.retryTimeout = null; // Timeout for retrying after circuit breaker
+
     // Widget state (3-state model)
     this.isFocused = false;   // Widget is centered/has attention
     this.isActive = false;    // Widget is receiving commands
@@ -212,6 +217,10 @@ class PhotosWidget {
       this.photoUrls = payload.urls || [];
       this.currentFolder = payload.folder || null;
 
+      // Reset failure counter when loading new photos
+      this.consecutiveFailures = 0;
+      this.clearRetryTimeout();
+
       if (this.photoUrls.length === 0) {
         logger.warn('No photos available - showing empty state');
         this.showEmptyState();
@@ -314,6 +323,10 @@ class PhotosWidget {
   updatePhotoSrc(photoUrl) {
     this.photoImg.src = photoUrl;
     this.photoImg.onload = () => {
+      // Reset failure counter on successful load
+      this.consecutiveFailures = 0;
+      this.clearRetryTimeout();
+
       this.loadingDiv.style.display = 'none';
       this.emptyStateDiv.style.display = 'none';
       this.photoImg.style.display = 'block';
@@ -332,7 +345,24 @@ class PhotosWidget {
     };
 
     this.photoImg.onerror = () => {
-      logger.error('Failed to load photo', { url: photoUrl });
+      this.consecutiveFailures++;
+      logger.error('Failed to load photo', {
+        url: photoUrl,
+        consecutiveFailures: this.consecutiveFailures,
+        maxFailures: this.maxConsecutiveFailures
+      });
+
+      // Circuit breaker: Stop if we've failed too many times
+      if (this.consecutiveFailures >= this.maxConsecutiveFailures) {
+        logger.error('Too many consecutive photo load failures - stopping slideshow');
+        this.stopAutoAdvance();
+        this.showError('Unable to load photos. Please check your internet connection or photo storage.');
+
+        // Schedule a retry in 30 seconds
+        this.scheduleRetry();
+        return;
+      }
+
       // Try next photo
       this.showPhoto(this.currentPhotoIndex + 1, false);
     };
@@ -373,6 +403,37 @@ class PhotosWidget {
 
     if (this.autoAdvanceInterval) {
       this.startAutoAdvance();
+    }
+  }
+
+  /**
+   * Schedule a retry after circuit breaker triggers
+   */
+  scheduleRetry() {
+    this.clearRetryTimeout();
+
+    logger.info('Scheduling photo retry in 30 seconds...');
+    this.retryTimeout = setTimeout(() => {
+      logger.info('Retrying photo load after circuit breaker cooldown');
+      this.consecutiveFailures = 0;
+
+      // Try to show photos again if we have URLs
+      if (this.photoUrls.length > 0) {
+        this.currentPhotoIndex = 0;
+        this.showPhoto(0, false);
+        this.startAutoAdvance();
+      }
+    }, 30000); // 30 seconds
+  }
+
+  /**
+   * Clear retry timeout if it exists
+   */
+  clearRetryTimeout() {
+    if (this.retryTimeout) {
+      clearTimeout(this.retryTimeout);
+      this.retryTimeout = null;
+      logger.debug('Retry timeout cleared');
     }
   }
 

@@ -60,6 +60,10 @@ export class CalendarService {
                 logger.info('No active calendars found, auto-enabling primary calendar');
                 await this.autoEnablePrimaryCalendar();
             }
+
+            // Check all accounts and auto-enable primary calendar for new accounts
+            await this.autoEnableNewAccountCalendars();
+
         } catch (error) {
             logger.warn('Failed to load active calendars from database', error);
 
@@ -80,67 +84,134 @@ export class CalendarService {
                     logger.warn('Failed to auto-enable primary calendar', autoEnableError);
                 }
             }
+
+            // Check all accounts and auto-enable primary calendar for new accounts
+            try {
+                await this.autoEnableNewAccountCalendars();
+            } catch (autoEnableError) {
+                logger.warn('Failed to auto-enable calendars for new accounts', autoEnableError);
+            }
         }
     }
 
     /**
-     * Auto-enable the primary calendar for new users
-     * Called during initialization if no calendars are active
+     * Auto-enable the primary calendar for an account
+     * Called during initialization if no calendars are active for that account
+     * @param {string} accountType - Account type ('primary', 'account2', etc.)
      * @private
      */
-    async autoEnablePrimaryCalendar() {
+    async autoEnablePrimaryCalendar(accountType = 'primary') {
         try {
-            logger.info('Auto-enabling primary calendar for first-time user');
+            logger.info('Auto-enabling primary calendar for account', { accountType });
 
-            // Check if we have a primary account
+            // Check if we have this account
             const tokenStore = window.sessionManager?.getTokenStore();
             if (!tokenStore) {
                 logger.warn('TokenStore not available, skipping auto-enable');
                 return;
             }
 
-            const primaryAccount = await tokenStore.getAccountTokens('google', 'primary');
-            if (!primaryAccount || !primaryAccount.email) {
-                logger.warn('No primary account found, skipping auto-enable');
+            const account = await tokenStore.getAccountTokens('google', accountType);
+            if (!account || !account.email) {
+                logger.warn('No account found, skipping auto-enable', { accountType });
                 return;
             }
 
             // Fetch calendars to find the actual primary calendar
-            const calendars = await this.getCalendars('primary');
+            const calendars = await this.getCalendars(accountType);
 
             // Find the primary calendar (marked as primary=true in Google's response)
             // It will have either id='primary' or id=user's email
             const primaryCalendar = calendars.find(cal => cal.primary === true);
 
             if (!primaryCalendar) {
-                logger.warn('No primary calendar found in calendar list');
+                logger.warn('No primary calendar found in calendar list', { accountType });
                 return;
             }
 
             logger.info('Found primary calendar', {
+                accountType,
                 id: primaryCalendar.id,
                 summary: primaryCalendar.summary,
-                email: primaryAccount.email
+                email: account.email
             });
 
             // Create prefixed ID for the actual primary calendar
-            const primaryCalendarId = this.createPrefixedId('primary', primaryCalendar.id);
+            const primaryCalendarId = this.createPrefixedId(accountType, primaryCalendar.id);
 
-            // Enable it
-            this.activeCalendarIds = [primaryCalendarId];
+            // Check if it's already enabled
+            if (this.activeCalendarIds.includes(primaryCalendarId)) {
+                logger.debug('Primary calendar already enabled', { primaryCalendarId });
+                return;
+            }
+
+            // Enable it (add to existing active calendars)
+            this.activeCalendarIds.push(primaryCalendarId);
 
             // Save to database and localStorage
             await this.saveActiveCalendars();
 
             logger.success('Primary calendar auto-enabled', {
+                accountType,
                 calendarId: primaryCalendarId,
                 rawCalendarId: primaryCalendar.id,
-                userEmail: primaryAccount.email
+                userEmail: account.email
             });
 
         } catch (error) {
-            logger.error('Failed to auto-enable primary calendar', error);
+            logger.error('Failed to auto-enable primary calendar', { accountType, error });
             throw error;
+        }
+    }
+
+    /**
+     * Check all Google accounts and auto-enable primary calendar for accounts with no active calendars
+     * This ensures newly added accounts automatically have their primary calendar enabled
+     * @private
+     */
+    async autoEnableNewAccountCalendars() {
+        try {
+            const tokenStore = window.sessionManager?.getTokenStore();
+            if (!tokenStore) {
+                logger.debug('TokenStore not available, skipping new account calendar check');
+                return;
+            }
+
+            // Get all Google accounts
+            const googleAccounts = await tokenStore.getProviderAccounts('google');
+            const accountTypes = Object.keys(googleAccounts || {});
+
+            if (accountTypes.length === 0) {
+                logger.debug('No Google accounts found');
+                return;
+            }
+
+            logger.debug('Checking accounts for auto-enable', {
+                accountCount: accountTypes.length,
+                accounts: accountTypes
+            });
+
+            // For each account, check if it has any active calendars
+            for (const accountType of accountTypes) {
+                try {
+                    // Check if this account has any active calendars
+                    const prefix = `${accountType}-`;
+                    const hasActiveCalendars = this.activeCalendarIds.some(id => id.startsWith(prefix));
+
+                    if (!hasActiveCalendars) {
+                        logger.info('Account has no active calendars, auto-enabling primary', { accountType });
+                        await this.autoEnablePrimaryCalendar(accountType);
+                    } else {
+                        logger.debug('Account already has active calendars', { accountType });
+                    }
+                } catch (error) {
+                    logger.warn('Failed to check/enable calendar for account', { accountType, error });
+                    // Continue with other accounts
+                }
+            }
+
+        } catch (error) {
+            logger.warn('Failed to auto-enable new account calendars', error);
         }
     }
 

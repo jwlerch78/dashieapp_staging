@@ -162,13 +162,27 @@ function setupLoginNavigation() {
 export async function initializeAuth(onAuthComplete) {
   try {
     logger.info('🔐 Initializing authentication...');
-    updateLoginStatus('Setting up authentication system...');
+
+    // Check if we're in an OAuth callback flow (redirect from Google)
+    const urlParams = new URLSearchParams(window.location.search);
+    const isOAuthCallback = urlParams.has('code') && urlParams.has('state');
+
+    // If OAuth callback detected, immediately show loading dashboard state
+    if (isOAuthCallback) {
+      logger.debug('OAuth callback detected, showing loading dashboard state');
+      document.getElementById('sign-in-state').style.display = 'none';
+      document.getElementById('loading-dashboard-state').style.display = 'flex';
+    } else {
+      updateLoginStatus('Setting up authentication system...');
+    }
 
     // Create auth coordinator
     authCoordinator = new AuthCoordinator();
 
-    // Populate site info
-    populateSiteInfo();
+    // Populate site info (only if not OAuth callback)
+    if (!isOAuthCallback) {
+      populateSiteInfo();
+    }
 
     // Initialize SessionManager (handles entire auth flow)
     const result = await sessionManager.initialize(authCoordinator);
@@ -177,23 +191,26 @@ export async function initializeAuth(onAuthComplete) {
     if (result.authenticated) {
       const user = sessionManager.getUser();
 
-      if (result.oauthCallback) {
-        // OAuth callback flow
-        updateLoginStatus(`Welcome, ${user.name || user.email}!`);
-      } else {
-        // Session restoration flow
-        updateLoginStatus(`Welcome back!`);
+      // Show loading dashboard state if not already shown
+      if (!isOAuthCallback) {
+        document.getElementById('sign-in-state').style.display = 'none';
+        document.getElementById('loading-dashboard-state').style.display = 'flex';
+      }
+
+      // Update welcome message with user's name
+      const welcomeEl = document.getElementById('loading-dashboard-welcome');
+      if (welcomeEl && user) {
+        const userName = user.name ? user.name.split(' ')[0] : user.email.split('@')[0];
+        welcomeEl.textContent = `Welcome, ${userName}`;
       }
 
       isAuthenticated = true;
 
-      // Hide login screen and proceed to dashboard
-      setTimeout(() => {
-        hideLoginScreen();
-        if (onAuthComplete) {
-          onAuthComplete();
-        }
-      }, result.oauthCallback ? 1000 : 500);
+      // Proceed to dashboard initialization
+      // Note: hideLoginScreen() will be called from main.js after widgets are initialized
+      if (onAuthComplete) {
+        onAuthComplete();
+      }
 
       return true;
     }
@@ -227,15 +244,24 @@ export async function initializeAuth(onAuthComplete) {
 
         // Sign-in successful
         if (signInResult && signInResult.email) {
-          updateLoginStatus(`Welcome, ${signInResult.name || signInResult.email}!`);
+          // Hide sign-in state and show loading dashboard state
+          document.getElementById('sign-in-state').style.display = 'none';
+          document.getElementById('loading-dashboard-state').style.display = 'flex';
+
+          // Update welcome message with user's name
+          const welcomeEl = document.getElementById('loading-dashboard-welcome');
+          if (welcomeEl && signInResult) {
+            const userName = signInResult.name ? signInResult.name.split(' ')[0] : signInResult.email.split('@')[0];
+            welcomeEl.textContent = `Welcome, ${userName}`;
+          }
+
           isAuthenticated = true;
 
-          setTimeout(() => {
-            hideLoginScreen();
-            if (onAuthComplete) {
-              onAuthComplete();
-            }
-          }, 1000);
+          // Proceed to dashboard initialization
+          // Note: hideLoginScreen() will be called from main.js after widgets are initialized
+          if (onAuthComplete) {
+            onAuthComplete();
+          }
         }
 
       } catch (error) {

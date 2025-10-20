@@ -3,7 +3,7 @@
 // CHANGE SUMMARY: Drastically simplified - only manages body/logo, WidgetMessenger handles all widget communication
 
 import { createLogger } from '../utils/logger.js';
-import { events as eventSystem, EVENTS } from '../utils/event-emitter.js';
+import AppComms from './app-comms.js';
 
 const logger = createLogger('Theme');
 
@@ -173,7 +173,7 @@ export async function switchTheme(newTheme) {
   await saveTheme(newTheme);
   
   // Emit ONE event - WidgetMessenger will handle all widget communication
-  eventSystem.emit(EVENTS.THEME_CHANGED, { theme: newTheme });
+  AppComms.publish(AppComms.events.THEME_CHANGED, { theme: newTheme });
   
   logger.info('Theme switched to:', THEME_CONFIG[newTheme].name);
   return true;
@@ -216,7 +216,7 @@ export async function initializeThemeSystem() {
     }
     
     // Listen for settings changes
-    eventSystem.on(EVENTS.SETTINGS_CHANGED, (data) => {
+    AppComms.subscribe(AppComms.events.SETTINGS_CHANGED, (data) => {
       if (data.path === 'interface.theme' && data.value !== currentTheme) {
         logger.info('Theme change from settings detected');
         switchTheme(data.value);

@@ -709,8 +709,15 @@ export class SettingsCalendarPage extends SettingsPageBase {
             `Are you sure you want to remove this account?\n\n${accountEmail}\n\nAll calendars from this account will be removed from your dashboard.`
         );
 
+        logger.debug('Confirmation result', { confirmed, type: typeof confirmed });
+
         if (!confirmed) {
             logger.info('Account removal cancelled by user');
+            return;
+        }
+
+        if (confirmed !== true) {
+            logger.warn('Unexpected confirmation value', { confirmed });
             return;
         }
 
@@ -775,6 +782,12 @@ export class SettingsCalendarPage extends SettingsPageBase {
             if (selectScreen && Object.keys(this.calendarData).length > 0) {
                 selectScreen.innerHTML = this.renderSelectCalendars();
                 logger.info('Refreshed calendar list after account removal');
+            }
+
+            // Notify calendar widget to refresh its data
+            if (window.widgetDataManager) {
+                logger.info('Refreshing calendar widget data after account removal');
+                await window.widgetDataManager.loadCalendarData();
             }
 
             await DashieModal.success('Account Removed', `Successfully removed:\n\n${accountEmail}`);
