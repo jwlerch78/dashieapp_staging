@@ -77,7 +77,7 @@ if errorlevel 1 (
 
 REM Push main to production main without force
 echo Pushing to %PROD_REPO_NAME% main branch...
-git push %PROD_REPO_NAME% main:main
+git push --force-with-lease %PROD_REPO_NAME% main:main
 if errorlevel 1 (
     echo ERR: Push failed. Check your credentials or network.
     exit /b 1
