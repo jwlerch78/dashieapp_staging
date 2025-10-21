@@ -15,7 +15,63 @@ This guide documents how to properly call Supabase edge functions, including the
 
 ## Critical Requirements
 
-### ⚠️ IMPORTANT: JWT Token Placement
+### ⚠️ IMPORTANT: Two Different Authentication Patterns
+
+Supabase edge functions use **TWO DIFFERENT authentication patterns** depending on whether the operation requires user authentication:
+
+---
+
+### Pattern 1: Unauthenticated Operations (No JWT Required)
+
+**Use Case:** Operations that happen BEFORE user authentication (e.g., device code creation, polling)
+
+**Header Format:**
+```javascript
+headers: {
+  'Content-Type': 'application/json',
+  'Authorization': `Bearer ${SUPABASE_ANON_KEY}`  // ✅ Anon key in Authorization header
+}
+```
+
+**Example Operations:**
+- `create_device_code` - Fire TV generates device code
+- `poll_device_code_status` - Fire TV polls for authorization
+- `authorize_device_code` - Phone authorizes device code
+
+**Example Call:**
+```javascript
+const response = await fetch(edgeFunctionUrl, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${SUPABASE_ANON_KEY}`  // ✅ Anon key in Authorization
+  },
+  body: JSON.stringify({
+    operation: 'create_device_code',
+    data: { device_type: 'firetv' }
+    // ❌ NO jwtToken - user hasn't authenticated yet!
+  })
+});
+```
+
+**Common Mistake:** Using `apikey` header instead of `Authorization: Bearer`
+```javascript
+// ❌ WRONG - This will fail with 401 Missing authorization header
+headers: {
+  'apikey': SUPABASE_ANON_KEY  // Wrong!
+}
+
+// ✅ CORRECT
+headers: {
+  'Authorization': `Bearer ${SUPABASE_ANON_KEY}`  // Right!
+}
+```
+
+---
+
+### Pattern 2: Authenticated Operations (JWT Required)
+
+**Use Case:** Operations that require user authentication (e.g., database operations, photo storage)
 
 **JWT tokens MUST be sent in THREE places:**
 
@@ -25,8 +81,12 @@ This guide documents how to properly call Supabase edge functions, including the
 
 **Forgetting any of these will result in a 400 Bad Request error: "JWT token required"**
 
-### Example of Correct Call
+**Example Operations:**
+- `list_photos` - List user's photos
+- `save_calendar_config` - Save calendar settings
+- `delete_account` - Delete user account
 
+**Example Call:**
 ```javascript
 const response = await fetch(edgeFunctionUrl, {
   method: 'POST',
@@ -115,11 +175,30 @@ if (!jwtToken) {
 
 - `delete_account` - Delete user account and all data
 
-### 2. jwt-auth (Internal Use Only)
+### 2. jwt-auth
 
 **URL:** `https://{project}.supabase.co/functions/v1/jwt-auth`
 
-**Purpose:** Used by SessionManager for authentication. Don't call directly.
+**Purpose:** Handles authentication and token management
+
+**Operations:**
+
+#### Hybrid Device Flow (Phase 5.5) - Unauthenticated
+
+- `create_device_code` - Fire TV generates device code and user code for QR scan
+- `poll_device_code_status` - Fire TV polls to check if device code was authorized
+- `authorize_device_code` - Phone authorizes device code after Google OAuth
+
+**Authentication Pattern:** Use Pattern 1 (Anon Key in Authorization header)
+
+#### Legacy Operations - Authenticated
+
+- `exchange_code` - Exchange OAuth code for tokens (web/phone)
+- `refresh_token` - Refresh expired tokens
+- `bootstrap_jwt` - Exchange Google token for Supabase JWT
+- `store_tokens`, `load`, `save` - Token storage operations
+
+**Authentication Pattern:** Use Pattern 2 (JWT + apikey)
 
 ---
 

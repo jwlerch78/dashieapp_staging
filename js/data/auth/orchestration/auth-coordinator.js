@@ -7,8 +7,13 @@ import { getPlatformDetector } from '../../../utils/platform-detector.js';
 import { GoogleAccountAuth } from '../account-auth/google-account-auth.js';
 import { WebOAuthProvider } from '../providers/web-oauth.js';
 import { DeviceFlowProvider } from '../providers/device-flow.js';
+import { HybridDeviceAuth } from '../providers/hybrid-device-auth.js';
 
 const logger = createLogger('AuthCoordinator');
+
+// Feature flag: Enable Hybrid Device Flow (Phase 5.5)
+// Set to true to use new hybrid flow, false to use legacy Google Device Flow
+const USE_HYBRID_DEVICE_FLOW = true;
 
 /**
  * AuthCoordinator - Routes to correct authentication provider
@@ -21,7 +26,7 @@ const logger = createLogger('AuthCoordinator');
  * - Coordinate JWT bootstrap after OAuth
  *
  * Provider Selection:
- * - Fire TV → Device Flow (QR code)
+ * - Fire TV → Hybrid Device Flow (custom QR code) OR Device Flow (Google QR code)
  * - Web/Mobile → Web OAuth (redirect)
  */
 export class AuthCoordinator {
@@ -29,6 +34,7 @@ export class AuthCoordinator {
         this.googleAccountAuth = null;
         this.webOAuthProvider = null;
         this.deviceFlowProvider = null;
+        this.hybridDeviceAuth = null;
         this.isFireTV = false;
         this.isInitialized = false;
 
@@ -60,9 +66,16 @@ export class AuthCoordinator {
 
             // 2. Initialize appropriate OAuth provider(s)
             if (this.isFireTV) {
-                logger.verbose('Fire TV detected - creating Device Flow provider');
-                this.deviceFlowProvider = new DeviceFlowProvider();
-                logger.verbose('DeviceFlowProvider created');
+                if (USE_HYBRID_DEVICE_FLOW) {
+                    logger.verbose('Fire TV detected - creating Hybrid Device Auth provider (Phase 5.5)');
+                    this.hybridDeviceAuth = new HybridDeviceAuth();
+                    this.deviceFlowProvider = this.hybridDeviceAuth; // Use as device flow provider
+                    logger.verbose('HybridDeviceAuth created');
+                } else {
+                    logger.verbose('Fire TV detected - creating legacy Device Flow provider');
+                    this.deviceFlowProvider = new DeviceFlowProvider();
+                    logger.verbose('DeviceFlowProvider created');
+                }
             } else {
                 logger.verbose('Desktop/Mobile detected - creating Web OAuth provider');
                 this.webOAuthProvider = new WebOAuthProvider();
@@ -84,7 +97,9 @@ export class AuthCoordinator {
 
             logger.verbose('AuthCoordinator initialized', {
                 hasDeviceFlow: !!this.deviceFlowProvider,
+                hasHybridDeviceAuth: !!this.hybridDeviceAuth,
                 hasWebOAuth: !!this.webOAuthProvider,
+                usingHybridFlow: USE_HYBRID_DEVICE_FLOW && this.isFireTV,
                 hadOAuthCallback: !!oauthResult
             });
 
@@ -112,9 +127,14 @@ export class AuthCoordinator {
                 ? options.useDeviceFlow
                 : this.isFireTV;
 
+            const providerName = useDeviceFlow
+                ? (USE_HYBRID_DEVICE_FLOW ? 'hybrid_device_auth' : 'device_flow')
+                : 'web_oauth';
+
             logger.info('Starting sign-in', {
-                provider: useDeviceFlow ? 'device_flow' : 'web_oauth',
-                platform: this.isFireTV ? 'Fire TV' : 'Web/Mobile'
+                provider: providerName,
+                platform: this.isFireTV ? 'Fire TV' : 'Web/Mobile',
+                usingHybridFlow: USE_HYBRID_DEVICE_FLOW && useDeviceFlow
             });
 
             // Delegate to GoogleAccountAuth

@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Completing Sign-In - Dashie</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0;
+      padding: 20px;
+    }
+
+    .callback-container {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 40px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 400px;
+    }
+
+    .spinner {
+      width: 48px;
+      height: 48px;
+      border: 4px solid #e0e0e0;
+      border-top-color: #1a73e8;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 24px;
+    }
+
+    h1 {
+      font-size: 20px;
+      color: #333;
+      margin: 0 0 12px 0;
+    }
+
+    p {
+      color: #666;
+      font-size: 14px;
+      margin: 0;
+    }
+
+    .error {
+      color: #f44336;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="callback-container">
+    <div class="spinner"></div>
+    <h1 id="status-title">Completing Sign-In</h1>
+    <p id="status-message">Please wait...</p>
+  </div>
+
+  <script type="module">
+    import { SUPABASE_CONFIG } from './js/data/auth/auth-config.js';
+
+    const EDGE_FUNCTION_URL = SUPABASE_CONFIG.edgeFunctionUrl;
+    const SUPABASE_ANON_KEY = SUPABASE_CONFIG.anonKey;
+
+    async function handleCallback() {
+      try {
+        // Parse URL parameters
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        const state = params.get('state');
+        const error = params.get('error');
+
+        // Check for error
+        if (error) {
+          throw new Error(`OAuth error: ${error}`);
+        }
+
+        if (!code) {
+          throw new Error('No authorization code received');
+        }
+
+        // Check if this is a hybrid device flow callback
+        const isHybridDeviceFlow = state === 'hybrid_device_flow';
+        const userCode = sessionStorage.getItem('hybrid_device_user_code');
+        const deviceType = sessionStorage.getItem('hybrid_device_type');
+
+        console.log('OAuth callback', {
+          hasCode: !!code,
+          state,
+          isHybridDeviceFlow,
+          userCode
+        });
+
+        // Exchange code for tokens
+        document.getElementById('status-message').textContent = 'Exchanging authorization code for tokens...';
+
+        const response = await fetch(EDGE_FUNCTION_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+          },
+          body: JSON.stringify({
+            operation: 'exchange_code',
+            data: {
+              code: code,
+              redirect_uri: window.location.origin + '/oauth-callback.html'
+            }
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || data.message || 'Token exchange failed');
+        }
+
+        console.log('Token exchange successful', {
+          hasAccessToken: !!data.tokens?.access_token,
+          hasRefreshToken: !!data.tokens?.refresh_token
+        });
+
+        // If this is hybrid device flow, authorize the device
+        if (isHybridDeviceFlow && userCode) {
+          document.getElementById('status-message').textContent = 'Authorizing your TV device...';
+
+          const authResponse = await fetch(EDGE_FUNCTION_URL, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
+            },
+            body: JSON.stringify({
+              operation: 'authorize_device_code',
+              googleAccessToken: data.tokens.access_token,
+              data: {
+                device_code: userCode,  // Using user_code as identifier
+                google_tokens: {
+                  access_token: data.tokens.access_token,
+                  refresh_token: data.tokens.refresh_token,
+                  expires_in: data.tokens.expires_in || 3600,
+                  scope: data.tokens.scope
+                }
+              }
+            })
+          });
+
+          const authData = await authResponse.json();
+
+          if (!authResponse.ok || !authData.success) {
+            throw new Error(authData.error || authData.message || 'Device authorization failed');
+          }
+
+          console.log('Device authorized successfully');
+
+          // Store phone JWT (optional)
+          if (authData.jwtToken) {
+            localStorage.setItem('dashie-supabase-jwt', authData.jwtToken);
+          }
+
+          // Clean up session storage
+          sessionStorage.removeItem('hybrid_device_user_code');
+          sessionStorage.removeItem('hybrid_device_type');
+
+          // Redirect back to auth.html with success
+          window.location.href = '/auth.html?status=success&code=' + encodeURIComponent(userCode);
+
+        } else {
+          // Regular OAuth flow - redirect to home
+          if (data.jwtToken) {
+            localStorage.setItem('dashie-supabase-jwt', data.jwtToken);
+          }
+          window.location.href = '/';
+        }
+
+      } catch (error) {
+        console.error('OAuth callback error:', error);
+        document.querySelector('.spinner').style.display = 'none';
+        document.getElementById('status-title').textContent = 'Sign-In Failed';
+        document.getElementById('status-message').textContent = error.message;
+        document.getElementById('status-message').classList.add('error');
+
+        // Redirect back to auth.html with error if hybrid flow
+        const userCode = sessionStorage.getItem('hybrid_device_user_code');
+        if (userCode) {
+          setTimeout(() => {
+            window.location.href = '/auth.html?status=error&message=' + encodeURIComponent(error.message);
+          }, 3000);
+        }
+      }
+    }
+
+    // Run callback handler
+    handleCallback();
+  </script>
+</body>
+</html>

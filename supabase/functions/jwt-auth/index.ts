@@ -1,13 +1,18 @@
 // ============================================================================
-// JWT Auth Edge Function - Phase 3 v2
+// JWT Auth Edge Function - Phase 5.5 (Hybrid Device Flow)
 // ============================================================================
 // Handles authentication, access control, and token management
 //
-// CHANGES FROM PREVIOUS VERSION:
-// - Added beta_whitelist access control
-// - Creates user_profiles on first login
-// - Stores tokens in user_auth_tokens (not user_settings)
-// - Keeps general settings in user_settings (backward compatible)
+// HYBRID DEVICE FLOW OPERATIONS:
+// - create_device_code: Fire TV generates device code for QR scan
+// - authorize_device_code: Phone authorizes device code after Google OAuth
+// - poll_device_code_status: Fire TV polls for authorization completion
+//
+// LEGACY OPERATIONS:
+// - exchange_code: OAuth code → tokens (web/phone)
+// - refresh_token: Refresh expired tokens
+// - bootstrap_jwt: Exchange Google token for Supabase JWT
+// - store_tokens, load, save, etc.
 // ============================================================================
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -50,16 +55,31 @@ serve(async (req) => {
 
     // ==================== STANDALONE OPERATIONS ====================
 
+    // OAuth code exchange (web/phone)
     if (operation === 'exchange_code') {
       return handleExchangeCode(data);
     }
 
-    if (operation === 'poll_device_code') {
-      return handlePollDeviceCode(data);
-    }
-
+    // Token refresh
     if (operation === 'refresh_token') {
       return handleRefreshTokenStandalone(data);
+    }
+
+    // ==================== HYBRID DEVICE FLOW OPERATIONS ====================
+
+    // Fire TV: Create device code
+    if (operation === 'create_device_code') {
+      return handleCreateDeviceCode(data);
+    }
+
+    // Fire TV: Poll for authorization status
+    if (operation === 'poll_device_code_status') {
+      return handlePollDeviceCodeStatus(data);
+    }
+
+    // Phone: Authorize device code (requires Google token)
+    if (operation === 'authorize_device_code') {
+      return handleAuthorizeDeviceCode(data, googleAccessToken);
     }
 
     // ==================== JWT-AUTHENTICATED OPERATIONS ====================
@@ -764,7 +784,15 @@ async function getOrCreateAuthUser(supabaseAdmin: any, googleUser: any) {
   }
 }
 
-async function generateSupabaseJWT(userId: string, email: string) {
+async function generateSupabaseJWT(
+  userId: string,
+  email: string,
+  deviceMetadata?: {
+    device_type?: string;
+    device_id?: string;
+    session_id?: string;
+  }
+) {
   try {
     const now = Math.floor(Date.now() / 1000);
     const exp = now + 60 * 60 * 72; // 72 hours
@@ -777,6 +805,12 @@ async function generateSupabaseJWT(userId: string, email: string) {
       sub: userId,
       email: email,
       role: 'authenticated',
+
+      // Device metadata for session tracking
+      device_type: deviceMetadata?.device_type || 'web',
+      device_id: deviceMetadata?.device_id || `web-${Date.now()}`,
+      session_id: deviceMetadata?.session_id || `sess-${Date.now()}`,
+
       app_metadata: { provider: 'google', providers: ['google'] },
       user_metadata: { email: email }
     };
@@ -906,76 +940,317 @@ async function handleExchangeCode(data: any) {
   }
 }
 
-async function handlePollDeviceCode(data: any) {
+// ============================================================================
+// HYBRID DEVICE FLOW HANDLERS
+// ============================================================================
+
+/**
+ * Create Device Code - Fire TV initiates auth
+ * Generates device_code and user_code, stores in database
+ */
+async function handleCreateDeviceCode(data: any) {
   try {
-    const { device_code, provider_type } = data;
+    const { device_type, device_info } = data;
+
+    console.log(`🔐 Creating device code for ${device_type || 'firetv'}...`);
+
+    // Generate device code (32 random bytes → 64 char hex)
+    const deviceCodeBytes = new Uint8Array(32);
+    crypto.getRandomValues(deviceCodeBytes);
+    const deviceCode = Array.from(deviceCodeBytes)
+      .map(b => b.toString(16).padStart(2, '0'))
+      .join('');
+
+    // Generate user code (8 chars, no ambiguous characters)
+    const userCode = generateUserCode();
+
+    // Build verification URL
+    const verificationUrl = `https://dashieapp.com/auth?code=${userCode}&type=${device_type || 'firetv'}`;
+
+    // Set expiration (10 minutes)
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    // Insert into database
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const { error } = await supabase.from('device_auth_sessions').insert({
+      device_code: deviceCode,
+      user_code: userCode,
+      status: 'pending',
+      device_type: device_type || 'firetv',
+      expires_at: expiresAt.toISOString()
+    });
+
+    if (error) {
+      throw new Error(`Failed to create device session: ${error.message}`);
+    }
+
+    console.log(`✅ Device code created: ${userCode}`);
+
+    return jsonResponse({
+      success: true,
+      device_code: deviceCode,
+      user_code: userCode,
+      verification_url: verificationUrl,
+      expires_in: 600, // 10 minutes
+      interval: 5 // Poll every 5 seconds
+    }, 200);
+  } catch (error: any) {
+    console.error('🚨 Create device code failed:', error);
+    return jsonResponse({
+      error: 'Failed to create device code',
+      details: error?.message || 'Unknown error'
+    }, 500);
+  }
+}
+
+/**
+ * Generate user-friendly code (8 chars, no ambiguous characters)
+ */
+function generateUserCode(): string {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // No O, I, 0, 1
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars[bytes[i] % chars.length];
+  }
+
+  // Format as XXXX-XXXX
+  return code.slice(0, 4) + '-' + code.slice(4);
+}
+
+/**
+ * Poll Device Code Status - Fire TV checks if phone has authorized
+ */
+async function handlePollDeviceCodeStatus(data: any) {
+  try {
+    const { device_code } = data;
 
     if (!device_code) {
       throw new Error('Device code required');
     }
 
-    const { clientId, clientSecret } = getOAuthCredentialsForExchange(provider_type);
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    console.log(`📱 Polling device code for ${provider_type || 'device_flow'}`);
+    // Look up device session
+    const { data: session, error } = await supabase
+      .from('device_auth_sessions')
+      .select('*')
+      .eq('device_code', device_code)
+      .single();
 
-    const response = await fetch('https://oauth2.googleapis.com/token', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({
-        client_id: clientId,
-        client_secret: clientSecret,
-        device_code: device_code,
-        grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
-      })
-    });
-
-    const result = await response.json();
-
-    // Handle pending/slow_down (these are not errors, just status updates)
-    if (result.error === 'authorization_pending') {
-      console.log(`⏳ Authorization pending for device code`);
+    if (error || !session) {
+      console.log(`❌ Invalid device code: ${device_code}`);
       return jsonResponse({
         success: false,
-        error: 'authorization_pending',
-        details: 'User has not yet authorized the device'
+        status: 'invalid_code',
+        message: 'Invalid device code'
       }, 200);
     }
 
-    if (result.error === 'slow_down') {
-      console.log(`⏳ Slow down requested for device code`);
+    // Check if expired - delete and return error
+    if (new Date() > new Date(session.expires_at)) {
+      await supabase
+        .from('device_auth_sessions')
+        .delete()
+        .eq('device_code', device_code);
+
+      console.log(`⏰ Device code expired: ${device_code}`);
       return jsonResponse({
         success: false,
-        error: 'slow_down',
-        details: 'Polling too frequently, slow down'
+        status: 'expired_token',
+        message: 'Device code has expired. Please restart authentication.'
       }, 200);
     }
 
-    // Handle other errors
-    if (result.error) {
-      console.error(`❌ Device code polling error: ${result.error}`);
+    // Still pending
+    if (session.status === 'pending') {
       return jsonResponse({
         success: false,
-        error: result.error,
-        details: result.error_description || 'Device code polling failed'
+        status: 'authorization_pending',
+        message: 'Waiting for user authorization'
       }, 200);
     }
 
-    // Success! Got tokens
-    console.log(`✅ Device code authorized, tokens received`);
+    // Authorized! Generate Fire TV JWT
+    if (session.status === 'authorized') {
+      console.log(`✅ Device authorized: ${session.user_email}`);
+
+      // Generate Fire TV JWT (unique for this device)
+      const firetvJWT = await generateSupabaseJWT(
+        session.user_id,
+        session.user_email,
+        {
+          device_type: session.device_type || 'firetv',
+          device_id: `firetv-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
+          session_id: `sess-firetv-${Date.now()}`
+        }
+      );
+
+      // Delete session (we're done with it!)
+      await supabase
+        .from('device_auth_sessions')
+        .delete()
+        .eq('device_code', device_code);
+
+      return jsonResponse({
+        success: true,
+        status: 'authorized',
+        jwtToken: firetvJWT,
+        user: {
+          id: session.user_id,
+          email: session.user_email,
+          provider: 'google'
+        }
+      }, 200);
+    }
 
     return jsonResponse({
-      success: true,
-      tokens: {
-        access_token: result.access_token,
-        refresh_token: result.refresh_token,
-        expires_in: result.expires_in || 3600,
-        scope: result.scope
-      }
+      success: false,
+      status: session.status,
+      message: `Session status: ${session.status}`
     }, 200);
   } catch (error: any) {
-    console.error('🚨 Device code polling failed:', error);
+    console.error('🚨 Poll device code status failed:', error);
     return jsonResponse({
-      error: 'Device code polling failed',
+      error: 'Failed to check device code status',
+      details: error?.message || 'Unknown error'
+    }, 500);
+  }
+}
+
+/**
+ * Authorize Device Code - Phone links Google OAuth to device session
+ */
+async function handleAuthorizeDeviceCode(data: any, googleAccessToken: string) {
+  try {
+    const { device_code, google_tokens } = data;
+
+    if (!device_code) {
+      throw new Error('Device code (user code) required');
+    }
+
+    if (!googleAccessToken) {
+      throw new Error('Google access token required');
+    }
+
+    console.log(`🔐 Authorizing device code: ${device_code}`);
+
+    // Verify Google token
+    const googleUser = await verifyGoogleToken(googleAccessToken);
+    if (!googleUser || !googleUser.verified_email) {
+      throw new Error('Invalid Google token');
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+
+    // Look up device session by user_code (the short code from QR/URL)
+    // Note: device_code param actually contains the user_code from the phone
+    const { data: session, error } = await supabase
+      .from('device_auth_sessions')
+      .select('*')
+      .eq('user_code', device_code)
+      .single();
+
+    if (error || !session) {
+      return jsonResponse({
+        success: false,
+        error: 'invalid_device_code',
+        message: 'Device code not found'
+      }, 400);
+    }
+
+    // Check if expired
+    if (new Date() > new Date(session.expires_at)) {
+      await supabase
+        .from('device_auth_sessions')
+        .delete()
+        .eq('device_code', session.device_code);
+
+      return jsonResponse({
+        success: false,
+        error: 'expired_code',
+        message: 'Device code has expired'
+      }, 400);
+    }
+
+    // Check if already authorized
+    if (session.status !== 'pending') {
+      return jsonResponse({
+        success: false,
+        error: 'code_already_used',
+        message: 'Device code already authorized'
+      }, 400);
+    }
+
+    // Get or create auth user
+    const authUserId = await getOrCreateAuthUser(supabase, googleUser);
+
+    // Ensure user profile exists
+    await ensureUserProfile(supabase, authUserId, googleUser.email, 'beta');
+
+    // Store OAuth tokens as tokens.google.primary
+    await handleStoreTokensOperation(
+      supabase,
+      authUserId,
+      googleUser.email,
+      {
+        access_token: google_tokens.access_token,
+        refresh_token: google_tokens.refresh_token,
+        expires_in: google_tokens.expires_in || 3600,
+        scope: google_tokens.scope,
+        email: googleUser.email,
+        display_name: googleUser.name,
+        provider_info: {
+          type: 'web_oauth',
+          client_id: GOOGLE_CLIENT_ID
+        }
+      },
+      'google',
+      'primary' // Always primary!
+    );
+
+    // Update device session (mark as authorized)
+    await supabase
+      .from('device_auth_sessions')
+      .update({
+        status: 'authorized',
+        user_id: authUserId,
+        user_email: googleUser.email
+      })
+      .eq('device_code', session.device_code);
+
+    console.log(`✅ Device code authorized for ${googleUser.email}`);
+
+    // Generate Phone JWT (unique for this device)
+    const phoneJWT = await generateSupabaseJWT(
+      authUserId,
+      googleUser.email,
+      {
+        device_type: 'phone',
+        device_id: `phone-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
+        session_id: `sess-phone-${Date.now()}`
+      }
+    );
+
+    // Return response with Phone JWT
+    return jsonResponse({
+      success: true,
+      jwtToken: phoneJWT, // Phone's unique JWT
+      user: {
+        id: authUserId,
+        email: googleUser.email,
+        name: googleUser.name,
+        picture: googleUser.picture,
+        provider: 'google'
+      },
+      message: 'Device authorized. Your Fire TV is now authenticated.'
+    }, 200);
+  } catch (error: any) {
+    console.error('🚨 Authorize device code failed:', error);
+    return jsonResponse({
+      error: 'Failed to authorize device code',
       details: error?.message || 'Unknown error'
     }, 500);
   }

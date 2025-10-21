@@ -38,7 +38,7 @@ class ThemeOverlay {
     constructor() {
         this.overlayElement = null;
         this.activeElements = new Map(); // id -> {element, config, intervals, timeouts}
-        this.rotatingGroups = new Map(); // groupName -> {members: [], currentIndex, timer}
+        this.rotationSequences = new Map(); // sequenceName -> {steps: [], currentStepIndex, timeout}
         this.currentTheme = null;
         this.enabled = true;
 
@@ -53,6 +53,15 @@ class ThemeOverlay {
 
         // Check reduced motion preference
         this.checkReducedMotionPreference();
+
+        // Check user's theme animations setting
+        if (window.settingsStore) {
+            const animationsEnabled = window.settingsStore.get('interface.themeAnimationsEnabled');
+            if (animationsEnabled === false) {
+                this.enabled = false;
+                logger.info('Theme animations disabled by user setting');
+            }
+        }
 
         logger.success('ThemeOverlay initialized');
     }
@@ -150,13 +159,26 @@ class ThemeOverlay {
         // Use provided config or default Halloween config
         const config = configOverride || HALLOWEEN_OVERLAY_CONFIG;
         const elements = config.elements;
+        const rotations = config.rotations;
 
         // Create each element
         elements.forEach(elementConfig => {
             this.createElement(elementConfig);
         });
 
-        logger.success('Halloween overlay applied', { elementsCount: elements.length });
+        // Initialize rotation sequences
+        if (rotations) {
+            Object.keys(rotations).forEach(sequenceName => {
+                const sequence = rotations[sequenceName];
+                this.startRotationSequence(sequenceName, sequence);
+            });
+            logger.success('Halloween overlay applied', {
+                elementsCount: elements.length,
+                rotationsCount: Object.keys(rotations).length
+            });
+        } else {
+            logger.success('Halloween overlay applied', { elementsCount: elements.length });
+        }
     }
 
     /**
@@ -165,6 +187,15 @@ class ThemeOverlay {
      * @private
      */
     createElement(config) {
+        // Check animation level setting
+        const animationLevel = this.getAnimationLevel();
+
+        // Skip elements with movement if animation level is 'low'
+        if (animationLevel === 'low' && config.movement?.type !== 'none') {
+            logger.debug(`Skipping ${config.id} - animation level is low and element has movement`);
+            return;
+        }
+
         const wrapper = document.createElement('div');
         wrapper.className = 'overlay-element-wrapper';
         wrapper.dataset.id = config.id;
@@ -756,6 +787,161 @@ class ThemeOverlay {
     }
 
     /**
+     * Start a rotation sequence
+     * @param {string} sequenceName - Name of the rotation sequence
+     * @param {Array} steps - Array of steps {element: 'id', duration: N} or {blank: N}
+     * @private
+     */
+    startRotationSequence(sequenceName, steps) {
+        logger.info(`Starting rotation sequence: ${sequenceName}`, { stepsCount: steps.length });
+
+        // Store sequence state
+        this.rotationSequences.set(sequenceName, {
+            steps,
+            currentStepIndex: 0,
+            timeout: null
+        });
+
+        // Start first step
+        this.executeRotationStep(sequenceName);
+    }
+
+    /**
+     * Execute the current step in a rotation sequence
+     * @param {string} sequenceName - Name of the rotation sequence
+     * @private
+     */
+    executeRotationStep(sequenceName) {
+        const sequenceData = this.rotationSequences.get(sequenceName);
+        if (!sequenceData) {
+            logger.warn(`Rotation sequence not found: ${sequenceName}`);
+            return;
+        }
+
+        const { steps, currentStepIndex } = sequenceData;
+        const step = steps[currentStepIndex];
+
+        if (!step) {
+            logger.error(`Invalid step at index ${currentStepIndex} in sequence ${sequenceName}`);
+            return;
+        }
+
+        logger.debug(`Executing step ${currentStepIndex} of ${sequenceName}`, step);
+
+        if (step.element) {
+            // Show element for duration
+            const elementId = step.element;
+            const duration = step.duration;
+
+            this.showRotationElement(elementId, duration, () => {
+                // After element finishes, move to next step
+                this.moveToNextRotationStep(sequenceName);
+            });
+        } else if (step.blank) {
+            // Blank period - show nothing
+            const duration = step.blank;
+            logger.debug(`Blank period in ${sequenceName}: ${duration}s`);
+
+            const timeout = setTimeout(() => {
+                this.moveToNextRotationStep(sequenceName);
+            }, duration * 1000);
+
+            sequenceData.timeout = timeout;
+        }
+    }
+
+    /**
+     * Show an element as part of a rotation
+     * @param {string} elementId - Element ID to show
+     * @param {number} duration - Duration in seconds
+     * @param {Function} onComplete - Callback when element finishes
+     * @private
+     */
+    showRotationElement(elementId, duration, onComplete) {
+        const elementData = this.activeElements.get(elementId);
+        if (!elementData) {
+            logger.warn(`Element not found for rotation: ${elementId}`);
+            if (onComplete) onComplete();
+            return;
+        }
+
+        const { element, config } = elementData;
+
+        logger.debug(`Showing rotation element: ${elementId} for ${duration}s`);
+
+        // Make element visible
+        element.style.display = 'block';
+
+        // Re-randomize position if variable
+        if (config.position.type.startsWith('variable')) {
+            this.applyPosition(element, config.position);
+        }
+
+        // Reset transform
+        element.style.transform = 'translate(0, 0)';
+
+        // Fade in
+        setTimeout(() => {
+            element.style.opacity = '1';
+            logger.debug(`Made ${elementId} visible`);
+        }, 10);
+
+        // Apply or restart movement animation
+        if (config.movement?.type !== 'none') {
+            if (!element.dataset.animationName) {
+                this.applyMovement(element, config);
+            } else {
+                // Restart animation
+                const animName = element.dataset.animationName;
+                const animDuration = element.dataset.animationDuration;
+                const easing = element.dataset.animationEasing;
+                const fillMode = element.dataset.animationFillMode;
+
+                element.style.animation = 'none';
+                void element.offsetHeight;
+                element.style.animation = `${animName} ${animDuration}s ${easing} 0s 1 normal ${fillMode} running`;
+            }
+        }
+
+        // Schedule hide after duration
+        const timeout = setTimeout(() => {
+            logger.debug(`Hiding rotation element: ${elementId}`);
+
+            // Fade out
+            element.style.opacity = '0';
+
+            setTimeout(() => {
+                element.style.display = 'none';
+
+                // Call completion callback
+                if (onComplete) onComplete();
+            }, 500); // Wait for fade transition
+        }, duration * 1000);
+
+        elementData.timeouts.push(timeout);
+    }
+
+    /**
+     * Move to the next step in a rotation sequence
+     * @param {string} sequenceName - Name of the rotation sequence
+     * @private
+     */
+    moveToNextRotationStep(sequenceName) {
+        const sequenceData = this.rotationSequences.get(sequenceName);
+        if (!sequenceData) return;
+
+        const { steps } = sequenceData;
+
+        // Move to next step (or loop back to start)
+        sequenceData.currentStepIndex = (sequenceData.currentStepIndex + 1) % steps.length;
+
+        logger.debug(`Moving to step ${sequenceData.currentStepIndex} in ${sequenceName}`);
+
+        // Execute next step
+        this.executeRotationStep(sequenceName);
+    }
+
+    /**
      * Generate random number in range
      * @param {Array} range - [min, max]
      * @returns {number}
@@ -764,6 +950,18 @@ class ThemeOverlay {
     randomInRange(range) {
         const [min, max] = range;
         return Math.random() * (max - min) + min;
+    }
+
+    /**
+     * Get animation level from settings
+     * @returns {string} - 'low' or 'high'
+     * @private
+     */
+    getAnimationLevel() {
+        if (window.settingsStore) {
+            return window.settingsStore.get('interface.animationLevel') || 'high';
+        }
+        return 'high'; // Default to high
     }
 
     /**
@@ -776,6 +974,13 @@ class ThemeOverlay {
         this.activeElements.forEach((data) => {
             data.intervals.forEach(clearInterval);
             data.timeouts.forEach(clearTimeout);
+        });
+
+        // Clear rotation sequence timeouts
+        this.rotationSequences.forEach((sequenceData) => {
+            if (sequenceData.timeout) {
+                clearTimeout(sequenceData.timeout);
+            }
         });
 
         // Remove dashboard overlay elements
@@ -794,7 +999,7 @@ class ThemeOverlay {
         });
 
         this.activeElements.clear();
-        this.rotatingGroups.clear();
+        this.rotationSequences.clear();
         this.currentTheme = null;
     }
 
@@ -831,3 +1036,8 @@ class ThemeOverlay {
 // Export singleton instance
 export const themeOverlay = new ThemeOverlay();
 export default themeOverlay;
+
+// Expose globally for settings and debugging
+if (typeof window !== 'undefined') {
+    window.themeOverlay = themeOverlay;
+}

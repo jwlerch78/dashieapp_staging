@@ -181,9 +181,19 @@ export class SettingsModalRenderer {
         const displayPage = this.pages.display;
 
         return `
-            <!-- Theme Selection -->
-            <div class="settings-modal__screen" data-screen="display-theme" data-title="Theme" data-parent="display">
-                ${displayPage.renderThemeScreen()}
+            <!-- Manage Themes -->
+            <div class="settings-modal__screen" data-screen="display-manage-themes" data-title="Manage Themes" data-parent="display">
+                ${displayPage.renderManageThemesScreen()}
+            </div>
+
+            <!-- Theme Selector -->
+            <div class="settings-modal__screen" data-screen="display-theme-selector" data-title="Select Theme" data-parent="display-manage-themes">
+                ${displayPage.renderThemeSelectorScreen()}
+            </div>
+
+            <!-- Animation Level -->
+            <div class="settings-modal__screen" data-screen="display-animation-level" data-title="Animation Level" data-parent="display-manage-themes">
+                ${displayPage.renderAnimationLevelScreen()}
             </div>
 
             <!-- Sleep Timer - Hour Selection -->
@@ -821,36 +831,8 @@ export class SettingsModalRenderer {
                 }
             }
 
-            // Handle theme selection
-            if (target.dataset.setting === 'interface.theme' && target.dataset.value) {
-                const setting = target.dataset.setting;
-                const value = target.dataset.value;
-
-                logger.info('Setting selected', { setting, value });
-
-                const displayPage = this.pages.display;
-                if (displayPage) {
-                    // Update the checkmarks FIRST for instant visual feedback
-                    const currentScreen = this.modalElement.querySelector(`[data-screen="${currentPage}"]`);
-                    if (currentScreen) {
-                        // Remove all checkmarks first
-                        currentScreen.querySelectorAll('.settings-modal__menu-item--checked').forEach(item => {
-                            item.classList.remove('settings-modal__menu-item--checked');
-                            const checkmark = item.querySelector('.settings-modal__cell-checkmark');
-                            if (checkmark) checkmark.textContent = '';
-                        });
-
-                        // Add checkmark to selected item
-                        target.classList.add('settings-modal__menu-item--checked');
-                        const checkmark = target.querySelector('.settings-modal__cell-checkmark');
-                        if (checkmark) checkmark.textContent = '✓';
-                    }
-
-                    // THEN apply the theme (visual changes happen after UI feedback)
-                    await displayPage.setTheme(value);
-                }
-                return;
-            }
+            // Note: Theme and animation level selection are now handled by
+            // SettingsDisplayPage.handleItemClick() via delegation below
         }
 
         // Delegate to page's handleItemClick if page extends SettingsPageBase

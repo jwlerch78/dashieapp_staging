@@ -185,6 +185,13 @@ export class WidgetDataManager {
      */
     async loadCalendarData(options = {}) {
         try {
+            // Check if we're in bypass mode (no auth/database)
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('bypass-auth')) {
+                logger.debug('Bypass mode active - skipping calendar data load');
+                return { events: [], calendars: [], lastUpdated: null };
+            }
+
             // If there's already a fetch in progress, wait for it instead of starting a new one
             if (this.calendarDataPromise) {
                 logger.debug('Calendar data fetch already in progress, waiting...');
@@ -415,6 +422,17 @@ export class WidgetDataManager {
      */
     async loadPhotosData() {
         try {
+            // Check if we're in bypass mode (no auth/database)
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.has('bypass-auth')) {
+                logger.debug('Bypass mode active - skipping photos data load');
+                this.sendToWidget('photos', 'data', {
+                    dataType: 'photos',
+                    payload: { urls: [], folder: null }
+                });
+                return;
+            }
+
             logger.info('Loading photos data');
 
             // Get photo data service

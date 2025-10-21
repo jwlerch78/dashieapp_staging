@@ -51,6 +51,14 @@ export async function initializeCore(options = {}) {
       logger.warn('⚠️ BYPASS MODE: Skipping service initialization');
       logger.warn('⚠️ BYPASS MODE: Initializing Settings in read-only mode (no database)');
 
+      // Clear any stale data from localStorage that requires auth
+      try {
+        localStorage.removeItem('dashie-active-calendars'); // Calendar IDs from previous sessions
+        logger.debug('Cleared stale calendar data from localStorage');
+      } catch (e) {
+        // Ignore localStorage errors
+      }
+
       // Initialize Settings in bypass mode (no database operations)
       await Settings.initialize({ bypassAuth: true });
 

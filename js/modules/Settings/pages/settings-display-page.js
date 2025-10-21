@@ -3,6 +3,7 @@
 // v1.1 - Updated to use theme registry
 
 import { createLogger } from '../../../utils/logger.js';
+import { SettingsPageBase } from '../core/settings-page-base.js';
 import { TimeSelectionHandler } from '../utils/time-selection-handler.js';
 import { getAllThemes } from '../../../themes/theme-registry.js';
 
@@ -12,9 +13,9 @@ const logger = createLogger('SettingsDisplayPage');
  * Display Settings Page
  * Handles UI theme, sleep/wake times, and display preferences
  */
-export class SettingsDisplayPage {
+export class SettingsDisplayPage extends SettingsPageBase {
     constructor() {
-        this.initialized = false;
+        super('display');
         this.timeHandler = new TimeSelectionHandler();
     }
 
@@ -43,22 +44,18 @@ export class SettingsDisplayPage {
         const sleepTimeDisplay = this.timeHandler.formatTime(sleepTime);
         const wakeTimeDisplay = this.timeHandler.formatTime(wakeTime);
 
-        // Format theme for display (capitalize first letter)
-        const themeDisplay = currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1);
-
         // Add disabled class if sleep timer is off
         const timeDisabledClass = sleepTimerEnabled ? '' : 'settings-modal__menu-item--disabled';
 
         return `
             <div class="settings-modal__list">
                 <div class="settings-modal__section">
-                    <!-- Theme -->
+                    <!-- Manage Themes -->
                     <div class="settings-modal__menu-item settings-modal__menu-item--navigable"
-                         data-navigate="display-theme"
+                         data-navigate="display-manage-themes"
                          role="button"
                          tabindex="0">
-                        <span class="settings-modal__menu-label">Theme</span>
-                        <span class="settings-modal__cell-value" id="theme-display">${themeDisplay}</span>
+                        <span class="settings-modal__menu-label">Manage Themes</span>
                         <span class="settings-modal__cell-chevron">›</span>
                     </div>
                 </div>
@@ -113,10 +110,89 @@ export class SettingsDisplayPage {
     }
 
     /**
-     * Render Theme Selection Screen
+     * Render Manage Themes Screen
+     * Shows current theme and animation settings
      * @returns {string} - HTML string
      */
-    renderThemeScreen() {
+    renderManageThemesScreen() {
+        const currentTheme = this.getCurrentTheme();
+        const themeDisplay = currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1);
+        const animationsEnabled = this.getThemeAnimationsEnabled();
+        const animationLevel = this.getAnimationLevel();
+
+        // Gray out animation level when animations are disabled
+        const animationLevelDisabled = !animationsEnabled ? 'settings-modal__menu-item--disabled' : '';
+
+        return `
+            <div class="settings-modal__list">
+                <!-- Current Theme -->
+                <div class="settings-modal__section">
+                    <div class="settings-modal__menu-item settings-modal__menu-item--navigable"
+                         data-navigate="display-theme-selector"
+                         role="button"
+                         tabindex="0">
+                        <span class="settings-modal__menu-label">Current Theme</span>
+                        <span class="settings-modal__cell-value" id="theme-display">${themeDisplay}</span>
+                        <span class="settings-modal__cell-chevron">›</span>
+                    </div>
+                </div>
+
+                <!-- Animation Controls -->
+                <div class="settings-modal__section">
+                    <!-- Enable Theme Animations -->
+                    <div class="settings-modal__menu-item settings-modal__menu-item--toggle"
+                         role="button"
+                         tabindex="0">
+                        <span class="settings-modal__menu-label">Enable Theme Animations</span>
+                        <label class="settings-modal__toggle-switch">
+                            <input type="checkbox" ${animationsEnabled ? 'checked' : ''} id="theme-animations-toggle" data-setting="interface.themeAnimationsEnabled">
+                            <span class="settings-modal__toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Animation Level -->
+                    <div class="settings-modal__menu-item settings-modal__menu-item--navigable ${animationLevelDisabled}"
+                         data-navigate="display-animation-level"
+                         role="button"
+                         tabindex="0">
+                        <span class="settings-modal__menu-label">Animation Level</span>
+                        <span class="settings-modal__cell-value" id="animation-level-display">${animationLevel === 'high' ? 'High' : 'Low'}</span>
+                        <span class="settings-modal__cell-chevron">›</span>
+                    </div>
+                </div>
+
+                <!-- Seasonal Automation (Future Feature) -->
+                <div class="settings-modal__section">
+                    <!-- Seasonal Theme Automation -->
+                    <div class="settings-modal__menu-item settings-modal__menu-item--toggle settings-modal__menu-item--disabled"
+                         role="button"
+                         tabindex="0">
+                        <span class="settings-modal__menu-label">Seasonal Theme Automation</span>
+                        <label class="settings-modal__toggle-switch">
+                            <input type="checkbox" disabled id="seasonal-automation-toggle">
+                            <span class="settings-modal__toggle-slider"></span>
+                        </label>
+                    </div>
+
+                    <!-- Select Seasonal Themes -->
+                    <div class="settings-modal__menu-item settings-modal__menu-item--navigable settings-modal__menu-item--disabled"
+                         role="button"
+                         tabindex="0">
+                        <span class="settings-modal__menu-label">Select Seasonal Themes</span>
+                        <span class="settings-modal__cell-value">--</span>
+                        <span class="settings-modal__cell-chevron">›</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Render Theme Selector Screen
+     * Just the theme list for selection
+     * @returns {string} - HTML string
+     */
+    renderThemeSelectorScreen() {
         const currentTheme = this.getCurrentTheme();
         const themes = getAllThemes(); // Get all themes from registry
 
@@ -135,6 +211,35 @@ export class SettingsDisplayPage {
                             </div>
                         `;
                     }).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    /**
+     * Render Animation Level Selection Screen
+     * @returns {string} - HTML string
+     */
+    renderAnimationLevelScreen() {
+        const currentLevel = this.getAnimationLevel();
+        const levels = [
+            { value: 'low', label: 'Low' },
+            { value: 'high', label: 'High' }
+        ];
+
+        return `
+            <div class="settings-modal__list">
+                <div class="settings-modal__section">
+                    ${levels.map(level => `
+                        <div class="settings-modal__menu-item settings-modal__menu-item--selectable ${level.value === currentLevel ? 'settings-modal__menu-item--checked' : ''}"
+                             data-setting="interface.animationLevel"
+                             data-value="${level.value}"
+                             role="button"
+                             tabindex="0">
+                            <span class="settings-modal__menu-label">${level.label}</span>
+                            <span class="settings-modal__cell-checkmark">${level.value === currentLevel ? '✓' : ''}</span>
+                        </div>
+                    `).join('')}
                 </div>
             </div>
         `;
@@ -375,6 +480,28 @@ export class SettingsDisplayPage {
     }
 
     /**
+     * Get theme animations enabled setting
+     * @returns {boolean}
+     */
+    getThemeAnimationsEnabled() {
+        if (window.settingsStore) {
+            return window.settingsStore.get('interface.themeAnimationsEnabled') !== false;
+        }
+        return true; // Default to enabled
+    }
+
+    /**
+     * Get animation level setting
+     * @returns {string} - 'low' or 'high'
+     */
+    getAnimationLevel() {
+        if (window.settingsStore) {
+            return window.settingsStore.get('interface.animationLevel') || 'high';
+        }
+        return 'high'; // Default to high
+    }
+
+    /**
      * Set theme and persist
      * @param {string} theme - 'dark' or 'light'
      */
@@ -430,6 +557,56 @@ export class SettingsDisplayPage {
     }
 
     /**
+     * Set theme animations enabled and persist
+     * @param {boolean} enabled
+     */
+    async setThemeAnimationsEnabled(enabled) {
+        logger.info('Setting theme animations enabled', { enabled });
+
+        if (window.settingsStore) {
+            window.settingsStore.set('interface.themeAnimationsEnabled', enabled);
+            await window.settingsStore.save();
+        }
+
+        // Update theme overlay to apply/remove animations
+        if (window.themeOverlay && window.themeApplier) {
+            window.themeOverlay.setEnabled(enabled);
+
+            // If re-enabling, re-apply the current theme to show overlays
+            if (enabled) {
+                const currentTheme = window.themeApplier.getCurrentTheme();
+                window.themeOverlay.applyOverlay(currentTheme);
+            }
+        }
+
+        // Update UI to gray out or enable animation level selector
+        this.updateAnimationLevelState(enabled);
+    }
+
+    /**
+     * Set animation level and persist
+     * @param {string} level - 'low' or 'high'
+     */
+    async setAnimationLevel(level) {
+        logger.info('Setting animation level', { level });
+
+        if (window.settingsStore) {
+            window.settingsStore.set('interface.animationLevel', level);
+            await window.settingsStore.save();
+        }
+
+        // Re-apply current theme with new animation level
+        if (window.themeApplier && window.themeOverlay) {
+            const currentTheme = window.themeApplier.getCurrentTheme();
+            window.themeOverlay.clearOverlay();
+            window.themeOverlay.applyOverlay(currentTheme);
+        }
+
+        // Update display value
+        this.updateAnimationLevelDisplay(level);
+    }
+
+    /**
      * Update sleep/wake time cell states (enabled/disabled)
      * @param {boolean} enabled
      */
@@ -446,6 +623,35 @@ export class SettingsDisplayPage {
         }
 
         logger.debug('Sleep timer states updated', { enabled });
+    }
+
+    /**
+     * Update animation level selector state (enabled/disabled)
+     * @param {boolean} enabled
+     */
+    updateAnimationLevelState(enabled) {
+        const animationLevelCell = document.querySelector('[data-navigate="display-animation-level"]');
+
+        if (enabled) {
+            animationLevelCell?.classList.remove('settings-modal__menu-item--disabled');
+        } else {
+            animationLevelCell?.classList.add('settings-modal__menu-item--disabled');
+        }
+
+        logger.debug('Animation level state updated', { enabled });
+    }
+
+    /**
+     * Update animation level display value
+     * @param {string} level - 'low' or 'high'
+     */
+    updateAnimationLevelDisplay(level) {
+        const displayElement = document.getElementById('animation-level-display');
+
+        if (displayElement) {
+            displayElement.textContent = level === 'high' ? 'High' : 'Low';
+            logger.debug('Updated animation level display', { level });
+        }
     }
 
     /**
@@ -511,6 +717,14 @@ export class SettingsDisplayPage {
         if (greetingToggle) {
             greetingToggle.addEventListener('change', async (e) => {
                 await this.setDynamicGreeting(e.target.checked);
+            });
+        }
+
+        // Theme Animations toggle
+        const themeAnimationsToggle = document.getElementById('theme-animations-toggle');
+        if (themeAnimationsToggle) {
+            themeAnimationsToggle.addEventListener('change', async (e) => {
+                await this.setThemeAnimationsEnabled(e.target.checked);
             });
         }
     }
@@ -584,5 +798,62 @@ export class SettingsDisplayPage {
      */
     getTimeHandler() {
         return this.timeHandler;
+    }
+
+    /**
+     * Handle item click/selection
+     * Overrides base class to handle theme and animation level selection
+     * @param {HTMLElement} item - The clicked/selected item
+     * @returns {Promise<Object>} Action to take
+     */
+    async handleItemClick(item) {
+        // Handle theme selection
+        if (item.dataset.setting === 'interface.theme' && item.dataset.value) {
+            const value = item.dataset.value;
+            logger.info('Theme selected', { value });
+
+            // Update checkmarks for visual feedback
+            const parent = item.parentElement;
+            parent.querySelectorAll('.settings-modal__menu-item--checked').forEach(el => {
+                el.classList.remove('settings-modal__menu-item--checked');
+                const checkmark = el.querySelector('.settings-modal__cell-checkmark');
+                if (checkmark) checkmark.textContent = '';
+            });
+
+            item.classList.add('settings-modal__menu-item--checked');
+            const checkmark = item.querySelector('.settings-modal__cell-checkmark');
+            if (checkmark) checkmark.textContent = '✓';
+
+            // Apply the theme
+            await this.setTheme(value);
+
+            return { shouldNavigate: false };
+        }
+
+        // Handle animation level selection
+        if (item.dataset.setting === 'interface.animationLevel' && item.dataset.value) {
+            const value = item.dataset.value;
+            logger.info('Animation level selected', { value });
+
+            // Update checkmarks for visual feedback
+            const parent = item.parentElement;
+            parent.querySelectorAll('.settings-modal__menu-item--checked').forEach(el => {
+                el.classList.remove('settings-modal__menu-item--checked');
+                const checkmark = el.querySelector('.settings-modal__cell-checkmark');
+                if (checkmark) checkmark.textContent = '';
+            });
+
+            item.classList.add('settings-modal__menu-item--checked');
+            const checkmark = item.querySelector('.settings-modal__cell-checkmark');
+            if (checkmark) checkmark.textContent = '✓';
+
+            // Apply the animation level
+            await this.setAnimationLevel(value);
+
+            return { shouldNavigate: false };
+        }
+
+        // Fall back to base class behavior for other items
+        return await super.handleItemClick(item);
     }
 }

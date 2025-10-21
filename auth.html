@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Authenticate Device - Dashie</title>
+
+  <!-- Google OAuth Library -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+
+  <link rel="stylesheet" href="auth.css">
+</head>
+<body>
+  <div class="auth-container">
+    <div class="auth-header">
+      <img src="./artwork/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie" class="logo">
+      <h1>Authenticate Your Device</h1>
+    </div>
+
+    <div class="device-info" id="device-info">
+      <div class="device-icon">📺</div>
+      <p class="device-name" id="device-name">Fire TV</p>
+      <p class="device-code-label">Device Code:</p>
+      <p class="device-code" id="device-code">--------</p>
+    </div>
+
+    <div class="auth-content">
+      <!-- Initial sign-in section -->
+      <div class="sign-in-section" id="sign-in-section">
+        <p class="instructions">Sign in with Google to authenticate your device</p>
+        <div id="google-signin-button"></div>
+        <p class="privacy-note">Your TV will be authenticated with your Google account</p>
+      </div>
+
+      <!-- Loading state -->
+      <div class="loading-section hidden" id="loading-section">
+        <div class="spinner"></div>
+        <p class="status-message" id="status-message">Authenticating your device...</p>
+      </div>
+
+      <!-- Success state -->
+      <div class="success-section hidden" id="success-section">
+        <div class="success-icon">✓</div>
+        <h2>Device Authenticated!</h2>
+        <p>Your Fire TV is now signed in and ready to use.</p>
+        <p class="close-note">You can close this page and return to your TV.</p>
+        <button class="primary-button" onclick="window.close()">Close</button>
+      </div>
+
+      <!-- Error state -->
+      <div class="error-section hidden" id="error-section">
+        <div class="error-icon">✗</div>
+        <h2 id="error-title">Authentication Failed</h2>
+        <p id="error-message" class="error-text"></p>
+        <button class="primary-button" onclick="location.reload()">Try Again</button>
+      </div>
+    </div>
+
+    <div class="auth-footer">
+      <p class="help-text">
+        Having trouble? <a href="https://dashieapp.com/help" target="_blank">Get help</a>
+      </p>
+    </div>
+  </div>
+
+  <script type="module" src="auth.js"></script>
+</body>
+</html>

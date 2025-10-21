@@ -5,16 +5,45 @@
 /**
  * Halloween Overlay Configuration
  *
- * Defines 6 overlay elements:
+ * ROTATION SEQUENCES:
+ * - flying-creatures: bat-fly-1 (12s) → ghosts-circle (20s) → blank (30s) → repeat
+ * - pumpkins: pumpkin-bat-1 (15s) → pumpkin-glow-1 (15s) → repeat (no gap)
+ *
+ * INDIVIDUAL ELEMENTS:
  * - bat-drop-1: Periodic bat dropping from top
  * - spider-walk-1: Periodic spider appearing at random positions
- * - bat-fly-1: Periodic bat flying across calendar widget
- * - pumpkin-glow-1: Static glowing pumpkin
  * - spider-drop: Static hanging spider
- * - ghosts-circle: Periodic ghosts floating across bottom
  */
-export const HALLOWEEN_OVERLAY_CONFIG = {
-    elements: [
+
+/**
+ * Rotation Sequences
+ * Define the order and timing for rotating elements
+ *
+ * Format:
+ * - { element: 'element-id', duration: seconds } - Show element for duration
+ * - { blank: seconds } - Show nothing for duration
+ */
+const ROTATION_SEQUENCES = {
+    'flying-creatures': [
+        { element: 'bat-fly-1', duration: 12 },      // Bat flies across calendar
+        { element: 'ghosts-circle', duration: 20 },  // Ghosts float across bottom
+        { blank: 30 }                                // 30 seconds of nothing
+        // Then repeats from bat-fly-1
+    ],
+
+    'pumpkins': [
+        { element: 'pumpkin-bat-1', duration: 15 },   // Pumpkin with bat
+        { element: 'pumpkin-glow-1', duration: 15 }   // Glowing pumpkin
+        // Loops immediately, no gap
+    ]
+};
+
+/**
+ * Individual Element Definitions
+ * Define visual properties, positioning, and movement for each element
+ * Visibility timing is controlled by rotation sequences or individual periodic settings
+ */
+const ELEMENTS = [
         {
             id: 'bat-drop-1',
             src: '/assets/themes/halloween/animated/bat-flying.gif',
@@ -71,12 +100,8 @@ export const HALLOWEEN_OVERLAY_CONFIG = {
                 distance: 'calc(100vw + 200px)',
                 duration: 12,
                 easing: 'linear'
-            },
-            visibility: {
-                type: 'rotating',
-                group: 'flying-creatures',
-                onDuration: 12  // Bat flies across for 12 seconds
             }
+            // Visibility controlled by 'flying-creatures' rotation sequence
         },
         {
             id: 'pumpkin-bat-1',
@@ -90,12 +115,8 @@ export const HALLOWEEN_OVERLAY_CONFIG = {
             },
             movement: {
                 type: 'none'
-            },
-            visibility: {
-                type: 'rotating',
-                group: 'pumpkins',
-                onDuration: 15  // Show pumpkin-bat for 15 seconds
             }
+            // Visibility controlled by 'pumpkins' rotation sequence
         },
         {
             id: 'pumpkin-glow-1',
@@ -109,12 +130,8 @@ export const HALLOWEEN_OVERLAY_CONFIG = {
             },
             movement: {
                 type: 'none'
-            },
-            visibility: {
-                type: 'rotating',
-                group: 'pumpkins',
-                onDuration: 15  // Show pumpkin-glow for 15 seconds (no gap, continuous rotation)
             }
+            // Visibility controlled by 'pumpkins' rotation sequence
         },
         {
             id: 'spider-drop',
@@ -148,15 +165,18 @@ export const HALLOWEEN_OVERLAY_CONFIG = {
                 distance: 'calc(100vw + 200px)',  // Full screen width plus extra
                 duration: 20,  // 20 seconds to cross
                 easing: 'linear'
-            },
-            visibility: {
-                type: 'rotating',
-                group: 'flying-creatures',
-                onDuration: 20,   // Ghosts float across for 20 seconds
-                offDuration: 30   // Wait 30s before restarting the cycle (bat → ghosts → wait → repeat)
             }
+            // Visibility controlled by 'flying-creatures' rotation sequence
         }
-    ]
+];
+
+/**
+ * Export Halloween Overlay Configuration
+ * Combines rotation sequences and individual element definitions
+ */
+export const HALLOWEEN_OVERLAY_CONFIG = {
+    rotations: ROTATION_SEQUENCES,
+    elements: ELEMENTS
 };
 
 export default HALLOWEEN_OVERLAY_CONFIG;
