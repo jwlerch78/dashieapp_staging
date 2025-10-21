@@ -88,6 +88,9 @@ export class HybridDeviceAuth {
     logger.debug('Requesting device code from backend');
 
     try {
+      // Get base URL for verification link (supports localhost and production)
+      const baseUrl = window.location.origin;
+
       const response = await fetch(EDGE_FUNCTION_URL, {
         method: 'POST',
         headers: {
@@ -98,6 +101,7 @@ export class HybridDeviceAuth {
           operation: 'create_device_code',
           data: {
             device_type: 'firetv',
+            base_url: baseUrl,  // Pass current origin for verification URL
             device_info: {
               model: this.getDeviceModel(),
               os_version: navigator.userAgent,
@@ -557,44 +561,44 @@ export class HybridDeviceAuth {
       }
 
       .code-entry {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 12px;
-        padding: 20px;
-        margin: 20px 0;
+        background: #f5f5f5;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin: 12px 0;
       }
 
       .code-label {
-        color: rgba(255, 255, 255, 0.7);
-        font-size: 14px;
-        margin: 0 0 8px 0;
+        color: #666;
+        font-size: 12px;
+        margin: 0 0 6px 0;
       }
 
       .user-code {
-        color: #1a73e8;
-        font-size: 32px;
+        color: #EE9828;
+        font-size: 28px;
         font-weight: 700;
-        letter-spacing: 4px;
+        letter-spacing: 6px;
         margin: 0;
         font-family: 'Courier New', monospace;
       }
 
       .device-flow-status {
-        margin: 16px 0;
+        margin: 12px 0;
       }
 
       .status-text {
-        color: rgba(255, 255, 255, 0.6);
-        font-size: 13px;
+        color: #666;
+        font-size: 11px;
       }
 
       .cancel-btn {
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        color: rgba(255, 255, 255, 0.9);
-        padding: 12px 32px;
-        border-radius: 8px;
-        font-size: 14px;
+        background: #f5f5f5;
+        border: 1px solid #d0d0d0;
+        color: #333;
+        padding: 10px 28px;
+        border-radius: 6px;
+        font-size: 13px;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s;
@@ -602,8 +606,8 @@ export class HybridDeviceAuth {
       }
 
       .cancel-btn:hover {
-        background: rgba(255, 255, 255, 0.15);
-        border-color: rgba(255, 255, 255, 0.3);
+        background: #e8e8e8;
+        border-color: #b0b0b0;
       }
 
       .cancel-btn:focus {

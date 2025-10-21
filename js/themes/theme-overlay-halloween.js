@@ -44,130 +44,130 @@ const ROTATION_SEQUENCES = {
  * Visibility timing is controlled by rotation sequences or individual periodic settings
  */
 const ELEMENTS = [
-        {
-            id: 'bat-drop-1',
-            src: '/assets/themes/halloween/animated/bat-flying.gif',
-            container: 'dashboard', // Dashboard-level overlay
-            size: { width: '120px' },
-            position: {
-                type: 'variable-x',
-                y: '-50px',
-                xRange: [10, 90]  // Random X between 10-90%
-            },
-            movement: {
-                type: 'down',
-                distance: '300px',
-                duration: 3,
-                easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)'
-            },
-            visibility: {
-                type: 'periodic',
-                onDuration: 6,
-                offDuration: 10  // Reduced for testing (was 50)
-            }
+    {
+        id: 'bat-drop-1',
+        src: '/assets/themes/halloween/animated/bat-flying.gif',
+        container: 'dashboard',
+        size: { width: '120px' },
+        position: {
+            type: 'variable-x',
+            y: '-50px',
+            xRange: [10, 90]
         },
-        {
-            id: 'spider-walk-1',
-            src: '/assets/themes/halloween/animated/spider-walking.gif',
-            container: 'dashboard', // Dashboard-level overlay
-            size: { width: '100px' },
-            position: {
-                type: 'variable-x',
-                xRange: [70, 95],  // Random X between 70-90% (keep it visible)
-                y: '51%'
-            },
-            movement: {
-                type: 'none'  // GIF is already animated
-            },
-            visibility: {
-                type: 'periodic',
-                onDuration: 10,
-                offDuration: 8
-            }
+        movement: {
+            type: 'down',
+            distance: '300px',
+            duration: 3,
+            easing: 'cubic-bezier(0.34, 1.56, 0.64, 1)'
         },
-        {
-            id: 'bat-fly-1',
-            src: '/assets/themes/halloween/animated/bat-flying.gif',
-            container: 'widget-main', // Calendar widget
-            size: { width: '100px' },
-            position: {
-                type: 'variable-y',
-                x: '-100px',
-                yRange: [10, 40]  // Random Y between 10-40%
-            },
-            movement: {
-                type: 'right',
-                distance: 'calc(100vw + 200px)',
-                duration: 12,
-                easing: 'linear'
-            }
-            // Visibility controlled by 'flying-creatures' rotation sequence
-        },
-        {
-            id: 'pumpkin-bat-1',
-            src: '/assets/themes/halloween/animated/Pumpkin-bat.gif',
-            container: 'dashboard',
-            size: { width: '75px' },
-            position: {
-                type: 'static-xy',
-                x: '55%',
-                y: '0%'
-            },
-            movement: {
-                type: 'none'
-            }
-            // Visibility controlled by 'pumpkins' rotation sequence
-        },
-        {
-            id: 'pumpkin-glow-1',
-            src: '/assets/themes/halloween/animated/pumpkin-glow.gif',
-            container: 'dashboard',
-            size: { width: '75px' },
-            position: {
-                type: 'static-xy',
-                x: '55%',
-                y: '0%'
-            },
-            movement: {
-                type: 'none'
-            }
-            // Visibility controlled by 'pumpkins' rotation sequence
-        },
-        {
-            id: 'spider-drop',
-            src: '/assets/themes/halloween/animated/spider-drop.gif',
-            container: 'dashboard', // Widget-specific overlay
-            size: { width: '75px' },
-            position: {
-                type: 'static-xy',
-                x: '15%', // top of header
-                y: '1.2%'
-            },
-            movement: {
-                type: 'none'
-            },
-            visibility: {
-                type: 'always'
-            }
-        },
-        {
-            id: 'ghosts-circle',
-            src: '/assets/themes/halloween/animated/ghosts-circle.gif',
-            container: 'dashboard',
-            size: { width: '150px' },
-            position: {
-                type: 'static-xy',
-                x: '-100px',  // Start offscreen left
-                y: '85%'      // Bottom of screen
-            },
-            movement: {
-                type: 'right',
-                distance: 'calc(100vw + 200px)',  // Full screen width plus extra
-                duration: 20,  // 20 seconds to cross
-                easing: 'linear'
-            }
-            // Visibility controlled by 'flying-creatures' rotation sequence
+        visibility: {
+            type: 'periodic',
+            onDuration: 6,
+            offDuration: 10
         }
+    },
+    {
+        id: 'spider-walk-1',
+        src: '/assets/themes/halloween/animated/spider-walking.gif',
+        container: 'dashboard',
+        size: { width: '100px' },
+        position: {
+            type: 'variable-x',
+            xRange: [70, 95],
+            y: '51%'
+        },
+        movement: {
+            type: 'none'  // GIF is already animated
+        },
+        visibility: {
+            type: 'periodic',
+            onDuration: 10,
+            offDuration: 8
+        }
+    },
+    {
+        id: 'bat-fly-1',
+        src: '/assets/themes/halloween/animated/bat-flying.gif',
+        container: 'widget-main',
+        size: { width: '100px' },
+        position: {
+            type: 'variable-y',
+            x: '-100px',
+            yRange: [10, 40]
+        },
+        movement: {
+            type: 'right',
+            distance: 'calc(100vw + 200px)',
+            duration: 12,
+            easing: 'linear'
+        }
+        // Visibility controlled by 'flying-creatures' rotation sequence
+    },
+    {
+        id: 'pumpkin-bat-1',
+        src: '/assets/themes/halloween/animated/Pumpkin-bat.gif',
+        container: 'dashboard',
+        size: { width: '75px' },
+        position: {
+            type: 'static-xy',
+            x: '55%',
+            y: '0%'
+        },
+        movement: {
+            type: 'none'
+        }
+        // Visibility controlled by 'pumpkins' rotation sequence
+    },
+    {
+        id: 'pumpkin-glow-1',
+        src: '/assets/themes/halloween/animated/pumpkin-glow.gif',
+        container: 'dashboard',
+        size: { width: '75px' },
+        position: {
+            type: 'static-xy',
+            x: '55%',
+            y: '0%'
+        },
+        movement: {
+            type: 'none'
+        }
+        // Visibility controlled by 'pumpkins' rotation sequence
+    },
+    {
+        id: 'spider-drop',
+        src: '/assets/themes/halloween/animated/spider-drop.gif',
+        container: 'dashboard',
+        size: { width: '75px' },
+        position: {
+            type: 'static-xy',
+            x: '15%',
+            y: '1.2%'
+        },
+        movement: {
+            type: 'none'
+        },
+        visibility: {
+            type: 'always'
+        }
+    },
+    {
+        id: 'ghosts-circle',
+        src: '/assets/themes/halloween/animated/ghosts-circle.gif',
+        container: 'dashboard',
+        size: { width: '150px' },
+        position: {
+            type: 'static-xy',
+            x: '-100px',
+            y: '85%'
+        },
+        movement: {
+            type: 'right',
+            distance: 'calc(100vw + 200px)',
+            duration: 20,
+            easing: 'linear'
+        }
+        // Visibility controlled by 'flying-creatures' rotation sequence
+    }
 ];
 
 /**

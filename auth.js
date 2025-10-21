@@ -104,25 +104,37 @@ class PhoneAuthHandler {
     try {
       logger.debug('Initializing Google Sign-In button');
 
-      google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: this.handleGoogleCallback.bind(this),
-        auto_select: false,
-        cancel_on_tap_outside: true
-      });
+      // Wait for Google library to load
+      const waitForGoogle = () => {
+        if (typeof google !== 'undefined' && google.accounts && google.accounts.id) {
+          logger.debug('Google library loaded, initializing...');
 
-      google.accounts.id.renderButton(
-        document.getElementById('google-signin-button'),
-        {
-          theme: 'filled_blue',
-          size: 'large',
-          text: 'signin_with',
-          shape: 'rectangular',
-          width: 300
+          google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: this.handleGoogleCallback.bind(this),
+            auto_select: false,
+            cancel_on_tap_outside: true
+          });
+
+          google.accounts.id.renderButton(
+            document.getElementById('google-signin-button'),
+            {
+              theme: 'filled_blue',
+              size: 'large',
+              text: 'signin_with',
+              shape: 'rectangular',
+              width: 300
+            }
+          );
+
+          logger.success('Google Sign-In button rendered');
+        } else {
+          logger.debug('Waiting for Google library to load...');
+          setTimeout(waitForGoogle, 100);
         }
-      );
+      };
 
-      logger.success('Google Sign-In button rendered');
+      waitForGoogle();
 
     } catch (error) {
       logger.error('Failed to initialize Google Sign-In', error);

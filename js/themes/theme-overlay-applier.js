@@ -459,6 +459,15 @@ class ThemeOverlay {
      */
     applyVisibility(element, config) {
         const { visibility } = config;
+
+        // Elements without visibility are controlled by rotation sequences
+        if (!visibility) {
+            logger.debug(`Element ${config.id} has no visibility config - controlled by rotation sequence`);
+            element.style.opacity = '0';
+            element.style.display = 'none';
+            return;
+        }
+
         const elementData = this.activeElements.get(config.id);
 
         switch (visibility.type) {
@@ -468,10 +477,6 @@ class ThemeOverlay {
 
             case 'periodic':
                 this.setupPeriodicVisibility(element, elementData, visibility);
-                break;
-
-            case 'rotating':
-                this.setupRotatingVisibility(element, elementData, visibility);
                 break;
         }
     }
@@ -605,185 +610,6 @@ class ThemeOverlay {
         // Start first cycle
         logger.debug(`Setting up periodic visibility for ${config.id}`);
         cycle();
-    }
-
-    /**
-     * Setup rotating group visibility
-     * Members of a group take turns being visible
-     * @private
-     */
-    setupRotatingVisibility(element, elementData, visibility) {
-        const { group } = visibility;
-        const config = elementData.config;
-
-        if (!group) {
-            logger.error(`Rotating visibility requires 'group' property for ${config.id}`);
-            return;
-        }
-
-        // Get or create group
-        if (!this.rotatingGroups.has(group)) {
-            this.rotatingGroups.set(group, {
-                members: [],
-                currentIndex: -1,
-                timer: null
-            });
-            logger.debug(`Created rotating group: ${group}`);
-        }
-
-        const groupData = this.rotatingGroups.get(group);
-
-        // Add this element to the group
-        groupData.members.push({
-            element,
-            elementData,
-            config,
-            visibility
-        });
-
-        logger.debug(`Added ${config.id} to rotating group ${group}`, {
-            memberCount: groupData.members.length
-        });
-
-        // Start the rotation if this is the first member
-        if (groupData.members.length === 1) {
-            logger.debug(`Starting rotation for group ${group}`);
-            this.rotateGroupMember(group);
-        }
-    }
-
-    /**
-     * Show the next member in a rotating group
-     * @param {string} groupName - Group name
-     * @private
-     */
-    rotateGroupMember(groupName) {
-        const groupData = this.rotatingGroups.get(groupName);
-        if (!groupData) return;
-
-        // Hide current member if any
-        if (groupData.currentIndex >= 0) {
-            const currentMember = groupData.members[groupData.currentIndex];
-
-            // Move to next member
-            groupData.currentIndex = (groupData.currentIndex + 1) % groupData.members.length;
-            const nextMember = groupData.members[groupData.currentIndex];
-
-            logger.debug(`Transitioning from ${currentMember.config.id} to ${nextMember.config.id} in group ${groupName}`, {
-                index: groupData.currentIndex,
-                totalMembers: groupData.members.length
-            });
-
-            // Start showing next member IMMEDIATELY (overlapping fade)
-            this.showRotatingMember(nextMember, groupName);
-
-            // Simultaneously start fading out the current member
-            if (currentMember) {
-                logger.debug(`Hiding ${currentMember.config.id} from group ${groupName}`);
-                currentMember.element.style.opacity = '0';
-
-                setTimeout(() => {
-                    currentMember.element.style.display = 'none';
-                }, 500); // Wait for fade transition to complete before hiding
-            }
-        } else {
-            // First time - no current member to hide
-            groupData.currentIndex = 0;
-            const nextMember = groupData.members[groupData.currentIndex];
-
-            logger.debug(`Showing first member ${nextMember.config.id} from group ${groupName}`);
-            this.showRotatingMember(nextMember, groupName);
-        }
-    }
-
-    /**
-     * Show a rotating group member
-     * @private
-     */
-    showRotatingMember(member, groupName) {
-        const { element, elementData, config, visibility } = member;
-        const groupData = this.rotatingGroups.get(groupName);
-
-        // Show element
-        element.style.display = 'block';
-
-        // Re-randomize position if variable
-        if (config.position.type.startsWith('variable')) {
-            this.applyPosition(element, config.position);
-            logger.debug(`Re-positioned ${config.id}`, {
-                left: element.style.left,
-                top: element.style.top
-            });
-        }
-
-        // Reset transform
-        element.style.transform = 'translate(0, 0)';
-
-        // Make visible
-        setTimeout(() => {
-            element.style.opacity = '1';
-            logger.debug(`Made ${config.id} visible`);
-        }, 10);
-
-        // Apply or restart movement animation
-        if (config.movement?.type !== 'none') {
-            if (!element.dataset.animationName) {
-                logger.debug(`Applying movement for ${config.id}`);
-                this.applyMovement(element, config);
-            } else {
-                // Restart animation
-                const animName = element.dataset.animationName;
-                const duration = element.dataset.animationDuration;
-                const easing = element.dataset.animationEasing;
-                const fillMode = element.dataset.animationFillMode || 'none';
-
-                element.style.animation = 'none';
-                void element.offsetHeight;
-                element.style.animation = `${animName} ${duration}s ${easing} 0s 1 normal ${fillMode} running`;
-
-                logger.debug(`Restarted animation for ${config.id}`);
-            }
-        }
-
-        // Calculate how long to show this member
-        const displayDuration = visibility.onDuration || 10;
-
-        // For seamless rotation, start the next member slightly before current ends (500ms overlap)
-        const rotationDelay = Math.max((displayDuration - 0.5) * 1000, 0);
-
-        // Schedule next rotation
-        const timeout = setTimeout(() => {
-            // Check if this is the last member in the group
-            const isLastMember = groupData.currentIndex === groupData.members.length - 1;
-
-            if (isLastMember && visibility.offDuration) {
-                // Wait offDuration before restarting cycle
-                logger.debug(`Last member of ${groupName}, waiting ${visibility.offDuration}s before restarting`);
-
-                // Hide current member
-                element.style.opacity = '0';
-                setTimeout(() => {
-                    element.style.display = 'none';
-                }, 500);
-
-                const restartTimeout = setTimeout(() => {
-                    this.rotateGroupMember(groupName);
-                }, visibility.offDuration * 1000);
-
-                elementData.timeouts.push(restartTimeout);
-            } else {
-                // Show next member with overlap for seamless transition
-                this.rotateGroupMember(groupName);
-            }
-        }, rotationDelay);
-
-        elementData.timeouts.push(timeout);
-        groupData.timer = timeout;
-
-        logger.debug(`Scheduled rotation for ${config.id}`, {
-            duration: displayDuration,
-            isLastMember: groupData.currentIndex === groupData.members.length - 1
-        });
     }
 
     /**

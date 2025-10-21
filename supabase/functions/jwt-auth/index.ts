@@ -950,7 +950,7 @@ async function handleExchangeCode(data: any) {
  */
 async function handleCreateDeviceCode(data: any) {
   try {
-    const { device_type, device_info } = data;
+    const { device_type, device_info, base_url } = data;
 
     console.log(`🔐 Creating device code for ${device_type || 'firetv'}...`);
 
@@ -964,8 +964,9 @@ async function handleCreateDeviceCode(data: any) {
     // Generate user code (8 chars, no ambiguous characters)
     const userCode = generateUserCode();
 
-    // Build verification URL
-    const verificationUrl = `https://dashieapp.com/auth?code=${userCode}&type=${device_type || 'firetv'}`;
+    // Build verification URL - use provided base_url or default to production
+    const baseUrl = base_url || 'https://dashieapp.com';
+    const verificationUrl = `${baseUrl}/auth.html?code=${userCode}&type=${device_type || 'firetv'}`;
 
     // Set expiration (10 minutes)
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
