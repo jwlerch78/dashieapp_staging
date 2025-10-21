@@ -1078,6 +1078,13 @@ async function handlePollDeviceCodeStatus(data: any) {
     if (session.status === 'authorized') {
       console.log(`✅ Device authorized: ${session.user_email}`);
 
+      // Fetch user profile to get name and picture
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('display_name, email')
+        .eq('user_id', session.user_id)
+        .single();
+
       // Generate Fire TV JWT (unique for this device)
       const firetvJWT = await generateSupabaseJWT(
         session.user_id,
@@ -1102,6 +1109,7 @@ async function handlePollDeviceCodeStatus(data: any) {
         user: {
           id: session.user_id,
           email: session.user_email,
+          name: profile?.display_name || session.user_email,
           provider: 'google'
         }
       }, 200);

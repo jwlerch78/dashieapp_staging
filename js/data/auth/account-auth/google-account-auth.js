@@ -115,7 +115,26 @@ export class GoogleAccountAuth extends BaseAccountAuth {
                     hasTokens: !!result.tokens
                 });
 
-                // Step 2: Bootstrap JWT if edgeClient available
+                // Step 2: Handle JWT if provider returned it directly (hybrid device flow)
+                if (result.jwtToken && this.edgeClient) {
+                    logger.info('Provider returned JWT directly, storing...');
+
+                    // Store JWT in EdgeClient
+                    this.edgeClient.setJWT(result.jwtToken);
+
+                    // Store JWT in localStorage
+                    localStorage.setItem('dashie-supabase-jwt', result.jwtToken);
+
+                    logger.success('JWT from provider stored successfully');
+
+                    // Return user with JWT token
+                    return {
+                        ...this.user,
+                        jwtToken: result.jwtToken
+                    };
+                }
+
+                // Step 2b: Bootstrap JWT if edgeClient available and we have access token
                 if (this.edgeClient && result.tokens?.access_token) {
                     try {
                         logger.info('Bootstrapping JWT token...');
