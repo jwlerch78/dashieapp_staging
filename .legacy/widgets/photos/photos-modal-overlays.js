@@ -527,3 +527,202 @@ function createQRCode(container, url) {
     }
   });
 }
+
+/**
+ * Show upload results modal
+ * @param {Object} results - Upload results object
+ * @param {number} results.successful - Number of successful uploads
+ * @param {number} results.failed - Number of failed conversions
+ * @param {number} results.skipped - Number of duplicate files skipped
+ * @param {number} results.total - Total files attempted
+ */
+export function showUploadResultsModal(results) {
+  const isDark = document.body.classList.contains('theme-dark');
+
+  let overlay = document.getElementById('upload-results-overlay');
+  if (overlay) {
+    overlay.remove();
+  }
+
+  overlay = document.createElement('div');
+  overlay.id = 'upload-results-overlay';
+  overlay.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 9999;
+    pointer-events: all;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  `;
+
+  const modal = document.createElement('div');
+  modal.style.cssText = `
+    background: ${isDark ? '#1c1c1e' : '#ffffff'};
+    border-radius: 14px;
+    padding: 24px;
+    max-width: 380px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  `;
+
+  const icon = results.successful === results.total
+    ? '✓'
+    : results.successful > 0
+    ? '⚠'
+    : '✗';
+
+  const iconColor = results.successful === results.total
+    ? '#34C759'
+    : results.successful > 0
+    ? '#FF9500'
+    : '#FF3B30';
+
+  const title = results.successful === results.total
+    ? 'Upload Complete!'
+    : results.successful > 0
+    ? 'Upload Partially Complete'
+    : 'Upload Failed';
+
+  modal.innerHTML = `
+    <div style="text-align: center; margin-bottom: 20px;">
+      <div style="
+        width: 64px;
+        height: 64px;
+        border-radius: 50%;
+        background: ${iconColor}20;
+        color: ${iconColor};
+        font-size: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px auto;
+        font-weight: bold;
+      ">${icon}</div>
+      <h3 style="margin: 0; font-size: 20px; font-weight: 600; color: ${isDark ? '#ffffff' : '#000000'};">
+        ${title}
+      </h3>
+    </div>
+
+    <div style="margin-bottom: 24px;">
+      ${results.successful > 0 ? `
+        <div style="
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px;
+          background: ${isDark ? '#2c2c2e' : '#f5f5f5'};
+          border-radius: 8px;
+          margin-bottom: 8px;
+        ">
+          <span style="color: ${isDark ? '#ffffff' : '#000000'}; font-size: 15px;">
+            ✓ Uploaded successfully
+          </span>
+          <span style="color: #34C759; font-weight: 600; font-size: 15px;">
+            ${results.successful}
+          </span>
+        </div>
+      ` : ''}
+
+      ${results.failed > 0 ? `
+        <div style="
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px;
+          background: ${isDark ? '#2c2c2e' : '#f5f5f5'};
+          border-radius: 8px;
+          margin-bottom: 8px;
+        ">
+          <span style="color: ${isDark ? '#ffffff' : '#000000'}; font-size: 15px;">
+            ✗ Failed (conversion)
+          </span>
+          <span style="color: #FF3B30; font-weight: 600; font-size: 15px;">
+            ${results.failed}
+          </span>
+        </div>
+      ` : ''}
+
+      ${results.skipped > 0 ? `
+        <div style="
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 12px;
+          background: ${isDark ? '#2c2c2e' : '#f5f5f5'};
+          border-radius: 8px;
+        ">
+          <span style="color: ${isDark ? '#ffffff' : '#000000'}; font-size: 15px;">
+            ⊘ Skipped (duplicate)
+          </span>
+          <span style="color: #FF9500; font-weight: 600; font-size: 15px;">
+            ${results.skipped}
+          </span>
+        </div>
+      ` : ''}
+    </div>
+
+    <button id="upload-results-close-btn" tabindex="0" style="
+      width: 100%;
+      padding: 12px;
+      background: #EE9828;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    ">OK</button>
+  `;
+
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  // Close button handler
+  const closeBtn = modal.querySelector('#upload-results-close-btn');
+  const close = () => {
+    overlay.remove();
+  };
+
+  closeBtn.addEventListener('click', close);
+  closeBtn.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.keyCode === 13) {
+      e.preventDefault();
+      close();
+    }
+  });
+
+  closeBtn.addEventListener('mouseenter', () => {
+    closeBtn.style.opacity = '0.8';
+  });
+  closeBtn.addEventListener('mouseleave', () => {
+    closeBtn.style.opacity = '1';
+  });
+
+  // Auto-focus close button
+  setTimeout(() => {
+    closeBtn.focus();
+  }, 100);
+
+  // Also allow overlay click to close
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      close();
+    }
+  });
+}
+
+/**
+ * Hide upload results modal
+ */
+export function hideUploadResultsModal() {
+  const overlay = document.getElementById('upload-results-overlay');
+  if (overlay) {
+    overlay.remove();
+  }
+}

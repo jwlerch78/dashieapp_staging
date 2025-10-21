@@ -1,62 +1,78 @@
 // js/ui/themes/theme-overlay-config-registry.js
 // Dynamic theme overlay configuration loader
-// Maps theme IDs to overlay configuration files
+// Maps theme families to overlay configuration files
+// v2.0 - Updated for theme family architecture
 
 import { createLogger } from '../../utils/logger.js';
+import { parseThemeId } from './theme-registry.js';
 
 const logger = createLogger('ThemeOverlayRegistry');
 
 /**
  * Theme Overlay Configuration Registry
  * Dynamically loads theme-specific overlay configurations
+ *
+ * Note: Overlays are mapped by THEME FAMILY, not individual theme IDs.
+ * Both light and dark variants of a family share the same overlay config.
  */
 class ThemeOverlayConfigRegistry {
     constructor() {
-        // Map theme IDs to their config file paths
-        this.themeConfigMap = {
-            'halloween-dark': './theme-overlay-halloween.js',
-            'halloween-light': './theme-overlay-halloween.js',
+        // Map theme FAMILIES to their config file paths
+        // Both light and dark variants use the same overlay
+        this.themeFamilyConfigMap = {
+            'halloween': './theme-overlay-halloween.js',
             // Future themes:
-            // 'christmas-dark': './theme-overlay-christmas.js',
-            // 'christmas-light': './theme-overlay-christmas.js',
-            // 'easter-dark': './theme-overlay-easter.js',
-            // 'thanksgiving-dark': './theme-overlay-thanksgiving.js',
+            // 'christmas': './theme-overlay-christmas.js',
+            // 'easter': './theme-overlay-easter.js',
+            // 'thanksgiving': './theme-overlay-thanksgiving.js',
         };
 
-        // Cache loaded configs
+        // Cache loaded configs (keyed by family ID)
         this.configCache = new Map();
     }
 
     /**
      * Check if a theme has overlay support
-     * @param {string} themeId - Theme identifier
+     * @param {string} themeId - Theme identifier (e.g., "halloween-dark")
      * @returns {boolean}
      */
     hasOverlay(themeId) {
-        return this.themeConfigMap.hasOwnProperty(themeId);
+        const parsed = parseThemeId(themeId);
+        if (!parsed) return false;
+
+        return this.themeFamilyConfigMap.hasOwnProperty(parsed.family);
     }
 
     /**
      * Get overlay configuration for a theme
-     * @param {string} themeId - Theme identifier
+     * @param {string} themeId - Theme identifier (e.g., "halloween-dark")
      * @returns {Promise<object|null>} Overlay config or null if no overlay for theme
      */
     async getConfig(themeId) {
-        // Check if theme has overlay support
-        if (!this.hasOverlay(themeId)) {
-            logger.debug(`No overlay config for theme: ${themeId}`);
+        // Parse theme ID to get family
+        const parsed = parseThemeId(themeId);
+        if (!parsed) {
+            logger.debug(`Invalid theme ID: ${themeId}`);
             return null;
         }
 
-        // Check cache first
-        if (this.configCache.has(themeId)) {
-            logger.debug(`Using cached overlay config for: ${themeId}`);
-            return this.configCache.get(themeId);
+        const familyId = parsed.family;
+
+        // Check if theme family has overlay support
+        if (!this.themeFamilyConfigMap.hasOwnProperty(familyId)) {
+            logger.debug(`No overlay config for theme family: ${familyId}`);
+            return null;
+        }
+
+        // Check cache first (cache by family, not full theme ID)
+        if (this.configCache.has(familyId)) {
+            logger.debug(`Using cached overlay config for family: ${familyId}`);
+            return this.configCache.get(familyId);
         }
 
         // Dynamically import config
         try {
-            const configPath = this.themeConfigMap[themeId];
+            const configPath = this.themeFamilyConfigMap[familyId];
             logger.debug(`Loading overlay config from: ${configPath}`);
 
             const module = await import(configPath);
@@ -79,10 +95,10 @@ class ThemeOverlayConfigRegistry {
                 return null;
             }
 
-            // Cache for future use
-            this.configCache.set(themeId, config);
+            // Cache for future use (by family ID)
+            this.configCache.set(familyId, config);
 
-            logger.success(`Loaded overlay config for ${themeId}`, {
+            logger.success(`Loaded overlay config for theme family ${familyId}`, {
                 elementsCount: config.elements.length,
                 rotationsCount: config.rotations ? Object.keys(config.rotations).length : 0
             });
@@ -90,23 +106,23 @@ class ThemeOverlayConfigRegistry {
             return config;
 
         } catch (error) {
-            logger.error(`Failed to load overlay config for ${themeId}`, error);
+            logger.error(`Failed to load overlay config for theme family ${familyId}`, error);
             return null;
         }
     }
 
     /**
-     * Register a new theme overlay config
-     * @param {string} themeId - Theme identifier
+     * Register a new theme family overlay config
+     * @param {string} familyId - Theme family identifier (e.g., "halloween")
      * @param {string} configPath - Path to config file (relative to this file)
      */
-    register(themeId, configPath) {
-        logger.info(`Registering overlay config: ${themeId} → ${configPath}`);
-        this.themeConfigMap[themeId] = configPath;
+    register(familyId, configPath) {
+        logger.info(`Registering overlay config: ${familyId} → ${configPath}`);
+        this.themeFamilyConfigMap[familyId] = configPath;
 
         // Clear cache if it exists
-        if (this.configCache.has(themeId)) {
-            this.configCache.delete(themeId);
+        if (this.configCache.has(familyId)) {
+            this.configCache.delete(familyId);
         }
     }
 

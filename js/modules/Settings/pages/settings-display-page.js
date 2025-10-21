@@ -1,11 +1,17 @@
 // js/modules/Settings/pages/settings-display-page.js
 // Display settings page with theme, sleep/wake timer, and dynamic greeting
-// v1.1 - Updated to use theme registry
+// v2.0 - Updated to use theme family architecture
 
 import { createLogger } from '../../../utils/logger.js';
 import { SettingsPageBase } from '../core/settings-page-base.js';
 import { TimeSelectionHandler } from '../utils/time-selection-handler.js';
-import { getAllThemes } from '../../../ui/themes/theme-registry.js';
+import {
+    getAllThemeFamilies,
+    parseThemeId,
+    buildThemeId,
+    DEFAULT_THEME_FAMILY,
+    DEFAULT_THEME_MODE
+} from '../../../ui/themes/theme-registry.js';
 
 const logger = createLogger('SettingsDisplayPage');
 
@@ -116,7 +122,16 @@ export class SettingsDisplayPage extends SettingsPageBase {
      */
     renderManageThemesScreen() {
         const currentTheme = this.getCurrentTheme();
-        const themeDisplay = currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1);
+        const parsed = parseThemeId(currentTheme) || { family: DEFAULT_THEME_FAMILY, mode: DEFAULT_THEME_MODE };
+
+        // Get theme family for display
+        const themeFamilies = getAllThemeFamilies();
+        const currentFamily = themeFamilies.find(f => f.id === parsed.family);
+        const themeFamilyDisplay = currentFamily?.name || 'Default';
+
+        // Check if mode is dark
+        const isDarkMode = parsed.mode === 'dark';
+
         const animationsEnabled = this.getThemeAnimationsEnabled();
         const animationLevel = this.getAnimationLevel();
 
@@ -125,15 +140,26 @@ export class SettingsDisplayPage extends SettingsPageBase {
 
         return `
             <div class="settings-modal__list">
-                <!-- Current Theme -->
+                <!-- Theme Family -->
                 <div class="settings-modal__section">
                     <div class="settings-modal__menu-item settings-modal__menu-item--navigable"
                          data-navigate="display-theme-selector"
                          role="button"
                          tabindex="0">
-                        <span class="settings-modal__menu-label">Current Theme</span>
-                        <span class="settings-modal__cell-value" id="theme-display">${themeDisplay}</span>
+                        <span class="settings-modal__menu-label">Theme</span>
+                        <span class="settings-modal__cell-value" id="theme-family-display">${themeFamilyDisplay}</span>
                         <span class="settings-modal__cell-chevron">›</span>
+                    </div>
+
+                    <!-- Light/Dark Mode Toggle -->
+                    <div class="settings-modal__menu-item settings-modal__menu-item--toggle"
+                         role="button"
+                         tabindex="0">
+                        <span class="settings-modal__menu-label">Dark Mode</span>
+                        <label class="settings-modal__toggle-switch">
+                            <input type="checkbox" ${isDarkMode ? 'checked' : ''} id="theme-mode-toggle" data-setting="interface.themeMode">
+                            <span class="settings-modal__toggle-slider"></span>
+                        </label>
                     </div>
                 </div>
 
@@ -189,25 +215,28 @@ export class SettingsDisplayPage extends SettingsPageBase {
 
     /**
      * Render Theme Selector Screen
-     * Just the theme list for selection
+     * Shows theme families (Default, Halloween, etc.)
      * @returns {string} - HTML string
      */
     renderThemeSelectorScreen() {
         const currentTheme = this.getCurrentTheme();
-        const themes = getAllThemes(); // Get all themes from registry
+        const parsed = parseThemeId(currentTheme) || { family: DEFAULT_THEME_FAMILY, mode: DEFAULT_THEME_MODE };
+        const currentFamily = parsed.family;
+
+        const themeFamilies = getAllThemeFamilies(); // Get theme families from registry
 
         return `
             <div class="settings-modal__list">
                 <div class="settings-modal__section">
-                    ${themes.map(theme => {
+                    ${themeFamilies.map(family => {
                         return `
-                            <div class="settings-modal__menu-item settings-modal__menu-item--selectable ${theme.id === currentTheme ? 'settings-modal__menu-item--checked' : ''}"
-                                 data-setting="interface.theme"
-                                 data-value="${theme.id}"
+                            <div class="settings-modal__menu-item settings-modal__menu-item--selectable ${family.id === currentFamily ? 'settings-modal__menu-item--checked' : ''}"
+                                 data-setting="interface.themeFamily"
+                                 data-value="${family.id}"
                                  role="button"
                                  tabindex="0">
-                                <span class="settings-modal__menu-label">${theme.name}</span>
-                                <span class="settings-modal__cell-checkmark">${theme.id === currentTheme ? '✓' : ''}</span>
+                                <span class="settings-modal__menu-label">${family.name}</span>
+                                <span class="settings-modal__cell-checkmark">${family.id === currentFamily ? '✓' : ''}</span>
                             </div>
                         `;
                     }).join('')}
@@ -424,14 +453,47 @@ export class SettingsDisplayPage extends SettingsPageBase {
     }
 
     /**
-     * Get current theme setting
-     * @returns {string} - 'dark' or 'light'
+     * Get current theme
+     * Handles migration from old theme format to new family+mode format
+     * @returns {string} - Theme ID (e.g., 'halloween-dark' or 'default-light')
      */
     getCurrentTheme() {
-        if (window.settingsStore) {
-            return window.settingsStore.get('interface.theme') || 'light';
+        if (!window.settingsStore) {
+            return buildThemeId(DEFAULT_THEME_FAMILY, DEFAULT_THEME_MODE);
         }
-        return 'light';
+
+        // Try to get theme from new architecture first
+        let themeFamily = window.settingsStore.get('interface.themeFamily');
+        let themeMode = window.settingsStore.get('interface.themeMode');
+
+        // If new settings don't exist, try to migrate from old 'interface.theme'
+        if (!themeFamily || !themeMode) {
+            const oldTheme = window.settingsStore.get('interface.theme');
+
+            if (oldTheme) {
+                // Parse old theme ID
+                const parsed = parseThemeId(oldTheme);
+                if (parsed) {
+                    themeFamily = parsed.family;
+                    themeMode = parsed.mode;
+
+                    // Migrate to new format
+                    window.settingsStore.set('interface.themeFamily', themeFamily);
+                    window.settingsStore.set('interface.themeMode', themeMode);
+                    logger.debug('Migrated theme settings', { from: oldTheme, family: themeFamily, mode: themeMode });
+                } else {
+                    // Fallback for invalid old theme
+                    themeFamily = DEFAULT_THEME_FAMILY;
+                    themeMode = DEFAULT_THEME_MODE;
+                }
+            } else {
+                // No theme set at all - use defaults
+                themeFamily = DEFAULT_THEME_FAMILY;
+                themeMode = DEFAULT_THEME_MODE;
+            }
+        }
+
+        return buildThemeId(themeFamily, themeMode);
     }
 
     /**
@@ -502,14 +564,93 @@ export class SettingsDisplayPage extends SettingsPageBase {
     }
 
     /**
-     * Set theme and persist
-     * @param {string} theme - 'dark' or 'light'
+     * Set theme family and persist
+     * @param {string} familyId - Theme family ID (e.g., 'default', 'halloween')
+     */
+    async setThemeFamily(familyId) {
+        logger.info('Setting theme family', { familyId });
+
+        // Get current mode
+        const currentTheme = this.getCurrentTheme();
+        const parsed = parseThemeId(currentTheme) || { family: DEFAULT_THEME_FAMILY, mode: DEFAULT_THEME_MODE };
+        const currentMode = parsed.mode;
+
+        // Build new theme ID
+        const newThemeId = buildThemeId(familyId, currentMode);
+
+        // Save to settings store
+        if (window.settingsStore) {
+            window.settingsStore.set('interface.themeFamily', familyId);
+            window.settingsStore.set('interface.theme', newThemeId);
+        }
+
+        // Apply theme for instant visual feedback
+        if (window.themeApplier) {
+            window.themeApplier.applyTheme(newThemeId, true);
+        }
+
+        // Update the theme display
+        this.updateDisplayValues();
+
+        // Save to database in the background
+        if (window.settingsStore) {
+            await window.settingsStore.save();
+        }
+    }
+
+    /**
+     * Set theme mode (light/dark) and persist
+     * @param {string} mode - 'light' or 'dark'
+     */
+    async setThemeMode(mode) {
+        logger.info('Setting theme mode', { mode });
+
+        // Get current family
+        const currentTheme = this.getCurrentTheme();
+        const parsed = parseThemeId(currentTheme) || { family: DEFAULT_THEME_FAMILY, mode: DEFAULT_THEME_MODE };
+        const currentFamily = parsed.family;
+
+        // Build new theme ID
+        const newThemeId = buildThemeId(currentFamily, mode);
+
+        // Save to settings store
+        if (window.settingsStore) {
+            window.settingsStore.set('interface.themeMode', mode);
+            window.settingsStore.set('interface.theme', newThemeId);
+        }
+
+        // Apply theme for instant visual feedback
+        if (window.themeApplier) {
+            window.themeApplier.applyTheme(newThemeId, true);
+        }
+
+        // Update the theme display
+        this.updateDisplayValues();
+
+        // Save to database in the background
+        if (window.settingsStore) {
+            await window.settingsStore.save();
+        }
+    }
+
+    /**
+     * Set theme and persist (legacy method - still used by input handler)
+     * @param {string} theme - Theme ID (e.g., 'halloween-dark')
      */
     async setTheme(theme) {
         logger.info('Setting theme', { theme });
 
-        // Save to settings store FIRST so getCurrentTheme() returns correct value
+        // Parse theme ID to get family and mode
+        const parsed = parseThemeId(theme);
+        if (!parsed) {
+            logger.error('Invalid theme ID', { theme });
+            return;
+        }
+
+        // Save to settings store
         if (window.settingsStore) {
+            window.settingsStore.set('interface.themeFamily', parsed.family);
+            window.settingsStore.set('interface.themeMode', parsed.mode);
             window.settingsStore.set('interface.theme', theme);
         }
 
@@ -518,10 +659,10 @@ export class SettingsDisplayPage extends SettingsPageBase {
             window.themeApplier.applyTheme(theme, true);
         }
 
-        // Update the theme display on the main Display screen
-        this.updateThemeDisplay(theme);
+        // Update the theme display
+        this.updateDisplayValues();
 
-        // Save to database in the background (non-blocking for UI)
+        // Save to database in the background
         if (window.settingsStore) {
             await window.settingsStore.save();
         }
@@ -720,6 +861,15 @@ export class SettingsDisplayPage extends SettingsPageBase {
             });
         }
 
+        // Theme Mode toggle (Light/Dark)
+        const themeModeToggle = document.getElementById('theme-mode-toggle');
+        if (themeModeToggle) {
+            themeModeToggle.addEventListener('change', async (e) => {
+                const newMode = e.target.checked ? 'dark' : 'light';
+                await this.setThemeMode(newMode);
+            });
+        }
+
         // Theme Animations toggle
         const themeAnimationsToggle = document.getElementById('theme-animations-toggle');
         if (themeAnimationsToggle) {
@@ -759,13 +909,18 @@ export class SettingsDisplayPage extends SettingsPageBase {
      * Called when navigating back to this page after changing settings
      */
     updateDisplayValues() {
-        // Update theme display
-        const themeDisplay = document.getElementById('theme-display');
-        if (themeDisplay) {
+        // Update theme family display
+        const themeFamilyDisplay = document.getElementById('theme-family-display');
+        if (themeFamilyDisplay) {
             const currentTheme = this.getCurrentTheme();
-            const themeFormatted = currentTheme.charAt(0).toUpperCase() + currentTheme.slice(1);
-            themeDisplay.textContent = themeFormatted;
-            logger.debug('🔍 DEBUG: Updated theme display to', themeFormatted);
+            const parsed = parseThemeId(currentTheme) || { family: DEFAULT_THEME_FAMILY, mode: DEFAULT_THEME_MODE };
+
+            const themeFamilies = getAllThemeFamilies();
+            const currentFamily = themeFamilies.find(f => f.id === parsed.family);
+            const themeFamilyFormatted = currentFamily?.name || 'Default';
+
+            themeFamilyDisplay.textContent = themeFamilyFormatted;
+            logger.debug('Updated theme family display to', themeFamilyFormatted);
         }
 
         // Update sleep time display
@@ -802,12 +957,35 @@ export class SettingsDisplayPage extends SettingsPageBase {
 
     /**
      * Handle item click/selection
-     * Overrides base class to handle theme and animation level selection
+     * Overrides base class to handle theme family, theme, and animation level selection
      * @param {HTMLElement} item - The clicked/selected item
      * @returns {Promise<Object>} Action to take
      */
     async handleItemClick(item) {
-        // Handle theme selection
+        // Handle theme family selection (new architecture)
+        if (item.dataset.setting === 'interface.themeFamily' && item.dataset.value) {
+            const value = item.dataset.value;
+            logger.info('Theme family selected', { value });
+
+            // Update checkmarks for visual feedback
+            const parent = item.parentElement;
+            parent.querySelectorAll('.settings-modal__menu-item--checked').forEach(el => {
+                el.classList.remove('settings-modal__menu-item--checked');
+                const checkmark = el.querySelector('.settings-modal__cell-checkmark');
+                if (checkmark) checkmark.textContent = '';
+            });
+
+            item.classList.add('settings-modal__menu-item--checked');
+            const checkmark = item.querySelector('.settings-modal__cell-checkmark');
+            if (checkmark) checkmark.textContent = '✓';
+
+            // Apply the theme family
+            await this.setThemeFamily(value);
+
+            return { shouldNavigate: false };
+        }
+
+        // Handle theme selection (legacy - for backwards compatibility)
         if (item.dataset.setting === 'interface.theme' && item.dataset.value) {
             const value = item.dataset.value;
             logger.info('Theme selected', { value });

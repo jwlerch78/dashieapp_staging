@@ -22,7 +22,8 @@ import {
   showDeleteProgress,
   hideDeleteProgress,
   showQRCodeModal,
-  hideQRCodeModal
+  hideQRCodeModal,
+  showUploadResultsModal
 } from './photos-modal-overlays.js';
 
 const logger = createLogger('PhotosSettingsModal');
@@ -596,37 +597,30 @@ export class PhotosSettingsModal {
         uploadedCount = current;
       });
 
+      // Categorize results
       const successful = results.filter(r => r.success).length;
-      const failed = results.filter(r => !r.success);
+      const allFailed = results.filter(r => !r.success);
+      const skipped = allFailed.filter(r => r.skipped).length;
+      const failed = allFailed.filter(r => !r.skipped).length;
 
-      logger.info('Upload complete', { successful, total: files.length });
+      logger.info('Upload complete', {
+        successful,
+        failed,
+        skipped,
+        total: files.length
+      });
 
-      if (successful === files.length) {
-        progressInfo.textContent = 'Upload complete!';
-        progressFill.style.width = '100%';
-      } else {
-        progressInfo.textContent = `${successful} of ${files.length} photos uploaded`;
+      // Update progress one final time
+      progressInfo.textContent = 'Processing results...';
+      progressFill.style.width = '100%';
 
-        // Log failed files for debugging
-        failed.forEach(f => {
-          logger.warn('Failed to upload', { filename: f.filename, error: f.error });
+      // Log failed files for debugging
+      allFailed.forEach(f => {
+        logger.warn(f.skipped ? 'Skipped file' : 'Failed to upload', {
+          filename: f.filename,
+          error: f.error
         });
-
-        // Show HEIC conversion failures specifically
-        const heicFailed = failed.filter(f => f.error && f.error.includes('HEIC'));
-        if (heicFailed.length > 0) {
-          logger.error('HEIC conversion failures detected', {
-            count: heicFailed.length,
-            files: heicFailed.map(f => f.filename)
-          });
-
-          // Update progress detail to show HEIC errors
-          if (progressDetail) {
-            progressDetail.textContent = `${heicFailed.length} HEIC file(s) could not be converted`;
-            progressDetail.style.color = '#ff3b30';
-          }
-        }
-      }
+      });
 
       await this.loadPhotoStats();
 
@@ -653,9 +647,16 @@ export class PhotosSettingsModal {
         }
       }
 
-      setTimeout(() => {
-        hideUploadOverlay();
-      }, 2000);
+      // Hide progress overlay and show results modal
+      hideUploadOverlay();
+
+      // Show results modal with summary
+      showUploadResultsModal({
+        successful,
+        failed,
+        skipped,
+        total: files.length
+      });
 
       event.target.value = '';
 
