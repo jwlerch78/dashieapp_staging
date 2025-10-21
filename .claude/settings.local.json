@@ -1,8 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git checkout index.html)",
-      "Bash(del nul)"
+      "Bash(dir \"c:\\Users\\John Lerch\\Dashie\\dashieapp_staging\\assets\\themes\\halloween\\animated\")"
     ],
     "deny": [],
     "ask": []

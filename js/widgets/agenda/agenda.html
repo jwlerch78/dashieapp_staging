@@ -165,25 +165,6 @@
       margin-left: 8px;
     }
 
-    .status-indicator {
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background: #666;
-      transition: background-color 0.3s;
-    }
-
-    .status-indicator.connected {
-      background: #4caf50;
-    }
-
-    .status-indicator.error {
-      background: #f44336;
-    }
-
     .event-item.selected {
       background-color: var(--bg-active) !important;
       margin-left: 0 !important;
@@ -250,8 +231,6 @@
 </head>
 <body>
   <div class="agenda-container">
-    <div class="status-indicator" id="statusIndicator"></div>
-
     <div class="loading" id="loading">
       <div class="loading-spinner"></div>
       <div>Loading agenda...</div>

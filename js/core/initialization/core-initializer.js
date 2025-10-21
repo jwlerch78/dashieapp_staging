@@ -89,6 +89,18 @@ export async function initializeCore(options = {}) {
     // STEP 3: NOW initialize widgets AFTER Dashboard.activate() has created the iframes
     await initializeWidgets();
 
+    // Re-apply theme overlay now that widgets are ready
+    // (Some overlays inject into widget iframes, which didn't exist during initial theme application)
+    if (themeApplier.getCurrentTheme()) {
+      const { themeOverlay } = await import('../../themes/theme-overlay-applier.js');
+      if (themeOverlay) {
+        // Force re-application by clearing first
+        themeOverlay.clearOverlay();
+        themeOverlay.applyOverlay(themeApplier.getCurrentTheme());
+        logger.debug('Re-applied theme overlay after widgets initialized');
+      }
+    }
+
     // STEP 4: Initialize Welcome module and check if onboarding is needed
     await welcome.initialize();
     logger.verbose('Welcome module initialized');

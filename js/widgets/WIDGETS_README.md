@@ -43,6 +43,7 @@ js/widgets/
 
 **Required elements:**
 - Import theme variables: `<link rel="stylesheet" href="/css/core/variables.css">`
+- Import theme classes: `<link rel="stylesheet" href="/css/core/themes.css">`
 - Use CSS variables for theming: `var(--bg-primary)`, `var(--text-primary)`, etc.
 - Import widget JS as module: `<script type="module" src="./widget.js"></script>`
 
@@ -56,8 +57,9 @@ js/widgets/
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My Widget</title>
 
-  <!-- CRITICAL: Import theme variables -->
+  <!-- CRITICAL: Import theme variables and theme classes -->
   <link rel="stylesheet" href="/css/core/variables.css">
+  <link rel="stylesheet" href="/css/core/themes.css">
 
   <style>
     html, body {
@@ -92,6 +94,7 @@ js/widgets/
 
 ```javascript
 import { createLogger } from '/js/utils/logger.js';
+import { detectCurrentTheme, applyThemeToWidget } from '/js/widgets/shared/widget-theme-detector.js';
 
 const logger = createLogger('MyWidget');
 
@@ -100,6 +103,7 @@ class MyWidget {
     // Widget state
     this.isFocused = false;
     this.isActive = false;
+    this.currentTheme = null;
 
     // Focus menu configuration
     this.focusMenu = {
@@ -116,38 +120,12 @@ class MyWidget {
 
   /**
    * Detect and apply initial theme from parent or localStorage
+   * Uses utility for robust, future-proof theme detection
    */
   detectAndApplyInitialTheme() {
-    let detectedTheme = null;
-
-    // Try parent window first
-    try {
-      if (window.parent && window.parent !== window && window.parent.document) {
-        const parentBody = window.parent.document.body;
-        if (parentBody.classList.contains('theme-light')) {
-          detectedTheme = 'light';
-        } else if (parentBody.classList.contains('theme-dark')) {
-          detectedTheme = 'dark';
-        }
-      }
-    } catch (e) {
-      // Cross-origin - can't access parent
-    }
-
-    // Fallback to localStorage
-    if (!detectedTheme) {
-      try {
-        const savedTheme = localStorage.getItem('dashie-theme');
-        if (savedTheme === 'light' || savedTheme === 'dark') {
-          detectedTheme = savedTheme;
-        }
-      } catch (e) {
-        // Ignore
-      }
-    }
-
-    // Apply theme or default to light
-    this.applyTheme(detectedTheme || 'light');
+    const initialTheme = detectCurrentTheme('dark'); // Fallback to 'dark'
+    this.applyTheme(initialTheme);
+    logger.debug('Initial theme detected', { theme: initialTheme });
   }
 
   /**
@@ -247,15 +225,13 @@ class MyWidget {
 
   /**
    * Apply theme to widget
+   * Uses utility for robust theme class management
    */
   applyTheme(theme) {
-    // Remove old theme classes
-    document.documentElement.classList.remove('theme-light', 'theme-dark');
-    document.body.classList.remove('theme-light', 'theme-dark');
+    if (this.currentTheme === theme) return; // Skip if unchanged
 
-    // Add new theme class
-    document.documentElement.classList.add(`theme-${theme}`);
-    document.body.classList.add(`theme-${theme}`);
+    this.currentTheme = theme;
+    applyThemeToWidget(theme); // Utility handles all class removal/application
 
     logger.debug('Theme applied', { theme });
   }
@@ -400,28 +376,104 @@ async loadMyWidgetData() {
 **MUST import in widget HTML:**
 ```html
 <link rel="stylesheet" href="/css/core/variables.css">
+<link rel="stylesheet" href="/css/core/themes.css">
 ```
 
 **Available variables:**
 - `--bg-primary` - Primary background
 - `--bg-secondary` - Secondary background
+- `--bg-tertiary` - Tertiary background
 - `--text-primary` - Primary text color
 - `--text-secondary` - Secondary text color
 - `--text-muted` - Muted text color
-- `--accent-blue` - Accent color
+- `--accent-blue` - Accent color (may change per theme)
+- `--accent-orange` - Orange accent
+- `--accent-current-time` - Color for current time indicators
 - And many more in `/css/core/variables.css`
 
-### Theme Detection
+### Theme Detection Utility (RECOMMENDED)
+
+**Use the widget theme detector utility for robust theme support:**
+
+```javascript
+import { detectCurrentTheme, applyThemeToWidget } from '/js/widgets/shared/widget-theme-detector.js';
+
+// In your widget class:
+detectAndApplyInitialTheme() {
+  const initialTheme = detectCurrentTheme('dark'); // Fallback to 'dark'
+  this.applyTheme(initialTheme);
+  logger.debug('Initial theme detected', { theme: initialTheme });
+}
+
+applyTheme(theme) {
+  if (this.currentTheme === theme) return;
+
+  this.currentTheme = theme;
+  applyThemeToWidget(theme); // Handles all theme class removal/application
+
+  logger.debug('Theme applied', { theme });
+}
+```
+
+**Benefits of using the utility:**
+- ✅ Reads from parent window (works in iframes)
+- ✅ Falls back to localStorage automatically
+- ✅ Supports ALL themes dynamically (light, dark, halloween-dark, halloween-light, future themes)
+- ✅ No hardcoded theme names
+- ✅ Removes ALL existing theme classes before applying new one
+- ✅ Applies to both `<html>` and `<body>` elements
+
+### Theme Detection (Manual Implementation)
+
+**⚠️ Only use if you cannot use the utility above**
 
 **Order of detection:**
-1. Parent window `document.body` classes (if accessible)
+1. Parent window `document.body` classes (if accessible) - Check for ANY `theme-*` class
 2. `localStorage.getItem('dashie-theme')`
-3. Default to `'light'`
+3. Default fallback
 
-### Theme Application
-
-**Apply to both `<html>` and `<body>`:**
+**❌ WRONG - Hardcoded theme checks:**
 ```javascript
+// DON'T DO THIS - Only works for light/dark, breaks for halloween/seasonal themes
+if (parentBody.classList.contains('theme-light')) {
+  detectedTheme = 'light';
+} else if (parentBody.classList.contains('theme-dark')) {
+  detectedTheme = 'dark';
+}
+```
+
+**✅ CORRECT - Dynamic theme detection:**
+```javascript
+// Extract any theme-* class dynamically
+const themeClasses = Array.from(parentBody.classList).filter(cls => cls.startsWith('theme-'));
+if (themeClasses.length > 0) {
+  const themeName = themeClasses[0].replace('theme-', ''); // e.g., 'halloween-dark'
+  detectedTheme = themeName;
+}
+```
+
+### Theme Application (Manual Implementation)
+
+**⚠️ Only use if you cannot use `applyThemeToWidget()` utility**
+
+**❌ WRONG - Only removes specific themes:**
+```javascript
+// DON'T DO THIS - Leaves halloween themes stuck
+document.body.classList.remove('theme-light', 'theme-dark');
+document.body.classList.add(`theme-${theme}`);
+```
+
+**✅ CORRECT - Removes ALL theme classes:**
+```javascript
+// Remove ALL existing theme-* classes first
+const existingThemeClasses = Array.from(document.body.classList)
+  .filter(cls => cls.startsWith('theme-'));
+existingThemeClasses.forEach(cls => {
+  document.body.classList.remove(cls);
+  document.documentElement.classList.remove(cls);
+});
+
+// Add new theme class to both elements
 document.documentElement.classList.add(`theme-${theme}`);
 document.body.classList.add(`theme-${theme}`);
 ```
@@ -555,7 +607,7 @@ window.parent.postMessage({
 }, '*');
 ```
 
-### ❌ Mistake 2: Missing CSS Variables
+### ❌ Mistake 2: Missing CSS Variables or Theme Classes
 
 **Wrong:**
 ```html
@@ -568,8 +620,9 @@ window.parent.postMessage({
 
 **Correct:**
 ```html
-<!-- ✅ Import first -->
+<!-- ✅ Import BOTH variables and themes -->
 <link rel="stylesheet" href="/css/core/variables.css">
+<link rel="stylesheet" href="/css/core/themes.css">
 
 <style>
   body {
@@ -577,6 +630,10 @@ window.parent.postMessage({
   }
 </style>
 ```
+
+**Why both are needed:**
+- `variables.css` - Defines CSS variable names with default values
+- `themes.css` - Provides theme-specific overrides via `body.theme-*` classes
 
 ### ❌ Mistake 3: Widget ID Mismatch
 
@@ -592,7 +649,43 @@ window.parent.postMessage({
 // signalReady: widgetId = 'photos'  // ✅ Match!
 ```
 
-### ❌ Mistake 4: Theme Not Applied to Both Elements
+### ❌ Mistake 4: Hardcoding Theme Names
+
+**Wrong:**
+```javascript
+// ❌ Only works for light/dark, breaks for halloween/seasonal themes
+detectAndApplyInitialTheme() {
+  if (document.body.classList.contains('theme-light')) {
+    this.applyTheme('light');
+  } else if (document.body.classList.contains('theme-dark')) {
+    this.applyTheme('dark');
+  }
+}
+
+applyTheme(theme) {
+  // ❌ Leaves halloween themes stuck when switching
+  document.body.classList.remove('theme-light', 'theme-dark');
+  document.body.classList.add(`theme-${theme}`);
+}
+```
+
+**Correct:**
+```javascript
+// ✅ Use the utility - supports all themes dynamically
+import { detectCurrentTheme, applyThemeToWidget } from '/js/widgets/shared/widget-theme-detector.js';
+
+detectAndApplyInitialTheme() {
+  const theme = detectCurrentTheme('dark');
+  this.applyTheme(theme);
+}
+
+applyTheme(theme) {
+  this.currentTheme = theme;
+  applyThemeToWidget(theme); // Removes ALL theme classes, adds new one
+}
+```
+
+### ❌ Mistake 5: Theme Not Applied to Both Elements
 
 **Wrong:**
 ```javascript
@@ -603,9 +696,12 @@ document.body.classList.add(`theme-${theme}`);  // ❌ Only body
 ```javascript
 document.documentElement.classList.add(`theme-${theme}`);  // ✅ Both
 document.body.classList.add(`theme-${theme}`);
+
+// OR better, use the utility:
+applyThemeToWidget(theme);  // ✅ Handles both automatically
 ```
 
-### ❌ Mistake 5: Registering Before iframes Exist
+### ❌ Mistake 6: Registering Before iframes Exist
 
 **Wrong:**
 ```javascript
@@ -630,29 +726,34 @@ await initializeWidgets();    // ✅ Now iframes exist!
 - [ ] Create widget folder: `js/widgets/{name}/`
 - [ ] Create `{name}.html` with:
   - [ ] Import CSS variables: `<link rel="stylesheet" href="/css/core/variables.css">`
-  - [ ] Use CSS variables for colors
+  - [ ] Import theme classes: `<link rel="stylesheet" href="/css/core/themes.css">`
+  - [ ] Use CSS variables for colors (no hardcoded colors)
   - [ ] Import widget JS as module
 - [ ] Create `{name}.js` with:
-  - [ ] `detectAndApplyInitialTheme()` in constructor
+  - [ ] Import theme utilities: `import { detectCurrentTheme, applyThemeToWidget } from '/js/widgets/shared/widget-theme-detector.js'`
+  - [ ] `detectAndApplyInitialTheme()` in constructor using `detectCurrentTheme()`
   - [ ] `setupMessageListener()` with all message handlers
   - [ ] `signalReady()` with correct format
-  - [ ] `applyTheme()` method applying to both html and body
+  - [ ] `applyTheme()` method using `applyThemeToWidget()` utility
   - [ ] `handleCommand()` for d-pad commands
 - [ ] Add widget to `dashboard-widget-config.js`
 - [ ] Add widget registration to `widget-initializer.js`
 - [ ] Add data loader to `widget-data-manager.js` (if needed)
-- [ ] Test theme switching (light ↔ dark)
+- [ ] Test theme switching (light ↔ dark ↔ halloween-dark ↔ halloween-light)
 - [ ] Test data loading
 - [ ] Test commands (if applicable)
 
 ### Porting Legacy Widget
 
 - [ ] Copy HTML/CSS/JS from legacy folder
-- [ ] Add CSS variables import
+- [ ] Add CSS variables import: `<link rel="stylesheet" href="/css/core/variables.css">`
+- [ ] Add theme classes import: `<link rel="stylesheet" href="/css/core/themes.css">`
+- [ ] Import theme utilities in JS: `import { detectCurrentTheme, applyThemeToWidget } from '/js/widgets/shared/widget-theme-detector.js'`
 - [ ] Update message format in `signalReady()`
-- [ ] Add `detectAndApplyInitialTheme()` method
-- [ ] Add `applyTheme()` method
+- [ ] Add `detectAndApplyInitialTheme()` method using `detectCurrentTheme()`
+- [ ] Add `applyTheme()` method using `applyThemeToWidget()`
 - [ ] Update message listener to handle new formats
+- [ ] Remove any hardcoded theme checks (only 'light'/'dark')
 - [ ] Follow "Creating a New Widget" checklist above
 
 ---
@@ -715,7 +816,20 @@ Should see: `theme-light` or `theme-dark`
 
 ## Additional Resources
 
+- **Widget Theme Detector:** `js/widgets/shared/widget-theme-detector.js` - Utility for robust theme detection and application
 - **Widget Messenger:** `js/core/widget-messenger.js` - Handles widget command routing
 - **Widget Data Manager:** `js/core/widget-data-manager.js` - Handles widget data loading
 - **Theme Applier:** `js/ui/theme-applier.js` - Broadcasts theme changes
+- **Theme Registry:** `js/themes/theme-registry.js` - Central theme definitions
 - **CSS Variables:** `css/core/variables.css` - All available theme variables
+- **Theme Classes:** `css/core/themes.css` - All theme class definitions
+
+### Working Widget Examples
+
+- **Header Widget:** `js/widgets/header/` - Simple widget with theme-aware dynamic greetings
+- **Clock Widget:** `js/widgets/clock/` - Widget with weather integration
+- **Calendar Widget:** `js/widgets/calendar/` - Complex widget with navigation and multiple views
+- **Agenda Widget:** `js/widgets/agenda/` - List-based widget with event selection
+- **Photos Widget:** `js/widgets/photos/` - Slideshow widget with data loading
+
+All widgets now use the `widget-theme-detector.js` utility for robust theme support.

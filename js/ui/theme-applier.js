@@ -10,7 +10,7 @@ import {
   getThemeIds,
   isValidTheme
 } from '../themes/theme-registry.js';
-import { themeOverlay } from './theme-overlay-v2.js';
+import { themeOverlay } from '../themes/theme-overlay-applier.js';
 
 const logger = createLogger('ThemeApplier');
 

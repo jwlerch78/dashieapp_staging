@@ -1,8 +1,9 @@
 // js/widgets/photos/photos.js
 // Photos Widget - Ported from .legacy/widgets/photos
-// v2.0 - Phase 5.2 - Adapted to new dashboard architecture with 3-state model
+// v2.1 - 10/20/25 - Improved theme detection robustness
 
 import { createLogger } from '/js/utils/logger.js';
+import { detectCurrentTheme, applyThemeToWidget } from '/js/widgets/shared/widget-theme-detector.js';
 
 const logger = createLogger('PhotosWidget');
 
@@ -441,53 +442,18 @@ class PhotosWidget {
    * Detect and apply initial theme from parent or localStorage
    */
   detectAndApplyInitialTheme() {
-    let detectedTheme = null;
-
-    // Try to get theme from parent window first (since we're in an iframe)
-    try {
-      if (window.parent && window.parent !== window && window.parent.document) {
-        const parentBody = window.parent.document.body;
-        if (parentBody.classList.contains('theme-light')) {
-          detectedTheme = 'light';
-        } else if (parentBody.classList.contains('theme-dark')) {
-          detectedTheme = 'dark';
-        }
-      }
-    } catch (e) {
-      // Cross-origin error - can't access parent
-      logger.debug('Cannot access parent window for theme detection');
-    }
-
-    // Fallback: try localStorage
-    if (!detectedTheme) {
-      try {
-        const savedTheme = localStorage.getItem('dashie-theme');
-        if (savedTheme === 'light' || savedTheme === 'dark') {
-          detectedTheme = savedTheme;
-        }
-      } catch (e) {
-        logger.debug('Cannot read theme from localStorage');
-      }
-    }
-
-    // Apply detected theme or default to light
-    const theme = detectedTheme || 'light';
+    const theme = detectCurrentTheme('light');
     this.applyTheme(theme);
-    logger.debug('Initial theme applied', { theme });
+    logger.debug('Initial theme detected and applied', { theme });
   }
 
   /**
    * Apply theme to widget
-   * @param {string} theme - Theme name ('light' or 'dark')
+   * @param {string} theme - Theme name (e.g., 'light', 'dark', 'halloween-dark')
    */
   applyTheme(theme) {
-    // Remove old theme classes
-    document.documentElement.classList.remove('theme-light', 'theme-dark');
-    document.body.classList.remove('theme-light', 'theme-dark');
-
-    // Add new theme class
-    document.documentElement.classList.add(`theme-${theme}`);
-    document.body.classList.add(`theme-${theme}`);
+    // Use utility to apply theme classes (removes all existing theme classes automatically)
+    applyThemeToWidget(theme);
 
     logger.debug('Theme applied to photos widget', { theme });
   }

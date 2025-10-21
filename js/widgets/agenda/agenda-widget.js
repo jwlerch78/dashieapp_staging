@@ -1,9 +1,10 @@
 // js/widgets/agenda/agenda-widget.js - Agenda Widget Implementation
 // Displays upcoming calendar events in a vertical list format
+// v2.0 - 10/20/25 - Improved theme detection robustness
 
 import { createLogger } from '/js/utils/logger.js';
 import { AgendaEventModal } from './agenda-event.js';
-import { DEFAULT_THEME } from '/js/core/theme.js';
+import { detectCurrentTheme, applyThemeToWidget } from '/js/widgets/shared/widget-theme-detector.js';
 
 const logger = createLogger('AgendaWidget');
 
@@ -38,28 +39,11 @@ export class AgendaWidget {
   }
 
   /**
-   * Detect initial theme from DOM or localStorage
+   * Detect initial theme from parent window or localStorage
    */
   detectAndApplyInitialTheme() {
-    let initialTheme = DEFAULT_THEME;
-
-    // Try to detect theme from body class
-    if (document.body.classList.contains('theme-light')) {
-      initialTheme = 'light';
-    } else if (document.body.classList.contains('theme-dark')) {
-      initialTheme = 'dark';
-    } else {
-      // Fallback: try localStorage
-      try {
-        const savedTheme = localStorage.getItem('dashie-theme');
-        if (savedTheme && (savedTheme === 'dark' || savedTheme === 'light')) {
-          initialTheme = savedTheme;
-        }
-      } catch (error) {
-        logger.debug('Could not read theme from localStorage, using default');
-      }
-    }
-
+    const initialTheme = detectCurrentTheme('dark');
+    logger.debug('Initial theme detected', { theme: initialTheme });
     this.applyTheme(initialTheme);
   }
 
@@ -606,11 +590,6 @@ export class AgendaWidget {
 
   updateConnectionStatus(status) {
     this.connectionStatus = status;
-    const indicator = document.getElementById('statusIndicator');
-    if (indicator) {
-      indicator.className = `status-indicator ${status}`;
-    }
-
     logger.debug('Connection status updated', { status });
   }
 
@@ -622,8 +601,10 @@ export class AgendaWidget {
     const previousTheme = this.currentTheme;
     this.currentTheme = theme;
 
-    document.body.classList.remove('theme-dark', 'theme-light');
-    document.body.classList.add(`theme-${theme}`);
+    // Use utility to apply theme classes (removes all existing theme classes automatically)
+    applyThemeToWidget(theme);
+
+    logger.debug('Theme applied', { theme, previousTheme });
   }
 
   escapeHtml(text) {
