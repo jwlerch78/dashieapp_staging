@@ -10,6 +10,7 @@ const logger = createLogger('DeviceFlow');
 // Supabase config - anon key is SAFE in client code (public by design)
 const EDGE_FUNCTION_URL = SUPABASE_CONFIG.edgeFunctionUrl;
 const SUPABASE_ANON_KEY = SUPABASE_CONFIG.anonKey;
+const GOOGLE_DEVICE_CLIENT_ID = SUPABASE_CONFIG.googleDeviceClientId;
 
 /**
  * Device Flow OAuth provider for TV and limited input devices
@@ -20,7 +21,7 @@ export class DeviceFlowProvider {
 
   constructor() {
     this.config = {
-      client_id: '221142210647-m9vf7t0qgm6nlc6gggfsqefmjrak1mo9.apps.googleusercontent.com',
+      client_id: GOOGLE_DEVICE_CLIENT_ID,
       device_code_endpoint: 'https://oauth2.googleapis.com/device/code',
       scope: 'openid email profile https://www.googleapis.com/auth/calendar.readonly'
     };

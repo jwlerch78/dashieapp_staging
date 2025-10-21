@@ -10,6 +10,7 @@ const logger = createLogger('WebOAuth');
 // Supabase config - anon key is SAFE in client code (public by design)
 const EDGE_FUNCTION_URL = SUPABASE_CONFIG.edgeFunctionUrl;
 const SUPABASE_ANON_KEY = SUPABASE_CONFIG.anonKey;
+const GOOGLE_CLIENT_ID = SUPABASE_CONFIG.googleWebClientId;
 
 /**
  * Web OAuth provider for browser environments
@@ -18,7 +19,7 @@ const SUPABASE_ANON_KEY = SUPABASE_CONFIG.anonKey;
 export class WebOAuthProvider {
   constructor() {
     this.config = {
-      client_id: '221142210647-58t8hr48rk7nlgl56j969himso1qjjoo.apps.googleusercontent.com',
+      client_id: GOOGLE_CLIENT_ID,
       scope: 'profile email https://www.googleapis.com/auth/calendar.readonly',
       redirect_uri: window.location.origin + window.location.pathname,
       response_type: 'code', // Using code flow for refresh tokens
