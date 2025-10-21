@@ -3,7 +3,8 @@
     "allow": [
       "Bash(dir \"c:\\Users\\John Lerch\\Dashie\\dashieapp_staging\\assets\\themes\\halloween\\animated\")",
       "Bash(npx supabase functions deploy jwt-auth)",
-      "Bash(npx supabase functions deploy jwt-auth --project-ref cwglbtosingboqepsmjk)"
+      "Bash(npx supabase functions deploy jwt-auth --project-ref cwglbtosingboqepsmjk)",
+      "Bash(npx supabase functions deploy heartbeat --project-ref cwglbtosingboqepsmjk)"
     ],
     "deny": [],
     "ask": []

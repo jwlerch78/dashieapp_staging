@@ -119,11 +119,8 @@ export class GoogleAccountAuth extends BaseAccountAuth {
                 if (result.jwtToken && this.edgeClient) {
                     logger.info('Provider returned JWT directly, storing...');
 
-                    // Store JWT in EdgeClient
+                    // Store JWT in EdgeClient (this also saves to localStorage properly)
                     this.edgeClient.setJWT(result.jwtToken);
-
-                    // Store JWT in localStorage
-                    localStorage.setItem('dashie-supabase-jwt', result.jwtToken);
 
                     logger.success('JWT from provider stored successfully');
 
@@ -295,7 +292,9 @@ export class GoogleAccountAuth extends BaseAccountAuth {
      */
     normalizeUser(rawUser) {
         return {
-            id: rawUser.email, // Use email as stable ID
+            // Preserve UUID if available (from hybrid device flow or JWT bootstrap)
+            // Otherwise use email as fallback ID (legacy OAuth flow)
+            id: rawUser.id || rawUser.email,
             email: rawUser.email,
             name: rawUser.name || rawUser.email,
             picture: rawUser.picture || null,

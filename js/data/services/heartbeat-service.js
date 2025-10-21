@@ -70,12 +70,34 @@ class HeartbeatService {
       navigator.hardwareConcurrency || 'unknown'
     ].join('|');
 
-    // Hash for privacy
-    const encoder = new TextEncoder();
-    const dataBuffer = encoder.encode(data);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    // Check if Web Crypto API is available (not available on some Fire TV browsers)
+    if (crypto && crypto.subtle && crypto.subtle.digest) {
+      try {
+        // Hash for privacy using Web Crypto API
+        const encoder = new TextEncoder();
+        const dataBuffer = encoder.encode(data);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      } catch (error) {
+        logger.warn('Web Crypto API failed, falling back to simple hash', error);
+      }
+    }
+
+    // Fallback: Simple hash for environments without Web Crypto API (e.g., Fire TV)
+    logger.debug('Using fallback fingerprint generation (crypto.subtle not available)');
+
+    // Simple but deterministic hash function
+    let hash = 0;
+    for (let i = 0; i < data.length; i++) {
+      const char = data.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+
+    // Convert to hex and pad to match SHA-256 length (64 chars)
+    const hexHash = Math.abs(hash).toString(16).padStart(8, '0');
+    return hexHash.repeat(8); // Repeat to create a 64-char fingerprint
   }
 
   /**
