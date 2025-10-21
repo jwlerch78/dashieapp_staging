@@ -46,6 +46,12 @@ class PhoneAuthHandler {
         logger.success('OAuth callback successful - showing success state');
         this.displayDeviceInfo();
         this.showSuccess();
+
+        // Auto-redirect to dashboard after showing success
+        setTimeout(() => {
+          logger.info('Redirecting to dashboard...');
+          window.location.href = '/';
+        }, 1500);
         return;
       }
 
@@ -116,18 +122,23 @@ class PhoneAuthHandler {
             cancel_on_tap_outside: true
           });
 
-          google.accounts.id.renderButton(
-            document.getElementById('google-signin-button'),
-            {
-              theme: 'filled_blue',
-              size: 'large',
-              text: 'signin_with',
-              shape: 'rectangular',
-              width: 300
-            }
-          );
+          // Attach custom button click handler
+          const customButton = document.getElementById('custom-google-signin');
+          if (customButton) {
+            customButton.addEventListener('click', () => {
+              logger.debug('Custom Google button clicked');
+              // Trigger Google One Tap
+              google.accounts.id.prompt((notification) => {
+                if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                  logger.warn('One Tap not shown, falling back to popup');
+                  // If One Tap doesn't work, show the popup
+                  this.initiateOAuthFlow();
+                }
+              });
+            });
+          }
 
-          logger.success('Google Sign-In button rendered');
+          logger.success('Google Sign-In initialized with custom button');
         } else {
           logger.debug('Waiting for Google library to load...');
           setTimeout(waitForGoogle, 100);
@@ -260,14 +271,38 @@ class PhoneAuthHandler {
         userEmail: data.user?.email
       });
 
-      // Store the phone JWT (optional - phone could also stay authenticated)
+      // Store the phone JWT and redirect to dashboard
       if (data.jwtToken) {
-        localStorage.setItem('dashie-supabase-jwt', data.jwtToken);
-        logger.debug('Phone JWT stored in localStorage');
-      }
+        // Parse JWT to get expiry and user info
+        const payload = this.parseJWT(data.jwtToken);
 
-      // Show success
-      this.showSuccess();
+        // Store JWT with metadata (same format as EdgeClient expects)
+        const jwtData = {
+          jwt: data.jwtToken,
+          expiry: payload.exp ? payload.exp * 1000 : Date.now() + (72 * 60 * 60 * 1000),
+          userId: payload.sub,
+          userEmail: payload.email,
+          savedAt: Date.now()
+        };
+
+        localStorage.setItem('dashie-supabase-jwt', JSON.stringify(jwtData));
+
+        // Also store user display data
+        if (data.user) {
+          const userData = {
+            name: data.user.name || data.user.email,
+            picture: data.user.picture || null
+          };
+          localStorage.setItem('dashie-user-data', JSON.stringify(userData));
+        }
+
+        logger.success('Phone authenticated - JWT stored');
+        // Phone gets JWT - no need to show success screen since we're authorizing the TV
+        // The success will be shown when redirected back from oauth-callback
+      } else {
+        // No JWT returned - shouldn't happen
+        logger.warn('No JWT returned from device authorization');
+      }
 
     } catch (error) {
       logger.error('Device authorization failed', error);
@@ -330,6 +365,8 @@ class PhoneAuthHandler {
    * Show success state
    */
   showSuccess() {
+    // Hide device info on success
+    document.body.classList.add('auth-complete');
     this.showSection('success-section');
     logger.success('Authentication complete - showing success state');
   }
@@ -340,6 +377,9 @@ class PhoneAuthHandler {
    * @param {string} message - Error message
    */
   showError(title, message) {
+    // Hide device info on error
+    document.body.classList.add('auth-complete');
+
     const titleEl = document.getElementById('error-title');
     const messageEl = document.getElementById('error-message');
 

@@ -100,7 +100,7 @@ export async function initializeCore(options = {}) {
     // Re-apply theme overlay now that widgets are ready
     // (Some overlays inject into widget iframes, which didn't exist during initial theme application)
     if (themeApplier.getCurrentTheme()) {
-      const { themeOverlay } = await import('../../themes/theme-overlay-applier.js');
+      const { themeOverlay } = await import('../../ui/themes/theme-overlay-applier.js');
       if (themeOverlay) {
         // Force re-application by clearing first
         themeOverlay.clearOverlay();

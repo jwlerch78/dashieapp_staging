@@ -9,8 +9,8 @@ import {
   getTheme,
   getThemeIds,
   isValidTheme
-} from '../themes/theme-registry.js';
-import { themeOverlay } from '../themes/theme-overlay-applier.js';
+} from './themes/theme-registry.js';
+import { themeOverlay } from './themes/theme-overlay-applier.js';
 
 const logger = createLogger('ThemeApplier');
 

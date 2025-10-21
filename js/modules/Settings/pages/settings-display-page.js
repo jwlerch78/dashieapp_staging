@@ -5,7 +5,7 @@
 import { createLogger } from '../../../utils/logger.js';
 import { SettingsPageBase } from '../core/settings-page-base.js';
 import { TimeSelectionHandler } from '../utils/time-selection-handler.js';
-import { getAllThemes } from '../../../themes/theme-registry.js';
+import { getAllThemes } from '../../../ui/themes/theme-registry.js';
 
 const logger = createLogger('SettingsDisplayPage');
 

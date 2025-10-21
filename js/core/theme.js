@@ -11,7 +11,7 @@ import {
   getThemeIds,
   getAllThemes,
   isValidTheme
-} from '../themes/theme-registry.js';
+} from '../ui/themes/theme-registry.js';
 
 const logger = createLogger('Theme');
 

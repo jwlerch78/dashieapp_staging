@@ -535,7 +535,7 @@ class ConsoleCommands {
     console.log('🎃 Inspecting Theme Overlay...\n');
 
     // Get themeOverlay from themes folder
-    import('../themes/theme-overlay-applier.js').then(module => {
+    import('../ui/themes/theme-overlay-applier.js').then(module => {
       const overlay = module.themeOverlay;
 
       if (!overlay) {
