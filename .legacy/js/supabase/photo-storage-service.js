@@ -338,7 +338,7 @@ export class PhotoStorageService {
    * Upload a single photo
    * @param {File} file - File to upload
    * @param {string} folder - Destination folder
-   * @returns {Promise<{success: boolean, filename: string, path?: string, error?: string}>}
+   * @returns {Promise<{success: boolean, filename: string, path?: string, error?: string, skipped?: boolean}>}
    */
   async uploadSinglePhoto(file, folder) {
     try {
@@ -346,6 +346,24 @@ export class PhotoStorageService {
 
       // Process file (HEIC conversion + compression + thumbnail generation)
       const processed = await this.fileProcessor.processFile(file);
+
+      // Check for duplicates (same filename in same folder)
+      const existingPhotos = await this.listPhotos(folder, 1000);
+      const sanitizedName = this.sanitizeFilename(processed.original.name);
+      const isDuplicate = existingPhotos.some(photo => {
+        const existingName = photo.storage_path.split('/').pop();
+        return existingName === sanitizedName;
+      });
+
+      if (isDuplicate) {
+        logger.warn('Duplicate photo detected, skipping', { filename: sanitizedName });
+        return {
+          success: false,
+          filename: file.name,
+          skipped: true,
+          error: 'Duplicate file (already uploaded)'
+        };
+      }
 
       // Generate storage paths
       const storagePath = this.buildStoragePath(folder, processed.original.name);

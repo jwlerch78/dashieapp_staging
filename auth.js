@@ -125,7 +125,7 @@ class PhoneAuthHandler {
           // Attach custom button click handler
           const customButton = document.getElementById('custom-google-signin');
           if (customButton) {
-            customButton.addEventListener('click', () => {
+            const handleSignIn = () => {
               logger.debug('Custom Google button clicked');
               // Trigger Google One Tap
               google.accounts.id.prompt((notification) => {
@@ -135,7 +135,27 @@ class PhoneAuthHandler {
                   this.initiateOAuthFlow();
                 }
               });
+            };
+
+            // Handle mouse/touch clicks
+            customButton.addEventListener('click', handleSignIn);
+
+            // Handle keyboard/d-pad Enter
+            customButton.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter' || e.keyCode === 13) {
+                e.preventDefault();
+                logger.debug('Enter key pressed on Google button');
+                handleSignIn();
+              }
             });
+
+            // Make button focusable for keyboard navigation
+            customButton.setAttribute('tabindex', '0');
+
+            // Auto-focus the button so d-pad works immediately
+            customButton.focus();
+
+            logger.debug('Google Sign-In button setup with keyboard support');
           }
 
           logger.success('Google Sign-In initialized with custom button');
@@ -368,6 +388,23 @@ class PhoneAuthHandler {
     // Hide device info on success
     document.body.classList.add('auth-complete');
     this.showSection('success-section');
+
+    // Add keyboard handler for dashboard link
+    setTimeout(() => {
+      const dashboardLink = document.getElementById('dashboard-link');
+      if (dashboardLink) {
+        dashboardLink.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.keyCode === 13) {
+            e.preventDefault();
+            logger.debug('Enter key pressed on dashboard link');
+            window.location.href = '/';
+          }
+        });
+
+        logger.debug('Dashboard link keyboard handler added');
+      }
+    }, 100);
+
     logger.success('Authentication complete - showing success state');
   }
 
@@ -387,6 +424,26 @@ class PhoneAuthHandler {
     if (messageEl) messageEl.textContent = message;
 
     this.showSection('error-section');
+
+    // Auto-focus the Try Again button and add keyboard handler
+    setTimeout(() => {
+      const tryAgainButton = document.getElementById('try-again-button');
+      if (tryAgainButton) {
+        tryAgainButton.focus();
+
+        // Add keyboard handler for Enter key
+        tryAgainButton.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.keyCode === 13) {
+            e.preventDefault();
+            logger.debug('Enter key pressed on Try Again button');
+            location.reload();
+          }
+        });
+
+        logger.debug('Try Again button focused and keyboard handler added');
+      }
+    }, 100); // Small delay to ensure section is visible
+
     logger.error('Showing error state', { title, message });
   }
 }

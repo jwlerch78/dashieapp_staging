@@ -89,8 +89,9 @@ export class PhotoFileProcessor {
     try {
       // Check if heic2any library is available
       if (!window.heic2any) {
-        logger.warn('heic2any library not available, uploading as-is');
-        return file;
+        const errorMsg = 'HEIC conversion library not available - cannot upload HEIC files';
+        logger.error(errorMsg, { filename: file.name });
+        throw new Error(errorMsg);
       }
 
       // Convert HEIC to JPEG
@@ -117,8 +118,8 @@ export class PhotoFileProcessor {
       return convertedFile;
 
     } catch (error) {
-      logger.error('HEIC conversion failed, uploading as-is', { filename: file.name, error });
-      return file;
+      logger.error('HEIC conversion failed - skipping file', { filename: file.name, error: error.message });
+      throw new Error(`Failed to convert HEIC file "${file.name}" to JPEG: ${error.message}`);
     }
   }
 

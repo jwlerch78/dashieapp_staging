@@ -597,14 +597,35 @@ export class PhotosSettingsModal {
       });
 
       const successful = results.filter(r => r.success).length;
-      
+      const failed = results.filter(r => !r.success);
+
       logger.info('Upload complete', { successful, total: files.length });
-      
+
       if (successful === files.length) {
         progressInfo.textContent = 'Upload complete!';
         progressFill.style.width = '100%';
       } else {
         progressInfo.textContent = `${successful} of ${files.length} photos uploaded`;
+
+        // Log failed files for debugging
+        failed.forEach(f => {
+          logger.warn('Failed to upload', { filename: f.filename, error: f.error });
+        });
+
+        // Show HEIC conversion failures specifically
+        const heicFailed = failed.filter(f => f.error && f.error.includes('HEIC'));
+        if (heicFailed.length > 0) {
+          logger.error('HEIC conversion failures detected', {
+            count: heicFailed.length,
+            files: heicFailed.map(f => f.filename)
+          });
+
+          // Update progress detail to show HEIC errors
+          if (progressDetail) {
+            progressDetail.textContent = `${heicFailed.length} HEIC file(s) could not be converted`;
+            progressDetail.style.color = '#ff3b30';
+          }
+        }
       }
 
       await this.loadPhotoStats();

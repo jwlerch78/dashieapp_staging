@@ -57,7 +57,7 @@
         <h2>Authentication Complete!</h2>
         <p>Your <span id="success-device-name">Fire TV</span> is now signed in.</p>
         <p class="redirect-note">Redirecting to your dashboard...</p>
-        <p class="close-note-alt">Or <a href="/" class="dashboard-link">click here</a> to go now.</p>
+        <p class="close-note-alt">Or <a href="/" class="dashboard-link" id="dashboard-link" tabindex="0">click here</a> to go now.</p>
       </div>
 
       <!-- Error state -->
@@ -65,7 +65,7 @@
         <div class="error-icon">✗</div>
         <h2 id="error-title">Authentication Failed</h2>
         <p id="error-message" class="error-text"></p>
-        <button class="primary-button" onclick="location.reload()">Try Again</button>
+        <button class="primary-button" id="try-again-button" tabindex="0" onclick="location.reload()">Try Again</button>
       </div>
     </div>
 
