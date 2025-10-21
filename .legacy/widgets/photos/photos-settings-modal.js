@@ -603,17 +603,34 @@ export class PhotosSettingsModal {
       if (successful === files.length) {
         progressInfo.textContent = 'Upload complete!';
         progressFill.style.width = '100%';
-        
-        if (window.parent !== window) {
-          window.parent.postMessage({
-            type: 'photos-uploaded'
-          }, '*');
-        }
       } else {
         progressInfo.textContent = `${successful} of ${files.length} photos uploaded`;
       }
 
       await this.loadPhotoStats();
+
+      // Notify photos widget to reload with new photos
+      if (successful > 0 && window.parent !== window) {
+        try {
+          // Get updated photo URLs
+          const photoUrls = await this.storage.getPhotoUrls(null, true);
+
+          // Send to widget
+          window.parent.postMessage({
+            type: 'data',
+            widgetId: 'photos',
+            payload: {
+              dataType: 'photos',
+              payload: {
+                urls: photoUrls
+              }
+            }
+          }, '*');
+          logger.debug('Sent updated photos data to widget', { count: photoUrls.length });
+        } catch (error) {
+          logger.warn('Failed to notify widget of new photos', error);
+        }
+      }
 
       setTimeout(() => {
         hideUploadOverlay();
@@ -678,19 +695,17 @@ export class PhotosSettingsModal {
   async handleDeleteAllPhotos() {
     try {
       logger.info('Starting delete all photos');
-      
+
       // Show progress overlay
       showDeleteProgress();
-      
-      // Access photo data service through dataManager (same pattern as upload)
-      const dataManager = window.parent?.dataManager;
-      
-      if (!dataManager || !dataManager.photoService) {
-        throw new Error('Photo data service not available');
+
+      // Check if storage service is available
+      if (!this.storage) {
+        throw new Error('Photo storage service not available');
       }
-      
+
       // Perform deletion
-      const result = await dataManager.photoService.deleteAllPhotos();
+      const result = await this.storage.deleteAllPhotos();
       
       logger.success('Delete all completed', { count: result.photo_count });
       
@@ -708,10 +723,25 @@ export class PhotosSettingsModal {
       
       // Reload stats to show 0 photos and 0 storage
       await this.loadPhotoStats();
-      
+
+      // Notify photos widget to clear cache and show empty state
+      if (window.parent !== window) {
+        window.parent.postMessage({
+          type: 'data',
+          widgetId: 'photos',
+          payload: {
+            dataType: 'photos',
+            payload: {
+              urls: []  // Empty array = no photos
+            }
+          }
+        }, '*');
+        logger.debug('Sent empty photos data to widget');
+      }
+
       // Navigate back to main screen
       this.navigateBack();
-      
+
       logger.info('Delete all photos completed successfully');
       
     } catch (error) {

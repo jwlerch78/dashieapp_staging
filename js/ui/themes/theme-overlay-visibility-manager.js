@@ -25,8 +25,7 @@ export class ThemeOverlayVisibilityManager {
         const { config } = elementData;
         // Store element for rotation sequences to find
         this.activeElements.set(config.id, elementData);
-        console.log(`📝 REGISTER: ${config.id} (loaded: ${elementData.loaded})`);
-        logger.debug(`Registered element for rotations: ${config.id}`);
+        logger.debug(`Registered element for rotations: ${config.id} (loaded: ${elementData.loaded})`);
     }
 
     /**
@@ -37,14 +36,13 @@ export class ThemeOverlayVisibilityManager {
         const { element, config } = elementData;
         const { visibility } = config;
 
-        console.log(`✅ LOADED: ${config.id} (has visibility: ${!!visibility})`);
+        logger.debug(`Element ${config.id} loaded (has visibility: ${!!visibility})`);
 
         // Element already registered in registerElement() - no need to set again
 
         // Elements without visibility are controlled by rotation sequences
         // DON'T set display:none here - let rotation sequence control visibility entirely
         if (!visibility) {
-            console.log(`🎭 ROTATION-CONTROLLED: ${config.id} - visibility managed by rotation sequence`);
             logger.debug(`Element ${config.id} has no visibility config - controlled by rotation sequence`);
             // Don't touch element visibility - rotation sequence handles it
             return;
@@ -149,14 +147,17 @@ export class ThemeOverlayVisibilityManager {
      * @param {Array} steps - Array of steps {element: 'id', duration: N} or {blank: N}
      */
     startRotationSequence(sequenceName, steps) {
-        console.log(`🎬 START ROTATION: ${sequenceName} (${steps.length} steps)`);
         logger.info(`Starting rotation sequence: ${sequenceName}`, { stepsCount: steps.length });
+
+        // Generate unique ID for this sequence instance to prevent old callbacks from affecting new instances
+        const instanceId = Date.now() + Math.random();
 
         // Store sequence state
         this.rotationSequences.set(sequenceName, {
             steps,
             currentStepIndex: 0,
-            timeout: null
+            timeout: null,
+            instanceId: instanceId  // Track which instance this is
         });
 
         // Start first step
@@ -174,7 +175,7 @@ export class ThemeOverlayVisibilityManager {
             return;
         }
 
-        const { steps, currentStepIndex } = sequenceData;
+        const { steps, currentStepIndex, instanceId } = sequenceData;
         const step = steps[currentStepIndex];
 
         if (!step) {
@@ -182,29 +183,36 @@ export class ThemeOverlayVisibilityManager {
             return;
         }
 
-        console.log(`🎯 STEP ${currentStepIndex + 1}/${steps.length} in ${sequenceName}:`, step);
-        logger.debug(`Executing step ${currentStepIndex} of ${sequenceName}`, step);
+        logger.debug(`Executing step ${currentStepIndex + 1}/${steps.length} in ${sequenceName}`, step);
 
         if (step.element) {
             // Show element for duration
             const elementId = step.element;
             const duration = step.duration;
 
-            this.showRotationElement(elementId, duration, () => {
+            this.showRotationElement(sequenceName, instanceId, elementId, duration, () => {
                 // After element finishes, move to next step
-                this.moveToNextRotationStep(sequenceName);
+                // Validate that this callback is for the current instance
+                const currentSequence = this.rotationSequences.get(sequenceName);
+                if (currentSequence && currentSequence.instanceId === instanceId) {
+                    this.moveToNextRotationStep(sequenceName);
+                } else {
+                    logger.debug(`Ignoring stale callback for ${sequenceName} (old instance ${instanceId})`);
+                }
             });
         } else if (step.blank) {
             // Blank period - show nothing
             const duration = step.blank;
-            const blankEndTime = Date.now() + (duration * 1000);
-            console.log(`⬜ BLANK: ${sequenceName} for ${duration}s, next starts at ${new Date(blankEndTime).toLocaleTimeString()}`);
             logger.debug(`Blank period in ${sequenceName}: ${duration}s`);
 
             const timeout = setTimeout(() => {
-                const now = new Date().toLocaleTimeString();
-                console.log(`⬜ BLANK END: ${sequenceName}, next element starting at ${now}`);
-                this.moveToNextRotationStep(sequenceName);
+                // Validate that this callback is for the current instance
+                const currentSequence = this.rotationSequences.get(sequenceName);
+                if (currentSequence && currentSequence.instanceId === instanceId) {
+                    this.moveToNextRotationStep(sequenceName);
+                } else {
+                    logger.debug(`Ignoring stale blank timeout for ${sequenceName} (old instance ${instanceId})`);
+                }
             }, duration * 1000);
 
             sequenceData.timeout = timeout;
@@ -213,14 +221,15 @@ export class ThemeOverlayVisibilityManager {
 
     /**
      * Show an element as part of a rotation
+     * @param {string} sequenceName - Name of the rotation sequence
+     * @param {number} instanceId - Unique ID for this rotation instance
      * @param {string} elementId - Element ID to show
      * @param {number} duration - Display duration in seconds
      * @param {Function} onComplete - Callback when element finishes
      */
-    showRotationElement(elementId, duration, onComplete) {
+    showRotationElement(sequenceName, instanceId, elementId, duration, onComplete) {
         const elementData = this.activeElements.get(elementId);
         if (!elementData) {
-            console.log(`❌ NOT FOUND: ${elementId} - skipping (100ms)`);
             logger.warn(`Element not found for rotation: ${elementId} - skipping to next step`);
             // Use setTimeout to prevent stack overflow from immediate callback
             if (onComplete) {
@@ -231,7 +240,6 @@ export class ThemeOverlayVisibilityManager {
 
         // Check if image has loaded yet
         if (!elementData.loaded) {
-            console.log(`⏭️ SKIP: ${elementId} not loaded yet (100ms)`);
             logger.debug(`Element ${elementId} not loaded yet - skipping to next step`);
             // Skip this element and move to next
             if (onComplete) {
@@ -242,8 +250,6 @@ export class ThemeOverlayVisibilityManager {
 
         const { element, config } = elementData;
 
-        const showTime = new Date().toLocaleTimeString();
-        console.log(`🎃 SHOW: ${elementId} for ${duration}s at ${showTime} (loaded: ${elementData.loaded})`);
         logger.debug(`Showing rotation element: ${elementId} for ${duration}s`);
 
         // Make element visible
@@ -276,42 +282,41 @@ export class ThemeOverlayVisibilityManager {
         // TIMING FIX: Calculate total duration including movement
         // If element has movement, we need to wait for both display duration AND movement to complete
         let totalDuration = duration;
-        const fadeOutDuration = 0.5; // 500ms fade out
 
         if (config.movement?.type !== 'none' && config.movement?.duration) {
             // Use the longer of the two durations to ensure animation completes
             totalDuration = Math.max(duration, config.movement.duration);
-            console.log(`⏱️ TIMING: ${elementId} - rotation: ${duration}s, movement: ${config.movement.duration}s, using: ${totalDuration}s`);
             logger.debug(`Adjusted duration for ${elementId}: ${duration}s → ${totalDuration}s (movement: ${config.movement.duration}s)`);
         }
 
-        // Total time until next element starts = totalDuration + fade out
-        const totalTimeUntilNext = totalDuration + fadeOutDuration;
-        console.log(`⏰ SCHEDULE: ${elementId} will show for ${totalDuration}s, then hide (fade ${fadeOutDuration}s), next starts in ${totalTimeUntilNext}s`);
-
-        // Schedule hide after total duration
-        const hideTime = Date.now() + (totalDuration * 1000);
-        const nextStartTime = Date.now() + (totalTimeUntilNext * 1000);
-        console.log(`🕐 TIMELINE: ${elementId} | Hide at: ${new Date(hideTime).toLocaleTimeString()}, Next starts: ${new Date(nextStartTime).toLocaleTimeString()}`);
-
-        const timeout = setTimeout(() => {
-            console.log(`🌙 HIDE: ${elementId} after ${totalDuration}s`);
+        const hideTimeout = setTimeout(() => {
             logger.debug(`Hiding rotation element: ${elementId}`);
 
-            // Fade out
+            // Call completion callback IMMEDIATELY (this starts the blank period)
+            // The fade-out will happen concurrently with the blank period
+
+            // Validate that this callback is for the current instance
+            const currentSequence = this.rotationSequences.get(sequenceName);
+            if (currentSequence && currentSequence.instanceId === instanceId) {
+                if (onComplete) onComplete();
+            } else {
+                logger.debug(`Ignoring stale callback for ${elementId} in ${sequenceName} (old instance ${instanceId})`);
+            }
+
+            // AFTER calling onComplete (which starts blank period), start fade out
+            // This way the fade happens during the blank period, not before it
             element.style.opacity = '0';
 
-            setTimeout(() => {
+            // Hide element after fade completes (500ms)
+            const fadeCompleteTimeout = setTimeout(() => {
                 element.style.display = 'none';
+            }, 500);
 
-                // Call completion callback
-                const now = new Date().toLocaleTimeString();
-                console.log(`✔️ COMPLETE: ${elementId} hidden, next element starting at ${now}`);
-                if (onComplete) onComplete();
-            }, 500); // Wait for fade transition
+            // Track the fade complete timeout
+            elementData.timeouts.push(fadeCompleteTimeout);
         }, totalDuration * 1000);
 
-        elementData.timeouts.push(timeout);
+        elementData.timeouts.push(hideTimeout);
     }
 
     /**
@@ -327,7 +332,6 @@ export class ThemeOverlayVisibilityManager {
         // Move to next step (or loop back to start)
         sequenceData.currentStepIndex = (sequenceData.currentStepIndex + 1) % steps.length;
 
-        console.log(`➡️ NEXT STEP: ${sequenceName} -> step ${sequenceData.currentStepIndex}/${steps.length}`);
         logger.debug(`Moving to step ${sequenceData.currentStepIndex} in ${sequenceName}`);
 
         // Execute next step
@@ -347,18 +351,22 @@ export class ThemeOverlayVisibilityManager {
      * Clear all visibility timers and intervals
      */
     clearAll() {
+        logger.debug(`Clearing all: ${this.activeElements.size} elements, ${this.rotationSequences.size} rotation sequences`);
+
         // Clear all element timers
-        this.activeElements.forEach((data) => {
+        this.activeElements.forEach((data, elementId) => {
             data.intervals.forEach(clearInterval);
             data.timeouts.forEach(clearTimeout);
         });
 
         // Clear rotation sequence timeouts
-        this.rotationSequences.forEach((sequenceData) => {
+        this.rotationSequences.forEach((sequenceData, sequenceName) => {
             if (sequenceData.timeout) {
                 clearTimeout(sequenceData.timeout);
             }
         });
+
+        logger.debug(`Cleared ${this.activeElements.size} elements, ${this.rotationSequences.size} sequences`);
 
         this.activeElements.clear();
         this.rotationSequences.clear();

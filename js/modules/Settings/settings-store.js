@@ -51,6 +51,9 @@ export class SettingsStore {
                 theme: this.settings?.interface?.theme
             });
 
+            // Sync family name to legacy localStorage key for header widget
+            this.syncFamilyNameToLocalStorage();
+
             // Apply the loaded theme to both dashie-theme and dashie-settings
             // This ensures dashboard and widgets use the same theme on startup
             const theme = this.get('interface.theme');
@@ -158,5 +161,63 @@ export class SettingsStore {
     async reload() {
         logger.info('Reloading settings');
         this.settings = await this.service.load();
+
+        // Sync family name after reload
+        this.syncFamilyNameToLocalStorage();
+    }
+
+    /**
+     * Sync family name from settings to legacy localStorage key
+     * This ensures header widget displays the correct family name on load
+     * @private
+     */
+    syncFamilyNameToLocalStorage() {
+        try {
+            const familyName = this.get('family.familyName');
+
+            if (familyName) {
+                // Format to "The [Name] Family"
+                const formattedName = this.formatFamilyName(familyName);
+
+                // Update legacy localStorage key for header widget
+                localStorage.setItem('dashie-family-name', formattedName);
+
+                logger.debug('Synced family name to localStorage', {
+                    baseName: familyName,
+                    formattedName
+                });
+            } else {
+                logger.debug('No family name in settings, skipping sync');
+            }
+        } catch (error) {
+            logger.warn('Failed to sync family name to localStorage', error);
+        }
+    }
+
+    /**
+     * Format base family name to "The [Name] Family"
+     * @private
+     * @param {string} baseName - Base family name (e.g., "Smith")
+     * @returns {string} Formatted name (e.g., "The Smith Family")
+     */
+    formatFamilyName(baseName) {
+        if (!baseName) return 'The Dashie Family';
+
+        // If already formatted, return as-is
+        if (baseName.startsWith('The ') && baseName.endsWith(' Family')) {
+            return baseName;
+        }
+
+        // Remove any existing "The " or " Family" to get clean base name
+        let cleanName = baseName.trim();
+        if (cleanName.startsWith('The ')) {
+            cleanName = cleanName.substring(4);
+        }
+        if (cleanName.endsWith(' Family')) {
+            cleanName = cleanName.substring(0, cleanName.length - 7);
+        }
+
+        // Format to "The [Name] Family"
+        return `The ${cleanName.trim()} Family`;
     }
 }

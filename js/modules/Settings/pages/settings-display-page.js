@@ -598,7 +598,7 @@ export class SettingsDisplayPage extends SettingsPageBase {
         // Re-apply current theme with new animation level
         if (window.themeApplier && window.themeOverlay) {
             const currentTheme = window.themeApplier.getCurrentTheme();
-            window.themeOverlay.clearOverlay();
+            // applyOverlay now handles clearing internally and prevents duplicates
             window.themeOverlay.applyOverlay(currentTheme);
         }
 

@@ -102,8 +102,7 @@ export async function initializeCore(options = {}) {
     if (themeApplier.getCurrentTheme()) {
       const { themeOverlay } = await import('../../ui/themes/theme-overlay-applier.js');
       if (themeOverlay) {
-        // Force re-application by clearing first
-        themeOverlay.clearOverlay();
+        // applyOverlay now handles clearing internally and prevents duplicates
         themeOverlay.applyOverlay(themeApplier.getCurrentTheme());
         logger.debug('Re-applied theme overlay after widgets initialized');
       }

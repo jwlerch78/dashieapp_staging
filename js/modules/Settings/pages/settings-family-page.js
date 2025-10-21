@@ -272,16 +272,27 @@ export class SettingsFamilyPage {
                 return;
             }
 
-            // Update setting
+            // Format to "The [Name] Family" for display
+            const formattedName = this.formatFamilyName(familyName);
+
+            // Update setting in settingsStore (store base name)
             settingsStore.set('family.familyName', familyName);
 
             // Save to storage
             await settingsStore.save(true); // Show toast notification
 
-            // Apply immediately to header widgets
-            await this.applyFamilyNameToWidgets(familyName);
+            // ALSO save to legacy localStorage key for header widget compatibility
+            try {
+                localStorage.setItem('dashie-family-name', formattedName);
+                logger.debug('Updated dashie-family-name in localStorage', { formattedName });
+            } catch (error) {
+                logger.warn('Failed to update dashie-family-name in localStorage', error);
+            }
 
-            logger.success('Family name saved and applied', { familyName });
+            // Apply immediately to header widgets via postMessage
+            await this.applyFamilyNameToWidgets(formattedName);
+
+            logger.success('Family name saved and applied', { familyName, formattedName });
 
         } catch (error) {
             logger.error('Failed to save family name', error);
@@ -472,6 +483,33 @@ export class SettingsFamilyPage {
         }
 
         return baseName.trim() || 'Dashie';
+    }
+
+    /**
+     * Format base name to "The [Name] Family"
+     * @private
+     * @param {string} baseName - Base family name (e.g., "Smith")
+     * @returns {string} Formatted name (e.g., "The Smith Family")
+     */
+    formatFamilyName(baseName) {
+        if (!baseName) return 'The Dashie Family';
+
+        // If already formatted, return as-is
+        if (baseName.startsWith('The ') && baseName.endsWith(' Family')) {
+            return baseName;
+        }
+
+        // Remove any existing "The " or " Family" to get clean base name
+        let cleanName = baseName.trim();
+        if (cleanName.startsWith('The ')) {
+            cleanName = cleanName.substring(4);
+        }
+        if (cleanName.endsWith(' Family')) {
+            cleanName = cleanName.substring(0, cleanName.length - 7);
+        }
+
+        // Format to "The [Name] Family"
+        return `The ${cleanName.trim()} Family`;
     }
 
     /**

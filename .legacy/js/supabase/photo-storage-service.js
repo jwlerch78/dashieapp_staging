@@ -234,7 +234,7 @@ export class PhotoStorageService {
    */
   sanitizeFilename(filename) {
     const parts = filename.split('.');
-    const ext = parts.pop();
+    const ext = parts.pop()?.toLowerCase() || '';
     const name = parts.join('.')
       .replace(/[^a-zA-Z0-9-_]/g, '-')
       .replace(/-+/g, '-')

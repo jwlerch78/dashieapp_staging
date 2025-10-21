@@ -79,7 +79,7 @@ class ThemeOverlay {
      * @param {object} overlayConfig - Overlay configuration override (optional)
      */
     async applyOverlay(themeId, overlayConfig = null) {
-        console.log(`🎬 applyOverlay called for ${themeId} (currentTheme: ${this.currentTheme}, activeElements: ${this.visibilityManager.activeElements.size}, isApplying: ${this.isApplying})`);
+        logger.debug(`applyOverlay called for ${themeId}`);
 
         if (!this.enabled) {
             logger.debug('Overlay disabled (reduced motion or user setting)');
@@ -88,19 +88,15 @@ class ThemeOverlay {
 
         // ATOMIC: Check and set flag immediately (prevent race condition)
         if (this.isApplying) {
-            console.log(`⛔ SKIPPING - already applying overlay`);
+            logger.debug(`Already applying overlay - skipping duplicate call`);
             return;
         }
         this.isApplying = true; // Set IMMEDIATELY after check
-        console.log(`🔒 LOCKED - isApplying set to true`);
 
         try {
-            // Check if already applied (after locking)
-            if (this.currentTheme === themeId && this.visibilityManager.activeElements.size > 0) {
-                console.log(`⛔ SKIPPING - overlay for ${themeId} already applied`);
-                logger.debug(`Overlay for ${themeId} already applied - skipping duplicate application`);
-                return; // Finally block will release lock
-            }
+            // ALWAYS clear existing overlays first (even if same theme)
+            // This ensures we don't have duplicates from previous sessions
+            this.clearOverlay();
 
             // Ensure overlay container exists
             if (!this.containerManager.overlayElement) {
@@ -113,9 +109,6 @@ class ThemeOverlay {
             }
 
             logger.info('Applying theme overlay', { themeId });
-
-            // Clear existing overlays
-            this.clearOverlay();
 
             this.currentTheme = themeId;
 
@@ -133,7 +126,6 @@ class ThemeOverlay {
         } finally {
             // Always clear applying flag (even if error occurs)
             this.isApplying = false;
-            console.log(`🔓 UNLOCKED - isApplying set to false`);
         }
     }
 

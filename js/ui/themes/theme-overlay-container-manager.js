@@ -126,6 +126,8 @@ export class ThemeOverlayContainerManager {
                 overlay.parentNode.removeChild(overlay);
             }
         });
+
+        logger.debug('Cleared all overlay containers');
     }
 
     /**
