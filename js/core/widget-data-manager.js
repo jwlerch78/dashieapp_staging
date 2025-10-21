@@ -154,7 +154,25 @@ export class WidgetDataManager {
 
                 case 'main': // Calendar widget (id='main' in config)
                 case 'agenda': // Agenda widget
-                    await this.loadCalendarData();
+                    const calendarData = await this.loadCalendarData();
+
+                    // Send data to widgets (cache or fresh)
+                    if (calendarData) {
+                        const payload = {
+                            dataType: 'calendar',
+                            calendars: calendarData.calendars || [],
+                            events: calendarData.events || []
+                        };
+
+                        this.sendToWidget('main', 'data', payload);
+                        this.sendToWidget('agenda', 'data', payload);
+
+                        logger.debug('Sent calendar data to widgets', {
+                            widgetId,
+                            calendars: payload.calendars.length,
+                            events: payload.events.length
+                        });
+                    }
                     break;
 
                 case 'photos':
@@ -284,7 +302,21 @@ export class WidgetDataManager {
             .then(async (data) => {
                 this.calendarDataCache = data;
                 await calendarCache.set('calendar-data', data);
-                logger.success('Background refresh completed');
+
+                // Send updated data to widgets
+                const payload = {
+                    dataType: 'calendar',
+                    calendars: data.calendars || [],
+                    events: data.events || []
+                };
+
+                this.sendToWidget('main', 'data', payload);
+                this.sendToWidget('agenda', 'data', payload);
+
+                logger.success('Background refresh completed and sent to widgets', {
+                    calendars: payload.calendars.length,
+                    events: payload.events.length
+                });
             })
             .catch((error) => {
                 logger.warn('Background refresh failed', error);
@@ -390,30 +422,22 @@ export class WidgetDataManager {
                 events: allEvents.length
             });
 
-            // Send calendar data to both calendar and agenda widgets
-            const calendarData = {
-                dataType: 'calendar',
+            // Return calendar data (will be sent to widgets by caller)
+            return {
                 calendars: allCalendars,
                 events: allEvents
             };
-
-            this.sendToWidget('main', 'data', calendarData);
-            this.sendToWidget('agenda', 'data', calendarData);
 
         } catch (error) {
             logger.error('Failed to load calendar data', {
                 error: error.message
             });
 
-            // Send empty data on error to both widgets
-            const emptyData = {
-                dataType: 'calendar',
+            // Return empty data on error
+            return {
                 calendars: [],
                 events: []
             };
-
-            this.sendToWidget('main', 'data', emptyData);
-            this.sendToWidget('agenda', 'data', emptyData);
         }
     }
 
@@ -670,7 +694,26 @@ export class WidgetDataManager {
         }
 
         // Load fresh data (will automatically cache it)
-        return await this.loadCalendarData({ forceRefresh: true });
+        const data = await this.loadCalendarData({ forceRefresh: true });
+
+        // Send to widgets
+        if (data) {
+            const payload = {
+                dataType: 'calendar',
+                calendars: data.calendars || [],
+                events: data.events || []
+            };
+
+            this.sendToWidget('main', 'data', payload);
+            this.sendToWidget('agenda', 'data', payload);
+
+            logger.debug('Sent refreshed calendar data to widgets', {
+                calendars: payload.calendars.length,
+                events: payload.events.length
+            });
+        }
+
+        return data;
     }
 
     /**
