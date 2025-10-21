@@ -79,9 +79,9 @@ export const HALLOWEEN_OVERLAY_CONFIG = {
             }
         },
         {
-            id: 'pumpkin-glow-1',
-            src: '/assets/themes/halloween/animated/pumpkin-glow.gif',
-            container: 'dashboard', // Dashboard-level overlay
+            id: 'pumpkin-bat-1',
+            src: '/assets/themes/halloween/animated/Pumpkin-bat.gif',
+            container: 'dashboard',
             size: { width: '75px' },
             position: {
                 type: 'static-xy',
@@ -92,7 +92,28 @@ export const HALLOWEEN_OVERLAY_CONFIG = {
                 type: 'none'
             },
             visibility: {
-                type: 'always'
+                type: 'rotating',
+                group: 'pumpkins',
+                onDuration: 15  // Show pumpkin-bat for 15 seconds
+            }
+        },
+        {
+            id: 'pumpkin-glow-1',
+            src: '/assets/themes/halloween/animated/pumpkin-glow.gif',
+            container: 'dashboard',
+            size: { width: '75px' },
+            position: {
+                type: 'static-xy',
+                x: '55%',
+                y: '0%'
+            },
+            movement: {
+                type: 'none'
+            },
+            visibility: {
+                type: 'rotating',
+                group: 'pumpkins',
+                onDuration: 15  // Show pumpkin-glow for 15 seconds (no gap, continuous rotation)
             }
         },
         {

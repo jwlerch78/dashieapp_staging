@@ -215,20 +215,26 @@ visibility: {
 
 ## Example: Halloween Configuration
 
-See [theme-overlay-halloween.js](theme-overlay-halloween.js) for a complete example with 6 overlay elements:
+See [theme-overlay-halloween.js](theme-overlay-halloween.js) for a complete example with 7 overlay elements:
 
 1. **bat-drop-1** - Periodic bat dropping from random X positions
 2. **spider-walk-1** - Periodic spider appearing at random positions (GIF animated)
-3. **bat-fly-1** - Rotating group member: bat flying across calendar widget (12s)
-4. **pumpkin-glow-1** - Static glowing pumpkin at top
-5. **spider-drop** - Static hanging spider at top
-6. **ghosts-circle** - Rotating group member: ghosts floating across bottom (20s)
+3. **bat-fly-1** - Rotating group "flying-creatures": bat flying across calendar widget (12s)
+4. **pumpkin-bat-1** - Rotating group "pumpkins": pumpkin with bat (15s)
+5. **pumpkin-glow-1** - Rotating group "pumpkins": glowing pumpkin (15s)
+6. **spider-drop** - Static hanging spider at top
+7. **ghosts-circle** - Rotating group "flying-creatures": ghosts floating across bottom (20s)
 
 **Rotating Group "flying-creatures":**
 - Shows bat-fly-1 for 12 seconds
 - Then shows ghosts-circle for 20 seconds
 - Waits 30 seconds
 - Repeats cycle
+
+**Rotating Group "pumpkins":**
+- Shows pumpkin-bat-1 for 15 seconds
+- Then shows pumpkin-glow-1 for 15 seconds
+- Repeats immediately (no gap)
 
 ## Creating a New Theme Overlay
 

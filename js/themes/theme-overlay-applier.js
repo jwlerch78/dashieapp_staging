@@ -205,6 +205,12 @@ class ThemeOverlay {
 
         // Handle image load success
         element.onload = () => {
+            // Check if this element is still in activeElements (not cleared)
+            if (!this.activeElements.has(config.id)) {
+                logger.debug(`Skipping ${config.id} - element was cleared before image loaded`);
+                return;
+            }
+
             logger.debug(`Loaded: ${config.src}`, { position: config.position });
 
             // Apply initial position
@@ -627,25 +633,27 @@ class ThemeOverlay {
         // Hide current member if any
         if (groupData.currentIndex >= 0) {
             const currentMember = groupData.members[groupData.currentIndex];
+
+            // Move to next member
+            groupData.currentIndex = (groupData.currentIndex + 1) % groupData.members.length;
+            const nextMember = groupData.members[groupData.currentIndex];
+
+            logger.debug(`Transitioning from ${currentMember.config.id} to ${nextMember.config.id} in group ${groupName}`, {
+                index: groupData.currentIndex,
+                totalMembers: groupData.members.length
+            });
+
+            // Start showing next member IMMEDIATELY (overlapping fade)
+            this.showRotatingMember(nextMember, groupName);
+
+            // Simultaneously start fading out the current member
             if (currentMember) {
                 logger.debug(`Hiding ${currentMember.config.id} from group ${groupName}`);
                 currentMember.element.style.opacity = '0';
 
                 setTimeout(() => {
                     currentMember.element.style.display = 'none';
-
-                    // Move to next member AFTER current one is hidden
-                    groupData.currentIndex = (groupData.currentIndex + 1) % groupData.members.length;
-                    const nextMember = groupData.members[groupData.currentIndex];
-
-                    logger.debug(`Showing ${nextMember.config.id} from group ${groupName}`, {
-                        index: groupData.currentIndex,
-                        totalMembers: groupData.members.length
-                    });
-
-                    // Show next member after hide completes
-                    this.showRotatingMember(nextMember, groupName);
-                }, 500); // Wait for fade transition to complete
+                }, 500); // Wait for fade transition to complete before hiding
             }
         } else {
             // First time - no current member to hide
@@ -709,6 +717,9 @@ class ThemeOverlay {
         // Calculate how long to show this member
         const displayDuration = visibility.onDuration || 10;
 
+        // For seamless rotation, start the next member slightly before current ends (500ms overlap)
+        const rotationDelay = Math.max((displayDuration - 0.5) * 1000, 0);
+
         // Schedule next rotation
         const timeout = setTimeout(() => {
             // Check if this is the last member in the group
@@ -730,10 +741,10 @@ class ThemeOverlay {
 
                 elementData.timeouts.push(restartTimeout);
             } else {
-                // Show next member immediately
+                // Show next member with overlap for seamless transition
                 this.rotateGroupMember(groupName);
             }
-        }, displayDuration * 1000);
+        }, rotationDelay);
 
         elementData.timeouts.push(timeout);
         groupData.timer = timeout;
