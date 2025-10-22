@@ -141,7 +141,7 @@ export class CalendarEvents {
 
     const multiCalendarCount = mergedEvents.filter(e => e.isMultiCalendar).length;
     if (multiCalendarCount > 0) {
-      logger.info('🎨 Multi-calendar events found', {
+      logger.debug('🎨 Multi-calendar events found', {
         total: mergedEvents.length,
         multiCalendar: multiCalendarCount,
         samples: mergedEvents

@@ -204,7 +204,7 @@ class WidgetMessenger {
 
     this.widgets.set(event.source, widgetInfo);
 
-    logger.info('Widget registered', {
+    logger.debug('Widget registered', {
       name: widgetInfo.name,
       totalWidgets: this.widgets.size
     });

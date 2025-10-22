@@ -44,7 +44,7 @@ class PhotosWidget {
     this.setupEmptyStateHandler();
     this.signalReady();
 
-    logger.info('PhotosWidget initialized');
+    logger.debug('PhotosWidget initialized');
   }
 
   /**
@@ -80,7 +80,7 @@ class PhotosWidget {
           }
         }
       }, '*');
-      logger.info('Ready signal sent to parent');
+      logger.debug('Ready signal sent to parent');
     }
   }
 
@@ -107,7 +107,7 @@ class PhotosWidget {
 
       // Handle data updates (dataType inside payload)
       if (data.type === 'data' && data.payload?.dataType === 'photos') {
-        logger.info('Photos data message received', { payload: data.payload.payload });
+        logger.debug('Photos data message received', { payload: data.payload.payload });
         this.loadPhotosFromData(data.payload.payload);
         return;
       }
@@ -127,7 +127,7 @@ class PhotosWidget {
       }
     });
 
-    logger.info('Message listener set up');
+    logger.debug('Message listener set up');
   }
 
   /**
@@ -400,7 +400,7 @@ class PhotosWidget {
    */
   updateTransitionTime(seconds) {
     this.transitionTime = seconds * 1000;
-    logger.info('Transition time updated', { seconds });
+    logger.debug('Transition time updated', { seconds });
 
     if (this.autoAdvanceInterval) {
       this.startAutoAdvance();

@@ -284,7 +284,7 @@ export class AgendaWidget {
 
     const multiCalendarCount = mergedEvents.filter(e => e.isMultiCalendar).length;
     if (multiCalendarCount > 0) {
-      logger.info('🎨 Multi-calendar events found', {
+      logger.debug('🎨 Multi-calendar events found', {
         total: mergedEvents.length,
         multiCalendar: multiCalendarCount,
         samples: mergedEvents
@@ -365,7 +365,7 @@ export class AgendaWidget {
       this.updateSelectionHighlight();
     }
 
-    logger.info('Agenda rendered', {
+    logger.debug('Agenda rendered', {
       totalEvents: agendaEvents.length,
       daysWithEvents: Object.keys(this.eventsByDay).length
     });
@@ -618,13 +618,13 @@ export class AgendaWidget {
   // ==================== FOCUS AND SELECTION METHODS ====================
 
   handleEnterFocus() {
-    logger.info('Agenda entered FOCUSED state');
+    logger.debug('Agenda entered FOCUSED state');
     this.hasFocus = true;
     this.isActive = false;
   }
 
   handleEnterActive() {
-    logger.info('Agenda entered ACTIVE state');
+    logger.debug('Agenda entered ACTIVE state');
     this.isActive = true;
 
     // Auto-select first event if available
@@ -636,13 +636,13 @@ export class AgendaWidget {
   }
 
   handleExitActive() {
-    logger.info('Agenda exited ACTIVE state');
+    logger.debug('Agenda exited ACTIVE state');
     this.isActive = false;
     this.clearSelectionHighlight();
   }
 
   handleExitFocus() {
-    logger.info('Agenda exited FOCUSED state');
+    logger.debug('Agenda exited FOCUSED state');
     this.hasFocus = false;
     this.isActive = false;
 

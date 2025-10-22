@@ -161,7 +161,7 @@ export class ThemeOverlayVisibilityManager {
      * @param {Array} steps - Array of steps {element: 'id', duration: N} or {blank: N}
      */
     startRotationSequence(sequenceName, steps) {
-        logger.info(`Starting rotation sequence: ${sequenceName}`, { stepsCount: steps.length });
+        logger.debug(`Starting rotation sequence: ${sequenceName}`, { stepsCount: steps.length });
 
         // Generate unique ID for this sequence instance to prevent old callbacks from affecting new instances
         const instanceId = Date.now() + Math.random();
