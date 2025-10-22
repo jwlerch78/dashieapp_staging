@@ -82,11 +82,3 @@ export class CalendarWidget {
     logger.debug('Calendar widget cleanup complete');
   }
 }
-
-// Initialize widget when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-  const calendarWidget = new CalendarWidget();
-
-  // Expose for debugging
-  window.calendarWidget = calendarWidget;
-});
