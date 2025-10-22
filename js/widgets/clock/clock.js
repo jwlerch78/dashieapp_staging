@@ -135,7 +135,13 @@ class ClockWidget {
         this.applyTheme(data.theme);
         break;
 
+      case 'weather-data':
+        // New: Handle weather data from weather service
+        this.handleWeatherData(data.payload);
+        break;
+
       case 'location-update':
+        // Fallback: Handle location updates (widget fetches weather itself)
         this.handleLocationUpdate(data.payload);
         break;
 
@@ -208,11 +214,47 @@ class ClockWidget {
   }
 
   /**
-   * Handle location updates from parent (for future settings integration)
+   * Handle weather data from weather service (NEW - Phase 3)
+   * @param {Object} payload - { temperature, weatherCode, icon, zipCode, timestamp }
+   */
+  handleWeatherData(payload) {
+    logger.debug('Received weather data from service', {
+      temperature: payload.temperature,
+      weatherCode: payload.weatherCode,
+      zipCode: payload.zipCode
+    });
+
+    try {
+      // Update display with weather data
+      if (typeof payload.temperature === 'number' && !isNaN(payload.temperature)) {
+        document.getElementById('temperature').textContent = `${payload.temperature}°F`;
+        document.getElementById('weather-icon').textContent = payload.icon || '🌡️';
+
+        logger.success('Weather display updated from service', {
+          temperature: payload.temperature,
+          weatherCode: payload.weatherCode,
+          icon: payload.icon
+        });
+      } else {
+        throw new Error('Invalid temperature data received from service');
+      }
+    } catch (error) {
+      logger.error('Failed to display weather data', {
+        error: error.message
+      });
+
+      // Set fallback display
+      document.getElementById('temperature').textContent = '--°F';
+      document.getElementById('weather-icon').textContent = '🌡️';
+    }
+  }
+
+  /**
+   * Handle location updates from parent (FALLBACK - for backward compatibility)
    * @param {Object} payload - { zipCode: string } or { latitude: number, longitude: number }
    */
   async handleLocationUpdate(payload) {
-    logger.debug('Received location update', payload);
+    logger.debug('Received location update (fallback mode)', payload);
 
     // Support both zip code and direct coordinates
     if (payload.zipCode) {

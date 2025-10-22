@@ -19,14 +19,14 @@ export class WidgetDataManager {
         this.calendarDataCache = null;
         this.calendarDataPromise = null; // Track in-flight requests
 
-        logger.info('WidgetDataManager constructed');
+        logger.debug('WidgetDataManager constructed');
     }
 
     /**
      * Initialize the widget data manager
      */
     async initialize() {
-        logger.info('WidgetDataManager initializing');
+        logger.debug('WidgetDataManager initializing');
 
         // Initialize calendar cache
         try {
@@ -39,6 +39,21 @@ export class WidgetDataManager {
         // Set up global message listener for all widgets
         window.addEventListener('message', (event) => {
             this.handleWidgetMessage(event.data);
+        });
+
+        // Set up listener for automatic photo refresh
+        window.addEventListener('photo-data-updated', (event) => {
+            const photoData = event.detail.photos;
+            if (photoData && this.widgets.has('photos')) {
+                logger.debug('Photo auto-refresh detected, updating photo widget');
+                this.sendToWidget('photos', 'data', {
+                    dataType: 'photos',
+                    payload: {
+                        urls: photoData.urls || [],
+                        folder: photoData.folder || null
+                    }
+                });
+            }
         });
 
         logger.verbose('WidgetDataManager initialized');
@@ -82,7 +97,7 @@ export class WidgetDataManager {
         this.widgets.delete(widgetId);
         this.widgetStates.delete(widgetId);
 
-        logger.info('Widget unregistered', { widgetId });
+        logger.debug('Widget unregistered', { widgetId });
     }
 
     /**
@@ -161,7 +176,8 @@ export class WidgetDataManager {
                         const payload = {
                             dataType: 'calendar',
                             calendars: calendarData.calendars || [],
-                            events: calendarData.events || []
+                            events: calendarData.events || [],
+                            lastUpdated: Date.now()
                         };
 
                         this.sendToWidget('main', 'data', payload);
@@ -243,7 +259,7 @@ export class WidgetDataManager {
                         // Start background refresh if cache is stale (expired) OR older than threshold
                         // This ensures users never see "loading" - we serve cached data and refresh behind the scenes
                         if (metadata && (metadata.isExpired || metadata.age > CALENDAR_CACHE_REFRESH_THRESHOLD_MS)) {
-                            logger.info('Cache needs refresh, updating in background', {
+                            logger.debug('Cache needs refresh, updating in background', {
                                 age: `${Math.round(metadata.age / 1000)}s`,
                                 isExpired: metadata.isExpired,
                                 threshold: `${CALENDAR_CACHE_REFRESH_THRESHOLD_MS / 1000}s`
@@ -258,7 +274,7 @@ export class WidgetDataManager {
                 }
             }
 
-            logger.info('Loading calendar data from API');
+            logger.debug('Loading calendar data from API');
 
             // Create a promise for this fetch so other simultaneous calls can wait for it
             this.calendarDataPromise = this._fetchCalendarData();
@@ -307,7 +323,8 @@ export class WidgetDataManager {
                 const payload = {
                     dataType: 'calendar',
                     calendars: data.calendars || [],
-                    events: data.events || []
+                    events: data.events || [],
+                    lastUpdated: Date.now()
                 };
 
                 this.sendToWidget('main', 'data', payload);
@@ -328,6 +345,7 @@ export class WidgetDataManager {
 
     /**
      * Internal method to fetch calendar data (called by loadCalendarData)
+     * Delegates to calendar-service for all fetching logic
      * @private
      */
     async _fetchCalendarData() {
@@ -335,98 +353,17 @@ export class WidgetDataManager {
             // Get calendar service
             const calendarService = getCalendarService();
 
-            // Get active calendar IDs from CalendarService
-            const activeCalendarIds = calendarService.getActiveCalendarIds();
+            logger.debug('Fetching calendar data from service');
 
-            logger.debug('Loading events from active calendars', {
-                count: activeCalendarIds.length,
-                calendarIds: activeCalendarIds
-            });
-
-            // Get events for next 30 days
-            const now = new Date();
-            const endDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-            const timeRange = {
-                timeMin: now.toISOString(),
-                timeMax: endDate.toISOString(),
-                maxResults: 2500,
-                singleEvents: true,
-                orderBy: 'startTime'
-            };
-
-            // Fetch all calendars and events (same as calendar widget does)
-            const allCalendars = [];
-            const allEvents = [];
-
-            // Group active calendar IDs by account type
-            const calendarsByAccount = {};
-            for (const prefixedId of activeCalendarIds) {
-                const { accountType, calendarId } = calendarService.parsePrefixedId(prefixedId);
-
-                if (!calendarsByAccount[accountType]) {
-                    calendarsByAccount[accountType] = [];
-                }
-                calendarsByAccount[accountType].push({ prefixedId, calendarId });
-            }
-
-            // Fetch calendars and events for each account
-            for (const [accountType, calendars] of Object.entries(calendarsByAccount)) {
-                try {
-                    // Fetch calendar list for this account (to get colors/names)
-                    const accountCalendars = await calendarService.getCalendars(accountType);
-                    allCalendars.push(...accountCalendars);
-
-                    // Fetch events for each active calendar in this account
-                    for (const { prefixedId, calendarId } of calendars) {
-                        try {
-                            const events = await calendarService.getEvents(
-                                accountType,
-                                calendarId,
-                                timeRange
-                            );
-
-                            // Find the calendar object to get color info
-                            const calendarObj = accountCalendars.find(cal => cal.id === calendarId);
-
-                            // Add calendar metadata to each event (needed for rendering and split colors)
-                            const eventsWithMetadata = events.map(event => ({
-                                ...event,
-                                prefixedCalendarId: prefixedId,
-                                calendarId: calendarId,
-                                accountType: accountType,
-                                backgroundColor: calendarObj?.backgroundColor || '#1976d2',
-                                foregroundColor: calendarObj?.foregroundColor || '#ffffff',
-                                calendarName: calendarObj?.summary || 'Calendar'
-                            }));
-
-                            allEvents.push(...eventsWithMetadata);
-                        } catch (error) {
-                            logger.error('Failed to fetch events for calendar', {
-                                accountType,
-                                calendarId,
-                                error: error.message
-                            });
-                        }
-                    }
-                } catch (error) {
-                    logger.error('Failed to fetch calendars for account', {
-                        accountType,
-                        error: error.message
-                    });
-                }
-            }
+            // Delegate to calendar service (handles all fetching, grouping, metadata, etc.)
+            const data = await calendarService.loadData({ forceRefresh: false });
 
             logger.success('Calendar data loaded', {
-                calendars: allCalendars.length,
-                events: allEvents.length
+                calendars: data.calendars.length,
+                events: data.events.length
             });
 
-            // Return calendar data (will be sent to widgets by caller)
-            return {
-                calendars: allCalendars,
-                events: allEvents
-            };
+            return data;
 
         } catch (error) {
             logger.error('Failed to load calendar data', {
@@ -457,12 +394,12 @@ export class WidgetDataManager {
                 return;
             }
 
-            logger.info('Loading photos data');
+            logger.debug('Loading photos data');
 
             // Get photo data service
             const photoDataService = window.photoDataService;
-            if (!photoDataService || !photoDataService.isInitialized) {
-                logger.warn('PhotoDataService not available');
+            if (!photoDataService || !photoDataService.isReady()) {
+                logger.warn('PhotoService not available or not ready');
                 this.sendToWidget('photos', 'data', {
                     dataType: 'photos',
                     payload: { urls: [], folder: null }
@@ -498,16 +435,16 @@ export class WidgetDataManager {
     }
 
     /**
-     * Load clock data (send location for weather)
+     * Load clock data (fetch and send weather data)
      */
     async loadClockData() {
         try {
-            logger.info('Loading clock data (location for weather)');
+            logger.debug('Loading clock data (weather)');
 
             // Get zip code from settings
             const settingsStore = window.settingsStore;
             if (!settingsStore) {
-                logger.warn('SettingsStore not available for clock location');
+                logger.warn('SettingsStore not available for clock data');
                 return;
             }
 
@@ -518,14 +455,40 @@ export class WidgetDataManager {
                 return;
             }
 
-            logger.debug('Sending location to clock widget', { zipCode });
+            // Get weather service
+            const weatherService = window.weatherService;
+            if (!weatherService || !weatherService.isReady()) {
+                logger.warn('WeatherService not available or not ready');
+                // Send location-update as fallback (clock widget can fetch weather itself)
+                this.sendToWidget('clock', 'location-update', {
+                    zipCode: zipCode
+                });
+                return;
+            }
 
-            // Send location-update message to clock widget
-            this.sendToWidget('clock', 'location-update', {
-                zipCode: zipCode
+            // Fetch weather data
+            logger.debug('Fetching weather for clock widget', { zipCode });
+            const weatherData = await weatherService.getWeatherForZipCode(zipCode);
+
+            logger.debug('Sending weather data to clock widget', {
+                zipCode,
+                temperature: weatherData.temperature,
+                weatherCode: weatherData.weatherCode
             });
 
-            logger.success('Clock location data sent', { zipCode });
+            // Send weather data to clock widget
+            this.sendToWidget('clock', 'weather-data', {
+                zipCode: zipCode,
+                temperature: weatherData.temperature,
+                weatherCode: weatherData.weatherCode,
+                icon: weatherData.icon,
+                timestamp: weatherData.timestamp
+            });
+
+            logger.success('Clock weather data sent', {
+                zipCode,
+                temperature: weatherData.temperature
+            });
 
         } catch (error) {
             logger.error('Failed to load clock data', {
@@ -538,7 +501,7 @@ export class WidgetDataManager {
      * Load header data (placeholder)
      */
     async loadHeaderData() {
-        logger.info('Header data loading not implemented yet');
+        logger.debug('Header data loading not implemented yet');
         // TODO: Implement when header widget is built
     }
 
@@ -610,7 +573,7 @@ export class WidgetDataManager {
         // Stop existing interval if any
         this.stopAutoRefresh(widgetId);
 
-        logger.info('Starting auto-refresh', { widgetId, intervalMs });
+        logger.debug('Starting auto-refresh', { widgetId, intervalMs });
 
         const interval = setInterval(() => {
             logger.debug('Auto-refresh triggered', { widgetId });
@@ -630,7 +593,7 @@ export class WidgetDataManager {
         if (interval) {
             clearInterval(interval);
             this.refreshIntervals.delete(widgetId);
-            logger.info('Auto-refresh stopped', { widgetId });
+            logger.debug('Auto-refresh stopped', { widgetId });
         }
     }
 
@@ -639,7 +602,7 @@ export class WidgetDataManager {
      * @param {string} widgetId - Widget identifier
      */
     handleReturnToMenu(widgetId) {
-        logger.info('Widget requesting return to menu', { widgetId });
+        logger.debug('Widget requesting return to menu', { widgetId });
 
         // TODO: Emit event for Dashboard to handle
         // For now, just log
@@ -650,7 +613,7 @@ export class WidgetDataManager {
      * @param {string} widgetId - Widget identifier
      */
     handleSettingsRequested(widgetId) {
-        logger.info('Widget requesting settings', { widgetId });
+        logger.debug('Widget requesting settings', { widgetId });
 
         // TODO: Open Settings module
         // For now, just log
@@ -701,7 +664,8 @@ export class WidgetDataManager {
             const payload = {
                 dataType: 'calendar',
                 calendars: data.calendars || [],
-                events: data.events || []
+                events: data.events || [],
+                lastUpdated: Date.now()
             };
 
             this.sendToWidget('main', 'data', payload);

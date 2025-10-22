@@ -257,16 +257,16 @@ class HeartbeatService {
   /**
    * Perform app update (reload with cache clear)
    */
-  performUpdate(latestVersion) {
+  async performUpdate(latestVersion) {
     logger.info(`Updating to version ${latestVersion}...`);
 
     // Stop heartbeat
     this.stopHeartbeat();
 
     // Show loading indicator
-    const app = document.getElementById('app');
-    if (app) {
-      app.innerHTML = `
+    const dashboardContainer = document.getElementById('dashboard-container');
+    if (dashboardContainer) {
+      dashboardContainer.innerHTML = `
         <div style="
           display: flex;
           flex-direction: column;
@@ -281,17 +281,72 @@ class HeartbeatService {
           <div style="font-size: 48px; margin-bottom: 20px;">🔄</div>
           <div>Updating Dashie to v${latestVersion}...</div>
           <div style="font-size: 16px; opacity: 0.7; margin-top: 10px;">
-            This will only take a moment
+            Clearing cache and refreshing...
           </div>
         </div>
       `;
     }
 
-    // Reload with cache clear after brief delay
+    // Clear all caches before reloading
+    await this.clearAllCaches();
+
+    // Reload after brief delay (modern approach - no deprecated 'true' parameter)
     setTimeout(() => {
-      // Force reload bypassing cache
-      window.location.reload(true);
+      // Modern cache-busting reload: Add timestamp to force fresh fetch
+      const timestamp = new Date().getTime();
+      window.location.href = window.location.pathname + '?v=' + timestamp + window.location.hash;
     }, 1500);
+  }
+
+  /**
+   * Clear all browser caches (localStorage, sessionStorage, Cache API)
+   */
+  async clearAllCaches() {
+    logger.info('Clearing all caches for update...');
+
+    try {
+      // 1. Clear Cache API (if available - not on all Fire TV browsers)
+      if ('caches' in window) {
+        try {
+          const cacheNames = await caches.keys();
+          await Promise.all(
+            cacheNames.map(cacheName => {
+              logger.debug(`Deleting cache: ${cacheName}`);
+              return caches.delete(cacheName);
+            })
+          );
+          logger.success(`Cleared ${cacheNames.length} caches from Cache API`);
+        } catch (error) {
+          logger.warn('Cache API clearing failed (may not be supported)', error);
+        }
+      }
+
+      // 2. Clear localStorage (except JWT - we want to stay logged in)
+      const jwtData = localStorage.getItem('dashie-supabase-jwt');
+      const authTokens = localStorage.getItem('dashie-auth-tokens');
+
+      localStorage.clear();
+
+      // Restore JWT and auth tokens so user stays logged in
+      if (jwtData) {
+        localStorage.setItem('dashie-supabase-jwt', jwtData);
+        logger.debug('Preserved JWT token');
+      }
+      if (authTokens) {
+        localStorage.setItem('dashie-auth-tokens', authTokens);
+        logger.debug('Preserved auth tokens');
+      }
+
+      logger.success('LocalStorage cleared (except auth data)');
+
+      // 3. Clear sessionStorage
+      sessionStorage.clear();
+      logger.debug('SessionStorage cleared');
+
+      logger.success('All caches cleared successfully');
+    } catch (error) {
+      logger.error('Cache clearing failed (continuing anyway)', error);
+    }
   }
 
   /**

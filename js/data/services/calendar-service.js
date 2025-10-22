@@ -1,25 +1,30 @@
 // js/data/services/calendar-service.js
 // Calendar service for fetching calendar data with automatic token refresh
-// High-level wrapper around GoogleAPIClient
+// REFACTORED: Now acts as orchestrator, delegating to specialized modules
 
 import { createLogger } from '../../utils/logger.js';
 import { GoogleAPIClient } from './google/google-api-client.js';
+import { CalendarFetcher } from './calendar-services/calendar-fetcher.js';
+import { EventProcessor } from './calendar-services/event-processor.js';
+import { CalendarRefreshManager } from './calendar-services/calendar-refresh-manager.js';
 
 const logger = createLogger('CalendarService');
 
 /**
- * CalendarService - High-level calendar operations
+ * CalendarService - High-level calendar operations orchestrator
+ *
+ * Architecture:
+ * - Delegates fetching to CalendarFetcher
+ * - Delegates transformation to EventProcessor
+ * - Delegates refresh to CalendarRefreshManager
+ * - Provides simple public API for application use
  *
  * Features:
  * - Automatic token refresh via EdgeClient
- * - Multi-account support (primary, primary-tv, account2, etc.)
- * - Caching (future enhancement)
+ * - Multi-account support (primary, account2, etc.)
+ * - Account-prefixed calendar IDs for unique identification
+ * - Caching (managed by caller)
  * - Error handling and retry logic
- *
- * Usage:
- *   const service = new CalendarService(edgeClient);
- *   const calendars = await service.getCalendars();
- *   const events = await service.getEvents('primary', 'calendarId@gmail.com');
  */
 export class CalendarService {
     constructor(edgeClient) {
@@ -29,18 +34,84 @@ export class CalendarService {
 
         this.edgeClient = edgeClient;
         this.googleClient = new GoogleAPIClient(edgeClient);
+
+        // Initialize specialized modules
+        this.fetcher = new CalendarFetcher(this);
+        this.processor = new EventProcessor();
+        this.refreshManager = new CalendarRefreshManager(this);
+
+        // Active calendar management
         this.activeCalendarIds = []; // Account-prefixed IDs (e.g., 'primary-user@gmail.com')
         this.STORAGE_KEY = 'dashie-active-calendars'; // localStorage key
 
-        logger.verbose('CalendarService initialized');
+        logger.verbose('CalendarService initialized with specialized modules');
     }
+
+    // =========================================================================
+    // MAIN ENTRY POINT - Data Loading
+    // =========================================================================
+
+    /**
+     * Load all calendar data (main entry point for application)
+     * Fetches calendars and events, processes them, returns ready-to-display data
+     *
+     * @param {object} options - Options {forceRefresh, timeRange}
+     * @returns {Promise<{calendars: Array, events: Array}>}
+     */
+    async loadData(options = {}) {
+        const { forceRefresh = false, timeRange = {} } = options;
+
+        try {
+            logger.debug('Loading calendar data', { forceRefresh, activeCalendars: this.activeCalendarIds.length });
+
+            // Set default time range (next 30 days)
+            const finalTimeRange = {
+                timeMin: timeRange.timeMin || new Date().toISOString(),
+                timeMax: timeRange.timeMax || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+                ...timeRange
+            };
+
+            // Step 1: Fetch raw data (delegated to CalendarFetcher)
+            const rawData = await this.fetcher.fetchAllCalendarData(
+                this.activeCalendarIds,
+                finalTimeRange
+            );
+
+            // Step 2: Transform events (delegated to EventProcessor)
+            const processedEvents = this.processor.transformEvents(rawData.events);
+
+            // Step 3: Return ready-to-display data
+            const result = {
+                calendars: rawData.calendars,
+                events: processedEvents
+            };
+
+            logger.success('Calendar data loaded and processed', {
+                calendars: result.calendars.length,
+                events: result.events.length
+            });
+
+            return result;
+
+        } catch (error) {
+            logger.error('Failed to load calendar data', error);
+            return {
+                calendars: [],
+                events: []
+            };
+        }
+    }
+
+    // =========================================================================
+    // INITIALIZATION
+    // =========================================================================
 
     /**
      * Initialize service and load active calendars from user_calendar_config table
      * @returns {Promise<void>}
      */
     async initialize() {
-        logger.info('Initializing CalendarService with calendar config');
+        logger.debug('Initializing CalendarService with calendar config');
 
         try {
             // Try to load from database first
@@ -57,7 +128,7 @@ export class CalendarService {
 
             // Auto-enable primary calendar on first login
             if (this.activeCalendarIds.length === 0) {
-                logger.info('No active calendars found, auto-enabling primary calendar');
+                logger.debug('No active calendars found, auto-enabling primary calendar');
                 await this.autoEnablePrimaryCalendar();
             }
 
@@ -70,7 +141,7 @@ export class CalendarService {
             // Fallback to localStorage
             const fromLocalStorage = this.loadFromLocalStorage();
             if (fromLocalStorage.length > 0) {
-                logger.info('Loaded active calendars from localStorage fallback', {
+                logger.debug('Loaded active calendars from localStorage fallback', {
                     count: fromLocalStorage.length
                 });
                 this.activeCalendarIds = fromLocalStorage;
@@ -94,178 +165,13 @@ export class CalendarService {
         }
     }
 
-    /**
-     * Auto-enable the primary calendar for an account
-     * Called during initialization if no calendars are active for that account
-     * @param {string} accountType - Account type ('primary', 'account2', etc.)
-     * @private
-     */
-    async autoEnableAllCalendars(accountType = 'primary') {
-        try {
-            logger.info('Auto-enabling all calendars for account', { accountType });
-
-            // Check if we have this account
-            const tokenStore = window.sessionManager?.getTokenStore();
-            if (!tokenStore) {
-                logger.warn('TokenStore not available, skipping auto-enable');
-                return;
-            }
-
-            const account = await tokenStore.getAccountTokens('google', accountType);
-            if (!account || !account.email) {
-                logger.warn('No account found, skipping auto-enable', { accountType });
-                return;
-            }
-
-            // Fetch all calendars for this account
-            const calendars = await this.getCalendars(accountType);
-
-            if (!calendars || calendars.length === 0) {
-                logger.warn('No calendars found for account', { accountType });
-                return;
-            }
-
-            logger.info('Found calendars to enable', {
-                accountType,
-                count: calendars.length,
-                email: account.email
-            });
-
-            // Enable all calendars that aren't already enabled
-            let newCalendarsAdded = 0;
-            for (const calendar of calendars) {
-                const calendarId = this.createPrefixedId(accountType, calendar.id);
-
-                // Check if it's already enabled
-                if (!this.activeCalendarIds.includes(calendarId)) {
-                    this.activeCalendarIds.push(calendarId);
-                    newCalendarsAdded++;
-                    logger.debug('Enabled calendar', {
-                        calendarId,
-                        summary: calendar.summary
-                    });
-                }
-            }
-
-            if (newCalendarsAdded > 0) {
-                // Save to database and localStorage
-                await this.saveActiveCalendars();
-
-                logger.success('All calendars auto-enabled', {
-                    accountType,
-                    totalCalendars: calendars.length,
-                    newCalendarsAdded,
-                    userEmail: account.email
-                });
-            } else {
-                logger.debug('All calendars already enabled', { accountType });
-            }
-
-        } catch (error) {
-            logger.error('Failed to auto-enable calendars', { accountType, error });
-            throw error;
-        }
-    }
-
-    /**
-     * @deprecated Use autoEnableAllCalendars instead
-     */
-    async autoEnablePrimaryCalendar(accountType = 'primary') {
-        return this.autoEnableAllCalendars(accountType);
-    }
-
-    /**
-     * Check all Google accounts and auto-enable all calendars for accounts with no active calendars
-     * This ensures newly added accounts automatically have all their calendars enabled
-     * @private
-     */
-    async autoEnableNewAccountCalendars() {
-        try {
-            const tokenStore = window.sessionManager?.getTokenStore();
-            if (!tokenStore) {
-                logger.debug('TokenStore not available, skipping new account calendar check');
-                return;
-            }
-
-            // Get all Google accounts
-            const googleAccounts = await tokenStore.getProviderAccounts('google');
-            const accountTypes = Object.keys(googleAccounts || {});
-
-            if (accountTypes.length === 0) {
-                logger.debug('No Google accounts found');
-                return;
-            }
-
-            logger.debug('Checking accounts for auto-enable', {
-                accountCount: accountTypes.length,
-                accounts: accountTypes
-            });
-
-            // For each account, check if it has any active calendars
-            for (const accountType of accountTypes) {
-                try {
-                    // Check if this account has any active calendars
-                    const prefix = `${accountType}-`;
-                    const hasActiveCalendars = this.activeCalendarIds.some(id => id.startsWith(prefix));
-
-                    if (!hasActiveCalendars) {
-                        logger.info('Account has no active calendars, auto-enabling all calendars', { accountType });
-                        await this.autoEnableAllCalendars(accountType);
-                    } else {
-                        logger.debug('Account already has active calendars', { accountType });
-                    }
-                } catch (error) {
-                    logger.warn('Failed to check/enable calendars for account', { accountType, error });
-                    // Continue with other accounts
-                }
-            }
-
-        } catch (error) {
-            logger.warn('Failed to auto-enable new account calendars', error);
-        }
-    }
-
     // =========================================================================
-    // ACCOUNT-PREFIXED ID METHODS
-    // =========================================================================
-
-    /**
-     * Create account-prefixed calendar ID
-     * @param {string} accountType - Account type ('primary', 'account2', etc.)
-     * @param {string} calendarId - Raw calendar ID from Google API
-     * @returns {string} Prefixed ID like 'primary-user@gmail.com'
-     */
-    createPrefixedId(accountType, calendarId) {
-        return `${accountType}-${calendarId}`;
-    }
-
-    /**
-     * Parse account-prefixed calendar ID
-     * @param {string} prefixedId - Like 'primary-user@gmail.com'
-     * @returns {{ accountType: string, calendarId: string }}
-     */
-    parsePrefixedId(prefixedId) {
-        // Handle edge case: calendar IDs can contain dashes
-        const firstDashIndex = prefixedId.indexOf('-');
-
-        if (firstDashIndex === -1) {
-            logger.warn('Invalid prefixed ID format', { prefixedId });
-            return { accountType: 'primary', calendarId: prefixedId };
-        }
-
-        const accountType = prefixedId.substring(0, firstDashIndex);
-        const calendarId = prefixedId.substring(firstDashIndex + 1);
-
-        return { accountType, calendarId };
-    }
-
-    // =========================================================================
-    // CALENDAR FETCHING
+    // CALENDAR FETCHING (Delegates to modules)
     // =========================================================================
 
     /**
      * Get all calendars for an account with prefixed IDs
-     * @param {string} accountType - Account type ('primary', 'primary-tv', 'account2', etc.)
+     * @param {string} accountType - Account type ('primary', 'account2', etc.)
      * @returns {Promise<Array>} Array of calendar objects with prefixed IDs
      */
     async getCalendars(accountType = 'primary') {
@@ -301,9 +207,9 @@ export class CalendarService {
 
     /**
      * Get events for a specific calendar
-     * @param {string} accountType - Account type ('primary', 'primary-tv', 'account2', etc.)
-     * @param {string} calendarId - Calendar ID (e.g., 'primary' or 'user@gmail.com')
-     * @param {object} timeRange - Optional time range { start: Date, end: Date }
+     * @param {string} accountType - Account type
+     * @param {string} calendarId - Calendar ID
+     * @param {object} timeRange - Optional time range
      * @returns {Promise<Array>} Array of event objects
      */
     async getEvents(accountType = 'primary', calendarId = 'primary', timeRange = {}) {
@@ -316,8 +222,8 @@ export class CalendarService {
                 accountType
             );
 
-            // Normalize all-day events (Google uses exclusive end dates, we need inclusive)
-            const normalizedEvents = events.map(event => this.normalizeAllDayEvent(event));
+            // Normalize all-day events (delegated to EventProcessor)
+            const normalizedEvents = events.map(event => this.processor.cleanEventData([event])[0]);
 
             logger.verbose('Events fetched successfully', {
                 accountType,
@@ -334,177 +240,6 @@ export class CalendarService {
                 error: error.message
             });
             throw error;
-        }
-    }
-
-    /**
-     * Get events from multiple calendars
-     * @param {string} accountType - Account type
-     * @param {Array<string>} calendarIds - Array of calendar IDs
-     * @param {object} timeRange - Optional time range
-     * @returns {Promise<Array>} Combined array of events from all calendars
-     */
-    async getEventsFromMultipleCalendars(accountType = 'primary', calendarIds = [], timeRange = {}) {
-        logger.debug('Fetching events from multiple calendars', {
-            accountType,
-            calendarCount: calendarIds.length
-        });
-
-        try {
-            // Fetch events from all calendars in parallel
-            const eventPromises = calendarIds.map(calendarId =>
-                this.getEvents(accountType, calendarId, timeRange)
-            );
-
-            const eventsArrays = await Promise.all(eventPromises);
-
-            // Combine and sort events by start time
-            const allEvents = eventsArrays.flat();
-            allEvents.sort((a, b) => {
-                const aStart = a.start?.dateTime || a.start?.date;
-                const bStart = b.start?.dateTime || b.start?.date;
-                return new Date(aStart) - new Date(bStart);
-            });
-
-            logger.success('Multi-calendar events fetched successfully', {
-                accountType,
-                totalEvents: allEvents.length
-            });
-
-            return allEvents;
-
-        } catch (error) {
-            logger.error('Failed to fetch multi-calendar events', {
-                accountType,
-                error: error.message
-            });
-            throw error;
-        }
-    }
-
-    // =========================================================================
-    // ACTIVE CALENDAR MANAGEMENT
-    // =========================================================================
-
-    /**
-     * Check if calendar is active
-     * @param {string} accountType - Account type
-     * @param {string} calendarId - Raw calendar ID
-     * @returns {boolean}
-     */
-    isCalendarActive(accountType, calendarId) {
-        const prefixedId = this.createPrefixedId(accountType, calendarId);
-        return this.activeCalendarIds.includes(prefixedId);
-    }
-
-    /**
-     * Enable a calendar
-     * @param {string} accountType - Account type
-     * @param {string} calendarId - Raw calendar ID
-     * @returns {Promise<void>}
-     */
-    async enableCalendar(accountType, calendarId) {
-        const prefixedId = this.createPrefixedId(accountType, calendarId);
-
-        if (!this.activeCalendarIds.includes(prefixedId)) {
-            this.activeCalendarIds.push(prefixedId);
-            await this.saveActiveCalendars();
-
-            logger.info('Calendar enabled', { prefixedId });
-        }
-    }
-
-    /**
-     * Disable a calendar
-     * @param {string} accountType - Account type
-     * @param {string} calendarId - Raw calendar ID
-     * @returns {Promise<void>}
-     */
-    async disableCalendar(accountType, calendarId) {
-        const prefixedId = this.createPrefixedId(accountType, calendarId);
-        const originalLength = this.activeCalendarIds.length;
-
-        this.activeCalendarIds = this.activeCalendarIds.filter(id => id !== prefixedId);
-
-        if (this.activeCalendarIds.length !== originalLength) {
-            await this.saveActiveCalendars();
-            logger.info('Calendar disabled', { prefixedId });
-        }
-    }
-
-    /**
-     * Get active calendar IDs
-     * @returns {Array<string>} Array of prefixed calendar IDs
-     */
-    getActiveCalendarIds() {
-        return [...this.activeCalendarIds];
-    }
-
-    /**
-     * Save active calendars to user_calendar_config table and localStorage
-     * @returns {Promise<void>}
-     */
-    async saveActiveCalendars() {
-        try {
-            // Save to localStorage first (instant)
-            this.saveToLocalStorage();
-
-            // Save to database (async)
-            await this.edgeClient.saveCalendarConfig(this.activeCalendarIds);
-
-            // Clear widget data manager cache so next load fetches fresh data
-            if (window.widgetDataManager) {
-                window.widgetDataManager.clearCalendarCache();
-            }
-
-            logger.debug('Active calendars saved to database and localStorage', {
-                count: this.activeCalendarIds.length,
-                ids: this.activeCalendarIds
-            });
-
-        } catch (error) {
-            logger.error('Failed to save active calendars to database', error);
-            // Note: localStorage save already succeeded, so calendars are persisted locally
-            throw error;
-        }
-    }
-
-    /**
-     * Save active calendar IDs to localStorage
-     * @private
-     */
-    saveToLocalStorage() {
-        try {
-            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.activeCalendarIds));
-            logger.debug('Saved active calendars to localStorage', {
-                count: this.activeCalendarIds.length
-            });
-        } catch (error) {
-            logger.warn('Failed to save to localStorage', error);
-        }
-    }
-
-    /**
-     * Load active calendar IDs from localStorage
-     * @private
-     * @returns {Array<string>} Active calendar IDs
-     */
-    loadFromLocalStorage() {
-        try {
-            const stored = localStorage.getItem(this.STORAGE_KEY);
-            if (!stored) {
-                return [];
-            }
-
-            const ids = JSON.parse(stored);
-            if (Array.isArray(ids)) {
-                return ids;
-            }
-
-            return [];
-        } catch (error) {
-            logger.warn('Failed to load from localStorage', error);
-            return [];
         }
     }
 
@@ -542,60 +277,251 @@ export class CalendarService {
     }
 
     // =========================================================================
-    // ALL-DAY EVENT NORMALIZATION
+    // ACTIVE CALENDAR MANAGEMENT
     // =========================================================================
 
     /**
-     * Normalize all-day event end dates
-     * Google Calendar API returns exclusive end dates for all-day events.
-     * For example, a birthday on Jan 15 has start: "2025-01-15", end: "2025-01-16"
-     * This function converts the end date to inclusive by subtracting 1 day.
-     *
-     * @param {Object} event - Calendar event
-     * @returns {Object} Event with normalized end date
+     * Check if calendar is active
      */
-    normalizeAllDayEvent(event) {
-        // Only process all-day events (those with event.start.date instead of event.start.dateTime)
-        if (!event.start?.date) {
-            return event;
-        }
-
-        // Parse the end date and subtract 1 day
-        const endDateParts = event.end.date.split('-');
-        const endYear = parseInt(endDateParts[0]);
-        const endMonth = parseInt(endDateParts[1]) - 1; // Month is 0-indexed in Date
-        const endDay = parseInt(endDateParts[2]);
-
-        // Create date object and subtract 1 day
-        const endDateObj = new Date(endYear, endMonth, endDay);
-        endDateObj.setDate(endDateObj.getDate() - 1);
-
-        // Format back to YYYY-MM-DD
-        const adjustedEndDate = this.formatDateSafe(endDateObj);
-
-        return {
-            ...event,
-            end: {
-                date: adjustedEndDate,
-                dateTime: null
-            }
-        };
+    isCalendarActive(accountType, calendarId) {
+        const prefixedId = this.createPrefixedId(accountType, calendarId);
+        return this.activeCalendarIds.includes(prefixedId);
     }
 
     /**
-     * Format date object to YYYY-MM-DD string (timezone-safe)
-     * @param {Date} date - Date object
-     * @returns {string} Formatted date string
+     * Enable a calendar
+     */
+    async enableCalendar(accountType, calendarId) {
+        const prefixedId = this.createPrefixedId(accountType, calendarId);
+
+        if (!this.activeCalendarIds.includes(prefixedId)) {
+            this.activeCalendarIds.push(prefixedId);
+            await this.saveActiveCalendars();
+            logger.info('Calendar enabled', { prefixedId });
+        }
+    }
+
+    /**
+     * Disable a calendar
+     */
+    async disableCalendar(accountType, calendarId) {
+        const prefixedId = this.createPrefixedId(accountType, calendarId);
+        const originalLength = this.activeCalendarIds.length;
+
+        this.activeCalendarIds = this.activeCalendarIds.filter(id => id !== prefixedId);
+
+        if (this.activeCalendarIds.length !== originalLength) {
+            await this.saveActiveCalendars();
+            logger.info('Calendar disabled', { prefixedId });
+        }
+    }
+
+    /**
+     * Get active calendar IDs
+     */
+    getActiveCalendarIds() {
+        return [...this.activeCalendarIds];
+    }
+
+    /**
+     * Save active calendars to database and localStorage
+     */
+    async saveActiveCalendars() {
+        try {
+            // Save to localStorage first (instant)
+            this.saveToLocalStorage();
+
+            // Save to database (async)
+            await this.edgeClient.saveCalendarConfig(this.activeCalendarIds);
+
+            // Refresh calendar data in widgets (clears cache + sends fresh data)
+            if (window.widgetDataManager) {
+                logger.debug('Triggering calendar data refresh after config change');
+                await window.widgetDataManager.refreshCalendarData();
+            }
+
+            logger.debug('Active calendars saved and widgets updated', {
+                count: this.activeCalendarIds.length
+            });
+
+        } catch (error) {
+            logger.error('Failed to save active calendars to database', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Save to localStorage
+     * @private
+     */
+    saveToLocalStorage() {
+        try {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.activeCalendarIds));
+        } catch (error) {
+            logger.warn('Failed to save to localStorage', error);
+        }
+    }
+
+    /**
+     * Load from localStorage
+     * @private
+     */
+    loadFromLocalStorage() {
+        try {
+            const stored = localStorage.getItem(this.STORAGE_KEY);
+            if (stored) {
+                const ids = JSON.parse(stored);
+                return Array.isArray(ids) ? ids : [];
+            }
+            return [];
+        } catch (error) {
+            logger.warn('Failed to load from localStorage', error);
+            return [];
+        }
+    }
+
+    // =========================================================================
+    // AUTO-ENABLE LOGIC
+    // =========================================================================
+
+    /**
+     * Auto-enable all calendars for an account
+     */
+    async autoEnableAllCalendars(accountType = 'primary') {
+        try {
+            const tokenStore = window.sessionManager?.getTokenStore();
+            if (!tokenStore) return;
+
+            const account = await tokenStore.getAccountTokens('google', accountType);
+            if (!account || !account.email) return;
+
+            const calendars = await this.getCalendars(accountType);
+            if (!calendars || calendars.length === 0) return;
+
+            let newCalendarsAdded = 0;
+            for (const calendar of calendars) {
+                const calendarId = this.createPrefixedId(accountType, calendar.id);
+                if (!this.activeCalendarIds.includes(calendarId)) {
+                    this.activeCalendarIds.push(calendarId);
+                    newCalendarsAdded++;
+                }
+            }
+
+            if (newCalendarsAdded > 0) {
+                await this.saveActiveCalendars();
+                logger.success('All calendars auto-enabled', { accountType, count: newCalendarsAdded });
+            }
+
+        } catch (error) {
+            logger.error('Failed to auto-enable calendars', { accountType, error });
+        }
+    }
+
+    /**
+     * @deprecated Use autoEnableAllCalendars instead
+     */
+    async autoEnablePrimaryCalendar(accountType = 'primary') {
+        return this.autoEnableAllCalendars(accountType);
+    }
+
+    /**
+     * Check all accounts and auto-enable calendars for new accounts
+     * @private
+     */
+    async autoEnableNewAccountCalendars() {
+        try {
+            const tokenStore = window.sessionManager?.getTokenStore();
+            if (!tokenStore) return;
+
+            const googleAccounts = await tokenStore.getProviderAccounts('google');
+            const accountTypes = Object.keys(googleAccounts || {});
+
+            for (const accountType of accountTypes) {
+                const prefix = `${accountType}-`;
+                const hasActiveCalendars = this.activeCalendarIds.some(id => id.startsWith(prefix));
+
+                if (!hasActiveCalendars) {
+                    await this.autoEnableAllCalendars(accountType);
+                }
+            }
+
+        } catch (error) {
+            logger.warn('Failed to auto-enable new account calendars', error);
+        }
+    }
+
+    // =========================================================================
+    // ACCOUNT-PREFIXED ID HELPERS
+    // =========================================================================
+
+    /**
+     * Create account-prefixed calendar ID
+     */
+    createPrefixedId(accountType, calendarId) {
+        return `${accountType}-${calendarId}`;
+    }
+
+    /**
+     * Parse account-prefixed calendar ID
+     */
+    parsePrefixedId(prefixedId) {
+        const firstDashIndex = prefixedId.indexOf('-');
+        if (firstDashIndex === -1) {
+            logger.warn('Invalid prefixed ID format', { prefixedId });
+            return { accountType: 'primary', calendarId: prefixedId };
+        }
+        const accountType = prefixedId.substring(0, firstDashIndex);
+        const calendarId = prefixedId.substring(firstDashIndex + 1);
+        return { accountType, calendarId };
+    }
+
+    // =========================================================================
+    // BACKGROUND REFRESH (Delegates to RefreshManager)
+    // =========================================================================
+
+    /**
+     * Start automatic background refresh
+     */
+    startAutoRefresh(intervalMs = 30 * 60 * 1000) {
+        this.refreshManager.startAutoRefresh(intervalMs);
+    }
+
+    /**
+     * Stop automatic background refresh
+     */
+    stopAutoRefresh() {
+        this.refreshManager.stopAutoRefresh();
+    }
+
+    /**
+     * Manually trigger a refresh
+     */
+    async triggerRefresh() {
+        return this.refreshManager.triggerRefresh();
+    }
+
+    // =========================================================================
+    // CONVENIENCE METHODS (Delegates to EventProcessor)
+    // =========================================================================
+
+    /**
+     * Normalize all-day event (delegates to EventProcessor)
+     * Kept for backward compatibility
+     */
+    normalizeAllDayEvent(event) {
+        return this.processor.cleanEventData([event])[0];
+    }
+
+    /**
+     * Format date safely (delegates to EventProcessor)
+     * Kept for backward compatibility
      */
     formatDateSafe(date) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
+        return this.processor.formatDateSafe(date);
     }
 }
 
-// Export singleton instance (will be initialized by app with edgeClient)
+// Export singleton instance
 let calendarServiceInstance = null;
 
 export function initializeCalendarService(edgeClient) {

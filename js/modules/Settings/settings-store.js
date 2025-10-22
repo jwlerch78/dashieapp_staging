@@ -61,6 +61,9 @@ export class SettingsStore {
                 logger.verbose('Applying theme from Settings Store', { theme });
                 window.themeApplier.applyTheme(theme, true);
             }
+
+            // Set up real-time sync for cross-device settings updates
+            this.setupRealtimeSync();
         } catch (error) {
             logger.error('Failed to initialize SettingsStore', error);
             // Fall back to defaults
@@ -219,5 +222,61 @@ export class SettingsStore {
 
         // Format to "The [Name] Family"
         return `The ${cleanName.trim()} Family`;
+    }
+
+    /**
+     * Set up real-time synchronization for cross-device settings updates
+     * @private
+     */
+    setupRealtimeSync() {
+        if (!this.service) {
+            logger.warn('Cannot setup real-time sync - no service available');
+            return;
+        }
+
+        try {
+            const unsubscribe = this.service.subscribeToChanges((newSettings) => {
+                logger.info('Settings updated from remote device');
+
+                // Update in-memory settings
+                this.settings = newSettings;
+
+                // Sync family name to localStorage
+                this.syncFamilyNameToLocalStorage();
+
+                // Apply updated theme if it changed
+                const theme = this.get('interface.theme');
+                if (theme && window.themeApplier) {
+                    window.themeApplier.applyTheme(theme, true);
+                }
+
+                // Publish settings changed event for widgets
+                AppComms.publish(AppComms.events.SETTINGS_CHANGED, this.settings);
+
+                logger.success('Remote settings synchronized successfully');
+            });
+
+            // Store unsubscribe function for cleanup
+            this.unsubscribeRealtime = unsubscribe;
+
+            logger.success('Real-time settings sync initialized');
+        } catch (error) {
+            logger.warn('Failed to setup real-time sync', error);
+        }
+    }
+
+    /**
+     * Cleanup resources
+     */
+    cleanup() {
+        if (this.unsubscribeRealtime) {
+            this.unsubscribeRealtime();
+            this.unsubscribeRealtime = null;
+            logger.debug('Real-time sync cleaned up');
+        }
+
+        if (this.service) {
+            this.service.unsubscribe();
+        }
     }
 }

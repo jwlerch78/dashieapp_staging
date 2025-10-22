@@ -14,11 +14,15 @@ const logger = createLogger('SettingsService');
  * Strategy:
  * - READ: Try Supabase first (if authenticated), fall back to localStorage, then defaults
  * - WRITE: Always write to localStorage first (fast), then Supabase (if authenticated)
+ * - SYNC: Use Supabase broadcast channels to sync changes across devices
  * - This ensures offline capability and data redundancy
  */
 export class SettingsService {
     constructor(edgeClient = null) {
         this.edgeClient = edgeClient;
+        this.realtimeSubscription = null;
+        this.userId = null;
+        this.supabase = null;
     }
 
     /**
@@ -27,7 +31,14 @@ export class SettingsService {
      */
     setEdgeClient(edgeClient) {
         this.edgeClient = edgeClient;
-        logger.verbose('EdgeClient set for settings service');
+        this.userId = edgeClient?.userId;
+
+        // Get Supabase client for broadcast channels
+        if (window.supabase) {
+            this.supabase = window.supabase;
+        }
+
+        logger.verbose('EdgeClient set for settings service', { userId: this.userId });
     }
 
     /**
@@ -128,6 +139,9 @@ export class SettingsService {
                     await this.edgeClient.saveSettings(settings);
                     result.database = true;
                     logger.success('Settings saved to database');
+
+                    // Broadcast change to other devices
+                    await this.broadcastChange();
                 } catch (dbError) {
                     logger.warn('Database save failed (localStorage backup available)', dbError);
                     result.errors.push({ location: 'database', error: dbError.message });
@@ -267,6 +281,92 @@ export class SettingsService {
         } catch (error) {
             logger.error('Failed to clear settings', error);
             throw error;
+        }
+    }
+
+    /**
+     * Set up real-time synchronization using Supabase broadcast channels
+     * @param {Function} callback - Callback function to handle settings updates
+     * @returns {Function|null} Unsubscribe function or null
+     */
+    subscribeToChanges(callback) {
+        if (!this.userId || !this.supabase) {
+            logger.warn('Cannot subscribe to changes - missing userId or supabase client');
+            return null;
+        }
+
+        logger.debug('Setting up broadcast subscription', { userId: this.userId });
+
+        const channelName = `user_settings_${this.userId}`;
+
+        this.realtimeSubscription = this.supabase
+            .channel(channelName)
+            .on('broadcast', { event: 'settings-changed' }, async (payload) => {
+                logger.debug('Broadcast received - reloading settings', payload);
+
+                try {
+                    // Reload settings from database when broadcast received
+                    const settings = await this.load();
+                    if (settings) {
+                        this._saveToLocalStorage(settings);
+                        callback(settings);
+                        logger.info('Settings synchronized from remote device');
+                    }
+                } catch (error) {
+                    logger.error('Failed to reload settings after broadcast', error);
+                }
+            })
+            .subscribe();
+
+        logger.success('Real-time sync enabled');
+
+        return () => {
+            if (this.realtimeSubscription) {
+                this.realtimeSubscription.unsubscribe();
+                this.realtimeSubscription = null;
+                logger.debug('Broadcast subscription cleaned up');
+            }
+        };
+    }
+
+    /**
+     * Broadcast settings change to other devices
+     * @private
+     */
+    async broadcastChange() {
+        if (!this.userId || !this.supabase) {
+            logger.debug('Skipping broadcast - missing userId or supabase client');
+            return;
+        }
+
+        try {
+            const channelName = `user_settings_${this.userId}`;
+            const channel = this.supabase.channel(channelName);
+
+            await channel.send({
+                type: 'broadcast',
+                event: 'settings-changed',
+                payload: {
+                    userId: this.userId,
+                    timestamp: Date.now()
+                }
+            });
+
+            logger.debug('Broadcast sent: settings-changed');
+        } catch (error) {
+            logger.warn('Failed to broadcast settings change', error);
+            // Don't throw - broadcast is non-critical
+        }
+    }
+
+    /**
+     * Unsubscribe from real-time updates
+     */
+    unsubscribe() {
+        if (this.realtimeSubscription) {
+            this.realtimeSubscription.unsubscribe();
+            this.realtimeSubscription = null;
+            logger.debug('Unsubscribed from settings changes');
         }
     }
 }

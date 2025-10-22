@@ -35,6 +35,7 @@ export class CalendarWidget {
 
     this.calendarData = { events: [], calendars: [], lastUpdated: null };
     this.isDataLoaded = false;
+    this.midnightTimer = null;
     this.connectionStatus = 'connecting';
     this.currentTheme = null;
     this.isFocused = false;
@@ -513,7 +514,9 @@ export class CalendarWidget {
       this.updateLastUpdatedDisplay();
     }, 60000); // Update every 60 seconds
 
-   
+    // Set up midnight detection timer
+    this.setupMidnightTimer();
+
     // Render events in weekly view
     this.weekly.renderEvents(this.calendarData);
     
@@ -1002,6 +1005,66 @@ export class CalendarWidget {
     } catch (error) {
       logger.error('Failed to save view mode setting', error);
     }
+  }
+
+  /**
+   * Set up timer to detect midnight and update calendar
+   * Recalculates daily to handle DST changes
+   */
+  setupMidnightTimer() {
+    // Clear existing timer if any
+    if (this.midnightTimer) {
+      clearTimeout(this.midnightTimer);
+    }
+
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setHours(24, 0, 0, 0); // Next midnight
+
+    const msUntilMidnight = tomorrow - now;
+
+    logger.debug('Setting up midnight timer', {
+      now: now.toISOString(),
+      midnight: tomorrow.toISOString(),
+      msUntilMidnight: msUntilMidnight
+    });
+
+    this.midnightTimer = setTimeout(() => {
+      logger.info('Midnight detected - updating calendar to new day');
+
+      // Update current date to new day
+      this.currentDate = new Date();
+      this.homeDate = new Date();
+      this.homeDate.setHours(0, 0, 0, 0);
+      this.isAtHome = true;
+
+      // Re-render calendar with new date
+      this.render();
+
+      // Refresh data for new day
+      this.loadCalendarData();
+
+      // Set up timer for next midnight
+      this.setupMidnightTimer();
+
+      logger.success('Calendar updated for new day');
+    }, msUntilMidnight);
+  }
+
+  /**
+   * Clean up resources when widget is removed
+   */
+  cleanup() {
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval);
+    }
+    if (this.displayUpdateInterval) {
+      clearInterval(this.displayUpdateInterval);
+    }
+    if (this.midnightTimer) {
+      clearTimeout(this.midnightTimer);
+    }
+    logger.debug('Calendar widget cleanup complete');
   }
 
 }

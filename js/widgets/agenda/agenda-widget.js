@@ -14,6 +14,7 @@ export class AgendaWidget {
     this.isDataLoaded = false;
     this.connectionStatus = 'connecting';
     this.currentTheme = null;
+    this.midnightTimer = null;
 
     // Event selection state - Two-part state model
     this.hasFocus = false;  // FOCUSED state (widget centered, has attention)
@@ -36,6 +37,7 @@ export class AgendaWidget {
     this.setupEventListeners();
     this.detectAndApplyInitialTheme();
     this.updateConnectionStatus('connecting');
+    this.setupMidnightTimer();
   }
 
   /**
@@ -824,6 +826,51 @@ export class AgendaWidget {
         }
       }
     }
+  }
+
+  /**
+   * Set up timer to detect midnight and refresh agenda for new day
+   * Recalculates daily to handle DST changes
+   */
+  setupMidnightTimer() {
+    // Clear existing timer if any
+    if (this.midnightTimer) {
+      clearTimeout(this.midnightTimer);
+    }
+
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setHours(24, 0, 0, 0); // Next midnight
+
+    const msUntilMidnight = tomorrow - now;
+
+    logger.debug('Setting up midnight timer', {
+      now: now.toISOString(),
+      midnight: tomorrow.toISOString(),
+      msUntilMidnight: msUntilMidnight
+    });
+
+    this.midnightTimer = setTimeout(() => {
+      logger.info('Midnight detected - refreshing agenda for new day');
+
+      // Re-render agenda with new day's events
+      this.render();
+
+      // Set up timer for next midnight
+      this.setupMidnightTimer();
+
+      logger.success('Agenda refreshed for new day');
+    }, msUntilMidnight);
+  }
+
+  /**
+   * Clean up resources when widget is removed
+   */
+  cleanup() {
+    if (this.midnightTimer) {
+      clearTimeout(this.midnightTimer);
+    }
+    logger.debug('Agenda widget cleanup complete');
   }
 }
 
