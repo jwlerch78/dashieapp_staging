@@ -172,7 +172,9 @@ export class WidgetDataManager {
                     const calendarData = await this.loadCalendarData();
 
                     // Send data to widgets (cache or fresh)
-                    if (calendarData) {
+                    // Only send if background refresh is NOT in progress
+                    // (if it is, the background refresh will send the fresh data)
+                    if (calendarData && !this._backgroundRefreshInProgress) {
                         const payload = {
                             dataType: 'calendar',
                             calendars: calendarData.calendars || [],
@@ -188,6 +190,8 @@ export class WidgetDataManager {
                             calendars: payload.calendars.length,
                             events: payload.events.length
                         });
+                    } else if (this._backgroundRefreshInProgress) {
+                        logger.debug('Background refresh in progress, will send fresh data when ready', { widgetId });
                     }
                     break;
 
