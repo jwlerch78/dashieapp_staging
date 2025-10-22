@@ -133,8 +133,13 @@ npx madge --circular js/
 
 **Goal:** Remove unused CSS, consolidate duplicates
 
+
 **Tasks:**
+
 ```bash
+#check CSS logic
+for example, the accent themes have color names, but they are themed and shouldn't have a color that is going to subsequently be changed
+
 # Find unused CSS (use PurgeCSS or manual audit)
 npx purgecss --css css/**/*.css --content js/**/*.js index.html
 

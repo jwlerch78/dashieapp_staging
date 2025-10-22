@@ -98,6 +98,7 @@ body.theme-dark .mobile-header .profile-pic {
   top: 66vh;
   left: 50%;
   transform: translateX(-50%);
+  width: 200px;
 }
 
 .orange-button:disabled {
@@ -112,6 +113,40 @@ body.theme-dark .mobile-header .profile-pic {
 
 .orange-button:not(:disabled):hover {
   box-shadow: 0 6px 16px rgba(238, 152, 40, 0.4);
+}
+
+/* Logout Button - Positioned below Settings button */
+.secondary-button {
+  background: transparent;
+  color: #999999;
+  border: 1px solid #333333;
+  border-radius: 12px;
+  padding: 12px 36px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  position: absolute;
+  top: calc(66vh + 70px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 200px;
+}
+
+.secondary-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.secondary-button:not(:disabled):active {
+  transform: translateX(-50%) scale(0.98);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.secondary-button:not(:disabled):hover {
+  border-color: #666666;
+  color: #CCCCCC;
 }
 
 /* Mobile Loading Bar - Between logo and button */
@@ -189,6 +224,12 @@ body.theme-dark .mobile-progress-text {
     font-size: 17px;
   }
 
+  .secondary-button {
+    top: calc(63vh + 65px);
+    padding: 10px 32px;
+    font-size: 15px;
+  }
+
   .mobile-loading-bar {
     top: calc(10vh + min(200px, 60vw) + 30px);
     max-width: 250px;
@@ -206,6 +247,12 @@ body.theme-dark .mobile-progress-text {
     top: 60vh;
     padding: 12px 36px;
     font-size: 16px;
+  }
+
+  .secondary-button {
+    top: calc(60vh + 60px);
+    padding: 9px 28px;
+    font-size: 14px;
   }
 
   .mobile-loading-bar {
@@ -232,6 +279,12 @@ body.theme-dark .mobile-progress-text {
     font-size: 19px;
   }
 
+  .secondary-button {
+    top: calc(66vh + 75px);
+    padding: 14px 42px;
+    font-size: 17px;
+  }
+
   .mobile-loading-bar {
     top: calc(18vh + min(280px, 75vw) + 50px);
     max-width: 320px;
@@ -251,6 +304,12 @@ body.theme-dark .mobile-progress-text {
     font-size: 15px;
   }
 
+  .secondary-button {
+    top: calc(55vh + 55px);
+    padding: 8px 24px;
+    font-size: 13px;
+  }
+
   .mobile-loading-bar {
     top: calc(5vh + min(140px, 40vw) + 20px);
     max-width: 200px;
@@ -263,8 +322,39 @@ body.theme-dark .mobile-progress-text {
 }
 
 /* Hide dashboard elements when mobile mode is active */
-body.mobile-mode-active #dashboard-container,
-body.mobile-mode-active #oauth-login-screen {
+body.mobile-mode-active #dashboard-container {
   display: none !important;
   visibility: hidden !important;
+}
+
+/* Note: #oauth-login-screen is NOT hidden here - it needs to be visible
+   during authentication on mobile. It will be hidden by hideLoginScreen()
+   in auth-initializer.js after authentication completes */
+
+/* ========================================
+   DISABLE FOCUS STYLES ON MOBILE
+   D-pad focus highlighting is not needed for touchscreen devices
+   ======================================== */
+
+body.mobile-mode-active *:focus,
+body.mobile-mode-active *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+  border-color: inherit !important;
+}
+
+body.mobile-mode-active button:focus,
+body.mobile-mode-active a:focus,
+body.mobile-mode-active input:focus,
+body.mobile-mode-active select:focus,
+body.mobile-mode-active textarea:focus {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* Remove any focus rings from Settings modal and other UI elements */
+body.mobile-mode-active .dashie-modal *:focus,
+body.mobile-mode-active .dashie-modal *:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
 }

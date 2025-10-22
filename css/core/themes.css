@@ -27,7 +27,7 @@ body.theme-dark {
   --accent-orange: #ffaa00;
   --accent-blue: #00aaff;
   --accent-silver: #a8b0b8;
-  --accent-current-time: #00aaff; /* Red - current time indicator & today marker */
+  --accent-current-time: #00aaff; /* current time indicator & today marker */
   --grid-gap-color: #333;
 
   /* ===== GLOW EFFECTS (1 variable) ===== */

@@ -309,9 +309,10 @@ Enhance the focus menu system with:
 - **Menu animations** - Smooth slide-in/fade-in for menu
 - **Menu persistence** - Remember last selected menu item per widget
 
+
 ---
 
-### 4. Enhanced Idle State Animations
+### 5. Enhanced Idle State Animations
 
 **Status:** Planned
 **Estimated Effort:** 1-2 days
@@ -330,25 +331,6 @@ Add subtle animations during idle state:
 
 ## 🔮 Low Priority / Future Features
 
-### 5. Dashboard Themes
-
-Multiple visual themes for Dashboard (beyond light/dark):
-- **Modern Glass** - Frosted glass effect with transparency
-- **Minimalist** - Flat colors, no shadows
-- **Retro** - Skeuomorphic design with textures
-- **Custom** - User-uploaded background image
-
----
-
-### 6. Widget Marketplace
-
-Allow users to discover and install third-party widgets:
-- Widget store interface
-- Widget ratings and reviews
-- Automatic updates
-- Sandboxed execution for security
-
----
 
 ### 7. Voice Control Integration
 

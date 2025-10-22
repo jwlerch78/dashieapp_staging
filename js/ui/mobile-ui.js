@@ -175,6 +175,46 @@ export function setupMobileSettings() {
 }
 
 /**
+ * Setup mobile Logout button
+ * Wires the button to log out the user
+ */
+export function setupMobileLogout() {
+  const logoutBtn = document.getElementById('mobile-logout-btn');
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      logger.info('Mobile Logout button clicked');
+
+      // Confirm logout
+      const confirmed = confirm('Are you sure you want to log out?');
+      if (!confirmed) {
+        return;
+      }
+
+      try {
+        if (window.sessionManager) {
+          logger.info('Logging out user...');
+          await window.sessionManager.signOut();
+          logger.success('User logged out successfully');
+
+          // Reload the page to return to login screen
+          window.location.reload();
+        } else {
+          logger.error('SessionManager not available on window object');
+        }
+      } catch (error) {
+        logger.error('Failed to log out', error);
+        alert('Failed to log out. Please try again.');
+      }
+    });
+
+    logger.debug('Mobile Logout button wired up');
+  } else {
+    logger.warn('Mobile Logout button not found');
+  }
+}
+
+/**
  * Initialize mobile UI after authentication
  * Loads user data and wires up interactivity
  */
@@ -222,8 +262,15 @@ export async function initializeMobileUI() {
     logger.warn('Could not get profile picture', error);
   }
 
-  // Wire up Settings button
+  // Wire up Settings and Logout buttons
   setupMobileSettings();
+  setupMobileLogout();
+
+  // Enable the logout button
+  const logoutBtn = document.getElementById('mobile-logout-btn');
+  if (logoutBtn) {
+    logoutBtn.disabled = false;
+  }
 
   logger.success('Mobile UI initialized');
 }
