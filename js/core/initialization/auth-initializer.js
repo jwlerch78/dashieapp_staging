@@ -58,7 +58,7 @@ function showLoginError(message) {
 /**
  * UI Helper: Show loading screen with optional text
  */
-function showLoadingScreen(text = 'Loading Dashboard') {
+function showLoadingScreen(text = 'Loading your data...') {
   document.getElementById('sign-in-state').style.display = 'none';
   document.getElementById('loading-dashboard-state').style.display = 'flex';
   document.getElementById('loading-dashboard-text').textContent = text;
@@ -247,17 +247,35 @@ export async function initializeAuth(onAuthComplete) {
       return true;
     }
 
+    // Check if returning from hybrid device flow (phone authorized TV)
+    const hybridAuthComplete = sessionStorage.getItem('hybrid-auth-complete');
+    if (hybridAuthComplete) {
+      logger.info('Hybrid auth complete detected - skipping login screen');
+      sessionStorage.removeItem('hybrid-auth-complete');
+
+      // Show loading screen immediately
+      showLoadingScreen('Loading your data...');
+
+      // Setup loading cancel button
+      setupLoadingCancelButton();
+
+      // Continue with session initialization below
+      // (don't return early - let the normal auth flow proceed)
+    }
+
     // Check if we're in an OAuth callback flow (redirect from Google)
     const isOAuthCallback = urlParams.has('code') && urlParams.has('state');
 
-    // Setup loading cancel button first
-    setupLoadingCancelButton();
+    // Setup loading cancel button first (if not already set up)
+    if (!hybridAuthComplete) {
+      setupLoadingCancelButton();
+    }
 
     // If OAuth callback detected, immediately show loading dashboard state
     if (isOAuthCallback) {
       logger.debug('OAuth callback detected, showing loading dashboard state');
       showLoadingScreen('Completing sign-in...');
-    } else {
+    } else if (!hybridAuthComplete) {
       updateLoginStatus('Setting up authentication system...');
     }
 
@@ -278,7 +296,7 @@ export async function initializeAuth(onAuthComplete) {
 
       // Show loading dashboard state if not already shown
       if (!isOAuthCallback) {
-        showLoadingScreen('Loading Dashboard');
+        showLoadingScreen('Loading your data...');
       }
 
       // Update welcome message with user's name
@@ -337,7 +355,7 @@ export async function initializeAuth(onAuthComplete) {
         // Sign-in successful
         if (signInResult && signInResult.email) {
           // Show loading dashboard state
-          showLoadingScreen('Loading Dashboard');
+          showLoadingScreen('Loading your data...');
 
           // Update welcome message with user's name
           const welcomeEl = document.getElementById('loading-dashboard-welcome');

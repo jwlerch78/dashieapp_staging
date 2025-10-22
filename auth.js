@@ -49,7 +49,11 @@ class PhoneAuthHandler {
 
         // Auto-redirect to dashboard after showing success
         setTimeout(() => {
-          logger.info('Redirecting to dashboard...');
+          logger.info('Redirecting to mobile interface...');
+
+          // Set flag so index.html knows this is a completed auth (skip login screen)
+          sessionStorage.setItem('hybrid-auth-complete', 'true');
+
           window.location.href = '/';
         }, 1500);
         return;

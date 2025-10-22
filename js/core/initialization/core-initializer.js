@@ -22,6 +22,69 @@ import '../../utils/modal-navigation-manager.js'; // Initialize global dashieMod
 const logger = createLogger('CoreInitializer');
 
 /**
+ * Wait for critical widgets to finish loading before hiding login screen
+ * @param {string[]} widgetIds - Array of widget IDs to wait for
+ * @param {number} timeout - Timeout in milliseconds (default 10000)
+ * @returns {Promise<void>}
+ */
+async function waitForWidgetsToLoad(widgetIds, timeout = 10000) {
+  return new Promise((resolve) => {
+    const loadedWidgets = new Set();
+    let handler = null;
+
+    logger.debug('Waiting for widgets to load', { widgetIds, timeout });
+
+    const checkAllLoaded = () => {
+      if (loadedWidgets.size === widgetIds.length) {
+        logger.success('All critical widgets loaded', {
+          loadedWidgets: Array.from(loadedWidgets),
+          timeElapsed: Date.now() - startTime
+        });
+        cleanup();
+        resolve();
+      }
+    };
+
+    const cleanup = () => {
+      if (handler) {
+        window.removeEventListener('message', handler);
+        handler = null;
+      }
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+    };
+
+    // Listen for widget-ready messages
+    handler = (event) => {
+      if (event.data?.type === 'widget-ready') {
+        const widgetId = event.data.widgetId;
+        if (widgetIds.includes(widgetId)) {
+          logger.debug('Widget loaded', { widgetId });
+          loadedWidgets.add(widgetId);
+          checkAllLoaded();
+        }
+      }
+    };
+
+    window.addEventListener('message', handler);
+
+    const startTime = Date.now();
+
+    // Timeout after specified milliseconds
+    const timeoutId = setTimeout(() => {
+      logger.warn('Widget loading timeout - proceeding anyway', {
+        loadedWidgets: Array.from(loadedWidgets),
+        expectedWidgets: widgetIds,
+        timeElapsed: Date.now() - startTime
+      });
+      cleanup();
+      resolve();
+    }, timeout);
+  });
+}
+
+/**
  * Initialize core components and modules
  * @param {object} options - Initialization options
  * @param {boolean} options.bypassAuth - Skip auth-dependent features
@@ -148,7 +211,15 @@ export async function initializeCore(options = {}) {
         }
       }
 
-      // STEP 4: Initialize Welcome module and check if onboarding is needed
+      // STEP 4: Wait for critical widgets to finish loading before hiding login screen
+      if (!bypassAuth) {
+        logger.info('Waiting for critical widgets to load data...');
+        const criticalWidgets = ['calendar', 'agenda', 'photos'];
+        await waitForWidgetsToLoad(criticalWidgets, 10000);
+        logger.verbose('Critical widgets loaded - ready to show dashboard');
+      }
+
+      // STEP 5: Initialize Welcome module and check if onboarding is needed
       await welcome.initialize();
       logger.verbose('Welcome module initialized');
     } else {
@@ -162,35 +233,33 @@ export async function initializeCore(options = {}) {
       logger.verbose('Mobile mode: Settings and Modals initialized, skipping widgets');
     }
 
-    // STEP 5: Hide login screen after initialization
-    // On desktop: wait for widgets to receive theme messages
+    // STEP 6: Hide login screen after widgets are loaded
+    // On desktop: widgets are already loaded (we waited above)
     // On mobile: hide immediately
-    setTimeout(async () => {
-      if (!bypassAuth) {
-        const { hideLoginScreen } = await import('./auth-initializer.js');
-        hideLoginScreen();
-        logger.verbose('Login screen hidden - initialization complete');
-      } else {
-        // In bypass mode, just show dashboard immediately (no login screen)
-        const loginScreen = document.getElementById('oauth-login-screen');
-        const dashboardContainer = document.getElementById('dashboard-container');
-        if (loginScreen) loginScreen.style.display = 'none';
-        if (dashboardContainer && !isMobile) dashboardContainer.classList.add('visible');
-        logger.verbose('Dashboard shown (bypass mode)');
-      }
+    if (!bypassAuth) {
+      const { hideLoginScreen } = await import('./auth-initializer.js');
+      hideLoginScreen();
+      logger.verbose('Login screen hidden - initialization complete');
+    } else {
+      // In bypass mode, just show dashboard immediately (no login screen)
+      const loginScreen = document.getElementById('oauth-login-screen');
+      const dashboardContainer = document.getElementById('dashboard-container');
+      if (loginScreen) loginScreen.style.display = 'none';
+      if (dashboardContainer && !isMobile) dashboardContainer.classList.add('visible');
+      logger.verbose('Dashboard shown (bypass mode)');
+    }
 
-      // STEP 6: Check if welcome wizard should be shown for new users (desktop/TV only)
-      if (!isMobile && !bypassAuth && welcome.shouldShow()) {
-        logger.info('New user detected - showing welcome wizard');
-        await welcome.activate();
+    // STEP 7: Check if welcome wizard should be shown for new users (desktop/TV only)
+    if (!isMobile && !bypassAuth && welcome.shouldShow()) {
+      logger.info('New user detected - showing welcome wizard');
+      await welcome.activate();
+    } else {
+      if (isMobile) {
+        logger.debug('Welcome wizard skipped (mobile mode)');
       } else {
-        if (isMobile) {
-          logger.debug('Welcome wizard skipped (mobile mode)');
-        } else {
-          logger.debug('Welcome wizard skipped (bypass mode or already completed)');
-        }
+        logger.debug('Welcome wizard skipped (bypass mode or already completed)');
       }
-    }, isMobile ? 100 : 300); // Shorter delay for mobile (no widgets to wait for)
+    }
 
     // Detect platform
     const platform = getPlatformDetector();
