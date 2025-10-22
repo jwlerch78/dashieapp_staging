@@ -207,13 +207,24 @@ export class ThemeOverlayElementCreator {
         styleEl.textContent = keyframes;
         document.head.appendChild(styleEl);
 
-        // For periodic visibility, animation runs once per cycle
-        // For always visible, animation loops infinitely
-        const iterations = visibility?.type === 'periodic' ? '1' : 'infinite';
+        // Determine iterations and fill mode based on visibility type
+        let iterations, fillMode;
 
-        // Use 'forwards' fill-mode so element stays at final position after animation completes
-        // This prevents the "jump back" issue where the bat would return to starting position
-        const fillMode = visibility?.type === 'periodic' ? 'forwards' : 'none';
+        if (visibility?.type === 'periodic') {
+            // Periodic: Run once per cycle, stay at end position
+            iterations = '1';
+            fillMode = 'forwards';
+        } else if (visibility?.type === 'always') {
+            // Always visible: Loop infinitely, no fill mode needed
+            iterations = 'infinite';
+            fillMode = 'none';
+        } else {
+            // No visibility (rotation-controlled): Run once, stay at end position
+            // This prevents elements from snapping back to start after animation completes
+            iterations = '1';
+            fillMode = 'forwards';
+        }
+
         element.style.animation = `${animName} ${movement.duration}s ${movement.easing} 0s ${iterations} normal ${fillMode} running`;
 
         // Store animation name for restarting

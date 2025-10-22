@@ -44,7 +44,7 @@ const ROTATION_SEQUENCES = {
         { blank: 2.5 },
         { element: 'floating-witches-hat', duration: 6 },
         { blank: 2.5 },
-        { element: 'bat-drop-1', duration: 12 }
+        { element: 'bat-drop-1', duration: 6 }
     ]
 };
 
@@ -94,7 +94,7 @@ const ELEMENTS = [
         src: '/assets/themes/halloween/animated/Graveyard.gif',
         container: 'dashboard',
         size: { width: '50px' },
-        position: { type: 'static-xy', x: '58%', y: '0%' },
+        position: { type: 'static-xy', x: '58%', y: '1%' },
         movement: { type: 'none' }
     },
     {
@@ -110,7 +110,7 @@ const ELEMENTS = [
         src: '/assets/themes/halloween/animated/Pumpkin-bat.gif',
         container: 'dashboard',
         size: { width: '50px' },
-        position: { type: 'static-xy', x: '58%', y: '0%' },
+        position: { type: 'static-xy', x: '58%', y: '1%' },
         movement: { type: 'none' }
     },
     {
@@ -118,7 +118,7 @@ const ELEMENTS = [
         src: '/assets/themes/halloween/animated/pumpkin-glow.gif',
         container: 'dashboard',
         size: { width: '50px' },
-        position: { type: 'static-xy', x: '58%', y: '0%' },
+        position: { type: 'static-xy', x: '58%', y: '1%' },
         movement: { type: 'none' }
     },
 
@@ -165,7 +165,6 @@ const ELEMENTS = [
         movement: { type: 'right', distance: '50vw', duration: 6, easing: 'linear' }
     },
 
-    // Existing periodic bat drop
     {
         id: 'bat-drop-1',
         src: '/assets/themes/halloween/animated/bat-flying.gif',

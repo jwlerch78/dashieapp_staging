@@ -922,6 +922,16 @@ export class SettingsCalendarPage extends SettingsPageBase {
 
             logger.success(`🔍 DEBUG: Calendar ${newActiveState ? 'enabled' : 'disabled'}`, { prefixedId });
 
+            // Broadcast to other dashboards that calendar settings changed
+            if (window.dashboardSync) {
+                window.dashboardSync.broadcastCalendarUpdate({
+                    action: 'toggle',
+                    calendarId: prefixedId,
+                    enabled: newActiveState
+                });
+                logger.debug('Broadcast calendar toggle to other dashboards', { prefixedId, enabled: newActiveState });
+            }
+
         } catch (error) {
             logger.error('Failed to toggle calendar', { prefixedId, error });
         }

@@ -78,6 +78,39 @@ export async function initializeCore(options = {}) {
     await ActionRouter.initialize();
     await WidgetMessenger.initialize();
 
+    // Initialize cross-dashboard synchronization
+    const { dashboardSync } = await import('../../services/dashboard-sync-service.js');
+    dashboardSync.initialize();
+    window.dashboardSync = dashboardSync; // Expose for other modules
+    logger.verbose('Dashboard sync service initialized');
+
+    // Setup cross-dashboard listeners for theme changes
+    if (themeApplier && themeApplier.setupCrossDashboardListener) {
+      themeApplier.setupCrossDashboardListener();
+      logger.verbose('Cross-dashboard theme listener setup');
+    }
+
+    // Setup cross-dashboard listeners for photo and calendar updates
+    dashboardSync.on('photos-updated', (details) => {
+      logger.info('Photos updated in another dashboard', details);
+
+      // Reload photos data for photos widget
+      import('../widget-data-manager.js').then(({ getWidgetDataManager }) => {
+        const widgetDataManager = getWidgetDataManager();
+        widgetDataManager.loadPhotosData();
+      });
+    });
+
+    dashboardSync.on('calendar-updated', (details) => {
+      logger.info('Calendar updated in another dashboard', details);
+
+      // Reload calendar data for calendar/agenda widgets
+      import('../widget-data-manager.js').then(({ getWidgetDataManager }) => {
+        const widgetDataManager = getWidgetDataManager();
+        widgetDataManager.refreshCalendarData();
+      });
+    });
+
     // Initialize Dashboard module
     await Dashboard.initialize();
     ActionRouter.registerModule('dashboard', DashboardInputHandler);

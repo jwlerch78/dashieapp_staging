@@ -658,6 +658,15 @@ export class PhotosSettingsModal {
         total: files.length
       });
 
+      // Broadcast to other dashboards if photos were successfully uploaded
+      if (successful > 0 && window.parent.dashboardSync) {
+        window.parent.dashboardSync.broadcastPhotosUpdate({
+          action: 'upload',
+          count: successful
+        });
+        logger.debug('Broadcast photo upload to other dashboards', { count: successful });
+      }
+
       event.target.value = '';
 
     } catch (error) {
@@ -761,11 +770,20 @@ export class PhotosSettingsModal {
         logger.debug('Sent empty photos data to widget');
       }
 
+      // Broadcast to other dashboards that photos were deleted
+      if (window.parent.dashboardSync) {
+        window.parent.dashboardSync.broadcastPhotosUpdate({
+          action: 'delete-all',
+          count: result.photo_count
+        });
+        logger.debug('Broadcast photo deletion to other dashboards', { count: result.photo_count });
+      }
+
       // Navigate back to main screen
       this.navigateBack();
 
       logger.info('Delete all photos completed successfully');
-      
+
     } catch (error) {
       logger.error('Failed to delete all photos', error);
       hideDeleteProgress();

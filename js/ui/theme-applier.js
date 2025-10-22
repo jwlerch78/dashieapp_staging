@@ -201,10 +201,37 @@ class ThemeApplier {
       }
     });
 
+    // Broadcast to other dashboard tabs/windows
+    if (window.dashboardSync) {
+      window.dashboardSync.broadcastThemeChange(theme);
+    }
+
     logger.debug('Theme change broadcasted', {
       theme,
-      widgetCount: widgetIframes.length
+      widgetCount: widgetIframes.length,
+      crossDashboard: !!window.dashboardSync
     });
+  }
+
+  /**
+   * Setup listener for theme changes from other dashboards
+   */
+  setupCrossDashboardListener() {
+    if (window.dashboardSync) {
+      window.dashboardSync.on('theme-changed', ({ theme }) => {
+        logger.info('Theme change received from another dashboard', { theme });
+
+        // Apply theme without saving (already saved by the other dashboard)
+        // and without broadcasting (to avoid infinite loop)
+        if (theme !== this.currentTheme) {
+          this.currentTheme = theme;
+          this.applyThemeToDOM(theme, this.currentTheme);
+          this.broadcastThemeChange(theme); // Broadcast to widgets only
+        }
+      });
+
+      logger.debug('Cross-dashboard theme listener setup');
+    }
   }
 
   /**

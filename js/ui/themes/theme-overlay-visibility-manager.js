@@ -71,7 +71,16 @@ export class ThemeOverlayVisibilityManager {
         const { element, config } = elementData;
         const { visibility } = config;
 
+        // Generate unique instance ID to prevent old cycles from interfering
+        const instanceId = Date.now() + Math.random();
+        elementData.periodicInstanceId = instanceId;
+
         const cycle = () => {
+            // Validate this cycle belongs to the current instance
+            if (elementData.periodicInstanceId !== instanceId) {
+                logger.debug(`Ignoring stale periodic cycle for ${config.id} (old instance ${instanceId})`);
+                return;
+            }
             logger.debug(`Starting cycle for ${config.id}`);
 
             // Show (but keep invisible for a moment while we reposition)
@@ -127,8 +136,13 @@ export class ThemeOverlayVisibilityManager {
                 logger.debug(`Scheduling restart for ${config.id} in ${visibility.offDuration}s`);
 
                 const nextCycleTimeout = setTimeout(() => {
-                    logger.debug(`Restarting cycle for ${config.id} after ${visibility.offDuration}s wait`);
-                    cycle();
+                    // Validate instance before restarting cycle
+                    if (elementData.periodicInstanceId === instanceId) {
+                        logger.debug(`Restarting cycle for ${config.id} after ${visibility.offDuration}s wait`);
+                        cycle();
+                    } else {
+                        logger.debug(`Skipping periodic cycle restart for ${config.id} (old instance ${instanceId})`);
+                    }
                 }, restartDelay);
                 elementData.timeouts.push(nextCycleTimeout);
             }, visibility.onDuration * 1000);
