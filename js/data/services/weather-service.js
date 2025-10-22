@@ -3,6 +3,7 @@
 // Extracted from clock widget for proper service architecture
 
 import { createLogger } from '../../utils/logger.js';
+import { geocodeZipCodeCached } from '../../utils/geocoding-helper.js';
 
 const logger = createLogger('WeatherService');
 
@@ -163,46 +164,20 @@ export class WeatherService {
     try {
       logger.debug('Converting zip to coordinates', { zipCode });
 
-      // Check cache first
-      const cacheKey = `coords-${zipCode}`;
-      const cached = this._getFromCache(cacheKey);
-      if (cached) {
-        logger.debug('Coordinates from cache', { zipCode });
-        return cached;
-      }
+      // Use existing geocoding helper (Zippopotam.us with persistent cache)
+      // This is CORS-friendly and already handles caching
+      const result = await geocodeZipCodeCached(zipCode);
 
-      // Fetch from Nominatim API
-      const url = `https://nominatim.openstreetmap.org/search?postalcode=${zipCode}&country=US&format=json&limit=1`;
-
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'DashieApp/1.0' // Required by Nominatim
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error(`Nominatim API returned ${response.status}`);
-      }
-
-      const data = await response.json();
-
-      if (!data || data.length === 0) {
+      if (!result) {
         throw new Error(`No results found for zip code: ${zipCode}`);
       }
-
-      const result = {
-        latitude: parseFloat(data[0].lat),
-        longitude: parseFloat(data[0].lon),
-        displayName: data[0].display_name
-      };
-
-      // Cache coordinates for 24 hours (they don't change)
-      this._setCache(cacheKey, result, 24 * 60 * 60 * 1000);
 
       logger.success('Coordinates fetched', {
         zipCode,
         latitude: result.latitude,
-        longitude: result.longitude
+        longitude: result.longitude,
+        city: result.city,
+        state: result.state
       });
 
       return result;
