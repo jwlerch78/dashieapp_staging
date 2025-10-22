@@ -1,7 +1,16 @@
-// js/widgets/calendar/calendar.js
-// Calendar Widget initialization script
+// js/widgets/Calendar/calendar.js
+// Calendar Widget Entry Point
+// Merged from calendar.js + index.js
 
-import { CalendarWidget } from './calendar-widget.js';
+// Re-export widget classes for external use
+export { CalendarWidget } from './core/calendar-widget.js';
+export { CalendarConfig } from './renderers/calendar-config.js';
+export { CalendarEvents } from './renderers/calendar-events.js';
+export { CalendarWeekly } from './renderers/calendar-weekly.js';
+export { CalendarMonthly } from './renderers/calendar-monthly.js';
+
+// Import for internal initialization
+import { CalendarWidget } from './core/calendar-widget.js';
 
 // Initialize logger (same pattern as clock widget)
 const logger = {
@@ -30,9 +39,8 @@ async function init() {
   // Wait for CalendarService to be available
   await waitForCalendarService();
 
-  // Create and initialize calendar widget
+  // Create calendar widget (initializes automatically in constructor)
   const calendar = new CalendarWidget(container);
-  await calendar.initialize();
 
   // Listen for theme changes from parent
   window.addEventListener('message', (event) => {
