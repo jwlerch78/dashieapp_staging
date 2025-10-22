@@ -222,12 +222,14 @@ body.theme-dark .mobile-progress-text {
     top: 63vh;
     padding: 14px 40px;
     font-size: 17px;
+    width: 180px;
   }
 
   .secondary-button {
     top: calc(63vh + 65px);
     padding: 10px 32px;
     font-size: 15px;
+    width: 180px;
   }
 
   .mobile-loading-bar {
@@ -247,12 +249,14 @@ body.theme-dark .mobile-progress-text {
     top: 60vh;
     padding: 12px 36px;
     font-size: 16px;
+    width: 160px;
   }
 
   .secondary-button {
     top: calc(60vh + 60px);
     padding: 9px 28px;
     font-size: 14px;
+    width: 160px;
   }
 
   .mobile-loading-bar {
@@ -277,12 +281,14 @@ body.theme-dark .mobile-progress-text {
     top: 66vh;
     padding: 18px 56px;
     font-size: 19px;
+    width: 220px;
   }
 
   .secondary-button {
     top: calc(66vh + 75px);
     padding: 14px 42px;
     font-size: 17px;
+    width: 220px;
   }
 
   .mobile-loading-bar {
@@ -302,12 +308,14 @@ body.theme-dark .mobile-progress-text {
     top: 55vh;
     padding: 10px 32px;
     font-size: 15px;
+    width: 180px;
   }
 
   .secondary-button {
     top: calc(55vh + 55px);
     padding: 8px 24px;
     font-size: 13px;
+    width: 180px;
   }
 
   .mobile-loading-bar {
