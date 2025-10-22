@@ -144,7 +144,17 @@
   flex-shrink: 0;
   /* Icon color controlled by theme variable */
   filter: var(--sidebar-icon-filter);
-  transition: transform 0.2s ease, filter 0.3s ease;
+  transition: transform 0.2s ease, filter 0.3s ease, margin-left 0.3s ease;
+  /* When collapsed, shift icon left to compensate for border and center it */
+  /* Sidebar collapsed width: 60px, icon: 20px, should be at 20px from left */
+  /* Currently at: 6px (border) + 8px (padding) = 14px */
+  /* Need to shift right by 6px to center: (60-20)/2 = 20px target */
+  margin-left: 6px;
+}
+
+/* When expanded, remove the margin offset */
+.dashboard-sidebar--expanded .dashboard-menu__icon {
+  margin-left: 0;
 }
 
 .dashboard-menu__label {

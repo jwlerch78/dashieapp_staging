@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="./css/components/button.css">
   <link rel="stylesheet" href="./css/components/dashie-modal.css">
   <link rel="stylesheet" href="./css/components/theme-overlay.css">
+  <link rel="stylesheet" href="./css/components/mobile-landing.css">
 
   <!-- Module CSS -->
   <link rel="stylesheet" href="./css/modules/login.css">
@@ -95,6 +96,31 @@
           }
         })();
       </script>
+    </div>
+  </div>
+
+  <!-- Mobile Landing Page (shown only on mobile devices) -->
+  <div id="mobile-container" class="mobile-mode" style="display: none;">
+    <div class="mobile-header">
+      <span class="family-name"></span>
+      <img class="profile-pic" src="" alt="Profile" style="display: none;">
+    </div>
+
+    <div class="mobile-content">
+      <img class="dashie-logo" src="./artwork/Dashie_Full_Logo_Orange_Transparent.png" alt="Dashie">
+
+      <!-- Mobile Loading Bar (shown during initialization) -->
+      <div id="mobile-loading-bar" class="mobile-loading-bar">
+        <div class="mobile-progress-container">
+          <div class="mobile-progress-bar">
+            <div id="mobile-progress-fill" class="mobile-progress-fill"></div>
+          </div>
+          <div id="mobile-progress-text" class="mobile-progress-text">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Settings Button (enabled after initialization) -->
+      <button id="mobile-settings-btn" class="orange-button" disabled>Settings</button>
     </div>
   </div>
 

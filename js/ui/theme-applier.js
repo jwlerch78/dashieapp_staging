@@ -152,9 +152,13 @@ class ThemeApplier {
     // Update sidebar logo src based on theme
     this.updateSidebarLogo(theme);
 
-    // Apply theme overlay (Halloween decorations, etc.)
-    if (themeOverlay) {
+    // Apply theme overlay (Halloween decorations, etc.) - skip on mobile
+    const isMobile = document.body.classList.contains('mobile-mode-active');
+    if (themeOverlay && !isMobile) {
       themeOverlay.applyOverlay(theme);
+      logger.debug('Theme overlay applied', { theme });
+    } else if (isMobile) {
+      logger.debug('Skipping theme overlay (mobile mode)');
     }
 
     logger.debug('Theme classes applied to DOM', { theme, cssClass: themeObj.cssClass });

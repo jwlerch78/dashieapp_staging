@@ -5,6 +5,14 @@
 import { createLogger } from './utils/logger.js';
 import consoleCommands from './utils/console-commands.js';
 import { initializeCore } from './core/initialization/core-initializer.js';
+import { getPlatformDetector } from './utils/platform-detector.js';
+import {
+  showMobileLandingPage,
+  showMobileLoadingBar,
+  updateMobileProgress,
+  hideMobileLoadingBar,
+  initializeMobileUI
+} from './ui/mobile-ui.js';
 
 const logger = createLogger('Main');
 
@@ -28,6 +36,16 @@ async function initialize() {
   try {
     logger.info('🚀 Starting Dashie Dashboard...');
 
+    // Detect platform FIRST
+    const platformDetector = getPlatformDetector();
+    const isMobile = platformDetector.isMobile();
+
+    logger.info('Platform detected', {
+      platform: platformDetector.platform,
+      deviceType: platformDetector.deviceType,
+      isMobile
+    });
+
     // Check for auth bypass FIRST (before importing auth modules)
     const bypassAuth = isAuthBypassEnabled();
 
@@ -37,8 +55,18 @@ async function initialize() {
       logger.warn('To disable: Remove ?bypass-auth from URL');
 
       // Skip auth entirely - go straight to dashboard with bypass flag
-      await initializeCore({ bypassAuth: true });
+      await initializeCore({ bypassAuth: true, isMobile });
       return;
+    }
+
+    // Show appropriate UI based on platform
+    if (isMobile) {
+      logger.info('📱 Mobile device detected - showing mobile landing page');
+      showMobileLandingPage();
+      showMobileLoadingBar();
+      updateMobileProgress(10, 'Starting up...');
+    } else {
+      logger.info('🖥️ Desktop/TV detected - loading dashboard');
     }
 
     // Normal auth flow - dynamically import to avoid loading Supabase if bypassed
@@ -48,11 +76,34 @@ async function initialize() {
     // Expose sessionManager globally for console commands
     window.sessionManager = sessionManager;
 
+    // Update progress
+    if (isMobile) {
+      updateMobileProgress(30, 'Authenticating...');
+    }
+
     // Step 1: Initialize auth (may show login screen)
     const authenticated = await initializeAuth(async () => {
       // This callback is called after successful authentication
       logger.info('Auth complete - continuing initialization');
-      await initializeCore();
+
+      if (isMobile) {
+        updateMobileProgress(60, 'Loading settings...');
+      }
+
+      // Initialize core with mobile flag
+      await initializeCore({ isMobile });
+
+      // Mobile-specific initialization
+      if (isMobile) {
+        updateMobileProgress(90, 'Setting up...');
+        await initializeMobileUI();
+        updateMobileProgress(100, 'Ready!');
+
+        // Hide loading bar after short delay
+        setTimeout(() => {
+          hideMobileLoadingBar();
+        }, 500);
+      }
     });
 
     // If not authenticated, the login screen is displayed

@@ -25,13 +25,14 @@ const logger = createLogger('CoreInitializer');
  * Initialize core components and modules
  * @param {object} options - Initialization options
  * @param {boolean} options.bypassAuth - Skip auth-dependent features
+ * @param {boolean} options.isMobile - Mobile device mode (skip widgets, simplified UI)
  * @returns {Promise<void>}
  */
 export async function initializeCore(options = {}) {
-  const { bypassAuth = false } = options;
+  const { bypassAuth = false, isMobile = false } = options;
 
   try {
-    logger.verbose('Starting core initialization...', { bypassAuth });
+    logger.verbose('Starting core initialization...', { bypassAuth, isMobile });
 
     // Initialize AppStateManager
     await AppStateManager.initialize();
@@ -73,12 +74,14 @@ export async function initializeCore(options = {}) {
       }
     }
 
-    // Initialize core components
-    await InputHandler.initialize();
-    await ActionRouter.initialize();
-    await WidgetMessenger.initialize();
+    // Initialize core components (skip on mobile - no widgets/d-pad needed)
+    if (!isMobile) {
+      await InputHandler.initialize();
+      await ActionRouter.initialize();
+      await WidgetMessenger.initialize();
+    }
 
-    // Initialize cross-dashboard synchronization
+    // Initialize cross-dashboard synchronization (works on all platforms)
     const { dashboardSync } = await import('../../services/dashboard-sync-service.js');
     dashboardSync.initialize();
     window.dashboardSync = dashboardSync; // Expose for other modules
@@ -90,85 +93,104 @@ export async function initializeCore(options = {}) {
       logger.verbose('Cross-dashboard theme listener setup');
     }
 
-    // Setup cross-dashboard listeners for photo and calendar updates
-    dashboardSync.on('photos-updated', (details) => {
-      logger.info('Photos updated in another dashboard', details);
+    // Setup cross-dashboard listeners for photo and calendar updates (desktop only - mobile has no widgets)
+    if (!isMobile) {
+      dashboardSync.on('photos-updated', (details) => {
+        logger.info('Photos updated in another dashboard', details);
 
-      // Reload photos data for photos widget
-      import('../widget-data-manager.js').then(({ getWidgetDataManager }) => {
-        const widgetDataManager = getWidgetDataManager();
-        widgetDataManager.loadPhotosData();
+        // Reload photos data for photos widget
+        import('../widget-data-manager.js').then(({ getWidgetDataManager }) => {
+          const widgetDataManager = getWidgetDataManager();
+          widgetDataManager.loadPhotosData();
+        });
       });
-    });
 
-    dashboardSync.on('calendar-updated', (details) => {
-      logger.info('Calendar updated in another dashboard', details);
+      dashboardSync.on('calendar-updated', (details) => {
+        logger.info('Calendar updated in another dashboard', details);
 
-      // Reload calendar data for calendar/agenda widgets
-      import('../widget-data-manager.js').then(({ getWidgetDataManager }) => {
-        const widgetDataManager = getWidgetDataManager();
-        widgetDataManager.refreshCalendarData();
+        // Reload calendar data for calendar/agenda widgets
+        import('../widget-data-manager.js').then(({ getWidgetDataManager }) => {
+          const widgetDataManager = getWidgetDataManager();
+          widgetDataManager.refreshCalendarData();
+        });
       });
-    });
-
-    // Initialize Dashboard module
-    await Dashboard.initialize();
-    ActionRouter.registerModule('dashboard', DashboardInputHandler);
-
-    // Initialize Settings module
-    ActionRouter.registerModule('settings', Settings.getInputHandler());
-    window.Settings = Settings;
-
-    // Initialize Modals module
-    await modals.initialize();
-    ActionRouter.registerModule('modals', modals);
-
-    // Set Dashboard as active module and activate it (this creates the widget iframes!)
-    AppStateManager.setCurrentModule('dashboard');
-    Dashboard.activate();
-
-    // STEP 3: NOW initialize widgets AFTER Dashboard.activate() has created the iframes
-    await initializeWidgets();
-
-    // Re-apply theme overlay now that widgets are ready
-    // (Some overlays inject into widget iframes, which didn't exist during initial theme application)
-    if (themeApplier.getCurrentTheme()) {
-      const { themeOverlay } = await import('../../ui/themes/theme-overlay-applier.js');
-      if (themeOverlay) {
-        // applyOverlay now handles clearing internally and prevents duplicates
-        themeOverlay.applyOverlay(themeApplier.getCurrentTheme());
-        logger.debug('Re-applied theme overlay after widgets initialized');
-      }
     }
 
-    // STEP 4: Initialize Welcome module and check if onboarding is needed
-    await welcome.initialize();
-    logger.verbose('Welcome module initialized');
+    // Desktop/TV: Initialize Dashboard and widgets
+    if (!isMobile) {
+      // Initialize Dashboard module
+      await Dashboard.initialize();
+      ActionRouter.registerModule('dashboard', DashboardInputHandler);
 
-    // STEP 5: Hide login screen after widgets have been initialized and received themes
-    // Wait a brief moment for widgets to receive theme messages via postMessage
+      // Initialize Settings module
+      ActionRouter.registerModule('settings', Settings.getInputHandler());
+      window.Settings = Settings;
+
+      // Initialize Modals module
+      await modals.initialize();
+      ActionRouter.registerModule('modals', modals);
+
+      // Set Dashboard as active module and activate it (this creates the widget iframes!)
+      AppStateManager.setCurrentModule('dashboard');
+      Dashboard.activate();
+
+      // STEP 3: NOW initialize widgets AFTER Dashboard.activate() has created the iframes
+      await initializeWidgets();
+
+      // Re-apply theme overlay now that widgets are ready
+      // (Some overlays inject into widget iframes, which didn't exist during initial theme application)
+      if (themeApplier.getCurrentTheme()) {
+        const { themeOverlay } = await import('../../ui/themes/theme-overlay-applier.js');
+        if (themeOverlay) {
+          // applyOverlay now handles clearing internally and prevents duplicates
+          themeOverlay.applyOverlay(themeApplier.getCurrentTheme());
+          logger.debug('Re-applied theme overlay after widgets initialized');
+        }
+      }
+
+      // STEP 4: Initialize Welcome module and check if onboarding is needed
+      await welcome.initialize();
+      logger.verbose('Welcome module initialized');
+    } else {
+      // Mobile: Initialize Settings and Modals (needed for Settings modal to work)
+      // Expose Settings globally for Settings button
+      window.Settings = Settings;
+
+      // Initialize Modals module (Settings modal depends on it)
+      await modals.initialize();
+
+      logger.verbose('Mobile mode: Settings and Modals initialized, skipping widgets');
+    }
+
+    // STEP 5: Hide login screen after initialization
+    // On desktop: wait for widgets to receive theme messages
+    // On mobile: hide immediately
     setTimeout(async () => {
       if (!bypassAuth) {
         const { hideLoginScreen } = await import('./auth-initializer.js');
         hideLoginScreen();
-        logger.verbose('Login screen hidden - dashboard fully initialized');
+        logger.verbose('Login screen hidden - initialization complete');
       } else {
         // In bypass mode, just show dashboard immediately (no login screen)
         const loginScreen = document.getElementById('oauth-login-screen');
         const dashboardContainer = document.getElementById('dashboard-container');
         if (loginScreen) loginScreen.style.display = 'none';
-        if (dashboardContainer) dashboardContainer.classList.add('visible');
+        if (dashboardContainer && !isMobile) dashboardContainer.classList.add('visible');
         logger.verbose('Dashboard shown (bypass mode)');
       }
 
-      // STEP 6: Check if welcome wizard should be shown for new users
-      if (!bypassAuth && welcome.shouldShow()) {
+      // STEP 6: Check if welcome wizard should be shown for new users (desktop/TV only)
+      if (!isMobile && !bypassAuth && welcome.shouldShow()) {
         logger.info('New user detected - showing welcome wizard');
         await welcome.activate();
       } else {
-        logger.debug('Welcome wizard skipped (bypass mode or already completed)');
+        if (isMobile) {
+          logger.debug('Welcome wizard skipped (mobile mode)');
+        } else {
+          logger.debug('Welcome wizard skipped (bypass mode or already completed)');
+        }
       }
-    }, 300); // 300ms delay to ensure widgets receive theme
+    }, isMobile ? 100 : 300); // Shorter delay for mobile (no widgets to wait for)
 
     // Detect platform
     const platform = getPlatformDetector();
