@@ -53,8 +53,6 @@ async function init() {
   const initialTheme = getInitialTheme();
   applyTheme(initialTheme);
 
-  logger.info('Calendar widget initialized');
-
   // Expose for debugging
   window.calendarWidget = calendar;
 }
