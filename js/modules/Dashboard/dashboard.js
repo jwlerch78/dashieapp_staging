@@ -117,12 +117,37 @@ class Dashboard {
 
     // Ensure keyboard focus stays on the main window (not the iframe)
     // This is critical so ESCAPE and other keys work properly
-    window.focus();
+    logger.debug('Restoring keyboard focus to main window', {
+      activeElementBefore: document.activeElement?.tagName,
+      activeElementId: document.activeElement?.id
+    });
 
-    // Also blur any focused element to prevent the iframe from keeping focus
+    // Blur iframe if it has focus
     if (document.activeElement && document.activeElement.tagName === 'IFRAME') {
       document.activeElement.blur();
+      logger.debug('Blurred iframe element');
     }
+
+    // Focus main window
+    window.focus();
+
+    // Double-check focus was restored
+    setTimeout(() => {
+      const activeElement = document.activeElement;
+      logger.debug('Focus state after restoration', {
+        activeElement: activeElement?.tagName,
+        activeElementId: activeElement?.id,
+        isIframe: activeElement?.tagName === 'IFRAME'
+      });
+
+      // If still on iframe, try harder to remove focus
+      if (activeElement?.tagName === 'IFRAME') {
+        logger.warn('Iframe still has focus - trying harder to blur');
+        activeElement.blur();
+        document.body.focus();
+        document.body.blur();
+      }
+    }, 100);
 
     logger.debug('Widget focused via touch request, keyboard focus restored to main window', {
       widgetId,

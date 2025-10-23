@@ -37,12 +37,21 @@ class FocusMenuStateManager {
       return false;
     }
 
+    const isUpdate = this.widgetMenuConfigs.has(widgetId);
     this.widgetMenuConfigs.set(widgetId, menuConfig);
     logger.info('Widget menu registered', {
       widgetId,
       enabled: menuConfig.enabled,
-      itemCount: menuConfig.items?.length || 0
+      itemCount: menuConfig.items?.length || 0,
+      isUpdate
     });
+
+    // If this is an update (not initial registration) and menu is currently showing, update the UI
+    if (isUpdate) {
+      import('./focus-menu-renderer.js').then(({ default: FocusMenuRenderer }) => {
+        FocusMenuRenderer.updateMenuHighlight(widgetId, menuConfig.currentView);
+      });
+    }
 
     return true;
   }

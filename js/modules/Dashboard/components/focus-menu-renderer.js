@@ -352,6 +352,32 @@ class FocusMenuRenderer {
       logger.info('✓ Sent menu-item-selected via click', { itemId });
     });
   }
+
+  /**
+   * Update menu highlight to reflect current view
+   * @param {string} widgetId - Widget ID
+   * @param {string} currentView - Current view mode ID
+   */
+  static updateMenuHighlight(widgetId, currentView) {
+    const container = document.querySelector('.dashboard-focus-menu');
+    if (!container) {
+      logger.debug('No focus menu to update');
+      return;
+    }
+
+    // Remove active class from all items
+    const items = container.querySelectorAll('.dashboard-focus-menu__item');
+    items.forEach(item => item.classList.remove('dashboard-focus-menu__item--active'));
+
+    // Add active class to matching item
+    const activeItem = container.querySelector(`[data-item-id="${currentView}"]`);
+    if (activeItem) {
+      activeItem.classList.add('dashboard-focus-menu__item--active');
+      logger.debug('Updated menu highlight', { widgetId, currentView });
+    } else {
+      logger.warn('Could not find menu item to highlight', { currentView });
+    }
+  }
 }
 
 export default FocusMenuRenderer;
