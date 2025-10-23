@@ -1,8 +1,10 @@
 # Dashie Development Guide
 
-**Before implementing or modifying features, consult the relevant guide below.**
+**Purpose:** Route developers to the appropriate technical documentation based on their task.
 
-This document routes you to the appropriate technical guides for different types of work in the Dashie codebase.
+**Location:** `.reference/CONTRIBUTING.md`
+
+This guide helps you find the right documentation before writing code. For project overview, see [`CLAUDE.md`](../CLAUDE.md). For complete documentation index, see [`README.md`](README.md).
 
 ---
 
@@ -10,11 +12,16 @@ This document routes you to the appropriate technical guides for different types
 
 | Task | Guide to Read | Location |
 |------|---------------|----------|
-| Adding/modifying Settings pages | Settings Page Base Guide | `js/modules/Settings/SETTINGS_PAGE_BASE_GUIDE.md` |
-| Working with theme overlays | Theme Overlay Documentation | `js/themes/THEME_OVERLAY.md` |
-| Implementing device flow auth | Hybrid Device Flow Guide | `js/data/auth/HYBRID_DEVICE_FLOW.md` |
-| Adding new widgets | (TODO: Create widget guide) | - |
-| Working with calendar integration | (TODO: Create calendar guide) | - |
+| Adding/modifying Settings pages | Settings Page Base Guide | [`js/modules/Settings/SETTINGS_PAGE_BASE_GUIDE.md`](../js/modules/Settings/SETTINGS_PAGE_BASE_GUIDE.md) |
+| Working with theme overlays | Theme Overlay Documentation | [`js/ui/themes/THEME_OVERLAY.md`](../js/ui/themes/THEME_OVERLAY.md) |
+| Implementing device flow auth | Hybrid Device Flow Guide | [`js/data/auth/HYBRID_DEVICE_FLOW.md`](../js/data/auth/HYBRID_DEVICE_FLOW.md) |
+| Adding new widgets | Widgets Development Guide | [`js/widgets/WIDGETS_README.md`](../js/widgets/WIDGETS_README.md) |
+| Understanding initialization | Initialization Flow *(TODO)* | `js/core/initialization/README.md` |
+| Working with touch controls | Touch Controls Guide *(TODO)* | `js/widgets/shared/TOUCH_CONTROLS.md` |
+| Mobile UI development | Mobile UI Guide *(TODO)* | `js/ui/MOBILE_UI.md` |
+| Cross-dashboard sync | Dashboard Sync Guide *(TODO)* | `js/data/services/DASHBOARD_SYNC.md` |
+| Database schema | Database Schema Reference | [`supabase/DATABASE_SCHEMA.md`](../supabase/DATABASE_SCHEMA.md) |
+| System architecture | Architecture Document | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 
 ---
 
@@ -40,7 +47,7 @@ This document routes you to the appropriate technical guides for different types
 
 ## 🎃 Theme Overlay System
 
-### When to read: `js/themes/THEME_OVERLAY.md`
+### When to read: [`js/ui/themes/THEME_OVERLAY.md`](../js/ui/themes/THEME_OVERLAY.md)
 
 **Read this guide when you are:**
 - Creating new seasonal theme overlays

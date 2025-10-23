@@ -2,6 +2,25 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+**Purpose:** Quick project overview and documentation routing for AI assistants.
+
+---
+
+## 📖 Documentation Quick Links
+
+**Before starting any work, consult the appropriate documentation:**
+
+- **[CONTRIBUTING.md](.reference/CONTRIBUTING.md)** - Developer routing guide (routes you to specific technical docs based on your task)
+- **[ARCHITECTURE.md](.reference/ARCHITECTURE.md)** - Complete system architecture (v3.0, Phase 5.5+ complete)
+- **[.reference/README.md](.reference/README.md)** - Master index of all documentation
+
+**For specific tasks, see:**
+- Settings pages → [SETTINGS_PAGE_BASE_GUIDE.md](js/modules/Settings/SETTINGS_PAGE_BASE_GUIDE.md)
+- Theme overlays → [THEME_OVERLAY.md](js/ui/themes/THEME_OVERLAY.md)
+- Authentication → [HYBRID_DEVICE_FLOW.md](js/data/auth/HYBRID_DEVICE_FLOW.md)
+- Widgets → [WIDGETS_README.md](js/widgets/WIDGETS_README.md)
+- Database → [DATABASE_SCHEMA.md](supabase/DATABASE_SCHEMA.md)
+
 ---
 
 ## Project Overview
@@ -10,7 +29,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - **Tech Stack:** Vanilla JavaScript (ES modules), Supabase (auth + database), Vercel hosting
 - **Platforms:** Desktop, Fire TV, Mobile (responsive)
-- **Codebase Size:** ~39,000 lines across 118 JavaScript files
+- **Codebase Size:** ~120+ active JS files, 215 total (including legacy)
+- **Current Phase:** Phase 5.5+ Complete - Production Ready
 
 ---
 
@@ -219,11 +239,12 @@ js/
 ### Before Making Changes
 
 **ALWAYS read relevant documentation first:**
-- **Settings pages:** `js/modules/Settings/SETTINGS_PAGE_BASE_GUIDE.md`
-- **Theme overlays:** `js/ui/themes/THEME_OVERLAY.md`
-- **Auth flows:** `js/data/auth/HYBRID_DEVICE_FLOW.md`
-- **Widgets:** `js/widgets/WIDGETS_README.md`
-- **General principles:** `CONTRIBUTING.md`
+- **Start here:** [`.reference/CONTRIBUTING.md`](.reference/CONTRIBUTING.md) - Routes you to the right technical guide
+- **Settings pages:** [`js/modules/Settings/SETTINGS_PAGE_BASE_GUIDE.md`](js/modules/Settings/SETTINGS_PAGE_BASE_GUIDE.md)
+- **Theme overlays:** [`js/ui/themes/THEME_OVERLAY.md`](js/ui/themes/THEME_OVERLAY.md)
+- **Auth flows:** [`js/data/auth/HYBRID_DEVICE_FLOW.md`](js/data/auth/HYBRID_DEVICE_FLOW.md)
+- **Widgets:** [`js/widgets/WIDGETS_README.md`](js/widgets/WIDGETS_README.md)
+- **Architecture:** [`.reference/ARCHITECTURE.md`](.reference/ARCHITECTURE.md)
 
 ### Key Architectural Patterns
 

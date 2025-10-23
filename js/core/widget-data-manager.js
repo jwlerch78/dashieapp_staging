@@ -107,6 +107,12 @@ export class WidgetDataManager {
     async handleWidgetMessage(message) {
         if (!message || !message.type) return;
 
+        // Handle widget-config message (focus menu registration)
+        if (message.type === 'widget-config' && message.widget) {
+            await this.handleWidgetConfig(message);
+            return;
+        }
+
         // Handle widget events
         if (message.type === 'event' && message.widgetId) {
             const { widgetId, payload } = message;
@@ -130,6 +136,37 @@ export class WidgetDataManager {
                 default:
                     logger.debug('Unhandled widget event', { widgetId, eventType });
                     break;
+            }
+        }
+    }
+
+    /**
+     * Handle widget config message (focus menu registration)
+     * @param {object} message - Message from widget
+     */
+    async handleWidgetConfig(message) {
+        const { widget: widgetId, focusMenu } = message;
+
+        logger.debug('Widget config received', { widgetId, hasFocusMenu: !!focusMenu });
+
+        // Register focus menu if provided
+        if (focusMenu) {
+            try {
+                // Dynamically import FocusMenuStateManager to avoid circular dependencies
+                const { default: FocusMenuStateManager } = await import(
+                    '../modules/Dashboard/components/focus-menu-state-manager.js'
+                );
+
+                // Register the widget's menu configuration
+                FocusMenuStateManager.registerWidgetMenu(widgetId, focusMenu);
+
+                logger.info('Widget menu registered', {
+                    widgetId,
+                    enabled: focusMenu.enabled,
+                    itemCount: focusMenu.items?.length || 0
+                });
+            } catch (error) {
+                logger.error('Failed to register widget menu', { widgetId, error });
             }
         }
     }

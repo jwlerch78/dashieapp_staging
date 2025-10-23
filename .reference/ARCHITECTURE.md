@@ -1,7 +1,7 @@
-# Dashie Application Architecture v2.0
+# Dashie Application Architecture v3.0
 
-**Last Updated:** 2025-10-17
-**Status:** Phase 3 Implementation - Data Layer Active Development
+**Last Updated:** 2025-10-22
+**Status:** Phase 5.5+ Complete - Production Ready with Advanced Features
 
 ---
 
@@ -25,6 +25,9 @@
 11. [Authentication & JWT System](#authentication--jwt-system)
 12. [Settings System](#settings-system)
 13. [Dashboard Module](#dashboard-module)
+14. [Theme System](#theme-system)
+15. [Mobile & Touch System](#mobile--touch-system)
+16. [Cross-Dashboard Synchronization](#cross-dashboard-synchronization)
 
 ### Part IV: Implementation
 14. [Component Communication](#component-communication)
@@ -52,13 +55,14 @@
 Dashie is a smart home dashboard application supporting multiple platforms (Desktop, TV, Mobile). The application displays customizable widgets showing calendar events, photos, weather, clock, and more.
 
 ### Key Characteristics
-- **Platform:** Web-based (HTML/CSS/JavaScript)
+- **Platform:** Web-based (HTML/CSS/JavaScript ES Modules)
 - **Target Devices:** Smart TVs (Fire TV), Desktop browsers, Mobile devices
 - **Input Methods:** D-pad navigation (TV), keyboard (Desktop), touch (Mobile)
 - **Architecture Style:** Modular, event-driven, iframe-based widgets
 - **Backend:** Supabase (PostgreSQL + Storage)
-- **Authentication:** OAuth2 (Google), Device Flow, JWT
-- **Total Codebase:** 27,300 lines across 75 files (legacy)
+- **Authentication:** OAuth2 (Google), Hybrid Device Flow, JWT
+- **Total Codebase:** ~120+ active JS files, 215 total (including legacy)
+- **Current Phase:** Phase 5.5+ (Advanced Theming, Touch Controls, Hybrid Auth)
 
 ---
 
@@ -229,32 +233,38 @@ dashieapp_staging/
 │   │   │   ├── token-store.js          # ✅ Dual-write token storage
 │   │   │   ├── edge-client.js          # ✅ Edge function HTTP client
 │   │   │   │
-│   │   │   ├── orchestration/          # ⏳ TO BUILD - Auth orchestration layer
-│   │   │   │   ├── session-manager.js  # Orchestrates auth (from simple-auth.js)
-│   │   │   │   ├── auth-coordinator.js # Routes to correct auth provider
-│   │   │   │   └── account-manager.js  # Multi-account management
+│   │   │   ├── orchestration/          # ✅ COMPLETE - Auth orchestration layer
+│   │   │   │   ├── session-manager.js  # ✅ Orchestrates auth
+│   │   │   │   └── auth-coordinator.js # ✅ Routes to correct auth provider
 │   │   │   │
-│   │   │   ├── providers/              # ✅ Layer 1: Account Authentication
-│   │   │   │   ├── base-account-auth.js    # ✅ Base class for account auth
-│   │   │   │   ├── google-account-auth.js  # ✅ Google account login
-│   │   │   │   ├── amazon-account-auth.js  # ⏳ FUTURE - Amazon OAuth
-│   │   │   │   ├── email-password-auth.js  # ⏳ FUTURE - Email/Password
+│   │   │   ├── providers/              # ✅ COMPLETE - Account Authentication
 │   │   │   │   ├── web-oauth.js            # ✅ Browser OAuth flow
-│   │   │   │   └── device-flow.js          # ✅ Fire TV OAuth flow
+│   │   │   │   ├── device-flow.js          # ✅ Fire TV OAuth flow
+│   │   │   │   └── hybrid-device-auth.js   # ✅ Hybrid phone+TV auth
 │   │   │   │
-│   │   │   └── calendar-providers/     # ✅ Layer 2: Calendar API Access
-│   │   │       ├── base-calendar-auth.js       # ✅ Base class
-│   │   │       ├── google-calendar-auth.js     # ✅ Google Calendar API
-│   │   │       ├── microsoft-calendar-auth.js  # ⏳ FUTURE - Microsoft
-│   │   │       └── apple-calendar-auth.js      # ⏳ FUTURE - iCloud
+│   │   │   ├── account-auth/           # ✅ COMPLETE - Account providers
+│   │   │   │   ├── base-account-auth.js    # ✅ Base class for account auth
+│   │   │   │   └── google-account-auth.js  # ✅ Google account login
+│   │   │   │
+│   │   │   ├── calendar-auth/          # ✅ COMPLETE - Calendar API Access
+│   │   │   │   ├── base-calendar-auth.js       # ✅ Base class
+│   │   │   │   └── google-calendar-auth.js     # ✅ Google Calendar API
+│   │   │   │
+│   │   │   └── mobile-auth/            # ✅ NEW - Mobile authentication
+│   │   │       └── phone-auth-handler.js   # ✅ Phone auth for hybrid flow
 │   │   │
-│   │   ├── services/
-│   │   │   ├── calendar-service.js     # ⏳ TO BUILD
-│   │   │   ├── photo-service.js        # ⏳ TO BUILD
-│   │   │   ├── weather-service.js      # ⏳ TO BUILD
-│   │   │   ├── telemetry-service.js    # ⏳ TO BUILD
-│   │   │   ├── greeting-service.js     # ⏳ TO BUILD
-│   │   │   ├── account-deletion-service.js  # ⏳ TO BUILD
+│   │   ├── services/                   # ✅ COMPLETE - Data services
+│   │   │   ├── calendar-service.js     # ✅ COMPLETE - Calendar orchestrator
+│   │   │   ├── calendar-services/      # ✅ NEW - Modular calendar architecture
+│   │   │   │   ├── calendar-fetcher.js      # ✅ Data fetching
+│   │   │   │   ├── event-processor.js       # ✅ Data transformation
+│   │   │   │   └── calendar-refresh-manager.js  # ✅ Refresh logic
+│   │   │   ├── calendar-config-store.js  # ✅ COMPLETE - Config management
+│   │   │   ├── photo-service.js        # ✅ COMPLETE - Photo library
+│   │   │   ├── settings-service.js     # ✅ COMPLETE - Settings persistence
+│   │   │   ├── weather-service.js      # ✅ COMPLETE - Weather data
+│   │   │   ├── heartbeat-service.js    # ✅ NEW - Dashboard health tracking
+│   │   │   ├── dashboard-sync-service.js  # ✅ NEW - Cross-window sync
 │   │   │   └── google/
 │   │   │       └── google-api-client.js     # ✅ Google API HTTP client
 │   │   │
@@ -279,29 +289,43 @@ dashieapp_staging/
 │   │   └── data-handler.js             # ⏳ TO BUILD - Persistence interface
 │   │
 │   ├── ui/                             # Global UI components
-│   │   ├── theme-applier.js
-│   │   ├── toast.js
+│   │   ├── theme-applier.js            # ✅ Theme application engine
+│   │   ├── themes/                     # ✅ NEW - Advanced theme system
+│   │   │   ├── theme-registry.js           # ✅ Theme definitions
+│   │   │   ├── theme-overlay-applier.js    # ✅ Theme overlay engine
+│   │   │   ├── theme-overlay-halloween.js  # ✅ Halloween theme
+│   │   │   ├── theme-overlay-config-registry.js  # ✅ Overlay configs
+│   │   │   ├── theme-overlay-element-creator.js  # ✅ DOM creation
+│   │   │   ├── theme-overlay-container-manager.js  # ✅ Containers
+│   │   │   ├── theme-overlay-visibility-manager.js  # ✅ Visibility
+│   │   │   └── THEME_OVERLAY.md            # ✅ Documentation
+│   │   ├── mobile-ui.js                # ✅ NEW - Mobile interface
+│   │   ├── toast.js                    # ✅ Toast notifications
+│   │   ├── offline-indicator.js        # ✅ NEW - Offline status
 │   │   └── components/
 │   │
-│   ├── widgets/                        # Widget implementations
-│   │   ├── Calendar/
-│   │   ├── Photos/
-│   │   ├── Clock/
-│   │   ├── Weather/
-│   │   ├── Header/
-│   │   ├── Agenda/
-│   │   ├── Location/
-│   │   ├── Map/
-│   │   └── Camera/
+│   ├── widgets/                        # ✅ Widget implementations
+│   │   ├── calendar/                   # ✅ Calendar widget (weekly/monthly)
+│   │   ├── agenda/                     # ✅ Agenda widget (event list)
+│   │   ├── photos/                     # ✅ Photo carousel
+│   │   ├── clock/                      # ✅ Time & weather display
+│   │   ├── header/                     # ✅ App header
+│   │   ├── shared/                     # ✅ NEW - Shared widget utilities
+│   │   │   ├── widget-theme-detector.js    # ✅ Theme detection
+│   │   │   ├── widget-touch-controls.js    # ✅ NEW - Touch buttons
+│   │   │   └── widget-touch-controls.css   # ✅ NEW - Touch UI styles
+│   │   └── WIDGETS_README.md           # ✅ Widget development guide
 │   │
 │   └── utils/                          # Utilities
-│       ├── logger.js
-│       ├── logger-config.js
-│       ├── crash-monitor.js
-│       ├── platform-detector.js
-│       ├── feature-flags.js
-│       ├── redirect-manager.js
-│       └── console-commands.js
+│       ├── logger.js                   # ✅ Comprehensive logging
+│       ├── logger-config.js            # ✅ Log configuration
+│       ├── platform-detector.js        # ✅ Platform/device detection
+│       ├── console-commands.js         # ✅ Debug commands
+│       ├── modal-navigation-manager.js # ✅ Modal navigation
+│       ├── dashie-modal.js             # ✅ Modal system
+│       ├── calendar-cache.js           # ✅ Calendar caching
+│       ├── geocoding-helper.js         # ✅ Location services
+│       └── connection-status.js        # ✅ NEW - Network monitoring
 │
 ├── css/
 │   ├── core/
@@ -1165,69 +1189,66 @@ The auth system handles:
 - Decoupled architecture supports any provider combination
 - Future-proof for additional providers
 
-### Auth Architecture (Phase 3 - Current Implementation)
+### Auth Architecture (Phase 5.5+ - COMPLETE)
 
 ```
 js/data/auth/
 ├── auth-config.js              # ✅ Environment config (dev/prod detection)
 │                               # - Supabase URL & anon keys
 │                               # - Environment detection based on hostname
-│                               # - FORCE_DEV_DATABASE override flag
 │
-├── token-store.js              # ✅ Dual-write token storage (~350 lines)
+├── token-store.js              # ✅ Dual-write token storage
 │                               # - save() writes to localStorage + Supabase
 │                               # - loadTokens() reads Supabase-first, fallback localStorage
 │                               # - Separate storage key: 'dashie-auth-tokens'
-│                               # - Integration with EdgeClient for Supabase sync
 │
-├── edge-client.js              # ✅ Edge function HTTP client (~228 lines)
-│                               # - All edge function operations (storeTokens, loadTokens)
+├── edge-client.js              # ✅ Edge function HTTP client
+│                               # - All edge function operations
 │                               # - JWT-authenticated requests
 │                               # - Error handling & retries
-│                               # - Settings operations (future)
 │
-├── orchestration/              # ⏳ TO BUILD - Auth orchestration layer
-│   ├── session-manager.js      # Orchestrates entire auth system
-│   │                           # (refactored from simple-auth.js)
-│   ├── auth-coordinator.js     # Routes to correct auth provider
-│   └── account-manager.js      # Multi-account calendar switching
+├── orchestration/              # ✅ COMPLETE - Auth orchestration layer
+│   ├── session-manager.js      # ✅ Orchestrates entire auth system
+│   └── auth-coordinator.js     # ✅ Routes to correct auth provider
 │
-├── providers/                  # ✅ Layer 1: Account Authentication
-│   ├── base-account-auth.js    # ✅ Base class for account auth providers
-│   ├── google-account-auth.js  # ✅ Google OAuth for account login
-│   ├── amazon-account-auth.js  # ⏳ FUTURE - Amazon OAuth (Fire TV native)
-│   ├── email-password-auth.js  # ⏳ FUTURE - Email/Password (Supabase Auth)
-│   ├── web-oauth.js            # ✅ Browser OAuth flow (~403 lines)
-│   │                           # - Authorization code grant for refresh tokens
-│   │                           # - Callback handling & state management
-│   │                           # - Authorization: Bearer header format
-│   └── device-flow.js          # ✅ Fire TV OAuth flow (~692 lines)
-│                               # - QR code generation
-│                               # - Device code polling
-│                               # - Authorization: Bearer header format
+├── providers/                  # ✅ COMPLETE - OAuth flows
+│   ├── web-oauth.js            # ✅ Browser OAuth flow
+│   ├── device-flow.js          # ✅ Fire TV device flow
+│   └── hybrid-device-auth.js   # ✅ NEW - Hybrid phone+TV auth
 │
-└── calendar-providers/         # ✅ Layer 2: Calendar API Authentication
-    ├── base-calendar-auth.js   # ✅ Base class for calendar providers
-    ├── google-calendar-auth.js # ✅ Google Calendar API auth
-    ├── microsoft-calendar-auth.js  # ⏳ FUTURE - Microsoft Calendar
-    └── apple-calendar-auth.js      # ⏳ FUTURE - Apple iCloud (CalDAV)
+├── account-auth/               # ✅ COMPLETE - Account providers
+│   ├── base-account-auth.js    # ✅ Base class for account auth
+│   └── google-account-auth.js  # ✅ Google OAuth for account login
+│
+├── calendar-auth/              # ✅ COMPLETE - Calendar providers
+│   ├── base-calendar-auth.js   # ✅ Base class for calendar providers
+│   └── google-calendar-auth.js # ✅ Google Calendar API auth
+│
+└── mobile-auth/                # ✅ NEW - Mobile authentication
+    └── phone-auth-handler.js   # ✅ Phone auth for hybrid flow
+    └── HYBRID_DEVICE_FLOW.md   # ✅ Documentation
 ```
 
-**Phase 3 Status: ~35% Complete**
+**Status: PHASE 5.5+ COMPLETE**
 
-**✅ Implemented:**
+**✅ Fully Implemented:**
 - Two-layer auth architecture (account vs calendar)
+- Hybrid device flow (phone + Fire TV simultaneous auth)
+- Session manager orchestration
+- Auth coordinator for provider selection
 - Dual-write pattern for tokens (localStorage + Supabase)
 - EdgeClient abstraction
-- Google OAuth (web + device flow)
+- Google OAuth (web + device + hybrid flows)
 - Environment-based configuration
-- Supabase edge function integration
+- Mobile phone authentication handler
+- Complete documentation (HYBRID_DEVICE_FLOW.md)
 
-**⏳ Next to Build:**
-- Initialization system (js/core/initialization/)
-- Auth orchestration layer (session-manager, auth-coordinator, account-manager)
-- Settings Manager with dual-write pattern
-- Additional auth providers (Amazon, Microsoft, Apple)
+**🎯 Production Features:**
+- QR code authentication for Fire TV
+- Simultaneous phone + TV authentication
+- Session persistence across devices
+- JWT refresh management
+- Multi-account calendar support
 
 ### JWT Service Design
 
@@ -1631,6 +1652,259 @@ js/modules/Dashboard/
 
 ---
 
+## Theme System
+
+### Overview
+
+The theme system provides comprehensive theming capabilities including light/dark modes, seasonal themes (Halloween), and advanced overlay decorations with animations.
+
+### Architecture
+
+```
+js/ui/themes/
+├── theme-registry.js                    # Theme definitions (light, dark, halloween)
+├── theme-overlay-applier.js             # Overlay engine (manages decorative elements)
+├── theme-overlay-config-registry.js     # Overlay configurations per theme
+├── theme-overlay-element-creator.js     # Creates DOM elements for overlays
+├── theme-overlay-container-manager.js   # Manages overlay containers
+├── theme-overlay-visibility-manager.js  # Controls visibility/animations
+├── theme-overlay-halloween.js           # Halloween-specific overlay config
+└── THEME_OVERLAY.md                     # Documentation
+```
+
+### Theme Applier (js/ui/theme-applier.js)
+
+**Responsibilities:**
+- Apply theme CSS classes to document
+- Store/load theme preference (localStorage: `dashie-theme`)
+- Coordinate with theme overlay system
+- Broadcast theme changes via AppComms
+
+**API:**
+```javascript
+ThemeApplier.applyTheme(themeName)
+ThemeApplier.getCurrentTheme()
+ThemeApplier.loadThemeFromStorage()
+ThemeApplier.saveThemeToStorage(themeName)
+```
+
+### Theme Overlay System
+
+**Design Pattern:** Separation of concerns
+- **Overlay Engine** (`theme-overlay-applier.js`) - Generic application logic
+- **Overlay Configs** (`theme-overlay-halloween.js`) - Theme-specific decorations
+
+**Key Features:**
+- Decorative elements positioned via CSS (no JavaScript positioning)
+- Click-through overlays (don't block dashboard interaction)
+- Duplicate prevention (clears existing before applying)
+- Visibility management (show/hide animations)
+- Container management (creates/destroys overlay containers)
+- Widget iframe injection (applies overlays to widgets)
+
+**Halloween Theme Example:**
+- Animated GIFs (spiders, bats, ghosts)
+- Static SVG decorations (pumpkins, cobwebs)
+- CSS animations (glow effects, floating)
+- Seasonal auto-activation (October)
+
+### Theme Configuration
+
+Themes defined in `theme-registry.js`:
+```javascript
+{
+  id: 'halloween',
+  name: 'Halloween',
+  cssClass: 'theme-halloween',
+  overlay: {
+    enabled: true,
+    configId: 'halloween'  // References theme-overlay-halloween.js
+  }
+}
+```
+
+### Integration Points
+
+1. **Application Startup** - Load saved theme
+2. **Settings Module** - Theme selection UI
+3. **Widget Iframes** - Theme propagation via postMessage
+4. **Cross-Dashboard Sync** - Theme changes sync across windows
+
+---
+
+## Mobile & Touch System
+
+### Overview
+
+Complete mobile platform support with touch-optimized UI, gesture controls, and mobile-specific initialization path.
+
+### Mobile UI (js/ui/mobile-ui.js)
+
+**Features:**
+- Mobile landing page with family name/profile
+- Settings button and logout button
+- Loading progress bar (10% increments)
+- Mobile-optimized layout (no dashboard grid)
+- Touch-first interaction model
+
+**Initialization Flow:**
+```javascript
+// Detects mobile via user agent OR viewport width <= 768px
+if (isMobile) {
+  showMobileLandingPage();
+  initializeMobileUI();
+  skipWidgetInitialization();  // No widgets on mobile
+  initializeSettingsModule();  // Settings accessible via modal
+}
+```
+
+### Touch Controls (js/widgets/shared/widget-touch-controls.js)
+
+**Components:**
+
+**1. TouchButton Class**
+- Circular themed buttons
+- Configurable positions: `left`, `right`, `top-right`, `bottom-left`, etc.
+- Auto-theming via CSS variables
+- Icon/label support
+- Click/tap handlers
+
+**2. LongPressDetector Class**
+- Configurable duration (default: 500ms)
+- Progress indicators
+- Cancel detection (touch move/leave)
+- Callback system
+
+**Usage Example:**
+```javascript
+const nextButton = new TouchButton({
+  position: 'right',
+  icon: '→',
+  label: 'Next',
+  onClick: () => { /* handler */ }
+});
+
+const longPress = new LongPressDetector(element, {
+  duration: 1000,
+  onLongPress: () => { /* handler */ }
+});
+```
+
+### Platform Detection
+
+**Mobile Detection Logic:**
+```javascript
+// User agent patterns
+/Android|iPhone|iPad|iPod|Mobile|Tablet/
+
+// OR viewport width
+window.innerWidth <= 768
+```
+
+**Platform Values:**
+- `tv` - Fire TV devices
+- `desktop` - Desktop browsers
+- `mobile` - Phones/tablets
+
+### Mobile-Specific Features
+
+1. **Skip Dashboard** - No widget grid on mobile
+2. **Modal Settings** - Settings accessed via modal, not separate module
+3. **Touch Gestures** - Swipe, tap, long-press support
+4. **Loading Progress** - Visual feedback during initialization
+5. **Simplified Navigation** - No D-pad/keyboard navigation
+
+---
+
+## Cross-Dashboard Synchronization
+
+### Overview
+
+Real-time synchronization across multiple browser windows/tabs using Supabase Realtime and Broadcast channels.
+
+### Dashboard Sync Service (js/data/services/dashboard-sync-service.js)
+
+**Responsibilities:**
+- Detect multiple dashboard instances
+- Synchronize state changes across windows
+- Broadcast events to other dashboards
+- Handle version mismatches
+- Coordinate settings updates
+
+**Synchronization Scope:**
+- Theme changes (instant sync)
+- Settings updates (calendar, photos, interface)
+- Calendar data refresh triggers
+- Photo library updates
+- User authentication state
+
+### Communication Channels
+
+**1. Supabase Broadcast Channel**
+```javascript
+const channel = supabase.channel('dashboard-sync')
+  .on('broadcast', { event: 'theme-changed' }, (payload) => {
+    ThemeApplier.applyTheme(payload.theme);
+  })
+  .on('broadcast', { event: 'settings-updated' }, (payload) => {
+    SettingsService.reloadSettings();
+  })
+  .subscribe();
+```
+
+**2. Broadcast Events**
+- `theme-changed` - Theme selection changed
+- `settings-updated` - Settings modified
+- `calendar-refreshed` - Calendar data updated
+- `photos-updated` - Photo library changed
+- `auth-state-changed` - Login/logout
+
+### Heartbeat Service (js/data/services/heartbeat-service.js)
+
+**Purpose:** Track dashboard health and version across instances
+
+**Functionality:**
+- Send heartbeat every 60 seconds
+- Store: Dashboard ID, version, last active timestamp
+- Detect version mismatches
+- Notify user if refresh needed
+- Clean up stale heartbeats
+
+**Database Schema:**
+```sql
+CREATE TABLE dashboard_heartbeats (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id),
+  dashboard_id TEXT,
+  version TEXT,
+  last_heartbeat TIMESTAMP,
+  metadata JSONB
+);
+```
+
+### Synchronization Patterns
+
+**Optimistic Updates:**
+1. Update local state immediately
+2. Broadcast change to other dashboards
+3. Write to database asynchronously
+4. Handle conflicts gracefully
+
+**Example: Theme Change**
+```javascript
+// Dashboard A changes theme
+ThemeApplier.applyTheme('dark');
+DashboardSyncService.broadcast('theme-changed', { theme: 'dark' });
+
+// Dashboard B receives broadcast
+channel.on('broadcast', { event: 'theme-changed' }, ({ theme }) => {
+  ThemeApplier.applyTheme(theme);
+  // Updates UI instantly without page reload
+});
+```
+
+---
+
 # Part IV: Implementation
 
 ## Component Communication
@@ -1714,57 +1988,152 @@ UI re-renders
 
 ## Initialization Sequence
 
-### Detailed Startup Flow
+### 3-Phase Initialization Architecture
 
+The application uses a streamlined 3-phase initialization process optimized for different platforms.
+
+### Phase 1: Platform Detection & Auth Check (main.js)
+
+```javascript
+1. DOMContentLoaded event fires
+    ↓
+2. Platform detection
+   - Detect mobile (user agent OR viewport width <= 768px)
+   - Detect Fire TV
+   - Detect desktop
+   - Set global platform flag
+    ↓
+3. Check for auth bypass mode
+   - Query parameter: ?bypass-auth
+   - Skip authentication for UI development
+    ↓
+4. Session restoration
+   - Check for stored JWT (localStorage: 'dashie-supabase-jwt')
+   - Validate JWT expiry
+   - Restore user session if valid
+    ↓
+5. Platform-specific UI
+   - If mobile: Show mobile landing page
+   - If desktop/TV: Show login screen or dashboard
 ```
-1. main.js starts
+
+### Phase 2: Authentication (auth-initializer.js)
+
+```javascript
+1. SessionManager initialization
     ↓
-2. startup-checks.js
-   - Platform detection (TV, Desktop, Mobile)
-   - Dependency validation (localStorage, fetch)
-   - Feature flag loading
+2. AuthCoordinator setup
+   - Register auth providers (WebOAuth, DeviceFlow, HybridDeviceAuth)
+   - Select appropriate provider based on platform
     ↓
-3. auth-initializer.js
-   - Initialize session-manager
-   - Check for existing session
-   - Validate tokens
-   - Set auth state
+3. Check existing session
+   - JWT validation
+   - Token refresh if needed
+   - User profile loading
     ↓
-4. jwt-initializer.js
-   - Initialize JWT service
-   - Load cached JWT or fetch new one
-   - Start 24hr refresh timer
+4. OAuth flow (if not authenticated)
+   - Web OAuth: Standard browser flow
+   - Device Flow: QR code for Fire TV
+   - Hybrid Flow: Phone + TV simultaneous auth
     ↓
-5. theme-initializer.js
-   - Load saved theme
-   - Apply CSS classes
+5. EdgeClient initialization
+   - JWT lifecycle management
+   - Token refresh scheduling (24hr threshold)
+   - Supabase edge function communication
+```
+
+### Phase 3: Core Initialization (core-initializer.js)
+
+```javascript
+1. AppStateManager initialization
+   - Load platform state
+   - Set authentication state
+   - Initialize global state structure
     ↓
-6. AppStateManager.initialize()
-   - Load saved state from localStorage
-   - Set platform, theme, auth state
+2. Service initialization (service-initializer.js)
+   - CalendarService (with modular architecture)
+   - PhotoService
+   - SettingsService (dual read/write pattern)
+   - WeatherService
+   - HeartbeatService
+   - DashboardSyncService (cross-window sync)
     ↓
-7. service-initializer.js
-   - Initialize calendar-service
-   - Initialize photo-service
-   - Initialize telemetry-service
+3. Load settings from database
+   - Fetch user_settings via SettingsService
+   - Apply theme from settings
+   - Configure widgets
     ↓
-8. widget-initializer.js
-   - Load widget configurations
-   - Set up postMessage listeners
+4. Dashboard module initialization (if not mobile)
+   - Create widget grid (2x3)
+   - Initialize widget iframes
+   - Set up postMessage communication
+    ↓
+5. Widget initialization (widget-initializer.js)
+   - Wait for widget iframes to load
    - Register widgets with WidgetMessenger
+   - Send initial configuration
+   - Send initial data (calendar, photos, weather)
     ↓
-9. Determine initial module
-   - If not authenticated → Login
-   - If first time → Welcome
-   - Otherwise → Dashboard
+6. Theme overlay re-application
+   - Apply theme overlays to dashboard
+   - Inject overlays into widget iframes
+   - Initialize overlay animations
     ↓
-10. Activate initial module
-    - module.initialize()
-    - ActionRouter.registerModule(moduleName, inputHandler)
-    - AppStateManager.setCurrentModule(moduleName)
-    - module.activate()
+7. Critical widget wait
+   - Wait for calendar, agenda, photos widgets
+   - Timeout: 10 seconds
+   - Show dashboard when ready
+    ↓
+8. Check for first-time setup
+   - If no family name: Show Welcome wizard
+   - Otherwise: Show Dashboard
+    ↓
+9. Hide login screen, show dashboard
+    ↓
+10. Initialize cross-dashboard sync
+    - Subscribe to Supabase broadcast channel
+    - Start heartbeat service (60s interval)
     ↓
 11. Application ready
+```
+
+### Mobile-Specific Initialization Path
+
+```javascript
+// Mobile skips steps 4-7 from Phase 3
+if (isMobile) {
+  showMobileLandingPage();
+  initializeMobileUI();
+  // Skip widget initialization
+  initializeSettingsModule();  // Modal-only access
+  updateMobileLoadingProgress(100);
+}
+```
+
+### Auth Bypass Mode (Development)
+
+```javascript
+// URL: http://localhost:8000?bypass-auth
+if (bypassAuth) {
+  skipAuthenticationEntirely();
+  proceedDirectlyToCoreInitialization();
+  // Useful for UI development without auth flow
+}
+```
+
+### Initialization State Tracking
+
+```javascript
+AppStateManager.state = {
+  isInitialized: false,  // Set to true when all phases complete
+  currentModule: null,   // Set when module activates
+  platform: 'desktop',   // Set in Phase 1
+  user: {
+    isAuthenticated: false,  // Set in Phase 2
+    userId: null,
+    email: null
+  }
+}
 ```
 
 ---
@@ -2291,14 +2660,102 @@ describe('AppComms', () => {
 
 ---
 
+## Implementation Status Summary
+
+### ✅ COMPLETED PHASES
+
+**Phase 5.5+ Status: PRODUCTION READY**
+
+All major features from Phase 5.5 build plan completed except Quotables Widget:
+
+1. **Halloween Theme & Overlay System** - ✅ COMPLETE
+   - Advanced theme overlay engine with visibility management
+   - Halloween theme with animated decorations
+   - Click-through overlays that don't block interaction
+   - Comprehensive documentation (THEME_OVERLAY.md)
+
+2. **Touch & Mobile System** - ✅ COMPLETE
+   - TouchButton and LongPressDetector classes
+   - Mobile-specific UI and initialization path
+   - Mobile landing page with loading progress
+   - Touch controls for widgets
+
+3. **Hybrid Device Authentication** - ✅ COMPLETE
+   - Session manager and auth coordinator
+   - Hybrid device flow (phone + Fire TV simultaneous auth)
+   - QR code authentication for Fire TV
+   - Complete documentation (HYBRID_DEVICE_FLOW.md)
+
+4. **Cross-Dashboard Synchronization** - ✅ COMPLETE
+   - Real-time sync via Supabase broadcast channels
+   - Heartbeat service for version tracking
+   - Optimistic update pattern
+   - Theme, settings, and data synchronization
+
+5. **Modular Widget Architecture** - ✅ IN PLACE
+   - 5 widgets implemented (Calendar, Agenda, Photos, Clock, Header)
+   - Widget communication via WidgetMessenger
+   - Widget data manager with refresh intervals
+   - Widget development guide (WIDGETS_README.md)
+
+### ⏳ REMAINING ITEMS
+
+**Not Yet Implemented:**
+- Quotables Widget (Phase 5.5 item)
+  - Themed quotes/facts display
+  - Background images
+  - Content cycling
+  - Theme-aware content switching
+
+**Future Enhancements:**
+- Custom theme builder UI
+- Additional auth providers (Amazon, Microsoft, Apple)
+- Additional calendar providers (iCloud, Outlook)
+- Widget picker and drag-and-drop layout
+
+### 🎯 PRODUCTION FEATURES
+
+**Enterprise-Grade Capabilities:**
+- Multi-platform support (Desktop, Fire TV, Mobile)
+- Hybrid authentication with QR codes
+- Real-time cross-dashboard sync
+- Advanced theming with seasonal overlays
+- Touch-optimized mobile interface
+- Modular calendar service architecture
+- Comprehensive logging and error tracking
+- Offline capability with localStorage caching
+- JWT refresh management (24hr threshold)
+- Settings dual read/write pattern
+
+**Performance Optimizations:**
+- Calendar TTL caching (5 minutes)
+- Stale cache served during refresh
+- Background refresh without loading screens
+- Widget state deduplication
+- Batch layout reads/writes
+
+**Developer Experience:**
+- Auth bypass mode (?bypass-auth)
+- Console debug commands
+- Comprehensive logging system
+- Inline documentation (.md files)
+- Clear separation of concerns
+- Testable modular architecture
+
+---
+
 ## Related Documents
 
-- **[API_INTERFACES.md](.reference/API_INTERFACES.md)** - Detailed API contracts for all components
-- **[BUILD_STRATEGY.md](.reference/BUILD_STRATEGY.md)** - Day-by-day implementation guide
+- **[CLAUDE.md](/CLAUDE.md)** - Project-level documentation and development guidelines
+- **[THEME_OVERLAY.md](js/ui/themes/THEME_OVERLAY.md)** - Theme overlay system documentation
+- **[HYBRID_DEVICE_FLOW.md](js/data/auth/HYBRID_DEVICE_FLOW.md)** - Hybrid authentication documentation
+- **[WIDGETS_README.md](js/widgets/WIDGETS_README.md)** - Widget development guide
+- **[SETTINGS_PAGE_BASE_GUIDE.md](js/modules/Settings/SETTINGS_PAGE_BASE_GUIDE.md)** - Settings page development
+- **[Phase 5.5 Build Plan](.reference/build-plans/Phase 5.5 - Theming & Hybrid Auth.md)** - Original phase 5.5 plan
 
 ---
 
 **End of Architecture Document**
 
-*Last Updated: 2025-10-17*
-*Version: 2.0 (Consolidated - Phase 3 Data Layer Active)*
+*Last Updated: 2025-10-22*
+*Version: 3.0 (Phase 5.5+ Complete - Production Ready)*

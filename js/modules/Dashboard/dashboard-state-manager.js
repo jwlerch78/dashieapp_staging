@@ -26,7 +26,16 @@ class DashboardStateManager {
     menuOpen: false,
     selectedMenuItem: 0,
     isActive: false,
-    isIdle: true // true = no visual selection (widget-idle), false = show selection
+    isIdle: true, // true = no visual selection (widget-idle), false = show selection
+
+    // Focus menu state (runtime only, not persisted)
+    focusMenuState: {
+      active: false,        // Is focus menu visible?
+      widgetId: null,       // Which widget has menu?
+      menuConfig: null,     // Menu configuration
+      selectedIndex: 0,     // Currently selected menu item
+      inMenu: true          // true = in menu, false = in widget content
+    }
   };
 
   static isInitialized = false;
@@ -204,6 +213,58 @@ class DashboardStateManager {
       isInitialized: this.isInitialized,
       currentState: this.getState()
     };
+  }
+
+  // =============================================================================
+  // FOCUS MENU STATE MANAGEMENT
+  // =============================================================================
+
+  /**
+   * Set focus menu active state
+   * @param {string} widgetId - Widget with focus menu
+   * @param {Object} menuConfig - Menu configuration
+   */
+  static setFocusMenuActive(widgetId, menuConfig) {
+    this.state.focusMenuState = {
+      active: true,
+      widgetId,
+      menuConfig,
+      selectedIndex: menuConfig.defaultIndex || 0,
+      inMenu: true
+    };
+    logger.debug('Focus menu activated', { widgetId });
+  }
+
+  /**
+   * Clear focus menu state
+   */
+  static clearFocusMenuState() {
+    this.state.focusMenuState = {
+      active: false,
+      widgetId: null,
+      menuConfig: null,
+      selectedIndex: 0,
+      inMenu: true
+    };
+    logger.debug('Focus menu cleared');
+  }
+
+  /**
+   * Set focus menu selection
+   * @param {number} selectedIndex - Menu item index
+   */
+  static setFocusMenuSelection(selectedIndex) {
+    this.state.focusMenuState.selectedIndex = selectedIndex;
+    logger.debug('Focus menu selection changed', { selectedIndex });
+  }
+
+  /**
+   * Toggle between menu and widget control
+   * @param {boolean} inMenu - True if in menu, false if in widget
+   */
+  static setFocusMenuInWidget(inMenu) {
+    this.state.focusMenuState.inMenu = inMenu;
+    logger.debug('Focus menu mode changed', { inMenu });
   }
 }
 

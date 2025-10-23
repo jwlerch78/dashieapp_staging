@@ -5,7 +5,10 @@
       "Bash(git commit -m \"Fix: Prevent duplicate calendar data sends to widgets\n\nFixed issue where calendar data was being sent to widgets twice:\n1. Once when loading from cache (immediate send)\n2. Again when background refresh completed\n\nNow skips immediate send if background refresh is in progress,\nletting the refresh send the fresh data once ready. This prevents\nduplicate data loads in AgendaWidget and CalendarWidget.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
       "Bash(git restore \"js/widgets/calendar/core/action-handler.js\" \"js/widgets/calendar/styles/calendar-widget.css\")",
       "Bash(mkdir:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(node --check:*)",
+      "Bash(find:*)",
+      "Bash(tree:*)"
     ],
     "deny": [],
     "ask": []

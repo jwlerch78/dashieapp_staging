@@ -397,6 +397,20 @@ Advanced touch gestures:
 
 ---
 
-**Last Updated:** 2025-10-16
+## Database Tables Roadmap
+
+For planned database tables and future schema additions, see:
+- [DATABASE_SCHEMA.md](../supabase/DATABASE_SCHEMA.md) - Current schema
+- Deferred tables (Stripe webhooks, analytics, multi-device, fraud detection) are documented in archived roadmap
+
+**Key Future Tables:**
+- `stripe_webhook_events` - Phase 5 (Stripe integration)
+- `system_events`, `user_sessions`, `daily_metrics` - Phase 7 (Analytics)
+- `dashboards` (multi-device) - Phase 8 (Multi-device support)
+- `feature_usage` - Phase 11 (Usage-based pricing)
+
+---
+
+**Last Updated:** 2025-10-22
 **Maintained By:** Development Team
 **Review Cadence:** Monthly
