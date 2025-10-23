@@ -53,6 +53,17 @@ async function init() {
   const initialTheme = getInitialTheme();
   applyTheme(initialTheme);
 
+  // Signal ready to parent (standard format)
+  if (window.parent !== window) {
+    window.parent.postMessage({
+      type: 'widget-ready',
+      widget: 'main',
+      widgetId: 'main',
+      hasMenu: true // Calendar has focus menu
+    }, '*');
+    logger.debug('Ready signal sent to parent');
+  }
+
   // Expose for debugging
   window.calendarWidget = calendar;
 }
