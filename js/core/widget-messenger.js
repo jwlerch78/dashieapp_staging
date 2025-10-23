@@ -491,6 +491,11 @@ class WidgetMessenger {
       return true;
     }
 
+    // Check if settings have changed
+    if (this.hasSettingsChanged(lastSent)) {
+      return true;
+    }
+
     // Check if data has changed for any type
     const dataTypes = ['calendar', 'photos', 'weather'];
     for (const dataType of dataTypes) {
@@ -500,6 +505,33 @@ class WidgetMessenger {
     }
 
     // No changes detected
+    return false;
+  }
+
+  /**
+   * Check if settings have changed
+   * @private
+   * @param {Object} lastSent - Last sent state
+   * @returns {boolean} Whether settings have changed
+   */
+  hasSettingsChanged(lastSent) {
+    const currentSettings = this.currentState.settings;
+    const lastSettings = lastSent.settings;
+
+    // If both null/undefined, no change
+    if (!currentSettings && !lastSettings) return false;
+
+    // If one is null/undefined and other isn't, changed
+    if (!currentSettings || !lastSettings) return true;
+
+    // Simple comparison: check if lastModified timestamp changed
+    // This covers all settings changes efficiently
+    if (currentSettings.lastModified !== lastSettings.lastModified) {
+      return true;
+    }
+
+    // Fallback: deep equality check is expensive but thorough
+    // For now, just compare lastModified - should be reliable
     return false;
   }
 
@@ -535,7 +567,8 @@ class WidgetMessenger {
       photos: this.currentState.photos ? { ...this.currentState.photos } : null,
       weather: this.currentState.weather ? { ...this.currentState.weather } : null,
       auth: { ...this.currentState.auth },
-      theme: this.currentState.theme
+      theme: this.currentState.theme,
+      settings: this.currentState.settings ? { lastModified: this.currentState.settings.lastModified } : null
     });
   }
 
