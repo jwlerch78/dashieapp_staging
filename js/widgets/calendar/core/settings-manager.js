@@ -16,14 +16,27 @@ export class CalendarSettingsManager {
 
   /**
    * Load settings from localStorage
+   * Checks both dashie-calendar-settings (widget-specific) and dashie-settings (global)
    */
   loadSettings() {
     try {
       const localStorage = window.parent?.localStorage || window.localStorage;
-      const settings = localStorage.getItem('dashie-settings');
 
-      if (settings) {
-        const parsed = JSON.parse(settings);
+      // First try dashie-calendar-settings (widget-specific, takes precedence)
+      const calendarSettings = localStorage.getItem('dashie-calendar-settings');
+      if (calendarSettings) {
+        const parsed = JSON.parse(calendarSettings);
+        return {
+          viewMode: parsed.dcalViewMode || 'week',
+          startWeekOn: parsed.startWeekOn || 'sun',
+          scrollTime: parsed.scrollTime || 8
+        };
+      }
+
+      // Fallback to dashie-settings (global settings)
+      const globalSettings = localStorage.getItem('dashie-settings');
+      if (globalSettings) {
+        const parsed = JSON.parse(globalSettings);
         return {
           viewMode: parsed.calendar?.dcalViewMode || 'week',
           startWeekOn: parsed.calendar?.startWeekOn || 'sun',
