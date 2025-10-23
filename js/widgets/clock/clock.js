@@ -62,17 +62,24 @@ class ClockWidget {
   setupEventListeners() {
     // Listen for widget-messenger communications
     window.addEventListener('message', (event) => {
-      // Handle navigation commands (single action strings) - clock doesn't need navigation but keeping pattern
-      if (event.data && typeof event.data.action === 'string' && !event.data.type) {
-        this.handleCommand(event.data.action);
+      if (!event.data) return;
+
+      // Handle command messages (standard format)
+      if (event.data.type === 'command') {
+        const action = event.data.action;
+        if (action) {
+          this.handleCommand(action);
+        }
+        return;
       }
-      // Handle message objects with type
-      if (event.data && event.data.type) {
-        this.handleDataServiceMessage(event.data);
-      }
-      // Handle location updates from parent
-      if (event.data && event.data.type === 'location-update' && event.data.payload) {
-        this.handleLocationUpdate(event.data.payload);
+
+      // Handle data/location messages
+      if (event.data.type) {
+        if (event.data.type === 'location-update' && event.data.payload) {
+          this.handleLocationUpdate(event.data.payload);
+        } else {
+          this.handleDataServiceMessage(event.data);
+        }
       }
     });
 

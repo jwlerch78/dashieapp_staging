@@ -41,28 +41,7 @@ export class CalendarMessageHandler {
       return;
     }
 
-    // Handle menu/focus actions (legacy format: {action: 'menu-item-selected', itemId: ...})
-    if (event.data.action && !event.data.type) {
-      const action = event.data.action;
-      const stateActions = ['enter-focus', 'exit-focus', 'enter-active', 'exit-active'];
-      const menuActions = ['menu-active', 'menu-selection-changed', 'menu-item-selected'];
-
-      if (stateActions.includes(action) || menuActions.includes(action)) {
-        // Menu/focus action - pass to focus manager
-        this.widget.focusManager.handleMenuAction({
-          action: action,
-          itemId: event.data.itemId,
-          selectedItem: event.data.selectedItem
-        });
-        return;
-      } else {
-        // Regular navigation command (left, right, up, down, etc.)
-        this.widget.actionHandler.handleAction(action);
-        return;
-      }
-    }
-
-    // Handle command messages (new format: {type: 'command', action: ...})
+    // Handle command messages (standard format: {type: 'command', action: ...})
     if (event.data.type === 'command') {
       const action = event.data.payload?.action || event.data.action;
 

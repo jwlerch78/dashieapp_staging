@@ -49,10 +49,19 @@ class HeaderWidget {
   setupEventListeners() {
     // Listen for widget-messenger communications
     window.addEventListener('message', (event) => {
-      if (event.data && typeof event.data.action === 'string' && !event.data.type) {
-        this.handleCommand(event.data.action);
+      if (!event.data) return;
+
+      // Handle command messages (standard format)
+      if (event.data.type === 'command') {
+        const action = event.data.action;
+        if (action) {
+          this.handleCommand(action);
+        }
+        return;
       }
-      if (event.data && event.data.type) {
+
+      // Handle data messages
+      if (event.data.type) {
         this.handleDataServiceMessage(event.data);
       }
     });

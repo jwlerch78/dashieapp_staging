@@ -391,11 +391,11 @@ class WidgetMessenger {
   }
 
   /**
-   * Send command to widget by ID (smart handling like legacy)
+   * Send command to widget by ID (standard format)
    * @param {string} widgetId - Widget ID (e.g., 'main', 'calendar')
    * @param {string|Object} command - Command to send
-   *   - If string: wraps as {action: 'string'} (e.g., 'left' → {action: 'left'})
-   *   - If object: sends as-is (e.g., {action: 'menu-item-selected', itemId: 'weekly'})
+   *   - If string: wraps as {type: 'command', action: 'string', payload: null}
+   *   - If object: must contain 'action' field, wraps with type: 'command'
    */
   sendCommandToWidget(widgetId, command) {
     // Iframe IDs are prefixed with 'widget-'
@@ -403,8 +403,25 @@ class WidgetMessenger {
     const iframe = document.getElementById(iframeId);
 
     if (iframe && iframe.contentWindow) {
-      // Smart handling: if string, wrap it. If object, send as-is (legacy format)
-      const message = (typeof command === 'string') ? { action: command } : command;
+      // Build standard format message
+      let message;
+      if (typeof command === 'string') {
+        // Simple command string
+        message = {
+          type: WIDGET_MESSAGE_TYPES.COMMAND,
+          action: command,
+          payload: null
+        };
+      } else {
+        // Complex command object (e.g., menu-item-selected with itemId)
+        message = {
+          type: WIDGET_MESSAGE_TYPES.COMMAND,
+          action: command.action,
+          payload: command.payload || null,
+          // Preserve additional fields like itemId, selectedItem
+          ...command
+        };
+      }
 
       iframe.contentWindow.postMessage(message, '*');
       logger.widget('send', 'command', widgetId, { message });
