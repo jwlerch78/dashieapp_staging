@@ -22,6 +22,8 @@ export class CalendarFocusManager {
       const settings = this.widget.settingsManager.loadSettings();
       const currentViewMode = settings.viewMode || 'week';
 
+      logger.info('📋 Sending menu config to parent', { currentViewMode });
+
       window.parent.postMessage({
         type: 'widget-config',
         widget: 'main', // Must match grid config ID (not 'calendar')

@@ -359,23 +359,29 @@ class FocusMenuRenderer {
    * @param {string} currentView - Current view mode ID
    */
   static updateMenuHighlight(widgetId, currentView) {
+    logger.info('🎯 updateMenuHighlight called', { widgetId, currentView });
+
     const container = document.querySelector('.dashboard-focus-menu');
     if (!container) {
-      logger.debug('No focus menu to update');
+      logger.warn('No focus menu to update - menu not visible');
       return;
     }
 
     // Remove active class from all items
     const items = container.querySelectorAll('.dashboard-focus-menu__item');
+    logger.debug('Found menu items', { count: items.length });
     items.forEach(item => item.classList.remove('dashboard-focus-menu__item--active'));
 
     // Add active class to matching item
     const activeItem = container.querySelector(`[data-item-id="${currentView}"]`);
     if (activeItem) {
       activeItem.classList.add('dashboard-focus-menu__item--active');
-      logger.debug('Updated menu highlight', { widgetId, currentView });
+      logger.info('✓ Updated menu highlight', { widgetId, currentView });
     } else {
-      logger.warn('Could not find menu item to highlight', { currentView });
+      logger.warn('Could not find menu item to highlight', {
+        currentView,
+        availableItems: Array.from(items).map(i => i.dataset.itemId)
+      });
     }
   }
 }
