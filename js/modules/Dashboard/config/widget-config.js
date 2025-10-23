@@ -54,15 +54,10 @@ export function getWidgetConfig() {
 
 /**
  * Legacy export for backward compatibility
- * Returns dynamic config (getter function)
+ * Note: This returns the initial config, but code should use getWidgetConfig()
+ * for dynamic updates. Existing code that imports widgetConfig will need to
+ * be updated to call getWidgetConfig() or access via the global.
  */
-Object.defineProperty(exports, 'widgetConfig', {
-  get: function() {
-    return getWidgetConfig();
-  }
-});
-
-// Also export as const for static imports (will be evaluated at access time)
 export const widgetConfig = getWidgetConfig();
 
 /**
