@@ -192,7 +192,11 @@ class WidgetMessenger {
     // Listen for settings changes
     AppComms.subscribe(AppComms.events.SETTINGS_CHANGED, (data) => {
       this.currentState.settings = data;
-      logger.debug('Settings changed, broadcasting to widgets');
+      logger.info('Settings changed, broadcasting to widgets', {
+        hasPhotosSettings: !!data?.photos,
+        transitionTime: data?.photos?.transitionTime,
+        allSettings: Object.keys(data || {})
+      });
       this.broadcastCurrentState();
     });
 
@@ -411,10 +415,12 @@ class WidgetMessenger {
       }
     });
 
-    logger.debug('Broadcast complete', {
+    logger.info('Broadcast complete', {
       totalIframes: allIframes.length,
       broadcastCount,
-      skippedCount
+      skippedCount,
+      hasSettings: !!this.currentState.settings,
+      transitionTime: this.currentState.settings?.photos?.transitionTime
     });
   }
 

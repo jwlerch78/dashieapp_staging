@@ -356,9 +356,13 @@ class PhotosWidget {
         });
       }
 
-      logger.debug('Photo displayed', {
+      logger.verbose('Photo displayed', {
         index: this.currentPhotoIndex,
-        total: this.photoUrls.length
+        total: this.photoUrls.length,
+        transitionTimeSeconds: this.transitionTime / 1000,
+        transitionTimeMs: this.transitionTime,
+        timestamp: new Date().toLocaleTimeString(),
+        nextPhotoIn: `${this.transitionTime / 1000}s`
       });
     };
 
