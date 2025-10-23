@@ -76,16 +76,14 @@ class ClockWidget {
       }
     });
 
-    // Signal widget ready (UPDATED for Phase 3.5 WidgetDataManager protocol)
+    // Signal widget ready
     window.addEventListener('load', () => {
       if (window.parent !== window) {
         window.parent.postMessage({
-          type: 'event',
+          type: 'widget-ready',
+          widget: 'clock',
           widgetId: 'clock',
-          payload: {
-            eventType: 'widget-ready',
-            data: { hasMenu: false }
-          }
+          hasMenu: false
         }, '*');
       }
     });

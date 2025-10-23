@@ -134,12 +134,10 @@ export class CalendarMessageHandler {
   sendWidgetReady() {
     if (window.parent !== window) {
       window.parent.postMessage({
-        type: 'event',
+        type: 'widget-ready',
+        widget: 'main',
         widgetId: 'main', // Must match ID in dashboard-widget-config.js
-        payload: {
-          eventType: 'widget-ready',
-          data: { hasMenu: false }
-        }
+        hasMenu: true // Calendar has focus menu
       }, '*');
       logger.debug('📤 Sent widget-ready message to parent');
     }

@@ -57,16 +57,14 @@ class HeaderWidget {
       }
     });
 
-    // Signal widget ready (UPDATED for Phase 3.5 protocol)
+    // Signal widget ready
     window.addEventListener('load', () => {
       if (window.parent !== window) {
         window.parent.postMessage({
-          type: 'event',
+          type: 'widget-ready',
+          widget: 'header',
           widgetId: 'header',
-          payload: {
-            eventType: 'widget-ready',
-            data: { hasMenu: false }
-          }
+          hasMenu: false
         }, '*');
       }
     });
