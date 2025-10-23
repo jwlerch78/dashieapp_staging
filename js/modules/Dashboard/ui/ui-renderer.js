@@ -303,8 +303,24 @@ class UIRenderer {
         return false;
       }
 
-      // Remove all existing widget cells
+      // Unregister all existing widgets from WidgetDataManager
       const cells = grid.querySelectorAll('.dashboard-grid__cell');
+      const widgetIds = [];
+      cells.forEach(cell => {
+        const widgetId = cell.dataset.widgetId;
+        if (widgetId) {
+          widgetIds.push(widgetId);
+        }
+      });
+
+      // Import and use WidgetDataManager to unregister
+      const { widgetDataManager } = await import('../../../core/widget-data-manager.js');
+      widgetIds.forEach(widgetId => {
+        widgetDataManager.unregisterWidget(widgetId);
+      });
+      logger.debug('Unregistered old widgets', { widgetIds });
+
+      // Now remove DOM elements
       cells.forEach(cell => cell.remove());
       logger.debug('Removed existing widgets', { count: cells.length });
 
