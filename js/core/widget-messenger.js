@@ -83,13 +83,19 @@ class WidgetMessenger {
       try {
         if (window.settingsStore && window.settingsStore.initialized) {
           this.currentState.settings = window.settingsStore.getAll();
-          logger.debug('WidgetMessenger loaded settings from settingsStore', {
+          logger.info('📋 WidgetMessenger loaded settings from settingsStore', {
             hasPhotosSettings: !!this.currentState.settings?.photos,
-            transitionTime: this.currentState.settings?.photos?.transitionTime
+            transitionTime: this.currentState.settings?.photos?.transitionTime,
+            allSettingKeys: Object.keys(this.currentState.settings || {})
+          });
+        } else {
+          logger.warn('⚠️ settingsStore not available during WidgetMessenger init', {
+            hasSettingsStore: !!window.settingsStore,
+            isInitialized: window.settingsStore?.initialized
           });
         }
       } catch (e) {
-        logger.debug('Could not read settings from settingsStore, will wait for SETTINGS_LOADED event');
+        logger.warn('❌ Could not read settings from settingsStore', e);
       }
 
       // Set up widget message listener

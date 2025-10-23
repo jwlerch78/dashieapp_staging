@@ -120,9 +120,20 @@ class PhotosWidget {
 
       // Handle state updates (includes settings, theme, etc.)
       if (data.type === 'data' && data.action === 'state-update' && data.payload) {
+        logger.info('📥 State update received', {
+          hasSettings: !!data.payload.settings,
+          hasPhotosSettings: !!data.payload.settings?.photos,
+          transitionTime: data.payload.settings?.photos?.transitionTime,
+          currentTransitionTime: this.transitionTime
+        });
+
         // Handle settings updates
         if (data.payload.settings?.photos?.transitionTime) {
           this.updateTransitionTime(data.payload.settings.photos.transitionTime);
+        } else {
+          logger.warn('⚠️ No photos.transitionTime in settings', {
+            settingsKeys: data.payload.settings ? Object.keys(data.payload.settings) : null
+          });
         }
         return;
       }
