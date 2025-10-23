@@ -113,12 +113,19 @@ export class WidgetDataManager {
             return;
         }
 
-        // Handle widget events
+        // Handle standard widget-ready format: {type: 'widget-ready', widgetId: 'photos'}
+        if (message.type === 'widget-ready' && message.widgetId) {
+            logger.debug('Widget ready (standard format)', { widgetId: message.widgetId });
+            await this.handleWidgetReady(message.widgetId, { hasMenu: message.hasMenu });
+            return;
+        }
+
+        // Handle legacy event wrapper format: {type: 'event', eventType: 'widget-ready'}
         if (message.type === 'event' && message.widgetId) {
             const { widgetId, payload } = message;
             const { eventType, data } = payload || {};
 
-            logger.debug('Widget event received', { widgetId, eventType });
+            logger.debug('Widget event received (legacy format)', { widgetId, eventType });
 
             switch (eventType) {
                 case 'widget-ready':
