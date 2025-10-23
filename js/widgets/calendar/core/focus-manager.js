@@ -175,6 +175,7 @@ export class CalendarFocusManager {
   updateHomeStatus() {
     if (!this.homeDate) {
       this.isAtHome = false;
+      logger.debug('📍 Home status: NO HOME DATE SET', { isAtHome: false });
       return;
     }
 
@@ -184,12 +185,15 @@ export class CalendarFocusManager {
     const home = new Date(this.homeDate);
     home.setHours(0, 0, 0, 0);
 
+    const wasAtHome = this.isAtHome;
     this.isAtHome = (current.getTime() === home.getTime());
 
-    logger.debug('Home status updated', {
+    logger.info('📍 Home status updated', {
+      wasAtHome,
       isAtHome: this.isAtHome,
       currentDate: current.toDateString(),
-      homeDate: home.toDateString()
+      homeDate: home.toDateString(),
+      match: current.getTime() === home.getTime()
     });
   }
 

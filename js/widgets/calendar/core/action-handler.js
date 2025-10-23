@@ -70,14 +70,21 @@ export class CalendarActionHandler {
    * Handle LEFT action
    */
   handleLeft() {
+    logger.info('⬅️ LEFT pressed', {
+      isAtHome: this.widget.focusManager.isAtHome,
+      menuActive: this.widget.focusManager.menuActive,
+      shouldReturnToMenu: this.widget.focusManager.isAtHome && !this.widget.focusManager.menuActive
+    });
+
     // If at home position, don't navigate - return to menu instead
     if (this.widget.focusManager.isAtHome && !this.widget.focusManager.menuActive) {
-      logger.info('📍 At home position - returning to menu instead of navigating past');
+      logger.info('📍 At home position - returning to menu instead of navigating');
       this.widget.focusManager.requestReturnToMenu();
       return;
     }
 
     // Navigate backward
+    logger.info('⬅️ Navigating to previous period');
     this.widget.navigationManager.navigatePrevious();
   }
 
