@@ -162,6 +162,19 @@ class AppComms {
     getStats() {}
 
     /**
+     * Get all registered event names
+     * @returns {Array<string>} List of event names with subscribers
+     */
+    getRegisteredEvents() {}
+
+    /**
+     * Check if event has any subscribers
+     * @param {string} eventName - Event name to check
+     * @returns {boolean} True if event has subscribers
+     */
+    hasSubscribers(eventName) {}
+
+    /**
      * Event name constants (25+ predefined events)
      * @type {Object}
      */
@@ -568,7 +581,9 @@ class WidgetMessenger {
     /**
      * Send command to widget by ID
      * @param {string} widgetId - Widget element ID
-     * @param {string} command - Command to send
+     * @param {string|Object} command - Command to send
+     *   - If string: wraps as {type: 'command', action: 'string', payload: null}
+     *   - If object: wraps with {type: 'command', action: command.action, ...additionalFields}
      * @returns {void}
      */
     sendCommandToWidget(widgetId, command) {}
@@ -652,6 +667,123 @@ WidgetMessenger.updateState('calendar', calendarData);
 
 // WidgetMessenger automatically handles widget-ready messages
 // and broadcasts state updates with deduplication
+```
+
+---
+
+### 5. WidgetDataManager (Widget Data Loading)
+
+**Purpose:** Manages data loading and distribution to widgets
+
+**Relationship to WidgetMessenger:**
+- **WidgetMessenger** handles communication infrastructure (sending messages, managing connections)
+- **WidgetDataManager** handles data loading logic (fetching calendar data, photos, weather)
+- **WidgetDataManager** listens for `widget-ready` messages and triggers data loading
+- **WidgetDataManager** uses WidgetMessenger to send data to widgets
+
+**Interface:**
+```javascript
+/**
+ * WidgetDataManager - Singleton instance
+ * Exported as: import { getWidgetDataManager } from './js/core/widget-data-manager.js'
+ */
+class WidgetDataManager {
+    /**
+     * Initialize the widget data manager
+     * Sets up message listeners and calendar cache
+     * @returns {Promise<void>}
+     */
+    async initialize() {}
+
+    /**
+     * Register a widget iframe
+     * @param {string} widgetId - Widget identifier
+     * @param {HTMLIFrameElement} iframe - Widget iframe element
+     * @returns {void}
+     */
+    registerWidget(widgetId, iframe) {}
+
+    /**
+     * Unregister a widget
+     * @param {string} widgetId - Widget identifier
+     * @returns {void}
+     */
+    unregisterWidget(widgetId) {}
+
+    /**
+     * Handle widget message (widget-ready, widget-config, etc.)
+     * @param {Object} message - Message from widget
+     * @returns {Promise<void>}
+     */
+    async handleWidgetMessage(message) {}
+
+    /**
+     * Load calendar data and send to calendar/agenda widgets
+     * @returns {Promise<void>}
+     */
+    async loadCalendarData() {}
+
+    /**
+     * Load photos data and send to photos widget
+     * @returns {Promise<void>}
+     */
+    async loadPhotosData() {}
+
+    /**
+     * Refresh calendar data (force refetch)
+     * @returns {Promise<void>}
+     */
+    async refreshCalendarData() {}
+
+    /**
+     * Send data to specific widget
+     * @param {string} widgetId - Widget ID
+     * @param {string} messageType - Message type ('data', 'config', etc.)
+     * @param {Object} payload - Data payload
+     * @returns {void}
+     */
+    sendToWidget(widgetId, messageType, payload) {}
+
+    /**
+     * Start auto-refresh for widget data
+     * @param {string} widgetId - Widget ID
+     * @param {number} intervalMs - Refresh interval in milliseconds
+     * @returns {void}
+     */
+    startAutoRefresh(widgetId, intervalMs) {}
+
+    /**
+     * Stop auto-refresh for widget
+     * @param {string} widgetId - Widget ID
+     * @returns {void}
+     */
+    stopAutoRefresh(widgetId) {}
+}
+
+// Singleton export
+export function getWidgetDataManager() { return widgetDataManager; }
+```
+
+**Usage Example:**
+```javascript
+import { getWidgetDataManager } from './js/core/widget-data-manager.js';
+
+// Initialize
+const widgetDataManager = getWidgetDataManager();
+await widgetDataManager.initialize();
+
+// Register widget
+const iframe = document.getElementById('widget-calendar');
+widgetDataManager.registerWidget('calendar', iframe);
+
+// Load calendar data (automatically sends to registered calendar widgets)
+await widgetDataManager.loadCalendarData();
+
+// WidgetDataManager automatically:
+// - Listens for widget-ready messages
+// - Loads appropriate data for each widget type
+// - Handles auto-refresh intervals
+// - Coordinates with WidgetMessenger for message sending
 ```
 
 ---
@@ -2038,14 +2170,25 @@ class PhotosWidget extends Widget {
 
 ## Widget Communication Protocol
 
+**Note:** All messages use standard format with explicit `type` field. Legacy formats (messages without `type` field) have been removed as of 2025-10-23.
+
 ### Messages: App → Widget
 
 ```javascript
-// Command message
+// Command message (STANDARD FORMAT - always includes type field)
 {
     type: 'command',
     action: 'up' | 'down' | 'left' | 'right' | 'enter' | 'escape' | 'enter-focus' | 'exit-focus' | 'enter-active' | 'exit-active',
     payload: null
+}
+
+// Complex command message (with additional fields)
+{
+    type: 'command',
+    action: 'menu-item-selected',
+    payload: null,
+    itemId: 'view-week',          // Additional fields preserved
+    selectedItem: { id: '...', label: '...' }
 }
 
 // Data message
@@ -2413,6 +2556,14 @@ describe('InputHandler', () => {
 
 ## Version History
 
+- **v2.4** (2025-10-23) - Widget messaging standardization and documentation audit
+  - BREAKING: Removed legacy command message format (messages without `type` field)
+  - All command messages now use standard format: `{type: 'command', action: X, payload: null}`
+  - Added WidgetDataManager to Core Layer Interfaces (previously undocumented)
+  - Updated WidgetMessenger.sendCommandToWidget() to document `{string|Object}` parameter
+  - Added AppComms.getRegisteredEvents() and hasSubscribers() methods
+  - Added note about legacy format removal (2025-10-23)
+  - Added complex command message example (with itemId, selectedItem fields)
 - **v2.3** (2025-10-16) - Added Widget Layer Interface documentation
   - NEW: Widget Layer Interface section (complete widget contracts)
   - Documented 3-state model (UNFOCUSED → FOCUSED → ACTIVE)
