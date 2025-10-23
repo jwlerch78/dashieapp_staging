@@ -2,8 +2,8 @@
 // Focus Menu UI Renderer - Creates and manages focus menu overlay
 // v1.0 - 10/23/25 - Ported from legacy for Phase 2 focus menu implementation
 
-import { createLogger } from '../../../utils/logger.js';
-import WidgetMessenger from '../../../core/widget-messenger.js';
+import { createLogger } from '../../../../utils/logger.js';
+import WidgetMessenger from '../../../../core/widget-messenger.js';
 
 const logger = createLogger('FocusMenuRenderer');
 

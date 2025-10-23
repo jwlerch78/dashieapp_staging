@@ -12,7 +12,8 @@
       "Bash(git add:*)",
       "Bash(git commit:*)",
       "Bash(git revert:*)",
-      "Bash(for file in js/modules/Dashboard/*.js)"
+      "Bash(for file in js/modules/Dashboard/*.js)",
+      "Bash(git mv:*)"
     ],
     "deny": [],
     "ask": []

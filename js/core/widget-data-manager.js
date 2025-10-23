@@ -161,7 +161,7 @@ export class WidgetDataManager {
             try {
                 // Dynamically import FocusMenuStateManager to avoid circular dependencies
                 const { default: FocusMenuStateManager } = await import(
-                    '../modules/Dashboard/components/focus-menu-state-manager.js'
+                    '../modules/Dashboard/components/focus-menu/state-manager.js'
                 );
 
                 // Register the widget's menu configuration

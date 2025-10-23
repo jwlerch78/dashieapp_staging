@@ -2,7 +2,7 @@
 // Focus Menu State Manager - Tracks widget menu configurations
 // v1.0 - 10/23/25 - Initial implementation
 
-import { createLogger } from '../../../utils/logger.js';
+import { createLogger } from '../../../../utils/logger.js';
 
 const logger = createLogger('FocusMenuState');
 

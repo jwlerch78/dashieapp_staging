@@ -2,15 +2,15 @@
 // Dashboard UI rendering and visual updates
 // v2.0 - 10/16/25 - Refactored into modular architecture
 
-import { createLogger } from '../../utils/logger.js';
-import DOMBuilder from './dashboard-dom-builder.js';
-import VisualEffects from './dashboard-visual-effects.js';
+import { createLogger } from '../../../utils/logger.js';
+import DOMBuilder from './dom-builder.js';
+import VisualEffects from './visual-effects.js';
 import {
   GridEventHandler,
   MenuEventHandler,
   SidebarEventHandler,
   OverlayEventHandler
-} from './dashboard-event-handlers.js';
+} from '../navigation/event-handlers.js';
 
 const logger = createLogger('DashboardUI');
 

@@ -2,8 +2,8 @@
 // Dashboard DOM creation functions
 // v1.0 - 10/16/25 - Extracted from dashboard-ui-renderer.js
 
-import { createLogger } from '../../utils/logger.js';
-import { widgetConfig } from './dashboard-widget-config.js';
+import { createLogger } from '../../../utils/logger.js';
+import { widgetConfig } from '../config/widget-config.js';
 
 const logger = createLogger('DashboardDOMBuilder');
 

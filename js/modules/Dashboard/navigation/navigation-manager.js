@@ -2,14 +2,14 @@
 // Dashboard navigation logic - Grid, menu, and widget focus
 // v1.0 - 10/16/25 - Initial implementation for Phase 2
 
-import { createLogger } from '../../utils/logger.js';
-import DashboardStateManager from './dashboard-state-manager.js';
-import UIRenderer from './dashboard-ui-renderer.js';
-import { getWidgetAtPosition, canWidgetCenter } from './dashboard-widget-config.js';
-import AppStateManager from '../../core/app-state-manager.js';
-import WidgetMessenger from '../../core/widget-messenger.js';
-import FocusMenuStateManager from './components/focus-menu-state-manager.js';
-import FocusMenuRenderer from './components/focus-menu-renderer.js';
+import { createLogger } from '../../../utils/logger.js';
+import DashboardStateManager from '../state/state-manager.js';
+import UIRenderer from '../ui/ui-renderer.js';
+import { getWidgetAtPosition, canWidgetCenter } from '../config/widget-config.js';
+import AppStateManager from '../../../core/app-state-manager.js';
+import WidgetMessenger from '../../../core/widget-messenger.js';
+import FocusMenuStateManager from '../components/focus-menu/state-manager.js';
+import FocusMenuRenderer from '../components/focus-menu/renderer.js';
 
 const logger = createLogger('DashboardNav');
 

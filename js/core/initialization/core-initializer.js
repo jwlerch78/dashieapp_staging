@@ -9,7 +9,7 @@ import ActionRouter from '../../core/action-router.js';
 import WidgetMessenger from '../../core/widget-messenger.js';
 import { getPlatformDetector } from '../../utils/platform-detector.js';
 import Dashboard from '../../modules/Dashboard/dashboard.js';
-import DashboardInputHandler from '../../modules/Dashboard/dashboard-input-handler.js';
+import DashboardInputHandler from '../../modules/Dashboard/navigation/input-handler.js';
 import Settings from '../../modules/Settings/settings.js';
 import modals from '../../modules/Modals/modals.js';
 import welcome from '../../modules/Welcome/welcome.js';

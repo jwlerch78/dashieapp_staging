@@ -5,14 +5,14 @@
 import { createLogger } from '../../utils/logger.js';
 import AppComms from '../../core/app-comms.js';
 import AppStateManager from '../../core/app-state-manager.js';
-import DashboardStateManager from './dashboard-state-manager.js';
-import DashboardInputHandler from './dashboard-input-handler.js';
-import UIRenderer from './dashboard-ui-renderer.js';
-import DashboardTimers from './dashboard-timers.js';
-import NavigationManager from './dashboard-navigation-manager.js';
-import FocusMenuRenderer from './components/focus-menu-renderer.js';
+import DashboardStateManager from './state/state-manager.js';
+import DashboardInputHandler from './navigation/input-handler.js';
+import UIRenderer from './ui/ui-renderer.js';
+import DashboardTimers from './state/timer-manager.js';
+import NavigationManager from './navigation/navigation-manager.js';
+import FocusMenuRenderer from './components/focus-menu/renderer.js';
 import widgetMessenger from '../../core/widget-messenger.js';
-import { getWidgetById } from './dashboard-widget-config.js';
+import { getWidgetById } from './config/widget-config.js';
 
 const logger = createLogger('Dashboard');
 

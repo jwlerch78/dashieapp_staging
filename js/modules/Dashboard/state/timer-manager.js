@@ -2,11 +2,11 @@
 // Timeout management for Dashboard selection and focus states
 // v1.0 - 10/16/25 - Initial implementation for Phase 2
 
-import { createLogger } from '../../utils/logger.js';
-import { SELECTION_TIMEOUT, FOCUS_TIMEOUT } from '../../../config.js';
-import DashboardStateManager from './dashboard-state-manager.js';
-import NavigationManager from './dashboard-navigation-manager.js';
-import UIRenderer from './dashboard-ui-renderer.js';
+import { createLogger } from '../../../utils/logger.js';
+import { SELECTION_TIMEOUT, FOCUS_TIMEOUT } from '../../../../config.js';
+import DashboardStateManager from './state-manager.js';
+import NavigationManager from '../navigation/navigation-manager.js';
+import UIRenderer from '../ui/ui-renderer.js';
 
 const logger = createLogger('DashboardTimers');
 

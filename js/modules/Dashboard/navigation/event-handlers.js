@@ -2,8 +2,8 @@
 // Dashboard event handling and user interaction
 // v1.0 - 10/16/25 - Extracted from dashboard-ui-renderer.js
 
-import { createLogger } from '../../utils/logger.js';
-import DashboardStateManager from './dashboard-state-manager.js';
+import { createLogger } from '../../../utils/logger.js';
+import DashboardStateManager from '../state/state-manager.js';
 
 const logger = createLogger('DashboardEvents');
 
@@ -129,7 +129,7 @@ class GridEventHandler {
     const state = DashboardStateManager.getState();
 
     // DEBUG: Log ALL grid clicks
-    console.log('🔵 GRID CLICK HANDLER FIRED', {
+    logger.debug('Grid click', {
       row,
       col,
       widgetId,
@@ -144,7 +144,6 @@ class GridEventHandler {
 
     // If menu is open, close it and don't focus the widget
     if (state.menuOpen) {
-      console.log('🔴 MENU IS OPEN - CLOSING MENU');
       logger.info('Grid clicked while menu open - closing menu');
       import('./dashboard-navigation-manager.js').then((module) => {
         const NavigationManager = module.default;
@@ -155,11 +154,9 @@ class GridEventHandler {
 
     // Don't allow clicks when widget is already focused
     if (state.focusedWidget) {
-      console.log('🟡 WIDGET ALREADY FOCUSED - IGNORING CLICK');
       return;
     }
 
-    console.log('🟢 NORMAL CLICK - FOCUSING WIDGET');
     logger.info('Grid cell clicked', { row, col, widgetId });
 
     // Import navigation manager dynamically
@@ -432,7 +429,7 @@ class SidebarEventHandler {
    */
   static handleClick(e, sidebar) {
     // DEBUG: Log ALL sidebar clicks
-    console.log('🟣 SIDEBAR CLICK HANDLER FIRED', {
+    logger.debug('Sidebar click', {
       targetTag: e.target.tagName,
       targetClass: e.target.className,
       isMenuItem: !!e.target.closest('.dashboard-menu__item')
@@ -440,26 +437,22 @@ class SidebarEventHandler {
 
     // Only handle clicks on the sidebar itself, not menu items
     if (e.target.closest('.dashboard-menu__item')) {
-      console.log('🟣 Click was on menu item - ignoring');
       return;
     }
 
     const state = DashboardStateManager.getState();
     const isExpanded = sidebar.classList.contains('dashboard-sidebar--expanded');
 
-    console.log('🟣 SIDEBAR BACKGROUND CLICKED', { isExpanded, menuOpen: state.menuOpen });
     logger.debug('Sidebar clicked', { isExpanded, menuOpen: state.menuOpen });
 
     if (isExpanded && state.menuOpen) {
       // Close menu if it's actively open
-      console.log('🟣 Closing menu via sidebar click');
       import('./dashboard-navigation-manager.js').then((module) => {
         const NavigationManager = module.default;
         NavigationManager.closeMenu();
       });
     } else if (!isExpanded) {
       // Expand if collapsed AND set menu state
-      console.log('🟣 Opening menu via sidebar click');
       sidebar.classList.add('dashboard-sidebar--expanded');
 
       // CRITICAL FIX: Set the menuOpen state
@@ -498,11 +491,9 @@ class OverlayEventHandler {
       // Check if an iframe now has focus
       setTimeout(() => {
         if (document.activeElement && document.activeElement.tagName === 'IFRAME') {
-          console.log('🔵 IFRAME GOT FOCUS (user clicked widget)');
 
           const state = DashboardStateManager.getState();
           if (state.menuOpen) {
-            console.log('🔴 Menu is open - closing due to widget click');
             import('./dashboard-navigation-manager.js').then((module) => {
               const NavigationManager = module.default;
               NavigationManager.closeMenu();
@@ -523,7 +514,7 @@ class OverlayEventHandler {
     const state = DashboardStateManager.getState();
 
     // DEBUG: Log ALL overlay handler clicks
-    console.log('🟠 OVERLAY HANDLER FIRED', {
+    logger.debug('Overlay click', {
       menuOpen: state.menuOpen,
       focusedWidget: state.focusedWidget,
       targetTag: e.target.tagName,
@@ -535,13 +526,12 @@ class OverlayEventHandler {
       // Check if click was on the sidebar itself
       const clickedSidebar = e.target.closest('.dashboard-sidebar');
 
-      console.log('🟠 Menu is open, checking if clicked sidebar:', {
+      logger.debug('Menu open - checking click target', {
         clickedSidebar: !!clickedSidebar
       });
 
       // If click was NOT on the sidebar, close the menu
       if (!clickedSidebar) {
-        console.log('🔴 OVERLAY: Closing menu (clicked outside sidebar)');
         logger.info('Click outside sidebar - closing menu');
 
         import('./dashboard-navigation-manager.js').then((module) => {
