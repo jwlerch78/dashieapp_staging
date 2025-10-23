@@ -356,7 +356,7 @@ class PhotosWidget {
         });
       }
 
-      logger.verbose('Photo displayed', {
+      logger.info('📸 Photo displayed', {
         index: this.currentPhotoIndex,
         total: this.photoUrls.length,
         transitionTimeSeconds: this.transitionTime / 1000,
