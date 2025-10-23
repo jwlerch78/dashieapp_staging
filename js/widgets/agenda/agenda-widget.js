@@ -95,12 +95,10 @@ export class AgendaWidget {
     window.addEventListener('load', () => {
       if (window.parent !== window) {
         window.parent.postMessage({
-          type: 'event',
+          type: 'widget-ready',
+          widget: 'agenda',
           widgetId: 'agenda',
-          payload: {
-            eventType: 'widget-ready',
-            data: { hasMenu: false }
-          }
+          hasMenu: false
         }, '*');
         logger.debug('📤 Sent widget-ready message to parent');
       }
