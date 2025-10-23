@@ -343,16 +343,17 @@ class FocusMenuRenderer {
         return;
       }
 
+      // Update menu highlight immediately for view items (not 'go-to-today')
+      // MUST do this BEFORE sending command, while menu is still visible
+      if (itemId !== 'go-to-today') {
+        FocusMenuRenderer.updateMenuHighlight(state.focusedWidget, itemId);
+      }
+
       // Send menu-item-selected command via WidgetMessenger
       WidgetMessenger.sendCommandToWidget(state.focusedWidget, {
         action: 'menu-item-selected',
         itemId: itemId
       });
-
-      // Update menu highlight immediately for view items (not 'go-to-today')
-      if (itemId !== 'go-to-today') {
-        this.updateMenuHighlight(state.focusedWidget, itemId);
-      }
 
       logger.info('✓ Sent menu-item-selected via click', { itemId });
     });
@@ -366,21 +367,25 @@ class FocusMenuRenderer {
   static updateMenuHighlight(widgetId, currentView) {
     logger.info('🎯 updateMenuHighlight called', { widgetId, currentView });
 
-    const container = document.querySelector('.dashboard-focus-menu');
+    const container = document.getElementById('widget-focus-menu');
     if (!container) {
       logger.warn('No focus menu to update - menu not visible');
       return;
     }
 
     // Remove active class from all items
-    const items = container.querySelectorAll('.dashboard-focus-menu__item');
+    const items = container.querySelectorAll('.focus-menu-item');
     logger.debug('Found menu items', { count: items.length });
-    items.forEach(item => item.classList.remove('dashboard-focus-menu__item--active'));
+    items.forEach(item => {
+      item.classList.remove('selected');
+      item.classList.remove('active');
+    });
 
     // Add active class to matching item
     const activeItem = container.querySelector(`[data-item-id="${currentView}"]`);
     if (activeItem) {
-      activeItem.classList.add('dashboard-focus-menu__item--active');
+      activeItem.classList.add('selected');
+      activeItem.classList.add('active');
       logger.info('✓ Updated menu highlight', { widgetId, currentView });
     } else {
       logger.warn('Could not find menu item to highlight', {

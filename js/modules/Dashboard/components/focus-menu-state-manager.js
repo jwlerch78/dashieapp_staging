@@ -49,7 +49,10 @@ class FocusMenuStateManager {
     // If this is an update (not initial registration) and menu is currently showing, update the UI
     if (isUpdate) {
       import('./focus-menu-renderer.js').then(({ default: FocusMenuRenderer }) => {
-        FocusMenuRenderer.updateMenuHighlight(widgetId, menuConfig.currentView);
+        // Only update if menu is visible (otherwise it will fail with warning)
+        if (FocusMenuRenderer.isFocusMenuVisible()) {
+          FocusMenuRenderer.updateMenuHighlight(widgetId, menuConfig.currentView);
+        }
       });
     }
 

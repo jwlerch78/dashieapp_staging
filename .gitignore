@@ -1,6 +1,28 @@
-# Auth secrets (removed - now only contains public anon keys which are safe)
+# Build output
+dist/
+build/
 
-# Other common ignores
+# Dependencies
 node_modules/
-.env
+
+# iOS/Android build folders (Capacitor)
+ios/App/App/public/
+android/app/src/main/assets/public/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
 .DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment files
+.env
+.env.local

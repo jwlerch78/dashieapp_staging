@@ -1,0 +1,13 @@
+{
+  "dependencies": {
+    "@capacitor/cli": "^7.4.4",
+    "@capacitor/core": "^7.4.4",
+    "@capacitor/ios": "^7.4.4"
+  },
+  "scripts": {
+    "lint:css": "stylelint \"css/**/*.css\"",
+    "lint:css:fix": "stylelint \"css/**/*.css\" --fix",
+    "lint": "npm run lint:css",
+    "build": "mkdir -p dist && cp index.html dist/ && cp -r js dist/ && cp -r css dist/ && cp -r artwork dist/ && cp -r widgets dist/ && cp config.js dist/ && echo 'Build complete!'"
+  }
+}
