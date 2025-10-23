@@ -22,6 +22,7 @@
 
 .dashboard {
   display: flex;
+  flex-direction: column; /* Stack nav bars and content vertically */
   height: 100vh;
   width: 100vw;
   background-color: var(--grid-gap-color);
@@ -31,6 +32,15 @@
 
 .dashboard--hidden {
   display: none;
+}
+
+/* Content wrapper - holds sidebar and grid horizontally */
+.dashboard-content-wrapper {
+  display: flex;
+  flex-direction: row;
+  flex: 1; /* Takes remaining space after nav bars */
+  min-height: 0; /* Allow shrinking */
+  overflow: hidden;
 }
 
 .dashboard--widget-focused {
@@ -44,7 +54,7 @@
 /* Sidebar wrapper - maintains space for collapsed sidebar in flex layout */
 .dashboard-sidebar-wrapper {
   width: 60px;
-  height: 100vh;
+  height: 100%; /* Fill content wrapper height, not viewport */
   position: relative;
   flex-shrink: 0;
   z-index: 10; /* Sidebar's stacking context - below selected cells (100) and overlay (150) */
@@ -57,7 +67,7 @@
   left: 0;
   bottom: 0;
   width: 60px;
-  height: 100vh;
+  height: 100%; /* Fill wrapper height, not viewport */
   background-color: var(--bg-primary);
   border-right: 1px solid var(--bg-tertiary);
   transition: width 0.3s ease, background 0.3s ease;
@@ -176,13 +186,14 @@
 .dashboard-grid {
   flex: 1;
   display: grid;
-  /* Legacy layout: 3 rows × 2 columns, 70/30 width split */
-  grid-template-columns: 70% 30%;
-  grid-template-rows: 10% 45% 45%;
+  /* Grid template will be set dynamically by JavaScript per-page */
+  /* Fallback: 3 rows × 2 columns, equal sizing (if JS doesn't set) */
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(3, 1fr);
   gap: var(--grid-gap);
   padding: var(--grid-gap);
-  height: 100vh;
-  max-height: 100vh;
+  height: 100%; /* Fill content wrapper, not viewport */
+  max-height: 100%;
   overflow: visible; /* Allow cells to overflow and appear above sidebar */
   box-sizing: border-box;
   /* NO position/z-index - prevents creating stacking context that would trap focused widgets */
@@ -204,6 +215,8 @@
 }
 
 /* Support for cells that span multiple rows/columns */
+/* NOTE: Spans are now applied via inline styles in dom-builder.js */
+/* These classes are kept for backward compatibility but are no longer used */
 .dashboard-grid__cell--rowspan-2 {
   grid-row: span 2;
 }
@@ -432,4 +445,58 @@
   left: var(--border-width-selected);
   width: calc(100% - calc(var(--border-width-selected) * 2));
   height: calc(100% - calc(var(--border-width-selected) * 2));
+}
+
+/* =============================================================================
+   PAGE NAVIGATION ARROWS (Touch Controls)
+   ============================================================================= */
+
+.page-nav-arrows {
+  /* Container not needed - arrows insert directly into dashboard flow */
+  display: contents; /* Pass-through container */
+}
+
+.page-nav-arrow {
+  width: 100%;
+  height: 40px;
+  border: none;
+  background: var(--accent-current-time, #00aaff);
+  opacity: 0.3;
+  color: var(--text-primary, #1a1a1a);
+  font-size: 24px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+  user-select: none;
+  padding: 0;
+  margin: 0;
+  position: relative; /* Flow positioning, not fixed */
+  flex-shrink: 0; /* Don't compress the nav bar */
+  z-index: 1; /* Behind sidebar (10) and behind sidebar wrapper (10) */
+}
+
+.page-nav-arrow:hover {
+  opacity: 0.5;
+}
+
+.page-nav-arrow:active {
+  opacity: 0.6;
+}
+
+/* Position chevron centered between sidebar (60px) and right edge */
+.page-nav-arrow::before {
+  content: attr(data-chevron); /* Will be set by JS */
+  margin-left: 30px; /* Half of sidebar width (60px / 2) to center in remaining space */
+}
+
+/* Position based on direction - controls order in flex column */
+.page-nav-arrow--up {
+  order: -1; /* Appears before content wrapper */
+}
+
+.page-nav-arrow--down {
+  order: 1; /* Appears after content wrapper */
 }
