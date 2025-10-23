@@ -11,6 +11,8 @@ import {
   SidebarEventHandler,
   OverlayEventHandler
 } from '../navigation/event-handlers.js';
+import { getWidgetConfig, setCurrentPage } from '../config/widget-config.js';
+import DashboardStateManager from '../state/state-manager.js';
 
 const logger = createLogger('DashboardUI');
 
@@ -277,6 +279,62 @@ class UIRenderer {
    */
   static closeMenu() {
     VisualEffects.closeMenu();
+  }
+
+  /**
+   * Render a new page (multi-page support)
+   * Destroys existing widgets and creates new ones based on page config
+   * @param {string} pageId - Page identifier
+   * @returns {Promise<boolean>} Success status
+   */
+  static async renderPage(pageId) {
+    try {
+      logger.info('Rendering page', { pageId });
+
+      if (!this.container) {
+        logger.error('Cannot render page - container not initialized');
+        return false;
+      }
+
+      // Find grid element
+      const grid = this.container.querySelector('.dashboard-grid');
+      if (!grid) {
+        logger.error('Grid element not found');
+        return false;
+      }
+
+      // Remove all existing widget cells
+      const cells = grid.querySelectorAll('.dashboard-grid__cell');
+      cells.forEach(cell => cell.remove());
+      logger.debug('Removed existing widgets', { count: cells.length });
+
+      // Update widget config to use new page
+      setCurrentPage(pageId);
+
+      // Get new page's widget configuration
+      const widgets = getWidgetConfig();
+      logger.debug('Creating new widgets', { count: widgets.length });
+
+      // Create new widget cells
+      widgets.forEach(widget => {
+        const cell = DOMBuilder.createGridCell(widget);
+        grid.appendChild(cell);
+      });
+
+      // Reattach grid event listeners
+      GridEventHandler.attach(grid);
+
+      // Reset visual state
+      const state = DashboardStateManager.getState();
+      VisualEffects.updateFocus(state.gridPosition.row, state.gridPosition.col);
+
+      logger.success('Page rendered', { pageId, widgetCount: widgets.length });
+      return true;
+
+    } catch (error) {
+      logger.error('Failed to render page', error);
+      return false;
+    }
   }
 
   /**

@@ -97,6 +97,11 @@ class Dashboard {
         this.handleWidgetReturnToMenu();
       }
     });
+
+    // Listen for page change events
+    AppComms.subscribe('PAGE_CHANGED', (data) => {
+      this.handlePageChange(data);
+    });
   }
 
   /**
@@ -188,6 +193,32 @@ class Dashboard {
     widgetMessenger.sendCommandToWidget(state.focusedWidget, 'exit-active');
 
     logger.info('Returned to menu from widget');
+  }
+
+  /**
+   * Handle page change event
+   * Re-renders UI with new page's widgets
+   * @private
+   * @param {Object} data - Page change data { pageId, oldPageId, pageNumber, totalPages }
+   */
+  async handlePageChange(data) {
+    logger.info('Page changed', data);
+
+    try {
+      // Re-render UI with new page
+      await UIRenderer.renderPage(data.pageId);
+
+      // Restore saved state for this page (grid position, focused widget)
+      const state = DashboardStateManager.getState();
+
+      logger.info('Page change complete', {
+        pageId: data.pageId,
+        gridPosition: state.gridPosition,
+        focusedWidget: state.focusedWidget
+      });
+    } catch (error) {
+      logger.error('Failed to handle page change', error);
+    }
   }
 
   /**
