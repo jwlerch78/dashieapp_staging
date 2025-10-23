@@ -62,6 +62,20 @@ class WidgetMessenger {
         logger.debug('Could not read theme from localStorage, using default');
       }
 
+      // Load current settings from settingsStore if available
+      // (Settings are loaded before WidgetMessenger, so SETTINGS_LOADED event was already published)
+      try {
+        if (window.settingsStore && window.settingsStore.initialized) {
+          this.currentState.settings = window.settingsStore.getAll();
+          logger.debug('WidgetMessenger loaded settings from settingsStore', {
+            hasPhotosSettings: !!this.currentState.settings?.photos,
+            transitionTime: this.currentState.settings?.photos?.transitionTime
+          });
+        }
+      } catch (e) {
+        logger.debug('Could not read settings from settingsStore, will wait for SETTINGS_LOADED event');
+      }
+
       // Set up widget message listener
       this.setupMessageListener();
 
@@ -70,7 +84,10 @@ class WidgetMessenger {
 
       this.isInitialized = true;
 
-      logger.verbose('WidgetMessenger initialized', { initialTheme: this.currentState.theme });
+      logger.verbose('WidgetMessenger initialized', {
+        initialTheme: this.currentState.theme,
+        hasSettings: !!this.currentState.settings
+      });
       return true;
     } catch (error) {
       logger.error('Failed to initialize WidgetMessenger', error);

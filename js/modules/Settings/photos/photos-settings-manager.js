@@ -214,8 +214,9 @@ export class PhotosSettingsManager {
     else if (bodyClasses.contains('theme-halloween-light-backup')) theme = 'halloween-light-backup';
     else if (bodyClasses.contains('theme-light')) theme = 'light';
 
-    // Get current settings from parent
-    const settings = window.parent?.settingsInstance?.controller?.getSettings() || {};
+    // Get current settings from parent (use settingsStore as primary source)
+    const settings = window.parent?.settingsStore?.getAll() ||
+                     window.parent?.settingsInstance?.controller?.getSettings() || {};
 
     // Send initialization message to iframe
     const initMessage = {

@@ -362,7 +362,7 @@ export class PhotosSettingsModal {
     }
   }
 
-  handleTransitionSelection(cell) {
+  async handleTransitionSelection(cell) {
     const value = parseInt(cell.dataset.value);
 
     // Remove selection and focus from all cells
@@ -391,12 +391,12 @@ export class PhotosSettingsModal {
 
     document.getElementById('transition-value').textContent = `${value} seconds`;
 
-    this.saveSettingToParent('photos.transitionTime', value);
+    await this.saveSettingToParent('photos.transitionTime', value);
 
     logger.info('Transition time selected', { value });
   }
 
-  saveSettingToParent(path, value) {
+  async saveSettingToParent(path, value) {
   const keys = path.split('.');
   let obj = this.currentSettings;
   for (let i = 0; i < keys.length - 1; i++) {
@@ -411,7 +411,7 @@ export class PhotosSettingsModal {
   if (window.parent !== window && window.parent.settingsStore) {
     try {
       window.parent.settingsStore.set(path, value);
-      window.parent.settingsStore.save(false); // Save without showing toast
+      await window.parent.settingsStore.save(false); // Save without showing toast - MUST await!
       logger.success('Setting saved via SettingsStore', { path, value });
       return;
     } catch (error) {

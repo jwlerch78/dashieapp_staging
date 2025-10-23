@@ -342,10 +342,11 @@ class PhotosWidget {
       this.photoImg.style.display = 'block';
 
       if (this.isTransitioning) {
-        setTimeout(() => {
+        // Wait a frame for the image to render, then fade in
+        requestAnimationFrame(() => {
           this.photoImg.classList.remove('transitioning');
           this.isTransitioning = false;
-        }, 50);
+        });
       }
 
       logger.debug('Photo displayed', {
