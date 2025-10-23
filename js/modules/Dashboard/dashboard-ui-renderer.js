@@ -247,10 +247,12 @@ class UIRenderer {
 
   /**
    * Set widget to active state
+   * @param {string|null} widgetId - Widget ID or null for current focused widget
+   * @param {boolean} isActive - True to activate, false to deactivate
    * @see VisualEffects.setWidgetActive()
    */
-  static setWidgetActive() {
-    VisualEffects.setWidgetActive();
+  static setWidgetActive(widgetId = null, isActive = true) {
+    VisualEffects.setWidgetActive(widgetId, isActive);
   }
 
   /**
