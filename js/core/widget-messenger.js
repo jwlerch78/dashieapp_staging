@@ -352,16 +352,23 @@ class WidgetMessenger {
   }
 
   /**
-   * Send command to widget by ID
+   * Send command to widget by ID (smart handling like legacy)
    * @param {string} widgetId - Widget ID (e.g., 'main', 'calendar')
-   * @param {string} command - Command to send
+   * @param {string|Object} command - Command to send
+   *   - If string: wraps as {action: 'string'} (e.g., 'left' → {action: 'left'})
+   *   - If object: sends as-is (e.g., {action: 'menu-item-selected', itemId: 'weekly'})
    */
   sendCommandToWidget(widgetId, command) {
     // Iframe IDs are prefixed with 'widget-'
     const iframeId = `widget-${widgetId}`;
     const iframe = document.getElementById(iframeId);
+
     if (iframe && iframe.contentWindow) {
-      this.sendCommand(iframe.contentWindow, command);
+      // Smart handling: if string, wrap it. If object, send as-is (legacy format)
+      const message = (typeof command === 'string') ? { action: command } : command;
+
+      iframe.contentWindow.postMessage(message, '*');
+      logger.widget('send', 'command', widgetId, { message });
     } else {
       logger.warn('Widget iframe not found', { widgetId, iframeId });
     }

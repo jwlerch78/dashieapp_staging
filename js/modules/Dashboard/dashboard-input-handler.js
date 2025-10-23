@@ -68,17 +68,13 @@ class DashboardInputHandler {
       DashboardStateManager.setFocusMenuSelection(newIndex);
       FocusMenuRenderer.updateMenuSelection(newIndex);
 
-      // Send preview to widget (use legacy format)
+      // Send preview to widget
       const selectedItem = state.focusMenuState.menuConfig.items[newIndex];
-      const iframeId = `widget-${state.focusedWidget}`;
-      const iframe = document.getElementById(iframeId);
-      if (iframe && iframe.contentWindow) {
-        iframe.contentWindow.postMessage({
-          action: 'menu-selection-changed',
-          selectedItem: newIndex,
-          itemId: selectedItem.id
-        }, '*');
-      }
+      widgetMessenger.sendCommandToWidget(state.focusedWidget, {
+        action: 'menu-selection-changed',
+        selectedItem: newIndex,
+        itemId: selectedItem.id
+      });
 
       logger.debug('Menu selection moved up', { newIndex, itemId: selectedItem.id });
       return true;
@@ -114,17 +110,13 @@ class DashboardInputHandler {
       DashboardStateManager.setFocusMenuSelection(newIndex);
       FocusMenuRenderer.updateMenuSelection(newIndex);
 
-      // Send preview to widget (use legacy format)
+      // Send preview to widget
       const selectedItem = state.focusMenuState.menuConfig.items[newIndex];
-      const iframeId = `widget-${state.focusedWidget}`;
-      const iframe = document.getElementById(iframeId);
-      if (iframe && iframe.contentWindow) {
-        iframe.contentWindow.postMessage({
-          action: 'menu-selection-changed',
-          selectedItem: newIndex,
-          itemId: selectedItem.id
-        }, '*');
-      }
+      widgetMessenger.sendCommandToWidget(state.focusedWidget, {
+        action: 'menu-selection-changed',
+        selectedItem: newIndex,
+        itemId: selectedItem.id
+      });
 
       logger.debug('Menu selection moved down', { newIndex, itemId: selectedItem.id });
       return true;
@@ -234,15 +226,11 @@ class DashboardInputHandler {
         state.focusMenuState.selectedIndex
       ];
 
-      // Send menu item selection (use legacy format)
-      const iframeId = `widget-${state.focusedWidget}`;
-      const iframe = document.getElementById(iframeId);
-      if (iframe && iframe.contentWindow) {
-        iframe.contentWindow.postMessage({
-          action: 'menu-item-selected',
-          itemId: selectedItem.id
-        }, '*');
-      }
+      // Send menu item selection
+      widgetMessenger.sendCommandToWidget(state.focusedWidget, {
+        action: 'menu-item-selected',
+        itemId: selectedItem.id
+      });
 
       logger.info('Menu item selected', { itemId: selectedItem.id });
       return true;

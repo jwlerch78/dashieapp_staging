@@ -465,7 +465,6 @@ class NavigationManager {
 
           // Tell widget menu is active
           widgetMessenger.sendCommandToWidget(widget.id, {
-            type: 'command',
             action: 'menu-active',
             selectedItem: menuConfig.defaultIndex || 0,
             itemId: menuConfig.items[menuConfig.defaultIndex || 0].id

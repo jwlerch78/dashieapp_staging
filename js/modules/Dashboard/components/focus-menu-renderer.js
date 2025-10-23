@@ -343,20 +343,11 @@ class FocusMenuRenderer {
         return;
       }
 
-      // Get the widget iframe
-      const iframeId = `widget-${state.focusedWidget}`;
-      const iframe = document.getElementById(iframeId);
-
-      if (!iframe || !iframe.contentWindow) {
-        logger.warn('Widget iframe not found', { widgetId: state.focusedWidget, iframeId });
-        return;
-      }
-
-      // Send menu-item-selected command (matching legacy format - no 'type' field)
-      iframe.contentWindow.postMessage({
+      // Send menu-item-selected command via WidgetMessenger
+      WidgetMessenger.sendCommandToWidget(state.focusedWidget, {
         action: 'menu-item-selected',
         itemId: itemId
-      }, '*');
+      });
 
       logger.info('✓ Sent menu-item-selected via click', { itemId });
     });
