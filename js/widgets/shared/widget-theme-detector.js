@@ -47,7 +47,7 @@ export function detectCurrentTheme(defaultTheme = 'dark') {
  * Apply theme classes to widget's document
  * Removes all theme-* classes and applies the specified theme
  *
- * @param {string} theme - Theme name to apply
+ * @param {string} theme - Theme name or ID to apply (e.g., 'light', 'dark', 'default-light', 'halloween-dark')
  */
 export function applyThemeToWidget(theme) {
   // Remove all existing theme classes from body and html
@@ -57,8 +57,22 @@ export function applyThemeToWidget(theme) {
     document.documentElement.classList.remove(cls);
   });
 
+  // Determine CSS class to apply
+  // Handle both legacy format ('light', 'dark') and new format ('default-light', 'halloween-dark')
+  let themeClass;
+  if (theme === 'light' || theme === 'dark') {
+    // Legacy format - use as-is
+    themeClass = `theme-${theme}`;
+  } else if (theme.startsWith('default-')) {
+    // Default theme family - extract mode ('default-light' -> 'theme-light')
+    const mode = theme.split('-')[1];
+    themeClass = `theme-${mode}`;
+  } else {
+    // Other theme families (halloween, etc.) - use full theme ID ('halloween-dark' -> 'theme-halloween-dark')
+    themeClass = `theme-${theme}`;
+  }
+
   // Add new theme class
-  const themeClass = `theme-${theme}`;
   document.body.classList.add(themeClass);
   document.documentElement.classList.add(themeClass);
 }
