@@ -55,7 +55,12 @@ export class CalendarMessageHandler {
       const menuActions = ['menu-active', 'menu-selection-changed', 'menu-item-selected'];
 
       if (stateActions.includes(action) || menuActions.includes(action)) {
-        this.widget.focusManager.handleMenuAction({ ...event.data, action });
+        // Pass the entire event.data which includes itemId for menu-item-selected
+        this.widget.focusManager.handleMenuAction({
+          action: action,
+          itemId: event.data.itemId,
+          selectedItem: event.data.selectedItem
+        });
       } else {
         // Regular navigation command
         this.widget.actionHandler.handleAction(action);

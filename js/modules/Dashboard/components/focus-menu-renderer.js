@@ -201,7 +201,7 @@ class FocusMenuRenderer {
   /**
    * Position menu to the left of the centered widget
    * @param {HTMLElement} menu - Menu element to position
-   * @param {HTMLElement} widgetElement - Widget element to position relative to
+   * @param {HTMLElement} widgetElement - Widget element (cell) to position relative to
    */
   static positionMenu(menu, widgetElement) {
     // Get widget's current position (after centering transform has been applied)
@@ -226,6 +226,16 @@ class FocusMenuRenderer {
     menu.style.left = `${left}px`;
     menu.style.top = `${top}px`;
     menu.style.height = `${widgetRect.height}px`; // Match widget height
+
+    // IMPORTANT: If widget has a transform (centering), apply the same transform to menu
+    // The menu moves WITH the widget, but doesn't scale
+    const translateX = parseFloat(widgetElement.dataset.translateX) || 0;
+    const translateY = parseFloat(widgetElement.dataset.translateY) || 0;
+
+    if (translateX !== 0 || translateY !== 0) {
+      menu.style.transform = `translate(${translateX}px, ${translateY}px)`;
+      logger.debug('Applied widget transform to menu', { translateX, translateY });
+    }
 
     // Check for off-screen positioning
     const viewportWidth = window.innerWidth;
@@ -333,12 +343,21 @@ class FocusMenuRenderer {
         return;
       }
 
-      // Send menu-item-selected message to widget via WidgetMessenger
-      WidgetMessenger.sendCommandToWidget(state.focusedWidget, {
+      // Get the widget iframe
+      const iframeId = `widget-${state.focusedWidget}`;
+      const iframe = document.getElementById(iframeId);
+
+      if (!iframe || !iframe.contentWindow) {
+        logger.warn('Widget iframe not found', { widgetId: state.focusedWidget, iframeId });
+        return;
+      }
+
+      // Send menu-item-selected command with itemId in payload
+      iframe.contentWindow.postMessage({
         type: 'command',
         action: 'menu-item-selected',
         itemId: itemId
-      });
+      }, '*');
 
       logger.info('✓ Sent menu-item-selected via click', { itemId });
     });
