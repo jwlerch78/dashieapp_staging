@@ -29,7 +29,23 @@ class WidgetMessenger {
     this.widgets = new Map(); // widgetWindow → widgetInfo
     this.lastSentState = new Map(); // widgetWindow → lastState (for deduplication)
 
-    // Current system state sent to widgets
+    /**
+     * Current system state sent to widgets via state-update messages
+     *
+     * IMPORTANT: When adding a new property here:
+     * 1. Add corresponding check in shouldSendStateUpdate() for deduplication
+     * 2. Add to updateLastSentState() to track last sent value
+     * 3. Add AppComms event subscription in setupEventSubscriptions()
+     * 4. Document in WIDGET_MESSENGER.md
+     *
+     * Current properties:
+     * - calendar: Calendar events data (has lastUpdated timestamp)
+     * - photos: Photos data (has lastUpdated timestamp)
+     * - weather: Weather data (has lastUpdated timestamp)
+     * - auth: Authentication state (changes trigger reload, not broadcast)
+     * - theme: Current theme name (string comparison in deduplication)
+     * - settings: All app settings (has lastModified timestamp)
+     */
     this.currentState = {
       calendar: null,
       photos: null,
@@ -474,6 +490,19 @@ class WidgetMessenger {
 
   /**
    * Check if we should send a state update to a widget (deduplication)
+   *
+   * IMPORTANT: This method must check ALL properties in currentState to detect changes.
+   * If you add a new property to currentState, you MUST add a corresponding check here,
+   * otherwise widgets won't receive updates when that property changes.
+   *
+   * Current state properties checked:
+   * - theme: String comparison
+   * - settings: Timestamp comparison (lastModified)
+   * - calendar: Timestamp comparison (lastUpdated)
+   * - photos: Timestamp comparison (lastUpdated)
+   * - weather: Timestamp comparison (lastUpdated)
+   * - auth: Not checked (auth changes trigger full reload)
+   *
    * @private
    * @param {Window} widgetWindow - Target widget window
    * @returns {boolean} Whether to send the update
@@ -558,14 +587,19 @@ class WidgetMessenger {
 
   /**
    * Update last sent state for a widget
+   *
+   * IMPORTANT: This must include ALL properties from currentState.
+   * Store enough information to detect changes in shouldSendStateUpdate().
+   * For objects with timestamps, just store the timestamp (not the full object).
+   *
    * @private
    * @param {Window} widgetWindow - Widget window
    */
   updateLastSentState(widgetWindow) {
     this.lastSentState.set(widgetWindow, {
-      calendar: this.currentState.calendar ? { ...this.currentState.calendar } : null,
-      photos: this.currentState.photos ? { ...this.currentState.photos } : null,
-      weather: this.currentState.weather ? { ...this.currentState.weather } : null,
+      calendar: this.currentState.calendar ? { lastUpdated: this.currentState.calendar.lastUpdated } : null,
+      photos: this.currentState.photos ? { lastUpdated: this.currentState.photos.lastUpdated } : null,
+      weather: this.currentState.weather ? { lastUpdated: this.currentState.weather.lastUpdated } : null,
       auth: { ...this.currentState.auth },
       theme: this.currentState.theme,
       settings: this.currentState.settings ? { lastModified: this.currentState.settings.lastModified } : null

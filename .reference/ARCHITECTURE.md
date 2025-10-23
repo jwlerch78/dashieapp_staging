@@ -2191,6 +2191,8 @@ UI updates
 
 ## Widget Communication Protocol
 
+⚠️ **See also:** [`js/core/WIDGET_MESSENGER.md`](../js/core/WIDGET_MESSENGER.md) for critical deduplication requirements when adding new state properties.
+
 ### Message Structure
 
 ```javascript
