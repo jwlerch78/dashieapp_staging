@@ -103,11 +103,14 @@ export class CalendarFocusManager {
 
       case 'menu-item-selected':
         // User pressed ENTER on menu item
+        logger.info('📋 Menu item selected', { itemId: data.itemId, isGoToToday: data.itemId === 'go-to-today' });
         if (data.itemId === 'go-to-today') {
           // Reset to today
+          logger.info('📅 Executing go-to-today action');
           this.widget.navigationManager.goToToday();
         } else {
           // View mode change (1, 3, week, monthly)
+          logger.info('🔄 Executing view mode switch', { newMode: data.itemId });
           this.widget.navigationManager.switchViewMode(data.itemId);
         }
         break;

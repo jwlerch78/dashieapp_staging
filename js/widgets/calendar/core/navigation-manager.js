@@ -169,7 +169,7 @@ export class CalendarNavigationManager {
    * Switch to a new view mode and save to settings
    */
   async switchViewMode(viewMode) {
-    logger.debug('Switching view mode', { from: this.currentView, to: viewMode });
+    logger.info('🔄 switchViewMode() called', { from: this.currentView, to: viewMode });
 
     // Save current scroll position if switching from a weekly/day view
     let savedScroll = null;
@@ -183,11 +183,14 @@ export class CalendarNavigationManager {
 
     // Update current view
     this.currentView = viewMode;
+    logger.info('✓ Updated currentView', { currentView: this.currentView });
 
     // Save to settings
     await this.widget.settingsManager.saveViewModeSetting(viewMode);
+    logger.info('✓ Saved view mode setting');
 
     if (viewMode === 'monthly') {
+      logger.info('📅 Switching to monthly view');
       // Initialize monthly view if needed
       if (!this.widget.monthly) {
         const settings = this.widget.settingsManager.loadSettings();
@@ -210,13 +213,16 @@ export class CalendarNavigationManager {
       }
     } else {
       // Weekly/n-day mode
+      logger.info('📅 Switching to weekly/n-day view', { viewMode });
       document.querySelector('.month-grid')?.classList.add('hidden');
       document.querySelector('.allday-section')?.classList.remove('hidden');
       document.querySelector('.time-grid')?.classList.remove('hidden');
 
       // Update weekly renderer with new settings
       const settings = this.widget.settingsManager.loadSettings();
+      logger.info('📝 Loaded settings for weekly view', { viewMode: settings.viewMode });
       this.widget.weekly.updateSettings(settings);
+      logger.info('✓ Updated weekly renderer settings');
 
       // Reset to today when changing views
       this.goToToday();
