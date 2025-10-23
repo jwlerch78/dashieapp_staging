@@ -96,80 +96,20 @@ export const pageConfigs = {
 
   'page2': {
     id: 'page2',
-    label: 'Page 2',
-    gridRows: 3,
-    gridCols: 2,
+    label: 'Voice Assistant',
+    gridRows: 1,
+    gridCols: 1,
     widgets: [
       {
-        id: 'clock-1',
+        id: 'voice',
         row: 1,
         col: 1,
         rowSpan: 1,
         colSpan: 1,
-        label: 'Clock 1',
-        path: 'js/widgets/clock/clock.html',
-        noCenter: false,
-        focusScale: 1.05,
-        selectable: true
-      },
-      {
-        id: 'clock-2',
-        row: 1,
-        col: 2,
-        rowSpan: 1,
-        colSpan: 1,
-        label: 'Clock 2',
-        path: 'js/widgets/clock/clock.html',
-        noCenter: false,
-        focusScale: 1.05,
-        selectable: true
-      },
-      {
-        id: 'clock-3',
-        row: 2,
-        col: 1,
-        rowSpan: 1,
-        colSpan: 1,
-        label: 'Clock 3',
-        path: 'js/widgets/clock/clock.html',
-        noCenter: false,
-        focusScale: 1.4,
-        selectable: true
-      },
-      {
-        id: 'clock-4',
-        row: 2,
-        col: 2,
-        rowSpan: 1,
-        colSpan: 1,
-        label: 'Clock 4',
-        path: 'js/widgets/clock/clock.html',
-        noCenter: false,
-        focusScale: 1.4,
-        selectable: true
-      },
-      {
-        id: 'clock-5',
-        row: 3,
-        col: 1,
-        rowSpan: 1,
-        colSpan: 1,
-        label: 'Clock 5',
-        path: 'js/widgets/clock/clock.html',
-        noCenter: false,
-        focusScale: 1.4,
-        selectable: true
-      },
-      {
-        id: 'clock-6',
-        row: 3,
-        col: 2,
-        rowSpan: 1,
-        colSpan: 1,
-        label: 'Clock 6',
-        path: 'js/widgets/clock/clock.html',
-        noCenter: false,
-        focusScale: 1.4,
+        label: 'Voice Assistant',
+        path: 'js/widgets/voice/voice-widget.html',
+        noCenter: true,
+        focusScale: 1.0,
         selectable: true
       }
     ],
