@@ -134,6 +134,35 @@ export function hideLoginScreen() {
 }
 
 /**
+ * Check if user has a stored session (JWT token)
+ * @returns {boolean} True if stored session exists
+ */
+function checkForStoredSession() {
+  try {
+    const jwtData = localStorage.getItem('dashie-supabase-jwt');
+    if (!jwtData) return false;
+
+    const parsed = JSON.parse(jwtData);
+    if (!parsed.jwt || !parsed.expiry) return false;
+
+    // Check if JWT is not expired
+    const now = Date.now();
+    const isValid = parsed.expiry > now;
+
+    logger.debug('Stored session check', {
+      hasJWT: !!parsed.jwt,
+      expiresAt: new Date(parsed.expiry).toISOString(),
+      isValid
+    });
+
+    return isValid;
+  } catch (error) {
+    logger.debug('No valid stored session', error);
+    return false;
+  }
+}
+
+/**
  * Populate site info (dev vs prod link) and tagline
  */
 function populateSiteInfo() {
@@ -247,6 +276,9 @@ export async function initializeAuth(onAuthComplete) {
       return true;
     }
 
+    // Check if user already has a stored JWT (returning user on reload)
+    const hasStoredSession = checkForStoredSession();
+
     // Check if returning from hybrid device flow (phone authorized TV)
     const hybridAuthComplete = sessionStorage.getItem('hybrid-auth-complete');
     if (hybridAuthComplete) {
@@ -275,7 +307,14 @@ export async function initializeAuth(onAuthComplete) {
     if (isOAuthCallback) {
       logger.debug('OAuth callback detected, showing loading dashboard state');
       showLoadingScreen('Completing sign-in...');
-    } else if (!hybridAuthComplete) {
+    } else if (hybridAuthComplete) {
+      // Already shown loading screen above
+    } else if (hasStoredSession) {
+      // Returning user with session - show loading screen immediately
+      logger.debug('Stored session detected, showing loading screen');
+      showLoadingScreen('Loading your data...');
+    } else {
+      // New user - show sign-in form
       updateLoginStatus('Setting up authentication system...');
     }
 

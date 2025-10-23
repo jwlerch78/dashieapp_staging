@@ -109,8 +109,9 @@ class UIRenderer {
     // Attach event listeners
     this.attachEventListeners(sidebar, grid);
 
-    // Update focus to initial position
-    VisualEffects.updateFocus();
+    // Don't show initial focus - dashboard starts in idle state (no highlights)
+    // User must interact (hover, d-pad) to show highlights
+    // VisualEffects.updateFocus();
 
     logger.verbose('Dashboard UI rendered');
   }

@@ -1,6 +1,9 @@
 /* widgets/dcal/dcal.css - Dashie Calendar Widget Styles */
 /* CHANGE SUMMARY: Removed Week button, slimmed header, aligned grids, added today column highlighting */
 
+/* Import shared touch control styles */
+@import '/js/widgets/shared/widget-touch-controls.css';
+
 html, body {
   height: 100%;
   margin: 0;

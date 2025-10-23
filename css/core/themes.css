@@ -36,6 +36,7 @@ body.theme-dark {
   /* ===== THEME ASSETS (2 variables) ===== */
   --sidebar-logo-src: url('/artwork/Dashie_Full_Logo_White_Transparent.png');
   --sidebar-icon-filter: invert(100%);
+
 }
 
 /* ============================================================================
@@ -72,6 +73,7 @@ body:not([class*="theme-"]) {
   /* ===== THEME ASSETS (2 variables) ===== */
   --sidebar-logo-src: url('/artwork/Dashie_Full_Logo_Black_Transparent.png');
   --sidebar-icon-filter: invert(20%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(0.3);
+
 }
 
 /* ============================================================================
@@ -107,6 +109,7 @@ body.theme-halloween-dark {
   /* ===== THEME ASSETS (2 variables) ===== */
   --sidebar-logo-src: url('/artwork/Dashie_Full_Logo_White_Transparent.png');
   --sidebar-icon-filter: invert(100%);
+
 }
 
 
@@ -142,6 +145,7 @@ body.theme-halloween-light {
   /* ===== THEME ASSETS (2 variables) ===== */
   --sidebar-logo-src: url('/artwork/Dashie_Full_Logo_Black_Transparent.png');
   --sidebar-icon-filter: invert(20%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(0.3);
+
 }
 
 
@@ -179,6 +183,7 @@ body.theme-halloween-light-backup {
   /* ===== THEME ASSETS (2 variables) ===== */
   --sidebar-logo-src: url('/artwork/Dashie_Full_Logo_Black_Transparent.png');
   --sidebar-icon-filter: invert(20%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(0.3);
+
 }
 
 /* ============================================================================
@@ -196,4 +201,80 @@ body.theme-halloween-light-backup {
 /* Prevent transition on page load */
 body.no-transitions * {
   transition: none !important;
+}
+
+/* ============================================================================
+   SETTINGS MODAL COLORS - Always use standard light/dark (not themed)
+   ============================================================================ */
+
+/* Settings in ALL dark theme variants use the same dark colors */
+body.theme-dark,
+body.theme-halloween-dark {
+  --settings-bg-container: #2A2A2A;
+  --settings-bg-screen: #222;
+  --settings-bg-nav: #2A2A2A;
+  --settings-bg-cell: #333;
+  --settings-bg-input: #2A2A2A;
+  --settings-bg-disabled: #1A1A1A;
+  --settings-border-color: rgba(255, 255, 255, 0.15);
+  --settings-text-label: #fff;
+  --settings-text-value: #999;
+  --settings-text-header: #888;
+  --settings-chevron-color: #555;
+  --settings-toggle-bg: #444;
+  --settings-toggle-knob: #fff;
+  --settings-scrollbar: rgba(255, 255, 255, 0.2);
+  --settings-scrollbar-hover: rgba(255, 255, 255, 0.3);
+}
+
+/* Settings in ALL light theme variants use the same light colors */
+body.theme-light,
+body:not([class*="theme-"]),
+body.theme-halloween-light,
+body.theme-halloween-light-backup {
+  --settings-bg-container: #F2F2F7;
+  --settings-bg-screen: #F2F2F7;
+  --settings-bg-nav: #F5F5F7;
+  --settings-bg-cell: #FCFCFF;
+  --settings-bg-input: #FFFFFF;
+  --settings-bg-disabled: #F2F2F7;
+  --settings-border-color: rgba(60, 60, 67, 0.29);
+  --settings-text-label: #000000;
+  --settings-text-value: #8E8E93;
+  --settings-text-header: #6B7280;
+  --settings-chevron-color: #C7C7CC;
+  --settings-toggle-bg: #E5E5EA;
+  --settings-toggle-knob: #FFFFFF;
+  --settings-scrollbar: rgba(0, 0, 0, 0.2);
+  --settings-scrollbar-hover: rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================================================
+   MODAL COLORS - Always use standard light/dark (not themed)
+   ============================================================================ */
+
+/* Modals in ALL dark theme variants use the same dark colors */
+body.theme-dark,
+body.theme-halloween-dark {
+  --modal-bg: #2a2a2a;
+  --modal-title-color: #ffffff;
+  --modal-text-color: #b0b0b0;
+  --modal-border-color: #404040;
+  --modal-button-bg: transparent;
+  --modal-button-color: #ffffff;
+  --modal-button-hover-bg: #3a3a3a;
+}
+
+/* Modals in ALL light theme variants use the same light colors */
+body.theme-light,
+body:not([class*="theme-"]),
+body.theme-halloween-light,
+body.theme-halloween-light-backup {
+  --modal-bg: #ffffff;
+  --modal-title-color: #1a1a1a;
+  --modal-text-color: #666666;
+  --modal-border-color: #e0e0e0;
+  --modal-button-bg: transparent;
+  --modal-button-color: #1a1a1a;
+  --modal-button-hover-bg: #f5f5f5;
 }

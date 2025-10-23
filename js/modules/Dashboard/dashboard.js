@@ -4,10 +4,13 @@
 
 import { createLogger } from '../../utils/logger.js';
 import AppComms from '../../core/app-comms.js';
+import AppStateManager from '../../core/app-state-manager.js';
 import DashboardStateManager from './dashboard-state-manager.js';
 import DashboardInputHandler from './dashboard-input-handler.js';
 import UIRenderer from './dashboard-ui-renderer.js';
 import DashboardTimers from './dashboard-timers.js';
+import NavigationManager from './dashboard-navigation-manager.js';
+import { getWidgetById } from './dashboard-widget-config.js';
 
 const logger = createLogger('Dashboard');
 
@@ -57,6 +60,10 @@ class Dashboard {
       DashboardTimers.initialize();
       logger.debug('Timer system initialized');
 
+      // Subscribe to widget events
+      this.setupWidgetEventListeners();
+      logger.debug('Widget event listeners configured');
+
       this.isInitialized = true;
 
       logger.verbose('Dashboard module initialized');
@@ -67,6 +74,56 @@ class Dashboard {
       logger.error('Failed to initialize Dashboard', error);
       return false;
     }
+  }
+
+  /**
+   * Set up widget event listeners
+   * Handles events from widgets (e.g., focus requests from touch buttons)
+   * @private
+   */
+  setupWidgetEventListeners() {
+    // Listen for widget messages (e.g., enter-focus-request from touch buttons)
+    AppComms.subscribe(AppComms.events.WIDGET_MESSAGE, (data) => {
+      if (data.type === 'enter-focus-request') {
+        this.handleWidgetFocusRequest(data.widgetId);
+      }
+    });
+  }
+
+  /**
+   * Handle widget focus request (e.g., from touch button)
+   * @private
+   * @param {string} widgetId - ID of widget requesting focus
+   */
+  handleWidgetFocusRequest(widgetId) {
+    logger.info(`Widget ${widgetId} requested focus via touch`, { widgetId });
+
+    // Get widget configuration
+    const widget = getWidgetById(widgetId);
+    if (!widget) {
+      logger.warn('Cannot focus widget - not found', { widgetId });
+      return;
+    }
+
+    // Set grid position to widget's position
+    DashboardStateManager.setGridPosition(widget.row, widget.col);
+
+    // Focus the widget (focusWidget already sends enter-focus and enter-active for widgets without focus menu)
+    NavigationManager.focusWidget();
+
+    // Ensure keyboard focus stays on the main window (not the iframe)
+    // This is critical so ESCAPE and other keys work properly
+    window.focus();
+
+    // Also blur any focused element to prevent the iframe from keeping focus
+    if (document.activeElement && document.activeElement.tagName === 'IFRAME') {
+      document.activeElement.blur();
+    }
+
+    logger.debug('Widget focused via touch request, keyboard focus restored to main window', {
+      widgetId,
+      position: [widget.row, widget.col]
+    });
   }
 
   /**

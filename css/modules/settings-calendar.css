@@ -93,7 +93,7 @@
   font-size: 16px;
   font-weight: 700;
   padding: 16px 16px 8px 16px;
-  color: #6B7280; /* Fixed dark gray - not themed */
+  color: var(--settings-text-header);
   text-transform: none;
   letter-spacing: 0px;
   display: flex;

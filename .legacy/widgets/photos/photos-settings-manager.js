@@ -204,8 +204,14 @@ export class PhotosSettingsManager {
       logger.warn('Using fallback userId from jwtAuth', { userId });
     }
 
-    // Get theme from body class
-    const theme = document.body.classList.contains('theme-dark') ? 'dark' : 'light';
+    // Get current theme from body class
+    let theme = 'light'; // default
+    const bodyClasses = document.body.classList;
+    if (bodyClasses.contains('theme-dark')) theme = 'dark';
+    else if (bodyClasses.contains('theme-halloween-dark')) theme = 'halloween-dark';
+    else if (bodyClasses.contains('theme-halloween-light')) theme = 'halloween-light';
+    else if (bodyClasses.contains('theme-halloween-light-backup')) theme = 'halloween-light-backup';
+    else if (bodyClasses.contains('theme-light')) theme = 'light';
 
     // Get current settings from parent
     const settings = window.parent?.settingsInstance?.controller?.getSettings() || {};

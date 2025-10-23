@@ -22,6 +22,37 @@ import '../../utils/modal-navigation-manager.js'; // Initialize global dashieMod
 const logger = createLogger('CoreInitializer');
 
 /**
+ * Update loading screen message
+ * @param {string} message - Status message to display
+ * @param {number} [mobileProgress] - Optional progress percentage for mobile (0-100)
+ */
+function updateLoadingMessage(message, mobileProgress = null) {
+  try {
+    const loadingTextEl = document.getElementById('loading-dashboard-text');
+    if (loadingTextEl) {
+      loadingTextEl.textContent = message;
+      logger.debug('Loading message updated', { message });
+    }
+
+    // Update mobile progress if percentage provided
+    if (mobileProgress !== null) {
+      const progressFill = document.getElementById('mobile-progress-fill');
+      const progressText = document.getElementById('mobile-progress-text');
+
+      if (progressFill) {
+        progressFill.style.width = `${mobileProgress}%`;
+      }
+
+      if (progressText) {
+        progressText.textContent = message;
+      }
+    }
+  } catch (error) {
+    // Ignore errors if element doesn't exist
+  }
+}
+
+/**
  * Wait for critical widgets to finish loading before hiding login screen
  * @param {string[]} widgetIds - Array of widget IDs to wait for
  * @param {number} timeout - Timeout in milliseconds (default 10000)
@@ -104,12 +135,17 @@ export async function initializeCore(options = {}) {
     if (!bypassAuth) {
       // STEP 1: Initialize data services (EdgeClient + SettingsService)
       // Dynamic import to avoid loading Supabase modules in bypass mode
+      updateLoadingMessage('Connecting to services...', isMobile ? 65 : null);
       const { initializeServices } = await import('./service-initializer.js');
       await initializeServices();
+      logger.verbose('Services initialized');
 
       // STEP 2: Initialize Settings (loads from database, applies theme to localStorage)
+      updateLoadingMessage('Loading your settings...', isMobile ? 70 : null);
       await Settings.initialize();
       logger.verbose('Settings initialized (theme loaded from database and applied)');
+
+      updateLoadingMessage('Applying your theme...', isMobile ? 75 : null);
     } else {
       // Bypass mode: Initialize Settings without database
       logger.warn('⚠️ BYPASS MODE: Skipping service initialization');
@@ -182,6 +218,7 @@ export async function initializeCore(options = {}) {
     // Desktop/TV: Initialize Dashboard and widgets
     if (!isMobile) {
       // Initialize Dashboard module
+      updateLoadingMessage('Setting up dashboard...');
       await Dashboard.initialize();
       ActionRouter.registerModule('dashboard', DashboardInputHandler);
 
@@ -198,6 +235,7 @@ export async function initializeCore(options = {}) {
       Dashboard.activate();
 
       // STEP 3: NOW initialize widgets AFTER Dashboard.activate() has created the iframes
+      updateLoadingMessage('Preparing widgets...');
       await initializeWidgets();
 
       // Re-apply theme overlay now that widgets are ready
@@ -214,9 +252,11 @@ export async function initializeCore(options = {}) {
       // STEP 4: Wait for critical widgets to finish loading before hiding login screen
       if (!bypassAuth) {
         logger.info('Waiting for critical widgets to load data...');
+        updateLoadingMessage('Loading calendar and photos...');
         const criticalWidgets = ['calendar', 'agenda', 'photos'];
         await waitForWidgetsToLoad(criticalWidgets, 10000);
         logger.verbose('Critical widgets loaded - ready to show dashboard');
+        updateLoadingMessage('Almost ready...');
       }
 
       // STEP 5: Initialize Welcome module and check if onboarding is needed
@@ -224,11 +264,15 @@ export async function initializeCore(options = {}) {
       logger.verbose('Welcome module initialized');
     } else {
       // Mobile: Initialize Settings and Modals (needed for Settings modal to work)
+      updateLoadingMessage('Setting up...', 80);
+
       // Expose Settings globally for Settings button
       window.Settings = Settings;
 
       // Initialize Modals module (Settings modal depends on it)
       await modals.initialize();
+
+      updateLoadingMessage('Preparing interface...', 85);
 
       logger.verbose('Mobile mode: Settings and Modals initialized, skipping widgets');
     }

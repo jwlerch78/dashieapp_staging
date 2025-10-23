@@ -38,15 +38,15 @@ class GridEventHandler {
       const col = parseInt(cell.dataset.col);
       const widgetId = cell.dataset.widgetId;
 
-      // Hover handler - show selected state
-      cell.addEventListener('mouseenter', () => {
-        this.handleHover(row, col, widgetId);
-      });
+      // Hover handlers disabled for touch interface
+      // Users should interact with widgets via D-pad or touch buttons
+      // cell.addEventListener('mouseenter', () => {
+      //   this.handleHover(row, col, widgetId);
+      // });
 
-      // Mouseleave handler - return to idle state
-      cell.addEventListener('mouseleave', () => {
-        this.handleLeave(row, col, widgetId);
-      });
+      // cell.addEventListener('mouseleave', () => {
+      //   this.handleLeave(row, col, widgetId);
+      // });
 
       // Click handler - enter focus/active state
       cell.addEventListener('click', (e) => {
@@ -178,15 +178,15 @@ class MenuEventHandler {
    * @param {HTMLElement} container - Dashboard container (for sidebar query)
    */
   static attach(button, item, index, container) {
-    // Hover handler
-    button.addEventListener('mouseenter', () => {
-      this.handleHover(item, index);
-    });
+    // Hover handlers disabled for touch interface
+    // Menu items respond only to D-pad navigation
+    // button.addEventListener('mouseenter', () => {
+    //   this.handleHover(item, index);
+    // });
 
-    // Mouseleave handler
-    button.addEventListener('mouseleave', () => {
-      this.handleLeave(item, index);
-    });
+    // button.addEventListener('mouseleave', () => {
+    //   this.handleLeave(item, index);
+    // });
 
     // Click handler
     button.addEventListener('click', (e) => {
@@ -353,15 +353,15 @@ class SidebarEventHandler {
    * @param {HTMLElement} sidebar - Sidebar element
    */
   static attach(sidebar) {
-    // Hover to expand (desktop)
-    sidebar.addEventListener('mouseenter', () => {
-      this.handleHover(sidebar);
-    });
+    // Hover handlers disabled for touch interface
+    // Sidebar expands/collapses only via D-pad navigation
+    // sidebar.addEventListener('mouseenter', () => {
+    //   this.handleHover(sidebar);
+    // });
 
-    // Mouse leave to collapse (only if menu not actively selected)
-    sidebar.addEventListener('mouseleave', () => {
-      this.handleLeave(sidebar);
-    });
+    // sidebar.addEventListener('mouseleave', () => {
+    //   this.handleLeave(sidebar);
+    // });
 
     // Click on empty sidebar area to toggle (mobile/touch)
     sidebar.addEventListener('click', (e) => {

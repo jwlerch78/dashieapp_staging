@@ -519,12 +519,7 @@ export class PhotosSettingsModal {
       }
       
       percentText.textContent = `${Math.round(usage.percentUsed)}% of storage used`;
-      
-      // Apply dark theme styling if needed
-      if (document.body.classList.contains('theme-dark')) {
-        percentText.style.color = '#8e8e93';
-      }
-      
+
       logger.debug('Photo stats loaded');
     } catch (error) {
       logger.error('Failed to load photo stats', error);
@@ -792,10 +787,13 @@ export class PhotosSettingsModal {
   }
 
   applyTheme(theme) {
-    if (theme === 'dark') {
-      document.body.classList.add('theme-dark');
-    } else {
-      document.body.classList.remove('theme-dark');
+    // Remove all existing theme classes
+    document.body.classList.remove('theme-light', 'theme-dark', 'theme-halloween-dark', 'theme-halloween-light', 'theme-halloween-light-backup');
+
+    // Add the new theme class
+    if (theme) {
+      document.body.classList.add(`theme-${theme}`);
+      logger.debug('Applied theme class', { theme, className: `theme-${theme}` });
     }
   }
 

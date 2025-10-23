@@ -111,6 +111,10 @@ class WidgetMessenger {
           this.handleDataRequested(event, messageData);
           break;
 
+        case 'event':
+          this.handleWidgetEvent(event, messageData);
+          break;
+
         default:
           logger.debug('Unhandled widget message type', { type: messageData.type });
       }
@@ -301,6 +305,31 @@ class WidgetMessenger {
         data
       }
     });
+  }
+
+  /**
+   * Handle event from widget
+   * @private
+   * @param {MessageEvent} event - Message event
+   * @param {Object} messageData - Message data
+   */
+  handleWidgetEvent(event, messageData) {
+    const widgetId = messageData.widgetId || 'unknown';
+    const eventType = messageData.payload?.eventType;
+
+    logger.debug(`Widget event from ${widgetId}`, { eventType, payload: messageData.payload });
+
+    // Handle enter-focus event (widget requesting to be focused)
+    if (eventType === 'enter-focus') {
+      logger.info(`Widget ${widgetId} requested focus via touch`);
+
+      // Publish event for Dashboard to handle
+      AppComms.publish(AppComms.events.WIDGET_MESSAGE, {
+        type: 'enter-focus-request',
+        widgetId,
+        data: messageData.payload
+      });
+    }
   }
 
   // =============================================================================

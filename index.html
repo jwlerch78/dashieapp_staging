@@ -83,17 +83,95 @@
         </div>
       </div>
 
-      <!-- Inline script to detect OAuth callback and set correct initial state -->
+      <!-- Inline script to detect OAuth callback and stored session -->
       <!-- This runs immediately to prevent flash between sign-in and loading states -->
       <script>
         (function() {
+          // Detect if mobile device (simple check)
+          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                          (window.innerWidth <= 768);
+
           const urlParams = new URLSearchParams(window.location.search);
           const isOAuthCallback = urlParams.has('code') && urlParams.has('state');
 
-          if (isOAuthCallback) {
-            // Hide sign-in state and show loading dashboard state immediately
+          // Check if returning from hybrid device flow
+          const hybridAuthComplete = sessionStorage.getItem('hybrid-auth-complete');
+
+          // Check for stored session (JWT token)
+          let hasStoredSession = false;
+          try {
+            const jwtData = localStorage.getItem('dashie-supabase-jwt');
+            if (jwtData) {
+              const parsed = JSON.parse(jwtData);
+              if (parsed.jwt && parsed.expiry) {
+                const now = Date.now();
+                hasStoredSession = parsed.expiry > now;
+              }
+            }
+          } catch (error) {
+            // No valid session
+          }
+
+          // Mobile device with session: hide oauth-login-screen entirely
+          if (isMobile && hasStoredSession) {
+            const loginScreen = document.getElementById('oauth-login-screen');
+            if (loginScreen) {
+              loginScreen.style.display = 'none';
+            }
+          }
+
+          // Desktop/TV: Show loading screen immediately if authenticated
+          // 1. OAuth callback detected, OR
+          // 2. Hybrid auth complete, OR
+          // 3. Valid stored session exists
+          if (!isMobile && (isOAuthCallback || hybridAuthComplete || hasStoredSession)) {
             document.getElementById('sign-in-state').style.display = 'none';
             document.getElementById('loading-dashboard-state').style.display = 'flex';
+
+            // Show cancel button immediately
+            const cancelButton = document.getElementById('loading-cancel-button');
+            if (cancelButton) {
+              cancelButton.style.display = 'block';
+            }
+
+            // Set welcome message for returning users
+            if (hasStoredSession && !isOAuthCallback) {
+              try {
+                // Try to get actual name from stored user data first
+                const userData = localStorage.getItem('dashie-user-data');
+                let userName = 'Welcome';
+
+                if (userData) {
+                  const user = JSON.parse(userData);
+                  if (user.name) {
+                    // Use first name from stored user data
+                    userName = user.name.split(' ')[0];
+                  }
+                } else {
+                  // Fallback: decode JWT to get name from token payload
+                  const jwtData = localStorage.getItem('dashie-supabase-jwt');
+                  if (jwtData) {
+                    const parsed = JSON.parse(jwtData);
+                    if (parsed.jwt) {
+                      // Decode JWT payload (middle part)
+                      const payload = JSON.parse(atob(parsed.jwt.split('.')[1]));
+                      if (payload.user_metadata && payload.user_metadata.full_name) {
+                        userName = payload.user_metadata.full_name.split(' ')[0];
+                      } else if (payload.name) {
+                        userName = payload.name.split(' ')[0];
+                      }
+                    }
+                  }
+                }
+
+                const welcomeEl = document.getElementById('loading-dashboard-welcome');
+                if (welcomeEl && userName !== 'Welcome') {
+                  welcomeEl.textContent = 'Welcome, ' + userName;
+                }
+              } catch (error) {
+                // Keep default welcome message
+              }
+            }
           }
         })();
       </script>

@@ -29,6 +29,35 @@ function isAuthBypassEnabled() {
 }
 
 /**
+ * Check if user has a stored session (JWT token)
+ * @returns {boolean} True if stored session exists
+ */
+function checkForStoredSession() {
+  try {
+    const jwtData = localStorage.getItem('dashie-supabase-jwt');
+    if (!jwtData) return false;
+
+    const parsed = JSON.parse(jwtData);
+    if (!parsed.jwt || !parsed.expiry) return false;
+
+    // Check if JWT is not expired
+    const now = Date.now();
+    const isValid = parsed.expiry > now;
+
+    logger.debug('Stored session check', {
+      hasJWT: !!parsed.jwt,
+      expiresAt: new Date(parsed.expiry).toISOString(),
+      isValid
+    });
+
+    return isValid;
+  } catch (error) {
+    logger.debug('No valid stored session', error);
+    return false;
+  }
+}
+
+/**
  * Main initialization function
  * Called on DOMContentLoaded
  */
@@ -62,9 +91,26 @@ async function initialize() {
     // Show appropriate UI based on platform
     if (isMobile) {
       logger.info('📱 Mobile device detected - showing mobile landing page');
-      showMobileLandingPage();
-      showMobileLoadingBar();
-      updateMobileProgress(10, 'Starting up...');
+
+      // Check if user has stored session before hiding login screen
+      const hasStoredSession = checkForStoredSession();
+
+      if (hasStoredSession) {
+        // Hide oauth-login-screen on mobile when authenticated (it has high z-index and covers mobile UI)
+        const loginScreen = document.getElementById('oauth-login-screen');
+        if (loginScreen) {
+          loginScreen.style.display = 'none';
+          logger.debug('Login screen hidden on mobile (authenticated user)');
+        }
+
+        showMobileLandingPage();
+        showMobileLoadingBar();
+        updateMobileProgress(10, 'Starting up...');
+      } else {
+        // Not authenticated - keep oauth-login-screen visible for mobile login
+        logger.info('Mobile user not authenticated - showing login screen');
+        // Don't show mobile landing page yet - wait for authentication
+      }
     } else {
       logger.info('🖥️ Desktop/TV detected - loading dashboard');
     }
@@ -87,10 +133,27 @@ async function initialize() {
       logger.info('Auth complete - continuing initialization');
 
       if (isMobile) {
-        updateMobileProgress(60, 'Loading settings...');
+        // If mobile UI wasn't shown yet (user just authenticated), show it now
+        const mobileContainer = document.getElementById('mobile-container');
+        if (mobileContainer && mobileContainer.style.display === 'none') {
+          logger.info('Mobile user authenticated - showing mobile UI now');
+
+          // Hide login screen
+          const loginScreen = document.getElementById('oauth-login-screen');
+          if (loginScreen) {
+            loginScreen.style.display = 'none';
+          }
+
+          // Show mobile UI
+          showMobileLandingPage();
+          showMobileLoadingBar();
+          updateMobileProgress(50, 'Authenticated!');
+        }
+
+        updateMobileProgress(60, 'Initializing...');
       }
 
-      // Initialize core with mobile flag
+      // Initialize core with mobile flag (this will update mobile progress from 65% onwards)
       await initializeCore({ isMobile });
 
       // Mobile-specific initialization

@@ -1,0 +1,246 @@
+/* js/widgets/shared/widget-touch-controls.css */
+/* Theme-aware touch button styles for widgets */
+/* Automatically adapts to dark/light/halloween themes using CSS variables */
+
+/* ===== BASE BUTTON STYLES ===== */
+.widget-touch-button {
+  position: absolute;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+
+  /* Theme-aware colors - 80% transparent background */
+  background: var(--bg-tertiary, rgba(68, 68, 68, 0.2));
+  opacity: 0.2;
+  border: none;
+  color: var(--text-primary, white);
+
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  transition: all 0.2s ease;
+  user-select: none;
+
+  /* Prevent text selection on double-tap */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+
+  /* Accessibility */
+  outline: none;
+}
+
+/* Larger invisible touch target (48px) for better usability */
+.widget-touch-button::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  /* Invisible but captures touch/click events */
+  background: transparent;
+  z-index: -1;
+}
+
+/* SVG icon sizing */
+.widget-touch-button svg {
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+
+/* ===== BUTTON STATES ===== */
+
+/* Hover state (desktop) */
+.widget-touch-button:hover:not(:disabled) {
+  opacity: 0.6;
+  transform: scale(1.1);
+}
+
+/* Active/pressed state */
+.widget-touch-button:active:not(:disabled) {
+  opacity: 0.9;
+  background: var(--accent-orange, rgba(255, 170, 0, 0.3));
+  transform: scale(0.95);
+}
+
+/* Focus state (keyboard navigation) */
+.widget-touch-button:focus:not(:disabled) {
+  opacity: 0.6;
+  box-shadow: 0 0 8px rgba(255, 170, 0, 0.4);
+}
+
+/* Disabled state */
+.widget-touch-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ===== STANDARD POSITIONS ===== */
+
+/* Left side - vertically centered */
+.widget-touch-button[data-position="left"] {
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.widget-touch-button[data-position="left"]:hover:not(:disabled) {
+  transform: translateY(-50%) scale(1.1);
+  opacity: 0.6;
+}
+
+.widget-touch-button[data-position="left"]:active:not(:disabled) {
+  transform: translateY(-50%) scale(0.95);
+  opacity: 0.9;
+}
+
+/* Right side - vertically centered */
+.widget-touch-button[data-position="right"] {
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.widget-touch-button[data-position="right"]:hover:not(:disabled) {
+  transform: translateY(-50%) scale(1.1);
+  opacity: 0.6;
+}
+
+.widget-touch-button[data-position="right"]:active:not(:disabled) {
+  transform: translateY(-50%) scale(0.95);
+  opacity: 0.9;
+}
+
+/* Top-left corner */
+.widget-touch-button[data-position="top-left"] {
+  top: 16px;
+  left: 16px;
+}
+
+/* Top-right corner */
+.widget-touch-button[data-position="top-right"] {
+  top: 4px;
+  right: 4px;
+}
+
+/* Bottom-left corner */
+.widget-touch-button[data-position="bottom-left"] {
+  bottom: 16px;
+  left: 16px;
+}
+
+/* Bottom-right corner */
+.widget-touch-button[data-position="bottom-right"] {
+  bottom: 4px;
+  right: 4px;
+}
+
+/* Top center */
+.widget-touch-button[data-position="top-center"] {
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.widget-touch-button[data-position="top-center"]:hover:not(:disabled) {
+  transform: translateX(-50%) scale(1.1);
+}
+
+.widget-touch-button[data-position="top-center"]:active:not(:disabled) {
+  transform: translateX(-50%) scale(0.95);
+}
+
+/* Bottom center */
+.widget-touch-button[data-position="bottom-center"] {
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.widget-touch-button[data-position="bottom-center"]:hover:not(:disabled) {
+  transform: translateX(-50%) scale(1.1);
+}
+
+.widget-touch-button[data-position="bottom-center"]:active:not(:disabled) {
+  transform: translateX(-50%) scale(0.95);
+}
+
+/* ===== RESPONSIVE ADJUSTMENTS ===== */
+
+/* On small screens, reduce button size slightly but keep above 44px minimum */
+@media (max-width: 768px) {
+  .widget-touch-button {
+    width: 44px;
+    height: 44px;
+  }
+
+  .widget-touch-button svg {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+/* On very small screens, reduce spacing */
+@media (max-width: 480px) {
+  .widget-touch-button[data-position="left"],
+  .widget-touch-button[data-position="top-left"],
+  .widget-touch-button[data-position="bottom-left"] {
+    left: 8px;
+  }
+
+  .widget-touch-button[data-position="right"],
+  .widget-touch-button[data-position="top-right"],
+  .widget-touch-button[data-position="bottom-right"] {
+    right: 8px;
+  }
+
+  .widget-touch-button[data-position="top-left"],
+  .widget-touch-button[data-position="top-right"],
+  .widget-touch-button[data-position="top-center"] {
+    top: 8px;
+  }
+
+  .widget-touch-button[data-position="bottom-left"],
+  .widget-touch-button[data-position="bottom-right"],
+  .widget-touch-button[data-position="bottom-center"] {
+    bottom: 8px;
+  }
+}
+
+/* ===== ACCESSIBILITY ===== */
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .widget-touch-button {
+    border-width: 3px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .widget-touch-button {
+    transition: none;
+  }
+
+  .widget-touch-button:hover:not(:disabled),
+  .widget-touch-button:active:not(:disabled) {
+    transform: none;
+  }
+
+  /* Keep position-specific transforms for centered buttons */
+  .widget-touch-button[data-position="left"],
+  .widget-touch-button[data-position="right"] {
+    transform: translateY(-50%);
+  }
+
+  .widget-touch-button[data-position="top-center"],
+  .widget-touch-button[data-position="bottom-center"] {
+    transform: translateX(-50%);
+  }
+}

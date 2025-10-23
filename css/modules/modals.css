@@ -102,7 +102,7 @@
 }
 
 .exit-modal {
-  background: #FCFCFF;
+  background: var(--modal-bg);
   border-radius: 12px;
   padding: 30px;
   min-width: 350px;
@@ -117,19 +117,19 @@
   align-items: center;
   gap: 12px;
   padding: 12px 20px;
-  background: white;
-  border: 1px solid #dadce0;
+  background: var(--modal-button-bg);
+  border: 1px solid var(--modal-border-color);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: #333;
+  color: var(--modal-button-color);
   font-size: 16px;
   font-weight: 500;
 }
 
 .modal-option:hover {
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  background: #f8f9fa;
+  background: var(--modal-button-hover-bg);
 }
 
 /* Orange highlighting for modal options */
@@ -157,13 +157,14 @@
   width: 18px;
   height: 18px;
   flex-shrink: 0;
-  color: #666;
+  color: var(--modal-text-color);
 }
 
 .modal-option svg {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
+  color: var(--modal-text-color);
 }
 
 /* Utility classes for dynamic opacity changes */

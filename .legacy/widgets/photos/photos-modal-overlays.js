@@ -2,6 +2,31 @@
 // CHANGE SUMMARY: Extracted overlay creation functions from photos-settings-modal.js for better organization
 
 /**
+ * Helper function to detect if any dark theme variant is active
+ * @returns {boolean} True if any dark theme is active
+ */
+function isDarkTheme() {
+  const classList = document.body.classList;
+  return classList.contains('theme-dark') ||
+         classList.contains('theme-halloween-dark');
+}
+
+/**
+ * Helper function to get theme-appropriate colors
+ * @returns {object} Color palette for current theme
+ */
+function getThemeColors() {
+  const isDark = isDarkTheme();
+  return {
+    modalBg: isDark ? '#2a2a2a' : '#ffffff',
+    modalText: isDark ? '#ffffff' : '#000000',
+    secondaryBg: isDark ? '#333' : '#f5f5f5',
+    secondaryText: '#8e8e93',
+    borderColor: isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(60, 60, 67, 0.29)'
+  };
+}
+
+/**
  * Show upload progress overlay with cancel functionality
  */
 export function showUploadOverlay() {
@@ -25,22 +50,18 @@ export function showUploadOverlay() {
     document.body.appendChild(overlay);
     
     // Create the upload modal inside the overlay
+    const colors = getThemeColors();
     const uploadModal = document.createElement('div');
     uploadModal.id = 'upload-progress-modal';
     uploadModal.style.cssText = `
-      background: #fff;
+      background: ${colors.modalBg};
+      color: ${colors.modalText};
       border-radius: 12px;
       padding: 24px;
       width: 90%;
       max-width: 400px;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     `;
-    
-    // Add dark theme support
-    if (document.body.classList.contains('theme-dark')) {
-      uploadModal.style.background = '#1c1c1e';
-      uploadModal.style.color = '#ffffff';
-    }
     
     uploadModal.innerHTML = `
       <h3 style="margin: 0 0 16px 0; font-size: 20px; font-weight: 600;">Uploading Photos</h3>
@@ -96,7 +117,7 @@ export function hideUploadOverlay() {
 export function showConfirmationModal(photoCount, onConfirm) {
   // CRITICAL: Create modal in PARENT document, not iframe
   const parentDoc = window.parent.document;
-  const isDark = document.body.classList.contains('theme-dark');
+  const colors = getThemeColors();
   
   // Create confirmation overlay in parent
   const overlay = parentDoc.createElement('div');
@@ -118,19 +139,19 @@ export function showConfirmationModal(photoCount, onConfirm) {
   // Create confirmation modal
   const modal = parentDoc.createElement('div');
   modal.style.cssText = `
-    background: ${isDark ? '#1c1c1e' : '#ffffff'};
+    background: ${colors.modalBg};
     border-radius: 14px;
     padding: 24px;
     max-width: 320px;
     width: 90%;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
   `;
-  
+
   modal.innerHTML = `
-    <h3 style="margin: 0 0 12px 0; font-size: 17px; font-weight: 600; color: ${isDark ? '#ffffff' : '#000000'}; text-align: center;">
+    <h3 style="margin: 0 0 12px 0; font-size: 17px; font-weight: 600; color: ${colors.modalText}; text-align: center;">
       Delete All Photos?
     </h3>
-    <p style="margin: 0 0 24px 0; font-size: 14px; color: #8e8e93; text-align: center; line-height: 1.4;">
+    <p style="margin: 0 0 24px 0; font-size: 14px; color: ${colors.secondaryText}; text-align: center; line-height: 1.4;">
       This will permanently delete all ${photoCount} photos from your library and reset your storage quota. This action cannot be undone.
     </p>
     <div style="display: flex; gap: 12px;">
@@ -142,8 +163,8 @@ export function showConfirmationModal(photoCount, onConfirm) {
         font-size: 16px;
         font-weight: 500;
         cursor: pointer;
-        background: ${isDark ? '#2c2c2e' : '#f0f0f0'};
-        color: ${isDark ? '#ffffff' : '#000000'};
+        background: ${colors.secondaryBg};
+        color: ${colors.modalText};
         transition: all 0.2s;
       ">Cancel</button>
       <button id="confirm-delete-yes" tabindex="1" style="
@@ -154,8 +175,8 @@ export function showConfirmationModal(photoCount, onConfirm) {
         font-size: 16px;
         font-weight: 600;
         cursor: pointer;
-        background: ${isDark ? '#2c2c2e' : '#f0f0f0'};
-        color: ${isDark ? '#ffffff' : '#000000'};
+        background: ${colors.secondaryBg};
+        color: ${colors.modalText};
         transition: all 0.2s;
       ">Delete All</button>
     </div>
@@ -271,8 +292,9 @@ export function showConfirmationModal(photoCount, onConfirm) {
  */
 export function showDeleteProgress() {
   let overlay = document.getElementById('delete-progress-overlay');
-  
+
   if (!overlay) {
+    const colors = getThemeColors();
     overlay = document.createElement('div');
     overlay.id = 'delete-progress-overlay';
     overlay.style.cssText = `
@@ -287,10 +309,10 @@ export function showDeleteProgress() {
       justify-content: center;
       z-index: 10001;
     `;
-    
+
     const progressModal = document.createElement('div');
     progressModal.style.cssText = `
-      background: ${document.body.classList.contains('theme-dark') ? '#1c1c1e' : '#ffffff'};
+      background: ${colors.modalBg};
       border-radius: 14px;
       padding: 32px 24px;
       min-width: 280px;
@@ -298,13 +320,13 @@ export function showDeleteProgress() {
       text-align: center;
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     `;
-    
+
     progressModal.innerHTML = `
       <div style="margin-bottom: 16px;">
         <div style="
           width: 48px;
           height: 48px;
-          border: 3px solid #f0f0f0;
+          border: 3px solid ${colors.secondaryBg};
           border-top-color: #EE9828;
           border-radius: 50%;
           margin: 0 auto;
@@ -314,10 +336,10 @@ export function showDeleteProgress() {
       <div id="delete-progress-info" style="
         font-size: 16px;
         font-weight: 500;
-        color: ${document.body.classList.contains('theme-dark') ? '#ffffff' : '#000000'};
+        color: ${colors.modalText};
         margin-bottom: 8px;
       ">Deleting photos...</div>
-      <div style="font-size: 14px; color: #8e8e93;">Please wait</div>
+      <div style="font-size: 14px; color: ${colors.secondaryText};">Please wait</div>
     `;
     
     // Add spinner animation
@@ -378,10 +400,12 @@ export function showQRCodeModal(uploadUrl, onClose = null) {
     document.body.appendChild(overlay);
     
     // Create QR modal
+    const colors = getThemeColors();
     const qrModal = document.createElement('div');
     qrModal.id = 'qr-code-modal';
     qrModal.style.cssText = `
-      background: #fff;
+      background: ${colors.modalBg};
+      color: ${colors.modalText};
       border-radius: 12px;
       padding: 40px;
       width: 90%;
@@ -391,12 +415,6 @@ export function showQRCodeModal(uploadUrl, onClose = null) {
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
       text-align: center;
     `;
-    
-    // Add dark theme support
-    if (document.body.classList.contains('theme-dark')) {
-      qrModal.style.background = '#1c1c1e';
-      qrModal.style.color = '#ffffff';
-    }
     
     qrModal.innerHTML = `
       <p style="margin: 0 0 20px 0; font-size: 12px; color: #666; text-align: center;">To upload photos to Dashie:</p>
@@ -537,7 +555,7 @@ function createQRCode(container, url) {
  * @param {number} results.total - Total files attempted
  */
 export function showUploadResultsModal(results) {
-  const isDark = document.body.classList.contains('theme-dark');
+  const colors = getThemeColors();
 
   let overlay = document.getElementById('upload-results-overlay');
   if (overlay) {
@@ -562,7 +580,7 @@ export function showUploadResultsModal(results) {
 
   const modal = document.createElement('div');
   modal.style.cssText = `
-    background: ${isDark ? '#1c1c1e' : '#ffffff'};
+    background: ${colors.modalBg};
     border-radius: 14px;
     padding: 24px;
     max-width: 380px;
@@ -603,7 +621,7 @@ export function showUploadResultsModal(results) {
         margin: 0 auto 16px auto;
         font-weight: bold;
       ">${icon}</div>
-      <h3 style="margin: 0; font-size: 20px; font-weight: 600; color: ${isDark ? '#ffffff' : '#000000'};">
+      <h3 style="margin: 0; font-size: 20px; font-weight: 600; color: ${colors.modalText};">
         ${title}
       </h3>
     </div>
@@ -615,11 +633,11 @@ export function showUploadResultsModal(results) {
           align-items: center;
           justify-content: space-between;
           padding: 12px;
-          background: ${isDark ? '#2c2c2e' : '#f5f5f5'};
+          background: ${colors.secondaryBg};
           border-radius: 8px;
           margin-bottom: 8px;
         ">
-          <span style="color: ${isDark ? '#ffffff' : '#000000'}; font-size: 15px;">
+          <span style="color: ${colors.modalText}; font-size: 15px;">
             ✓ Uploaded successfully
           </span>
           <span style="color: #34C759; font-weight: 600; font-size: 15px;">
@@ -634,11 +652,11 @@ export function showUploadResultsModal(results) {
           align-items: center;
           justify-content: space-between;
           padding: 12px;
-          background: ${isDark ? '#2c2c2e' : '#f5f5f5'};
+          background: ${colors.secondaryBg};
           border-radius: 8px;
           margin-bottom: 8px;
         ">
-          <span style="color: ${isDark ? '#ffffff' : '#000000'}; font-size: 15px;">
+          <span style="color: ${colors.modalText}; font-size: 15px;">
             ✗ Failed (conversion)
           </span>
           <span style="color: #FF3B30; font-weight: 600; font-size: 15px;">
@@ -653,10 +671,10 @@ export function showUploadResultsModal(results) {
           align-items: center;
           justify-content: space-between;
           padding: 12px;
-          background: ${isDark ? '#2c2c2e' : '#f5f5f5'};
+          background: ${colors.secondaryBg};
           border-radius: 8px;
         ">
-          <span style="color: ${isDark ? '#ffffff' : '#000000'}; font-size: 15px;">
+          <span style="color: ${colors.modalText}; font-size: 15px;">
             ⊘ Skipped (duplicate)
           </span>
           <span style="color: #FF9500; font-weight: 600; font-size: 15px;">
