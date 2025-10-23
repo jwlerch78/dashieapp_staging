@@ -120,13 +120,6 @@ class PhotosWidget {
 
       // Handle state updates (includes settings, theme, etc.)
       if (data.type === 'data' && data.action === 'state-update' && data.payload) {
-        logger.debug('State update received', {
-          hasSettings: !!data.payload.settings,
-          hasPhotosSettings: !!data.payload.settings?.photos,
-          transitionTime: data.payload.settings?.photos?.transitionTime,
-          currentTransitionTime: this.transitionTime
-        });
-
         // Handle settings updates
         if (data.payload.settings?.photos?.transitionTime) {
           this.updateTransitionTime(data.payload.settings.photos.transitionTime);
@@ -356,13 +349,9 @@ class PhotosWidget {
         });
       }
 
-      logger.info('📸 Photo displayed', {
+      logger.debug('Photo displayed', {
         index: this.currentPhotoIndex,
-        total: this.photoUrls.length,
-        transitionTimeSeconds: this.transitionTime / 1000,
-        transitionTimeMs: this.transitionTime,
-        timestamp: new Date().toLocaleTimeString(),
-        nextPhotoIn: `${this.transitionTime / 1000}s`
+        total: this.photoUrls.length
       });
     };
 

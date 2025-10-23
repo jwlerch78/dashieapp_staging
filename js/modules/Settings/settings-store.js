@@ -106,11 +106,7 @@ export class SettingsStore {
 
             // Publish settings changed event so widgets get updated
             AppComms.publish(AppComms.events.SETTINGS_CHANGED, this.settings);
-            logger.info('Published SETTINGS_CHANGED event to AppComms', {
-                hasPhotosSettings: !!this.settings?.photos,
-                transitionTime: this.settings?.photos?.transitionTime,
-                topLevelKeys: Object.keys(this.settings || {})
-            });
+            logger.debug('Published SETTINGS_CHANGED event to AppComms');
 
             return result;
         } catch (error) {

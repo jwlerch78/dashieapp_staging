@@ -411,7 +411,7 @@ export class PhotosSettingsModal {
   if (window.parent !== window && window.parent.settingsStore) {
     try {
       window.parent.settingsStore.set(path, value);
-      await window.parent.settingsStore.save(true); // Save WITH toast to verify it's working
+      await window.parent.settingsStore.save(false); // Save without toast (silent save)
       logger.success('Setting saved via SettingsStore', { path, value });
       return;
     } catch (error) {
