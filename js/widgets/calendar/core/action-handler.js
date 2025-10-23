@@ -129,16 +129,18 @@ export class CalendarActionHandler {
   }
 
   /**
-   * Handle touch navigation (bypasses focus check for direct interaction)
+   * Handle touch navigation
+   * Routes through the same logic as d-pad (checks isAtHome, etc.)
    * @param {string} direction - 'previous' or 'next'
    */
   handleTouchNavigation(direction) {
     logger.debug('Touch navigation', { direction });
 
+    // Route through handleLeft/handleRight which check isAtHome
     if (direction === 'previous') {
-      this.widget.navigationManager.navigatePrevious();
+      this.handleLeft();
     } else if (direction === 'next') {
-      this.widget.navigationManager.navigateNext();
+      this.handleRight();
     }
   }
 
