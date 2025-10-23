@@ -1575,10 +1575,23 @@ class DataCache {
 // 1. On page load - Signal ready to parent
 window.addEventListener('load', () => {
     if (window.parent !== window) {
+        // PREFERRED: Direct format
         window.parent.postMessage({
             type: 'widget-ready',
-            widget: 'widgetId'
+            widget: 'widgetId',
+            widgetId: 'widgetId',
+            hasMenu: false
         }, '*');
+
+        // LEGACY: Event wrapper format (still supported)
+        // window.parent.postMessage({
+        //     type: 'event',
+        //     widgetId: 'widgetId',
+        //     payload: {
+        //         eventType: 'widget-ready',
+        //         data: { hasMenu: false }
+        //     }
+        // }, '*');
     }
 });
 
@@ -2076,10 +2089,24 @@ class PhotosWidget extends Widget {
 ### Messages: Widget → App
 
 ```javascript
-// Widget ready
+// Widget ready (DIRECT FORMAT - Preferred)
 {
     type: 'widget-ready',
-    widget: 'calendar'
+    widget: 'calendar',
+    widgetId: 'calendar',
+    hasMenu: boolean
+}
+
+// Widget ready (LEGACY EVENT WRAPPER FORMAT - Still supported)
+{
+    type: 'event',
+    widgetId: 'photos',
+    payload: {
+        eventType: 'widget-ready',
+        data: {
+            hasMenu: boolean
+        }
+    }
 }
 
 // Widget error
@@ -2107,6 +2134,12 @@ class PhotosWidget extends Widget {
     dataType: 'calendar' | 'photos' | 'weather'
 }
 ```
+
+**Note on Message Formats:**
+- **Direct format** (`type: 'widget-ready'`) is the preferred format for new widgets
+- **Legacy event wrapper** (`type: 'event'` with `eventType: 'widget-ready'`) is supported for backward compatibility
+- Both formats are detected by WidgetMessenger and core-initializer
+- Use direct format for new widget development
 
 ---
 
