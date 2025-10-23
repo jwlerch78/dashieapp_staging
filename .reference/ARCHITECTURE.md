@@ -2234,28 +2234,25 @@ UI updates
 ### Events (Widget → App)
 
 ```javascript
-// Widget ready
+// Widget ready (standard format)
 {
-    type: 'event',
+    type: 'widget-ready',
+    widget: 'calendar',
     widgetId: 'calendar',
-    payload: {
-        eventType: 'widget-ready',
-        data: { hasMenu: true, menuItems: ['Today', 'Week', 'Month'] }
-    }
+    hasMenu: true
 }
 
 // Return to menu
 {
-    type: 'event',
-    widgetId: 'calendar',
-    payload: { eventType: 'return-to-menu', data: {} }
+    type: 'return-to-menu',
+    widgetId: 'calendar'
 }
 
 // Settings requested
 {
-    type: 'event',
+    type: 'settings-requested',
     widgetId: 'calendar',
-    payload: { eventType: 'settings-requested', data: {} }
+    path: 'optional.setting.path'
 }
 ```
 

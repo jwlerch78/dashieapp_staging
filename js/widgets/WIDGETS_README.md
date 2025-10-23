@@ -345,14 +345,10 @@ async loadMyWidgetData() {
 **Ready Signal:**
 ```javascript
 {
-  type: 'event',              // MUST be 'event'
+  type: 'widget-ready',       // MUST be 'widget-ready'
+  widget: 'widget-id',        // Widget name
   widgetId: 'widget-id',      // MUST match config
-  payload: {
-    eventType: 'widget-ready', // MUST be 'widget-ready'
-    data: {
-      hasMenu: false
-    }
-  }
+  hasMenu: false              // Boolean: does widget have focus menu?
 }
 ```
 
@@ -542,12 +538,10 @@ if (myIframe) {
 ```javascript
 // photos.js
 window.parent.postMessage({
-  type: 'event',
+  type: 'widget-ready',
+  widget: 'photos',
   widgetId: 'photos',
-  payload: {
-    eventType: 'widget-ready',
-    data: { hasMenu: false }
-  }
+  hasMenu: false
 }, '*');
 ```
 
@@ -582,24 +576,25 @@ if (data.type === 'data' && data.payload?.dataType === 'photos') {
 
 ### ❌ Mistake 1: Wrong Message Format
 
-**Wrong:**
+**Wrong (legacy format):**
 ```javascript
 window.parent.postMessage({
-  type: 'widget-ready',  // ❌ Wrong!
-  widget: 'photos',
-  config: { hasMenu: false }
-}, '*');
-```
-
-**Correct:**
-```javascript
-window.parent.postMessage({
-  type: 'event',         // ✅ Correct
+  type: 'event',         // ❌ Legacy format - don't use!
   widgetId: 'photos',
   payload: {
     eventType: 'widget-ready',
     data: { hasMenu: false }
   }
+}, '*');
+```
+
+**Correct (standard format):**
+```javascript
+window.parent.postMessage({
+  type: 'widget-ready',  // ✅ Correct!
+  widget: 'photos',
+  widgetId: 'photos',
+  hasMenu: false
 }, '*');
 ```
 
