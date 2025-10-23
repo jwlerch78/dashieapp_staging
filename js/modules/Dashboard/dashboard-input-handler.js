@@ -145,21 +145,14 @@ class DashboardInputHandler {
 
     const state = DashboardStateManager.getState();
 
-    // If focus menu is active and widget is in control (not in menu)
-    if (state.focusMenuState.active && !state.focusMenuState.inMenu) {
-      // Return to menu (exit widget, enter menu control)
-      DashboardStateManager.setFocusMenuInWidget(true);
-      FocusMenuRenderer.undimFocusMenu();
-      UIRenderer.setWidgetActive(state.focusedWidget, false);
-
-      // Send exit-active to widget (use string for legacy format)
-      widgetMessenger.sendCommandToWidget(state.focusedWidget, 'exit-active');
-
-      logger.info('Returned to menu from widget');
+    // If focus menu is active and in menu state, do nothing (already at left boundary)
+    if (state.focusMenuState.active && state.focusMenuState.inMenu) {
+      logger.debug('LEFT pressed in menu - ignoring (at boundary)');
       return true;
     }
 
-    // If widget is focused (in menu already or no menu), forward to widget
+    // If widget is active (focus menu active but not in menu) OR widget focused without menu
+    // Always forward to widget - widget will send return-to-menu if at home position
     if (state.focusedWidget) {
       logger.debug('Forwarding LEFT to focused widget', { widgetId: state.focusedWidget });
       widgetMessenger.sendCommandToWidget(state.focusedWidget, 'left');
