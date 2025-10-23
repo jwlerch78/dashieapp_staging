@@ -314,7 +314,8 @@ class UIRenderer {
       });
 
       // Import and use WidgetDataManager to unregister
-      const { widgetDataManager } = await import('../../../core/widget-data-manager.js');
+      const { getWidgetDataManager } = await import('../../../core/widget-data-manager.js');
+      const widgetDataManager = getWidgetDataManager();
       widgetIds.forEach(widgetId => {
         widgetDataManager.unregisterWidget(widgetId);
       });
