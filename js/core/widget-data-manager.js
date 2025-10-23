@@ -6,6 +6,7 @@ import { createLogger } from '../utils/logger.js';
 import { getCalendarService } from '../data/services/calendar-service.js';
 import { calendarCache } from '../utils/calendar-cache.js';
 import { CALENDAR_CACHE_REFRESH_THRESHOLD_MS } from '../../config.js';
+import AppComms from './app-comms.js';
 
 const logger = createLogger('WidgetDataManager');
 
@@ -56,7 +57,73 @@ export class WidgetDataManager {
             }
         });
 
+        // Set up voice event listeners (forward to voice widget)
+        this._setupVoiceEventListeners();
+
         logger.verbose('WidgetDataManager initialized');
+    }
+
+    /**
+     * Setup voice event listeners to forward events to voice widget
+     * @private
+     */
+    _setupVoiceEventListeners() {
+        const voiceEvents = [
+            'VOICE_LISTENING_STARTED',
+            'VOICE_LISTENING_STOPPED',
+            'VOICE_PARTIAL_RESULT',
+            'VOICE_TRANSCRIPT_RECEIVED',
+            'VOICE_ERROR',
+            'VOICE_COMMAND_EXECUTED',
+            'VOICE_WAKE_WORD_DETECTED'
+        ];
+
+        voiceEvents.forEach(eventType => {
+            AppComms.on(eventType, (data) => {
+                if (this.widgets.has('voice')) {
+                    this.sendToWidget('voice', 'data', 'voice-event', {
+                        eventType,
+                        data
+                    });
+                }
+            });
+        });
+
+        logger.debug('Voice event listeners registered');
+    }
+
+    /**
+     * Handle voice actions from voice widget (e.g., start/stop listening)
+     * @param {string} action - Voice action to perform
+     */
+    async handleVoiceAction(action) {
+        logger.debug('Voice action received from widget', { action });
+
+        // Get VoiceService from window (initialized in core-initializer)
+        const voiceService = window.voiceService;
+
+        if (!voiceService) {
+            logger.error('VoiceService not available');
+            return;
+        }
+
+        switch (action) {
+            case 'start-listening':
+                voiceService.startListening();
+                break;
+
+            case 'stop-listening':
+                voiceService.stopListening();
+                break;
+
+            case 'cancel-listening':
+                voiceService.cancelListening();
+                break;
+
+            default:
+                logger.warn('Unknown voice action', { action });
+                break;
+        }
     }
 
     /**
@@ -106,6 +173,12 @@ export class WidgetDataManager {
      */
     async handleWidgetMessage(message) {
         if (!message || !message.type) return;
+
+        // Handle voice actions from voice widget
+        if (message.type === 'voice-action' && message.action) {
+            await this.handleVoiceAction(message.action);
+            return;
+        }
 
         // Handle widget-config message (focus menu registration)
         if (message.type === 'widget-config' && message.widget) {

@@ -335,7 +335,7 @@ class FocusMenuRenderer {
     logger.info('Menu item clicked', { itemId });
 
     // Get dashboard state to find focused widget
-    import('../dashboard-state-manager.js').then(({ default: DashboardStateManager }) => {
+    import('../../state/state-manager.js').then(({ default: DashboardStateManager }) => {
       const state = DashboardStateManager.getState();
 
       if (!state.focusedWidget) {

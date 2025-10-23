@@ -181,6 +181,19 @@ export async function initializeCore(options = {}) {
       await InputHandler.initialize();
       await ActionRouter.initialize();
       await WidgetMessenger.initialize();
+
+      // Initialize VoiceService for voice commands and TTS
+      updateLoadingMessage('Initializing voice service...');
+      const VoiceService = (await import('../voice-service.js')).default;
+      await VoiceService.initialize();
+      window.voiceService = VoiceService; // Expose globally for debugging
+      logger.verbose('VoiceService initialized');
+
+      // Initialize VoiceCommandRouter for processing voice commands
+      const VoiceCommandRouter = (await import('../voice-command-router.js')).default;
+      await VoiceCommandRouter.initialize();
+      window.voiceCommandRouter = VoiceCommandRouter; // Expose globally for debugging
+      logger.verbose('VoiceCommandRouter initialized');
     }
 
     // Initialize cross-dashboard synchronization (works on all platforms)

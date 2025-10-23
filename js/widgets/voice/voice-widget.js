@@ -1,0 +1,238 @@
+/**
+ * Voice Widget - Visual feedback for voice interaction
+ *
+ * Displays microphone button, live transcript, and confirmation messages.
+ * Communicates with parent window's VoiceService via postMessage.
+ */
+
+// Widget state
+let state = 'idle'; // idle, listening, transcribing, processing, confirmation, error
+let isAndroid = false;
+
+// DOM elements
+let widgetEl;
+let micButton;
+let promptText;
+let transcriptText;
+let statusText;
+
+/**
+ * Initialize widget
+ */
+function initialize() {
+  // Get DOM elements
+  widgetEl = document.getElementById('voiceWidget');
+  micButton = document.getElementById('micButton');
+  promptText = document.getElementById('promptText');
+  transcriptText = document.getElementById('transcriptText');
+  statusText = document.getElementById('statusText');
+
+  // Detect platform
+  detectPlatform();
+
+  // Setup event listeners
+  setupEventListeners();
+
+  // Send ready message to parent
+  sendToParent('widget-ready', { widgetId: 'voice' });
+
+  console.log('[VoiceWidget] Initialized');
+}
+
+/**
+ * Detect if running on Android
+ */
+function detectPlatform() {
+  // Check if DashieNative exists in parent window
+  try {
+    isAndroid = typeof window.parent.DashieNative !== 'undefined';
+  } catch (e) {
+    isAndroid = false;
+  }
+
+  // Update prompt text based on platform
+  if (isAndroid) {
+    promptText.textContent = 'Say "Hey Dashie"';
+    widgetEl.classList.add('voice-widget--android');
+  } else {
+    promptText.textContent = 'Click to speak';
+  }
+
+  console.log('[VoiceWidget] Platform:', isAndroid ? 'Android' : 'Web');
+}
+
+/**
+ * Setup event listeners
+ */
+function setupEventListeners() {
+  // Mic button click (Web only - Android uses wake word)
+  if (!isAndroid) {
+    micButton.addEventListener('click', handleMicClick);
+  } else {
+    // On Android, mic button is just visual (wake word triggers listening)
+    micButton.style.cursor = 'default';
+  }
+
+  // Listen for messages from parent window
+  window.addEventListener('message', handleParentMessage);
+}
+
+/**
+ * Handle microphone button click (Web only)
+ */
+function handleMicClick() {
+  console.log('[VoiceWidget] Mic button clicked');
+
+  if (state === 'listening') {
+    // Stop listening
+    sendToParent('voice-action', { action: 'stop-listening' });
+  } else {
+    // Start listening
+    sendToParent('voice-action', { action: 'start-listening' });
+  }
+}
+
+/**
+ * Handle messages from parent window
+ */
+function handleParentMessage(event) {
+  const data = event.data;
+
+  // Handle voice events
+  if (data.type === 'data' && data.action === 'voice-event') {
+    handleVoiceEvent(data.payload);
+  }
+
+  // Handle commands from parent
+  if (data.type === 'command') {
+    handleCommand(data.action, data.payload);
+  }
+}
+
+/**
+ * Handle voice events from VoiceService (via parent)
+ */
+function handleVoiceEvent(event) {
+  console.log('[VoiceWidget] Voice event:', event.eventType, event.data);
+
+  switch (event.eventType) {
+    case 'VOICE_LISTENING_STARTED':
+      setState('listening');
+      transcriptText.textContent = 'Listening...';
+      break;
+
+    case 'VOICE_LISTENING_STOPPED':
+      if (state === 'listening') {
+        setState('idle');
+        transcriptText.textContent = '';
+      }
+      break;
+
+    case 'VOICE_PARTIAL_RESULT':
+      setState('transcribing');
+      transcriptText.textContent = event.data;
+      break;
+
+    case 'VOICE_TRANSCRIPT_RECEIVED':
+      setState('processing');
+      transcriptText.textContent = event.data;
+      // Will transition to confirmation or back to idle based on command result
+      break;
+
+    case 'VOICE_COMMAND_EXECUTED':
+      showConfirmation(event.data.result);
+      break;
+
+    case 'VOICE_ERROR':
+      showError(event.data.message);
+      break;
+
+    case 'VOICE_WAKE_WORD_DETECTED':
+      // Android only - visual feedback when wake word detected
+      setState('listening');
+      transcriptText.textContent = 'Listening...';
+      break;
+  }
+}
+
+/**
+ * Handle commands from parent window
+ */
+function handleCommand(action, payload) {
+  console.log('[VoiceWidget] Command:', action, payload);
+
+  // Handle any widget-specific commands here
+  // (Currently none defined)
+}
+
+/**
+ * Set widget state
+ */
+function setState(newState) {
+  // Remove old state class
+  widgetEl.classList.remove(
+    'voice-widget--idle',
+    'voice-widget--listening',
+    'voice-widget--transcribing',
+    'voice-widget--processing',
+    'voice-widget--confirmation',
+    'voice-widget--error'
+  );
+
+  // Add new state class
+  widgetEl.classList.add(`voice-widget--${newState}`);
+
+  state = newState;
+  console.log('[VoiceWidget] State changed to:', newState);
+}
+
+/**
+ * Show confirmation message
+ */
+function showConfirmation(message) {
+  setState('confirmation');
+  statusText.textContent = message;
+  transcriptText.textContent = ''; // Clear transcript
+
+  // Return to idle after 3 seconds
+  setTimeout(() => {
+    if (state === 'confirmation') {
+      setState('idle');
+      statusText.textContent = '';
+    }
+  }, 3000);
+}
+
+/**
+ * Show error message
+ */
+function showError(message) {
+  setState('error');
+  statusText.textContent = message;
+  transcriptText.textContent = ''; // Clear transcript
+
+  // Return to idle after 3 seconds
+  setTimeout(() => {
+    if (state === 'error') {
+      setState('idle');
+      statusText.textContent = '';
+    }
+  }, 3000);
+}
+
+/**
+ * Send message to parent window
+ */
+function sendToParent(type, data) {
+  window.parent.postMessage({
+    type,
+    ...data
+  }, '*');
+}
+
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initialize);
+} else {
+  initialize();
+}

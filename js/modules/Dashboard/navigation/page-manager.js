@@ -155,6 +155,22 @@ class PageManager {
   }
 
   /**
+   * Get next page ID
+   * @returns {string|null} Next page ID or null if at end
+   */
+  static getNextPage() {
+    return getNextPage(this.currentPageId);
+  }
+
+  /**
+   * Get previous page ID
+   * @returns {string|null} Previous page ID or null if at start
+   */
+  static getPreviousPage() {
+    return getPreviousPage(this.currentPageId);
+  }
+
+  /**
    * Check if can navigate to next page
    * @returns {boolean} True if next page exists
    */

@@ -41,6 +41,14 @@ export function setCurrentPage(pageId) {
 }
 
 /**
+ * Get the current page ID
+ * @returns {string} Current page ID
+ */
+export function getCurrentPage() {
+  return currentPageId;
+}
+
+/**
  * Get current widget configuration
  * @returns {Array} Widget config array
  */

@@ -149,13 +149,15 @@ class DOMBuilder {
     const cell = document.createElement('div');
     cell.className = 'dashboard-grid__cell';
 
-    // Add span classes if needed
-    if (widget.rowSpan > 1) {
-      cell.classList.add(`dashboard-grid__cell--rowspan-${widget.rowSpan}`);
-    }
-    if (widget.colSpan > 1) {
-      cell.classList.add(`dashboard-grid__cell--colspan-${widget.colSpan}`);
-    }
+    // Apply grid positioning directly via inline styles
+    // This allows for flexible grid layouts with any number of rows/columns
+    const col = widget.col || 1;
+    const row = widget.row || 1;
+    const colSpan = widget.colSpan || 1;
+    const rowSpan = widget.rowSpan || 1;
+
+    cell.style.gridColumn = `${col} / span ${colSpan}`;
+    cell.style.gridRow = `${row} / span ${rowSpan}`;
 
     // Set data attributes
     cell.dataset.row = widget.row;

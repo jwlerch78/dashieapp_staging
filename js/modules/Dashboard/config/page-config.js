@@ -24,6 +24,10 @@ export const pageConfigs = {
     label: 'Page 1',
     gridRows: 3,
     gridCols: 2,
+    layout: {
+      columns: '70% 30%',      // Calendar takes 70%, right column 30%
+      rows: '10% 45% 45%'      // Header smaller, calendar/agenda larger
+    },
     widgets: [
       {
         id: 'header',

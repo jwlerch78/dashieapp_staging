@@ -77,7 +77,7 @@ class GridEventHandler {
 
     // Close menu if open
     if (state.menuOpen) {
-      import('./dashboard-navigation-manager.js').then((module) => {
+      import('./navigation-manager.js').then((module) => {
         const NavigationManager = module.default;
         NavigationManager.closeMenu();
       });
@@ -145,7 +145,7 @@ class GridEventHandler {
     // If menu is open, close it and don't focus the widget
     if (state.menuOpen) {
       logger.info('Grid clicked while menu open - closing menu');
-      import('./dashboard-navigation-manager.js').then((module) => {
+      import('./navigation-manager.js').then((module) => {
         const NavigationManager = module.default;
         NavigationManager.closeMenu();
       });
@@ -160,7 +160,7 @@ class GridEventHandler {
     logger.info('Grid cell clicked', { row, col, widgetId });
 
     // Import navigation manager dynamically
-    import('./dashboard-navigation-manager.js').then((module) => {
+    import('./navigation-manager.js').then((module) => {
       const NavigationManager = module.default;
 
       // Make sure position is set and not idle
@@ -286,7 +286,7 @@ class MenuEventHandler {
     logger.info('Menu item clicked', { item: item.id, index });
 
     // Import navigation manager dynamically to avoid circular deps
-    import('./dashboard-navigation-manager.js').then((module) => {
+    import('./navigation-manager.js').then((module) => {
       const NavigationManager = module.default;
 
       // Set focus to this menu item
@@ -349,7 +349,7 @@ class MenuEventHandler {
         logger.info('Menu item tapped', { item: item.id, index });
 
         // Import navigation manager dynamically to avoid circular deps
-        import('./dashboard-navigation-manager.js').then((module) => {
+        import('./navigation-manager.js').then((module) => {
           const NavigationManager = module.default;
 
           // Execute menu action after a small delay
@@ -447,7 +447,7 @@ class SidebarEventHandler {
 
     if (isExpanded && state.menuOpen) {
       // Close menu if it's actively open
-      import('./dashboard-navigation-manager.js').then((module) => {
+      import('./navigation-manager.js').then((module) => {
         const NavigationManager = module.default;
         NavigationManager.closeMenu();
       });
@@ -456,7 +456,7 @@ class SidebarEventHandler {
       sidebar.classList.add('dashboard-sidebar--expanded');
 
       // CRITICAL FIX: Set the menuOpen state
-      import('./dashboard-navigation-manager.js').then((module) => {
+      import('./navigation-manager.js').then((module) => {
         const NavigationManager = module.default;
         NavigationManager.openMenu();
       });
@@ -494,7 +494,7 @@ class OverlayEventHandler {
 
           const state = DashboardStateManager.getState();
           if (state.menuOpen) {
-            import('./dashboard-navigation-manager.js').then((module) => {
+            import('./navigation-manager.js').then((module) => {
               const NavigationManager = module.default;
               NavigationManager.closeMenu();
             });
@@ -534,7 +534,7 @@ class OverlayEventHandler {
       if (!clickedSidebar) {
         logger.info('Click outside sidebar - closing menu');
 
-        import('./dashboard-navigation-manager.js').then((module) => {
+        import('./navigation-manager.js').then((module) => {
           const NavigationManager = module.default;
           NavigationManager.closeMenu();
         });
@@ -555,7 +555,7 @@ class OverlayEventHandler {
         logger.info('Click on overlay - defocusing widget');
 
         // Import navigation manager dynamically
-        import('./dashboard-navigation-manager.js').then((module) => {
+        import('./navigation-manager.js').then((module) => {
           const NavigationManager = module.default;
           NavigationManager.handleEscape();
         });

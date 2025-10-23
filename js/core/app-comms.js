@@ -224,6 +224,10 @@ class AppComms {
   }
 }
 
+// Add convenient aliases
+AppComms.prototype.emit = AppComms.prototype.publish;
+AppComms.prototype.on = AppComms.prototype.subscribe;
+
 // Create singleton instance
 const appComms = new AppComms();
 
@@ -278,7 +282,17 @@ appComms.events = {
   ERROR_OCCURRED: 'error:occurred',           // When an error occurs
   SLEEP_MODE_CHANGED: 'sleep:mode_changed',   // When sleep mode changes
   NETWORK_STATUS_CHANGED: 'network:status_changed', // When network status changes
-  PLATFORM_DETECTED: 'platform:detected'      // When platform is detected
+  PLATFORM_DETECTED: 'platform:detected',     // When platform is detected
+
+  // Voice events
+  VOICE_LISTENING_STARTED: 'voice:listening_started',     // When voice recognition starts
+  VOICE_LISTENING_STOPPED: 'voice:listening_stopped',     // When voice recognition stops
+  VOICE_PARTIAL_RESULT: 'voice:partial_result',           // Interim transcript during listening
+  VOICE_TRANSCRIPT_RECEIVED: 'voice:transcript_received', // Final transcript received
+  VOICE_ERROR: 'voice:error',                             // Voice error occurred
+  VOICE_COMMAND_EXECUTED: 'voice:command_executed',       // Voice command was executed
+  VOICE_COMMAND_SENT_TO_AI: 'voice:command_sent_to_ai',   // Command sent to AI for processing
+  VOICE_WAKE_WORD_DETECTED: 'voice:wake_word_detected'    // Wake word detected (Android)
 };
 
 // =============================================================================
@@ -294,3 +308,4 @@ if (typeof window !== 'undefined') {
 // =============================================================================
 
 export default appComms;
+export { appComms as AppComms }; // Named export for convenience

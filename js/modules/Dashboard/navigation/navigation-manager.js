@@ -10,6 +10,7 @@ import AppStateManager from '../../../core/app-state-manager.js';
 import WidgetMessenger from '../../../core/widget-messenger.js';
 import FocusMenuStateManager from '../components/focus-menu/state-manager.js';
 import FocusMenuRenderer from '../components/focus-menu/renderer.js';
+import PageManager from './page-manager.js';
 
 const logger = createLogger('DashboardNav');
 
@@ -66,16 +67,58 @@ class NavigationManager {
 
     if (row > 1) { // Row 1 is top
       const newRow = row - 1;
-      DashboardStateManager.setGridPosition(newRow, col);
-      UIRenderer.updateFocus();
 
-      logger.debug('Moved grid up', { from: [row, col], to: [newRow, col] });
+      // Check if we're moving to the same widget (multi-row spanning)
+      const currentWidget = getWidgetAtPosition(row, col);
+      const nextWidget = getWidgetAtPosition(newRow, col);
+
+      if (currentWidget && nextWidget && currentWidget.id === nextWidget.id) {
+        // Same widget spans multiple rows - skip to previous distinct widget
+        logger.debug('Skipping spanned widget rows', {
+          widgetId: currentWidget.id,
+          from: [row, col],
+          skipTo: [newRow - 1, col]
+        });
+
+        // Try moving one more row up
+        if (newRow > 1) {
+          DashboardStateManager.setGridPosition(newRow - 1, col);
+          UIRenderer.updateFocus();
+          logger.debug('Moved grid up (skipped span)', { from: [row, col], to: [newRow - 1, col] });
+          return true;
+        }
+        // If can't move further, handle as if at top row
+      } else {
+        // Different widget - normal navigation
+        DashboardStateManager.setGridPosition(newRow, col);
+        UIRenderer.updateFocus();
+        logger.debug('Moved grid up', { from: [row, col], to: [newRow, col] });
+        return true;
+      }
+    }
+
+    // At top row - attempt to navigate to previous page
+    logger.debug('At top row, checking for previous page');
+    const previousPage = PageManager.getPreviousPage();
+
+    if (previousPage) {
+      logger.info('Navigating to previous page via D-pad UP', { previousPage });
+      PageManager.switchPage(previousPage).then(() => {
+        // After page switch, ensure focus is visible on bottom row
+        const state = DashboardStateManager.getState();
+        DashboardStateManager.setGridPosition(3, state.gridPosition.col); // Move to bottom row
+        DashboardStateManager.setState({ isIdle: false }); // Wake from idle
+        UIRenderer.updateFocus(); // Show focus
+        logger.debug('Focus updated after page switch', { row: 3, col: state.gridPosition.col });
+      }).catch(error => {
+        logger.error('Failed to switch to previous page', error);
+      });
       return true;
     }
 
-    // At top row, but still show selection (not idle anymore)
+    // No previous page - stay at top
     UIRenderer.updateFocus();
-    logger.debug('Already at top row');
+    logger.debug('Already at top row of first page');
     return true; // Still handled (prevents default)
   }
 
@@ -106,16 +149,58 @@ class NavigationManager {
 
     if (row < 3) { // Row 3 is bottom
       const newRow = row + 1;
-      DashboardStateManager.setGridPosition(newRow, col);
-      UIRenderer.updateFocus();
 
-      logger.debug('Moved grid down', { from: [row, col], to: [newRow, col] });
+      // Check if we're moving to the same widget (multi-row spanning)
+      const currentWidget = getWidgetAtPosition(row, col);
+      const nextWidget = getWidgetAtPosition(newRow, col);
+
+      if (currentWidget && nextWidget && currentWidget.id === nextWidget.id) {
+        // Same widget spans multiple rows - skip to next distinct widget
+        logger.debug('Skipping spanned widget rows', {
+          widgetId: currentWidget.id,
+          from: [row, col],
+          skipTo: [newRow + 1, col]
+        });
+
+        // Try moving one more row down
+        if (newRow < 3) {
+          DashboardStateManager.setGridPosition(newRow + 1, col);
+          UIRenderer.updateFocus();
+          logger.debug('Moved grid down (skipped span)', { from: [row, col], to: [newRow + 1, col] });
+          return true;
+        }
+        // If can't move further, handle as if at bottom row
+      } else {
+        // Different widget - normal navigation
+        DashboardStateManager.setGridPosition(newRow, col);
+        UIRenderer.updateFocus();
+        logger.debug('Moved grid down', { from: [row, col], to: [newRow, col] });
+        return true;
+      }
+    }
+
+    // At bottom row - attempt to navigate to next page
+    logger.debug('At bottom row, checking for next page');
+    const nextPage = PageManager.getNextPage();
+
+    if (nextPage) {
+      logger.info('Navigating to next page via D-pad DOWN', { nextPage });
+      PageManager.switchPage(nextPage).then(() => {
+        // After page switch, ensure focus is visible on top row
+        const state = DashboardStateManager.getState();
+        DashboardStateManager.setGridPosition(1, state.gridPosition.col); // Move to top row
+        DashboardStateManager.setState({ isIdle: false }); // Wake from idle
+        UIRenderer.updateFocus(); // Show focus
+        logger.debug('Focus updated after page switch', { row: 1, col: state.gridPosition.col });
+      }).catch(error => {
+        logger.error('Failed to switch to next page', error);
+      });
       return true;
     }
 
-    // At bottom row, but still show selection (not idle anymore)
+    // No next page - stay at bottom
     UIRenderer.updateFocus();
-    logger.debug('Already at bottom row');
+    logger.debug('Already at bottom row of last page');
     return true; // Still handled (prevents default)
   }
 
