@@ -2,8 +2,8 @@
 // Phone authentication handler for Hybrid Device Flow
 // Handles QR scan → Google OAuth → Device authorization
 
-import { createLogger } from './js/utils/logger.js';
-import { SUPABASE_CONFIG } from './js/data/auth/auth-config.js';
+import { createLogger } from '../../../utils/logger.js';
+import { SUPABASE_CONFIG } from '../auth-config.js';
 
 const logger = createLogger('PhoneAuth');
 
