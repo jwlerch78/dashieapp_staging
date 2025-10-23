@@ -475,7 +475,7 @@
   margin: 0;
   position: relative; /* Flow positioning, not fixed */
   flex-shrink: 0; /* Don't compress the nav bar */
-  z-index: 0; /* Behind everything - sidebar wrapper is 10 */
+  z-index: -1; /* Negative z-index to go behind sidebar wrapper (z-index: 10) and grid */
 }
 
 .page-nav-arrow:hover {
