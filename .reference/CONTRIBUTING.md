@@ -16,10 +16,11 @@ This guide helps you find the right documentation before writing code. For proje
 | Working with theme overlays | Theme Overlay Documentation | [`js/ui/themes/THEME_OVERLAY.md`](../js/ui/themes/THEME_OVERLAY.md) |
 | Implementing device flow auth | Hybrid Device Flow Guide | [`js/data/auth/HYBRID_DEVICE_FLOW.md`](../js/data/auth/HYBRID_DEVICE_FLOW.md) |
 | Adding new widgets | Widgets Development Guide | [`js/widgets/WIDGETS_README.md`](../js/widgets/WIDGETS_README.md) |
-| Understanding initialization | Initialization Flow *(TODO)* | `js/core/initialization/README.md` |
-| Working with touch controls | Touch Controls Guide *(TODO)* | `js/widgets/shared/TOUCH_CONTROLS.md` |
-| Mobile UI development | Mobile UI Guide *(TODO)* | `js/ui/MOBILE_UI.md` |
-| Cross-dashboard sync | Dashboard Sync Guide *(TODO)* | `js/data/services/DASHBOARD_SYNC.md` |
+| Understanding initialization | Initialization Flow | [`js/core/initialization/README.md`](../js/core/initialization/README.md) |
+| Working with touch controls | Touch Controls Guide | [`js/widgets/shared/TOUCH_CONTROLS.md`](../js/widgets/shared/TOUCH_CONTROLS.md) |
+| Mobile UI development | Mobile UI Guide | [`js/ui/MOBILE_UI.md`](../js/ui/MOBILE_UI.md) |
+| Cross-dashboard sync | Dashboard Sync Guide | [`js/data/services/DASHBOARD_SYNC.md`](../js/data/services/DASHBOARD_SYNC.md) |
+| Calendar service architecture | Calendar Services Guide | [`js/data/services/calendar-services/README.md`](../js/data/services/calendar-services/README.md) |
 | Database schema | Database Schema Reference | [`supabase/DATABASE_SCHEMA.md`](../supabase/DATABASE_SCHEMA.md) |
 | System architecture | Architecture Document | [`ARCHITECTURE.md`](ARCHITECTURE.md) |
 
@@ -74,6 +75,72 @@ This guide helps you find the right documentation before writing code. For proje
 - Modifying authentication flows
 - Adding new OAuth providers
 - Working with token refresh logic
+
+---
+
+## 🚀 Initialization System
+
+### When to read: [`js/core/initialization/README.md`](../js/core/initialization/README.md)
+
+**Read this guide when you are:**
+- Understanding the 3-phase initialization flow
+- Adding new initialization steps
+- Debugging startup issues
+- Working with platform-specific initialization
+- Implementing auth bypass for development
+
+**DO NOT:**
+- Skip phases in initialization
+- Block on non-critical initialization
+- Assume all widgets will load successfully
+
+**Key principle:** Initialization is platform-aware (mobile vs desktop), supports auth bypass, and loads progressively with visual feedback.
+
+---
+
+## 📱 Mobile & Touch
+
+### When to read: [`js/ui/MOBILE_UI.md`](../js/ui/MOBILE_UI.md) and [`js/widgets/shared/TOUCH_CONTROLS.md`](../js/widgets/shared/TOUCH_CONTROLS.md)
+
+**Read these guides when you are:**
+- Working on mobile interface
+- Adding touch controls to widgets
+- Implementing long-press gestures
+- Testing on mobile devices
+
+**Key principles:**
+- Mobile skips dashboard grid (Settings only)
+- Touch controls supplement D-pad (not replace)
+- TouchButton auto-themes via CSS variables
+- LongPressDetector for secondary actions (focus mode)
+
+---
+
+## 🔄 Cross-Dashboard Sync
+
+### When to read: [`js/data/services/DASHBOARD_SYNC.md`](../js/data/services/DASHBOARD_SYNC.md)
+
+**Read this guide when you are:**
+- Adding features that should sync across windows
+- Working with real-time updates
+- Implementing heartbeat tracking
+- Debugging sync issues
+
+**Key principle:** Use optimistic updates (update local immediately, broadcast to others, write to DB async).
+
+---
+
+## 📅 Calendar Services
+
+### When to read: [`js/data/services/calendar-services/README.md`](../js/data/services/calendar-services/README.md)
+
+**Read this guide when you are:**
+- Working with calendar data
+- Modifying calendar refresh logic
+- Adding calendar providers
+- Understanding the caching strategy
+
+**Key principle:** Modular architecture (fetcher, processor, refresh manager) with background refresh to avoid blocking UI.
 
 ---
 
