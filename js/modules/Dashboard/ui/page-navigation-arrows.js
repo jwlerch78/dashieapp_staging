@@ -46,10 +46,11 @@ class PageNavigationArrows {
     this.nextButton = this.createArrowButton('down', '˅', 'Next Page');
     this.nextButton.addEventListener('click', () => this.handleNextPage());
 
-    // Insert arrows into dashboard container
-    // Using order CSS property to position (up: -1, down: 1)
-    dashboardContainer.appendChild(this.prevButton);
-    dashboardContainer.appendChild(this.nextButton);
+    // Insert arrows around content wrapper in DOM order
+    // prevButton goes BEFORE content wrapper (at top)
+    dashboardContainer.insertBefore(this.prevButton, contentWrapper);
+    // nextButton goes AFTER content wrapper (at bottom)
+    dashboardContainer.insertBefore(this.nextButton, contentWrapper.nextSibling);
 
     // Update visibility based on available pages
     this.updateVisibility();

@@ -475,7 +475,7 @@
   margin: 0;
   position: relative; /* Flow positioning, not fixed */
   flex-shrink: 0; /* Don't compress the nav bar */
-  z-index: -1; /* Negative z-index to go behind sidebar wrapper (z-index: 10) and grid */
+  z-index: 1; /* Below sidebar wrapper (10) but above base level */
 }
 
 .page-nav-arrow:hover {
@@ -492,11 +492,11 @@
   margin-left: 30px; /* Half of sidebar width (60px / 2) to center in remaining space */
 }
 
-/* Position based on direction - controls order in flex column */
+/* Position based on direction - controlled by DOM order, not CSS */
 .page-nav-arrow--up {
-  order: -1; /* Appears before content wrapper */
+  /* Inserted before content wrapper via insertBefore() */
 }
 
 .page-nav-arrow--down {
-  order: 1; /* Appears after content wrapper */
+  /* Inserted after content wrapper via insertBefore(nextSibling) */
 }
