@@ -304,7 +304,12 @@ class VisualEffects {
    * @param {boolean} isActive - True to activate, false to deactivate
    */
   static setWidgetActive(widgetId = null, isActive = true) {
-    if (!this.container) return;
+    logger.info('🔵 setWidgetActive called', { widgetId, isActive });
+
+    if (!this.container) {
+      logger.warn('No container');
+      return;
+    }
 
     let focusedCell;
     if (widgetId) {
@@ -314,7 +319,7 @@ class VisualEffects {
     }
 
     if (!focusedCell) {
-      logger.warn('No focused widget to activate');
+      logger.warn('No focused widget to activate', { widgetId });
       return;
     }
 
