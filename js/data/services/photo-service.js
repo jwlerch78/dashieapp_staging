@@ -3,7 +3,7 @@
 // Ported from .legacy/js/services/photo-data-service.js with refactoring
 
 import { createLogger } from '../../utils/logger.js';
-import { PhotoStorageService } from '../../../.legacy/js/supabase/photo-storage-service.js';
+import { PhotoStorageService } from './photo-storage-service.js';
 
 const logger = createLogger('PhotoService');
 

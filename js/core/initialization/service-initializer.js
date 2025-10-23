@@ -9,7 +9,7 @@ import { initializePhotoService } from '../../data/services/photo-service.js';
 import { initializeWeatherService } from '../../data/services/weather-service.js';
 import settingsService from '../../data/services/settings-service.js';
 import heartbeatService from '../../data/services/heartbeat-service.js';
-import { PhotosSettingsManager } from '../../../.legacy/widgets/photos/photos-settings-manager.js';
+import { PhotosSettingsManager } from '../../modules/Settings/photos/photos-settings-manager.js';
 import { SUPABASE_CONFIG } from '../../data/auth/auth-config.js';
 
 const logger = createLogger('ServiceInitializer');

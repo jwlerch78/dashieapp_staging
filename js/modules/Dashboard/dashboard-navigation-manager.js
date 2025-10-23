@@ -8,6 +8,8 @@ import UIRenderer from './dashboard-ui-renderer.js';
 import { getWidgetAtPosition, canWidgetCenter } from './dashboard-widget-config.js';
 import AppStateManager from '../../core/app-state-manager.js';
 import WidgetMessenger from '../../core/widget-messenger.js';
+import FocusMenuStateManager from './components/focus-menu-state-manager.js';
+import FocusMenuRenderer from './components/focus-menu-renderer.js';
 
 const logger = createLogger('DashboardNav');
 
@@ -430,7 +432,10 @@ class NavigationManager {
     // All widgets can be focused (show overlay, border)
     // Only widgets with canWidgetCenter=true will be moved/centered
     const shouldCenter = canWidgetCenter(widget.id);
-    const hasFocusMenu = false; // TODO: Check widget config for focus menu
+
+    // Check if widget has a focus menu registered
+    const menuConfig = FocusMenuStateManager.getWidgetMenuConfig(widget.id);
+    const hasFocusMenu = menuConfig?.enabled === true;
 
     DashboardStateManager.setFocusedWidget(widget.id);
     UIRenderer.focusWidget(widget.id, hasFocusMenu, shouldCenter);
@@ -451,11 +456,30 @@ class NavigationManager {
           centered: shouldCenter
         });
       } else {
-        logger.info('Widget focused (has focus menu)', {
-          widgetId: widget.id,
-          position: [row, col],
-          centered: shouldCenter
-        });
+        // Widget has focus menu - show it and stay in menu state
+        // Get the widget cell element (not the iframe itself)
+        const widgetCell = document.querySelector(`.dashboard-grid__cell[data-widget-id="${widget.id}"]`);
+        if (widgetCell) {
+          FocusMenuRenderer.showFocusMenu(widgetCell, menuConfig);
+          DashboardStateManager.setFocusMenuActive(widget.id, menuConfig);
+
+          // Tell widget menu is active
+          widgetMessenger.sendCommandToWidget(widget.id, {
+            type: 'command',
+            action: 'menu-active',
+            selectedItem: menuConfig.defaultIndex || 0,
+            itemId: menuConfig.items[menuConfig.defaultIndex || 0].id
+          });
+
+          logger.info('Widget focused with menu', {
+            widgetId: widget.id,
+            position: [row, col],
+            centered: shouldCenter,
+            menuItems: menuConfig.items.length
+          });
+        } else {
+          logger.warn('Widget cell not found - cannot show focus menu', { widgetId: widget.id });
+        }
       }
     } else {
       logger.warn('WidgetMessenger not available - widget state messages not sent');
@@ -472,6 +496,13 @@ class NavigationManager {
     if (!widgetId) {
       logger.warn('No widget to defocus');
       return;
+    }
+
+    // Hide focus menu if active
+    if (state.focusMenuState.active) {
+      FocusMenuRenderer.hideFocusMenu();
+      DashboardStateManager.clearFocusMenuState();
+      logger.debug('Focus menu hidden and cleared');
     }
 
     // Get WidgetMessenger instance

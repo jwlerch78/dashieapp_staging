@@ -24,9 +24,9 @@ export class CalendarFocusManager {
 
       window.parent.postMessage({
         type: 'widget-config',
-        widget: 'calendar',
+        widget: 'main', // Must match grid config ID (not 'calendar')
         focusMenu: {
-          enabled: false, // TODO: Re-enable when focus menu UI is implemented
+          enabled: true, // Focus menu UI now implemented (Phase 2 complete)
           defaultIndex: this.getMenuIndexForView(currentViewMode),
           currentView: currentViewMode, // Highlight active view
           items: [

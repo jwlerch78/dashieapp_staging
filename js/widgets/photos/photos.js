@@ -118,7 +118,16 @@ class PhotosWidget {
         return;
       }
 
-      // Handle settings updates
+      // Handle state updates (includes settings, theme, etc.)
+      if (data.type === 'data' && data.action === 'state-update' && data.payload) {
+        // Handle settings updates
+        if (data.payload.settings?.photos?.transitionTime) {
+          this.updateTransitionTime(data.payload.settings.photos.transitionTime);
+        }
+        return;
+      }
+
+      // Legacy: Handle direct settings updates (backwards compatibility)
       if (data.type === 'settings-update') {
         if (data.transitionTime) {
           this.updateTransitionTime(data.transitionTime);

@@ -1,0 +1,305 @@
+/* widgets/photos/photos-settings.css */
+/* CHANGE SUMMARY: Updated to match settings modal - orange highlight, proper focus states */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--settings-bg-screen, #F2F2F7);
+  color: var(--settings-text-label, #000000);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+.modal-container {
+  width: 100%;
+  height: 100%;
+  background: var(--settings-bg-screen, #F2F2F7);
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* iOS Navigation Bar - matching settings modal */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 44px;
+  background: var(--settings-bg-nav, #F5F5F7);
+  border-bottom: 1px solid var(--settings-border-color, rgba(60, 60, 67, 0.29));
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+
+.back-button,
+.close-button {
+  background: none;
+  border: none;
+  color: #EE9828;
+  font-size: 17px;
+  font-weight: 400;
+  cursor: pointer;
+  padding: 0;
+  min-width: 44px;
+  height: 44px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  transition: opacity 0.2s;
+}
+
+.back-button:hover,
+.back-button:focus,
+.close-button:hover,
+.close-button:focus {
+  opacity: 0.6;
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--settings-text-label, #000000);
+  flex: 1;
+  text-align: center;
+}
+
+/* Body - scrollable */
+.modal-body {
+  overflow-y: auto;
+  flex: 1;
+  background: var(--settings-bg-screen, #F2F2F7);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Photo Stats Box */
+.photo-stats-box {
+  background: var(--settings-bg-cell, #fff);
+  border-radius: 10px;
+  margin: 16px;
+  padding: 12px 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.photo-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--settings-border-color, #f0f0f0);
+}
+
+.photo-stat-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.photo-stat-label {
+  font-size: 15px;
+  color: var(--settings-text-label, #000000);
+}
+
+.photo-stat-value {
+  font-size: 15px;
+  color: var(--settings-text-value, #8e8e93);
+}
+
+.storage-bar {
+  height: 4px;
+  background: var(--settings-toggle-bg, #e5e5ea);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.storage-bar-fill {
+  height: 100%;
+  background: #EE9828;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+/* Settings Sections - matching settings modal */
+.settings-section {
+  margin: 16px 16px 0 16px;
+}
+
+.settings-section:first-child {
+  margin-top: 0;
+}
+
+.settings-cell {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--settings-bg-cell, #fff);
+  border-bottom: 0.5px solid var(--settings-border-color, rgba(60, 60, 67, 0.36));
+  cursor: pointer;
+  transition: background 0.2s;
+  min-height: 44px;
+  outline: none;
+}
+
+.settings-cell:first-child {
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+}
+
+.settings-cell:last-child {
+  border-bottom-left-radius: 10px;
+  border-bottom-right-radius: 10px;
+  border-bottom: none;
+}
+
+.settings-cell:active {
+  background: #f0f0f0;
+}
+
+/* MATCHING SETTINGS MODAL - Orange highlight with outline when focused */
+.settings-cell:focus,
+.settings-cell.focused {
+  background: rgba(238, 152, 40, 0.15);
+  outline: 2px solid #EE9828;
+  outline-offset: -2px;
+}
+
+.cell-label {
+  flex: 1;
+  font-size: 17px;
+  color: var(--settings-text-label, #000000);
+}
+
+.cell-value {
+  font-size: 17px;
+  color: var(--settings-text-value, #8e8e93);
+  margin-right: 8px;
+}
+
+.cell-chevron {
+  font-size: 20px;
+  color: var(--settings-chevron-color, #c7c7cc);
+  font-weight: 600;
+}
+
+/* Checkmark for selected items */
+.cell-checkmark {
+  font-size: 20px;
+  color: #EE9828;
+  font-weight: 600;
+  margin-left: auto;
+  visibility: hidden;
+}
+
+.settings-cell.selected .cell-checkmark {
+  visibility: visible;
+}
+
+/* File Upload */
+.file-upload-section {
+  padding: 16px;
+}
+
+.file-upload-button {
+  width: 100%;
+  padding: 12px;
+  background: #EE9828;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  outline: none;
+}
+
+.file-upload-button:hover {
+  opacity: 0.8;
+}
+
+.file-upload-button:active {
+  opacity: 0.6;
+}
+
+/* MATCHING SETTINGS MODAL - Orange highlight for focused button */
+.file-upload-button:focus,
+.file-upload-button.focused {
+  background: rgba(238, 152, 40, 0.15);
+  color: #EE9828;
+  outline: 2px solid #EE9828;
+  outline-offset: -2px;
+}
+
+/* Progress Section */
+.progress-section {
+  background: var(--settings-bg-cell, #fff);
+  border-radius: 10px;
+  margin: 16px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.progress-info {
+  font-size: 15px;
+  color: var(--settings-text-label, #000000);
+  margin-bottom: 8px;
+}
+
+.progress-bar {
+  height: 8px;
+  background: var(--settings-toggle-bg, #e5e5ea);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #EE9828;
+  transition: width 0.3s ease;
+  width: 0%;
+}
+
+.progress-detail {
+  font-size: 13px;
+  color: var(--settings-text-value, #8e8e93);
+}
+
+/* Error Message */
+.error-message {
+  background: #ffebee;
+  border: 1px solid #ef5350;
+  color: #c62828;
+  padding: 12px;
+  border-radius: 10px;
+  margin: 16px;
+  font-size: 15px;
+}
+
+/* Screens */
+.screen {
+  display: none;
+}
+
+.screen.active {
+  display: block;
+}
+
+/* Desktop styling */
+@media (min-width: 900px) {
+  .modal-container {
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  }
+  
+  .modal-header {
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+  }
+}

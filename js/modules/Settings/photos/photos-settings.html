@@ -1,0 +1,126 @@
+<!-- Photos-settings.html -->
+<!-- CHANGE SUMMARY: Updated delete-photos-screen with Delete All Photos button -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Photos Settings</title>
+  <link rel="stylesheet" href="/css/core/themes.css">
+  <link rel="stylesheet" href="photos-settings.css">
+
+  <!-- HEIC to JPEG conversion library -->
+  <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+</head>
+<body class="theme-light">
+  <div class="modal-container">
+    <div class="modal-header">
+      <button class="back-button" id="back-button" style="visibility: visible;">‹ Settings</button>
+      <h2 id="modal-title">Photos</h2>
+      <button class="close-button" id="close-button">×</button>
+    </div>
+    
+    <div class="modal-body">
+      <div id="error-container"></div>
+
+      <!-- Main Photos Screen -->
+      <div class="screen active" id="main-screen">
+        <div class="photo-stats-box">
+          <div class="photo-stat-row">
+            <span class="photo-stat-label">Photos</span>
+            <span class="photo-stat-value" id="photo-count">Loading...</span>
+          </div>
+          <div class="photo-stat-row">
+            <span class="photo-stat-label">Storage</span>
+            <span class="photo-stat-value" id="storage-used">Loading...</span>
+          </div>
+          <div class="storage-bar">
+            <div class="storage-bar-fill" id="storage-bar-fill"></div>
+          </div>
+        </div>
+
+        <div class="settings-section">
+          <div class="settings-cell" id="add-photos-menu" tabindex="0">
+            <span class="cell-label">Add Photos</span>
+            <span class="cell-chevron">›</span>
+          </div>
+          <div class="settings-cell" id="delete-photos-menu" tabindex="0">
+            <span class="cell-label">Delete Photos</span>
+            <span class="cell-chevron">›</span>
+          </div>
+          <div class="settings-cell" id="transition-menu" tabindex="0">
+            <span class="cell-label">Photo Transition Time</span>
+            <span class="cell-value" id="transition-value">5 seconds</span>
+            <span class="cell-chevron">›</span>
+          </div>
+        </div>
+
+        <!-- Upload Progress (hidden by default, shown on main screen during upload) -->
+        <div class="progress-section" id="upload-progress-section" style="display: none; margin: 16px;">
+          <div class="progress-info" id="upload-progress-info">Uploading...</div>
+          <div class="progress-bar">
+            <div class="progress-fill" id="upload-progress-fill"></div>
+          </div>
+          <div class="progress-detail" id="upload-progress-detail">0 / 0 files</div>
+        </div>
+      </div>
+
+      <!-- Delete Photos Screen -->
+      <div class="screen" id="delete-photos-screen">
+        <div class="settings-section">
+          <div class="settings-cell" id="delete-all-photos-btn" tabindex="0">
+            <span class="cell-label">Delete All Photos</span>
+            <span class="cell-chevron">›</span>
+          </div>
+        </div>
+        
+        <div style="padding: 16px; text-align: center; color: #8e8e93; font-size: 14px; line-height: 1.4;">
+          This will permanently delete all photos from your library and reset your storage quota. This action cannot be undone.
+        </div>
+      </div>
+
+      <!-- Photo Transition Screen -->
+      <div class="screen" id="transition-screen">
+        <div class="settings-section">
+          <div class="settings-cell selectable" data-value="3" tabindex="0">
+            <span class="cell-label">3 seconds</span>
+            <span class="cell-checkmark">✓</span>
+          </div>
+          <div class="settings-cell selectable" data-value="5" tabindex="0">
+            <span class="cell-label">5 seconds</span>
+            <span class="cell-checkmark">✓</span>
+          </div>
+          <div class="settings-cell selectable" data-value="10" tabindex="0">
+            <span class="cell-label">10 seconds</span>
+            <span class="cell-checkmark">✓</span>
+          </div>
+          <div class="settings-cell selectable" data-value="15" tabindex="0">
+            <span class="cell-label">15 seconds</span>
+            <span class="cell-checkmark">✓</span>
+          </div>
+          <div class="settings-cell selectable" data-value="30" tabindex="0">
+            <span class="cell-label">30 seconds</span>
+            <span class="cell-checkmark">✓</span>
+          </div>
+          <div class="settings-cell selectable" data-value="60" tabindex="0">
+            <span class="cell-label">60 seconds</span>
+            <span class="cell-checkmark">✓</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Hidden file input -->
+      <input type="file" id="file-input" accept="image/*" multiple style="display: none;">
+    </div>
+  </div>
+
+  <script type="module">
+    // Import and instantiate the modal class
+    import { PhotosSettingsModal } from '/js/modules/Settings/photos/photos-settings-modal.js';
+
+    // Auto-initialize when module loads
+    new PhotosSettingsModal();
+  </script>
+</body>
+</html>

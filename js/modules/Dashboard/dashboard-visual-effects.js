@@ -295,11 +295,19 @@ class VisualEffects {
   /**
    * Set widget to active state (focusScale, blue border)
    * Called when RIGHT arrow is pressed from focused state
+   * @param {string} widgetId - Optional widget ID (uses focused widget if not provided)
+   * @param {boolean} isActive - True to activate, false to deactivate
    */
-  static setWidgetActive() {
+  static setWidgetActive(widgetId = null, isActive = true) {
     if (!this.container) return;
 
-    const focusedCell = this.container.querySelector('.dashboard-grid__cell--widget-focused');
+    let focusedCell;
+    if (widgetId) {
+      focusedCell = this.container.querySelector(`[data-widget-id="${widgetId}"]`);
+    } else {
+      focusedCell = this.container.querySelector('.dashboard-grid__cell--widget-focused');
+    }
+
     if (!focusedCell) {
       logger.warn('No focused widget to activate');
       return;
@@ -312,17 +320,31 @@ class VisualEffects {
     // Get widget-specific focus scale from config
     const focusScale = parseFloat(focusedCell.dataset.focusScale) || 1.2;
 
-    // Active state uses full focusScale
-    const activeScale = focusScale;
+    if (isActive) {
+      // Active state uses full focusScale
+      const activeScale = focusScale;
 
-    // Apply new transform with increased scale
-    const transform = `translate(${translateX}px, ${translateY}px) scale(${activeScale})`;
-    focusedCell.style.transform = transform;
+      // Apply new transform with increased scale
+      const transform = `translate(${translateX}px, ${translateY}px) scale(${activeScale})`;
+      focusedCell.style.transform = transform;
 
-    // Add active class (changes border to blue)
-    focusedCell.classList.add('dashboard-grid__cell--widget-active');
+      // Add active class (changes border to blue)
+      focusedCell.classList.add('dashboard-grid__cell--widget-active');
 
-    logger.info('Widget activated', { focusScale, scale: activeScale });
+      logger.info('Widget activated', { widgetId, focusScale, scale: activeScale });
+    } else {
+      // Deactivate - return to focused state
+      const focusedScale = focusScale * 0.95;
+
+      // Apply transform with focused scale
+      const transform = `translate(${translateX}px, ${translateY}px) scale(${focusedScale})`;
+      focusedCell.style.transform = transform;
+
+      // Remove active class (returns to silver border)
+      focusedCell.classList.remove('dashboard-grid__cell--widget-active');
+
+      logger.info('Widget deactivated', { widgetId, focusScale, scale: focusedScale });
+    }
   }
 
   /**
