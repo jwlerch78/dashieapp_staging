@@ -256,7 +256,7 @@ export async function initializeCore(options = {}) {
       if (!bypassAuth) {
         logger.info('Waiting for critical widgets to load data...');
         updateLoadingMessage('Loading calendar and photos...');
-        const criticalWidgets = ['calendar', 'agenda', 'photos'];
+        const criticalWidgets = ['main', 'agenda', 'photos']; // 'main' is calendar widget's ID
         await waitForWidgetsToLoad(criticalWidgets, 10000);
         logger.verbose('Critical widgets loaded - ready to show dashboard');
         updateLoadingMessage('Almost ready...');
