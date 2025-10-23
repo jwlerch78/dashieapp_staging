@@ -8,6 +8,7 @@
     "lint:css": "stylelint \"css/**/*.css\"",
     "lint:css:fix": "stylelint \"css/**/*.css\" --fix",
     "lint": "npm run lint:css",
-    "build": "mkdir -p dist && cp index.html dist/ && cp -r js dist/ && cp -r css dist/ && cp -r artwork dist/ && cp -r widgets dist/ && cp config.js dist/ && echo 'Build complete!'"
+    "build": "echo 'Build for Capacitor only - run locally'",
+    "build:ios": "mkdir -p dist && cp index.html dist/ && cp -r js dist/ && cp -r css dist/ && cp -r artwork dist/ && cp config.js dist/ && echo 'Build complete!'"
   }
 }
