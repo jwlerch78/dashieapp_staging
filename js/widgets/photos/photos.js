@@ -71,16 +71,12 @@ class PhotosWidget {
   signalReady() {
     if (window.parent !== window) {
       window.parent.postMessage({
-        type: 'event',
+        type: 'widget-ready',
+        widget: 'photos',
         widgetId: 'photos',
-        payload: {
-          eventType: 'widget-ready',
-          data: {
-            hasMenu: this.focusMenu.enabled
-          }
-        }
+        hasMenu: this.focusMenu.enabled
       }, '*');
-      logger.debug('Ready signal sent to parent');
+      logger.info('✅ Ready signal sent to parent');
     }
   }
 
