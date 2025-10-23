@@ -34,8 +34,17 @@
   display: none;
 }
 
-/* Content wrapper - holds sidebar and grid horizontally */
+/* Content wrapper - holds nav bars and content row vertically */
 .dashboard-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1; /* Takes remaining space */
+  min-height: 0; /* Allow shrinking */
+  overflow: hidden;
+}
+
+/* Content row - holds sidebar and grid horizontally */
+.dashboard-content-row {
   display: flex;
   flex-direction: row;
   flex: 1; /* Takes remaining space after nav bars */

@@ -14,6 +14,7 @@ import {
 import { getWidgetConfig, setCurrentPage } from '../config/widget-config.js';
 import DashboardStateManager from '../state/state-manager.js';
 import { getWidgetDataManager } from '../../../core/widget-data-manager.js';
+import PageNavigationArrows from './page-navigation-arrows.js';
 
 const logger = createLogger('DashboardUI');
 
@@ -38,6 +39,7 @@ const logger = createLogger('DashboardUI');
  */
 class UIRenderer {
   static container = null;
+  static contentWrapper = null; // Reference to content wrapper (sidebar + grid)
   static isInitialized = false;
 
   /**
@@ -74,17 +76,35 @@ class UIRenderer {
     // Create main container
     this.container = DOMBuilder.createContainer();
 
+    // Create content wrapper (holds nav bars + content row vertically)
+    this.contentWrapper = document.createElement('div');
+    this.contentWrapper.className = 'dashboard-content-wrapper';
+
+    // Create content row (holds sidebar + grid horizontally)
+    const contentRow = document.createElement('div');
+    contentRow.className = 'dashboard-content-row';
+
     // Create sidebar wrapper (maintains 60px space in flex layout)
     const sidebarWrapper = DOMBuilder.createSidebarWrapper();
 
     // Create sidebar (position absolute, overlays grid when expanded)
     const sidebar = DOMBuilder.createSidebar();
     sidebarWrapper.appendChild(sidebar);
-    this.container.appendChild(sidebarWrapper);
+    contentRow.appendChild(sidebarWrapper);
 
     // Create grid
     const grid = DOMBuilder.createGrid();
-    this.container.appendChild(grid);
+
+    // Apply initial grid template from current page config
+    this.applyGridTemplate(grid);
+
+    contentRow.appendChild(grid);
+
+    // Add content row to content wrapper
+    this.contentWrapper.appendChild(contentRow);
+
+    // Add content wrapper to main container
+    this.container.appendChild(this.contentWrapper);
 
     // Create focus overlay (separate div like legacy code)
     const focusOverlay = document.createElement('div');
@@ -111,6 +131,10 @@ class UIRenderer {
 
     // Attach event listeners
     this.attachEventListeners(sidebar, grid);
+
+    // Initialize page navigation arrows (touch controls)
+    // Pass both container and content wrapper for proper positioning
+    PageNavigationArrows.initialize(this.container, this.contentWrapper);
 
     // Don't show initial focus - dashboard starts in idle state (no highlights)
     // User must interact (hover, d-pad) to show highlights
@@ -283,6 +307,44 @@ class UIRenderer {
   }
 
   /**
+   * Apply grid template to grid element based on current page config
+   * @private
+   * @param {HTMLElement} grid - Grid element
+   */
+  static async applyGridTemplate(grid) {
+    try {
+      // Get current page configuration
+      const { getPageConfig } = await import('../config/page-config.js');
+      const { getCurrentPage } = await import('../config/widget-config.js');
+      const currentPageId = getCurrentPage();
+      const pageConfig = getPageConfig(currentPageId);
+
+      if (!pageConfig) {
+        logger.warn('No page config found, using defaults', { pageId: currentPageId });
+        return;
+      }
+
+      // Apply grid template from page config
+      if (pageConfig.layout) {
+        // Page has custom layout defined
+        const { columns, rows } = pageConfig.layout;
+        grid.style.gridTemplateColumns = columns;
+        grid.style.gridTemplateRows = rows;
+        logger.debug('Applied custom grid layout', { pageId: currentPageId, columns, rows });
+      } else {
+        // No custom layout - use equal fractions based on grid dimensions
+        const columns = `repeat(${pageConfig.gridCols}, 1fr)`;
+        const rows = `repeat(${pageConfig.gridRows}, 1fr)`;
+        grid.style.gridTemplateColumns = columns;
+        grid.style.gridTemplateRows = rows;
+        logger.debug('Applied auto-generated grid layout', { pageId: currentPageId, columns, rows });
+      }
+    } catch (error) {
+      logger.error('Failed to apply grid template', error);
+    }
+  }
+
+  /**
    * Render a new page (multi-page support)
    * Destroys existing widgets and creates new ones based on page config
    * @param {string} pageId - Page identifier
@@ -332,6 +394,25 @@ class UIRenderer {
       // Update widget config to use new page
       setCurrentPage(pageId);
 
+      // Apply grid template for the new page
+      const { getPageConfig } = await import('../config/page-config.js');
+      const pageConfig = getPageConfig(pageId);
+
+      if (pageConfig?.layout) {
+        // Page has custom layout defined
+        const { columns, rows } = pageConfig.layout;
+        grid.style.gridTemplateColumns = columns;
+        grid.style.gridTemplateRows = rows;
+        logger.debug('Applied custom grid layout', { pageId, columns, rows });
+      } else if (pageConfig) {
+        // No custom layout - use equal fractions based on grid dimensions
+        const columns = `repeat(${pageConfig.gridCols}, 1fr)`;
+        const rows = `repeat(${pageConfig.gridRows}, 1fr)`;
+        grid.style.gridTemplateColumns = columns;
+        grid.style.gridTemplateRows = rows;
+        logger.debug('Applied auto-generated grid layout', { pageId, columns, rows });
+      }
+
       // Get new page's widget configuration
       const widgets = getWidgetConfig();
       logger.debug('Creating new widgets', { count: widgets.length });
@@ -364,6 +445,9 @@ class UIRenderer {
       // Reset visual state
       const state = DashboardStateManager.getState();
       VisualEffects.updateFocus(state.gridPosition.row, state.gridPosition.col);
+
+      // Update page navigation arrow visibility
+      PageNavigationArrows.updateVisibility();
 
       logger.success('Page rendered', { pageId, widgetCount: widgets.length });
       return true;

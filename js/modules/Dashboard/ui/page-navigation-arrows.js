@@ -26,8 +26,8 @@ class PageNavigationArrows {
 
   /**
    * Initialize and render page navigation arrows
-   * @param {HTMLElement} dashboardContainer - Dashboard container element
-   * @param {HTMLElement} contentWrapper - Content wrapper element (for ordering)
+   * @param {HTMLElement} dashboardContainer - Dashboard container element (unused)
+   * @param {HTMLElement} contentWrapper - Content wrapper element to insert arrows into
    */
   static initialize(dashboardContainer, contentWrapper) {
     logger.debug('Initializing page navigation arrows');
@@ -37,20 +37,20 @@ class PageNavigationArrows {
     this.contentWrapper = contentWrapper;
 
     // Create previous page button (chevron up)
-    // Will be inserted before content wrapper
+    // Will be inserted at start of content wrapper (before sidebar)
     this.prevButton = this.createArrowButton('up', '˄', 'Previous Page');
     this.prevButton.addEventListener('click', () => this.handlePreviousPage());
 
     // Create next page button (chevron down)
-    // Will be inserted after content wrapper
+    // Will be inserted at end of content wrapper (after grid)
     this.nextButton = this.createArrowButton('down', '˅', 'Next Page');
     this.nextButton.addEventListener('click', () => this.handleNextPage());
 
-    // Insert arrows around content wrapper in DOM order
-    // prevButton goes BEFORE content wrapper (at top)
-    dashboardContainer.insertBefore(this.prevButton, contentWrapper);
-    // nextButton goes AFTER content wrapper (at bottom)
-    dashboardContainer.insertBefore(this.nextButton, contentWrapper.nextSibling);
+    // Insert arrows INSIDE content wrapper
+    // prevButton goes at the START (before content row)
+    contentWrapper.insertBefore(this.prevButton, contentWrapper.firstChild);
+    // nextButton goes at the END (after content row)
+    contentWrapper.appendChild(this.nextButton);
 
     // Update visibility based on available pages
     this.updateVisibility();
