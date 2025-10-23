@@ -561,29 +561,34 @@ export class PhotoStorageService {
       // Get authenticated client for signed URL generation
       const authClient = await this._getAuthenticatedClient();
 
-      // Generate signed URLs for each photo
-      const urls = [];
-      for (const photo of photos) {
+      // Generate signed URLs for all photos in parallel
+      const urlPromises = photos.map(async (photo) => {
         try {
           const { data, error } = await authClient.storage
             .from(this.bucketName)
             .createSignedUrl(photo.storage_path, 3600); // 1 hour expiry
 
           if (!error && data?.signedUrl) {
-            urls.push(data.signedUrl);
+            return data.signedUrl;
           } else {
-            logger.warn('Failed to create signed URL', { 
-              path: photo.storage_path, 
-              error 
+            logger.warn('Failed to create signed URL', {
+              path: photo.storage_path,
+              error
             });
+            return null;
           }
         } catch (urlError) {
-          logger.warn('Error creating signed URL', { 
-            path: photo.storage_path, 
-            error: urlError 
+          logger.warn('Error creating signed URL', {
+            path: photo.storage_path,
+            error: urlError
           });
+          return null;
         }
-      }
+      });
+
+      // Wait for all URLs to be generated and filter out nulls
+      const allUrls = await Promise.all(urlPromises);
+      const urls = allUrls.filter(url => url !== null);
 
       // Shuffle if requested
       if (shuffle) {
