@@ -160,19 +160,15 @@ class MyWidget {
 
   /**
    * Send ready signal to dashboard
-   * CRITICAL: Use correct message format!
+   * CRITICAL: Use standard widget-ready format!
    */
   signalReady() {
     if (window.parent !== window) {
       window.parent.postMessage({
-        type: 'event',              // MUST be 'event'
-        widgetId: 'my-widget',      // MUST match widget ID in config
-        payload: {
-          eventType: 'widget-ready', // MUST be 'widget-ready'
-          data: {
-            hasMenu: this.focusMenu.enabled
-          }
-        }
+        type: 'widget-ready',           // MUST be 'widget-ready'
+        widget: 'my-widget',            // Widget name
+        widgetId: 'my-widget',          // MUST match widget ID in config
+        hasMenu: this.focusMenu.enabled // Boolean: does widget have focus menu?
       }, '*');
 
       logger.info('Ready signal sent to parent');
