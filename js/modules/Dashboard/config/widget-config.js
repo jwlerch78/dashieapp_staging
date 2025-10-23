@@ -1,18 +1,12 @@
-// js/modules/Dashboard/dashboard-widget-config.js
+// js/modules/Dashboard/config/widget-config.js
 // Widget configuration for Dashboard grid
-// v1.0 - 10/16/25 - Initial implementation for Phase 2
+// v2.0 - 10/23/25 - Made dynamic to support multi-page dashboard
 
 /**
- * Widget Configuration
+ * Widget Configuration - Dynamic
  *
- * Defines the layout and behavior of widgets in the Dashboard grid.
- *
- * Grid Layout: 3 rows × 2 columns
- *   Row 1: 10% height - [Header][Clock]
- *   Row 2: 45% height - [Calendar (spans rows 2-3)][Agenda]
- *   Row 3: 45% height - [Calendar continues][Photos]
- *
- * Columns: 70% / 30% width split
+ * Now reads from current page config instead of hardcoded array.
+ * Supports multi-page dashboard with different layouts per page.
  *
  * Widget Properties:
  * - id: Unique widget identifier
@@ -21,74 +15,55 @@
  * - rowSpan: Number of rows to span (default 1)
  * - colSpan: Number of columns to span (default 1)
  * - label: Display name
- * - url: Widget URL (for iframes)
+ * - path: Widget HTML file path (for iframes)
  * - noCenter: If true, widget cannot be centered/focused
  * - focusScale: Scale multiplier when focused (default 1.2)
  * - selectable: If false, widget cannot be highlighted (navigation skips it)
  */
 
-export const widgetConfig = [
-  {
-    id: 'header',
-    row: 1,
-    col: 1,
-    rowSpan: 1,
-    colSpan: 1,
-    label: 'Header',
-    path: 'js/widgets/header/header.html',
-    noCenter: true,
-    focusScale: 1.05,
-    selectable: true
-  },
-  {
-    id: 'clock',
-    row: 1,
-    col: 2,
-    rowSpan: 1,
-    colSpan: 1,
-    label: 'Clock',
-    path: 'js/widgets/clock/clock.html',
-    noCenter: false,
-    focusScale: 1.05,
-    selectable: true
-  },
-  {
-    id: 'main',
-    row: 2,
-    col: 1,
-    rowSpan: 2, // SPANS 2 ROWS!
-    colSpan: 1,
-    label: 'Calendar',
-    path: 'js/widgets/calendar/calendar.html',
-    noCenter: false,
-    focusScale: 1.05,
-    selectable: true
-  },
-  {
-    id: 'agenda',
-    row: 2,
-    col: 2,
-    rowSpan: 1,
-    colSpan: 1,
-    label: 'Agenda',
-    path: 'js/widgets/agenda/agenda.html',
-    noCenter: false,
-    focusScale: 1.4,
-    selectable: true
-  },
-  {
-    id: 'photos',
-    row: 3,
-    col: 2,
-    rowSpan: 1,
-    colSpan: 1,
-    label: 'Photos',
-    path: 'js/widgets/photos/photos.html',
-    noCenter: false,
-    focusScale: 1.4,
-    selectable: true
+import { getPageConfig } from './page-config.js';
+
+/**
+ * Current widget configuration (cached)
+ * Will be updated when page changes
+ */
+let currentWidgets = null;
+let currentPageId = 'page1'; // Default to page1
+
+/**
+ * Set the current page (updates widget config cache)
+ * @param {string} pageId - Page identifier
+ */
+export function setCurrentPage(pageId) {
+  currentPageId = pageId;
+  const pageConfig = getPageConfig(pageId);
+  currentWidgets = pageConfig ? pageConfig.widgets : [];
+}
+
+/**
+ * Get current widget configuration
+ * @returns {Array} Widget config array
+ */
+export function getWidgetConfig() {
+  // Lazy initialize
+  if (!currentWidgets) {
+    setCurrentPage(currentPageId);
   }
-];
+  return currentWidgets || [];
+}
+
+/**
+ * Legacy export for backward compatibility
+ * Returns dynamic config (getter function)
+ */
+Object.defineProperty(exports, 'widgetConfig', {
+  get: function() {
+    return getWidgetConfig();
+  }
+});
+
+// Also export as const for static imports (will be evaluated at access time)
+export const widgetConfig = getWidgetConfig();
 
 /**
  * Get widget configuration by ID
@@ -96,7 +71,8 @@ export const widgetConfig = [
  * @returns {Object|null} Widget config or null if not found
  */
 export function getWidgetById(widgetId) {
-  return widgetConfig.find(w => w.id === widgetId) || null;
+  const config = getWidgetConfig();
+  return config.find(w => w.id === widgetId) || null;
 }
 
 /**
@@ -106,10 +82,11 @@ export function getWidgetById(widgetId) {
  * @returns {Object|null} Widget config or null if not found
  */
 export function getWidgetAtPosition(row, col) {
-  return widgetConfig.find(w => {
+  const config = getWidgetConfig();
+  return config.find(w => {
     // Check if position is within widget's span
-    const rowInRange = row >= w.row && row < (w.row + w.rowSpan);
-    const colInRange = col >= w.col && col < (w.col + w.colSpan);
+    const rowInRange = row >= w.row && row < (w.row + (w.rowSpan || 1));
+    const colInRange = col >= w.col && col < (w.col + (w.colSpan || 1));
     return rowInRange && colInRange;
   }) || null;
 }
@@ -150,7 +127,9 @@ export function getWidgetFocusScale(widgetId) {
 
 if (typeof window !== 'undefined') {
   window.DashboardWidgetConfig = {
-    widgetConfig,
+    get widgetConfig() { return getWidgetConfig(); },
+    getWidgetConfig,
+    setCurrentPage,
     getWidgetById,
     getWidgetAtPosition,
     isWidgetSelectable,

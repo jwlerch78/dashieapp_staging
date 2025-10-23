@@ -21,6 +21,34 @@ const logger = createLogger('DashboardState');
  */
 class DashboardStateManager {
   static state = {
+    // Multi-page state
+    currentPage: 'page1',   // Active page ID
+    pages: {                // Per-page state storage
+      'page1': {
+        gridPosition: { row: 1, col: 1 },
+        focusedWidget: null,
+        focusMenuState: {
+          active: false,
+          widgetId: null,
+          menuConfig: null,
+          selectedIndex: 0,
+          inMenu: true
+        }
+      },
+      'page2': {
+        gridPosition: { row: 1, col: 1 },
+        focusedWidget: null,
+        focusMenuState: {
+          active: false,
+          widgetId: null,
+          menuConfig: null,
+          selectedIndex: 0,
+          inMenu: true
+        }
+      }
+    },
+
+    // Current active state (synced with current page)
     gridPosition: { row: 1, col: 1 }, // Current position (always set): rows 1-3, cols 1-2
     focusedWidget: null,
     menuOpen: false,
@@ -265,6 +293,113 @@ class DashboardStateManager {
   static setFocusMenuInWidget(inMenu) {
     this.state.focusMenuState.inMenu = inMenu;
     logger.debug('Focus menu mode changed', { inMenu });
+  }
+
+  // ===========================================================================
+  // MULTI-PAGE STATE MANAGEMENT
+  // ===========================================================================
+
+  /**
+   * Set current page and load its saved state
+   * @param {string} pageId - Page identifier
+   */
+  static setCurrentPage(pageId) {
+    logger.debug('Setting current page', { oldPage: this.state.currentPage, newPage: pageId });
+
+    this.state.currentPage = pageId;
+
+    // Initialize page state if it doesn't exist
+    if (!this.state.pages[pageId]) {
+      this.state.pages[pageId] = {
+        gridPosition: { row: 1, col: 1 },
+        focusedWidget: null,
+        focusMenuState: {
+          active: false,
+          widgetId: null,
+          menuConfig: null,
+          selectedIndex: 0,
+          inMenu: true
+        }
+      };
+      logger.debug('Initialized new page state', { pageId });
+    }
+
+    // Load saved state for this page
+    const pageState = this.state.pages[pageId];
+    this.state.gridPosition = { ...pageState.gridPosition };
+    this.state.focusedWidget = pageState.focusedWidget;
+    this.state.focusMenuState = { ...pageState.focusMenuState };
+
+    // Reset global state that doesn't carry over between pages
+    this.state.menuOpen = false;
+    this.state.isIdle = true;
+
+    logger.info('Page state loaded', {
+      pageId,
+      gridPosition: this.state.gridPosition,
+      focusedWidget: this.state.focusedWidget
+    });
+  }
+
+  /**
+   * Save current state to a specific page
+   * @param {string} pageId - Page identifier
+   * @param {Object} state - State to save
+   */
+  static savePageState(pageId, state) {
+    if (!this.state.pages[pageId]) {
+      this.state.pages[pageId] = {
+        gridPosition: { row: 1, col: 1 },
+        focusedWidget: null,
+        focusMenuState: {
+          active: false,
+          widgetId: null,
+          menuConfig: null,
+          selectedIndex: 0,
+          inMenu: true
+        }
+      };
+    }
+
+    // Save provided state
+    if (state.gridPosition) {
+      this.state.pages[pageId].gridPosition = { ...state.gridPosition };
+    }
+    if (state.focusedWidget !== undefined) {
+      this.state.pages[pageId].focusedWidget = state.focusedWidget;
+    }
+    if (state.focusMenuState) {
+      this.state.pages[pageId].focusMenuState = { ...state.focusMenuState };
+    }
+
+    logger.debug('Page state saved', { pageId, state: this.state.pages[pageId] });
+  }
+
+  /**
+   * Get saved state for a specific page
+   * @param {string} pageId - Page identifier
+   * @returns {Object} Page state
+   */
+  static getPageState(pageId) {
+    return this.state.pages[pageId] || {
+      gridPosition: { row: 1, col: 1 },
+      focusedWidget: null,
+      focusMenuState: {
+        active: false,
+        widgetId: null,
+        menuConfig: null,
+        selectedIndex: 0,
+        inMenu: true
+      }
+    };
+  }
+
+  /**
+   * Get current page ID
+   * @returns {string} Current page ID
+   */
+  static getCurrentPageId() {
+    return this.state.currentPage;
   }
 }
 
