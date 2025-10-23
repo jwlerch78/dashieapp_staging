@@ -24,7 +24,7 @@ export class CalendarMessageHandler {
   handleMessage(event) {
     if (!event.data) return;
 
-    logger.debug('Calendar widget received message', { type: event.data.type, payload: event.data.payload });
+    logger.debug('Calendar widget received message', { type: event.data.type, action: event.data.action, payload: event.data.payload });
 
     // Handle calendar data from widget-data-manager
     if (event.data.type === 'data' && event.data.payload?.dataType === 'calendar') {
@@ -41,7 +41,28 @@ export class CalendarMessageHandler {
       return;
     }
 
-    // Handle command messages
+    // Handle menu/focus actions (legacy format: {action: 'menu-item-selected', itemId: ...})
+    if (event.data.action && !event.data.type) {
+      const action = event.data.action;
+      const stateActions = ['enter-focus', 'exit-focus', 'enter-active', 'exit-active'];
+      const menuActions = ['menu-active', 'menu-selection-changed', 'menu-item-selected'];
+
+      if (stateActions.includes(action) || menuActions.includes(action)) {
+        // Menu/focus action - pass to focus manager
+        this.widget.focusManager.handleMenuAction({
+          action: action,
+          itemId: event.data.itemId,
+          selectedItem: event.data.selectedItem
+        });
+        return;
+      } else {
+        // Regular navigation command (left, right, up, down, etc.)
+        this.widget.actionHandler.handleAction(action);
+        return;
+      }
+    }
+
+    // Handle command messages (new format: {type: 'command', action: ...})
     if (event.data.type === 'command') {
       const action = event.data.payload?.action || event.data.action;
 
@@ -58,8 +79,8 @@ export class CalendarMessageHandler {
         // Pass the entire event.data which includes itemId for menu-item-selected
         this.widget.focusManager.handleMenuAction({
           action: action,
-          itemId: event.data.itemId,
-          selectedItem: event.data.selectedItem
+          itemId: event.data.itemId || event.data.payload?.itemId,
+          selectedItem: event.data.selectedItem || event.data.payload?.selectedItem
         });
       } else {
         // Regular navigation command

@@ -352,9 +352,8 @@ class FocusMenuRenderer {
         return;
       }
 
-      // Send menu-item-selected command with itemId in payload
+      // Send menu-item-selected command (matching legacy format - no 'type' field)
       iframe.contentWindow.postMessage({
-        type: 'command',
         action: 'menu-item-selected',
         itemId: itemId
       }, '*');
