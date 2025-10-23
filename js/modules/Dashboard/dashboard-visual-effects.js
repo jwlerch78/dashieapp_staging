@@ -201,8 +201,13 @@ class VisualEffects {
 
       // Only calculate centering if widget should be centered
       if (shouldCenter) {
-        // Calculate center of viewport
-        const viewportCenterX = window.innerWidth / 2;
+        // If widget has focus menu, shift center to right to make room for menu on left
+        const menuWidth = 200; // Fixed width from CSS
+        const menuGap = 20;    // Space between menu and widget
+        const menuOffset = hasFocusMenu ? (menuWidth + menuGap) / 2 : 0;
+
+        // Calculate center of viewport (adjusted for menu if present)
+        const viewportCenterX = (window.innerWidth / 2) + menuOffset;
         const viewportCenterY = window.innerHeight / 2;
 
         // Calculate widget's current center

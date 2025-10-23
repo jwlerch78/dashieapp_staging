@@ -364,10 +364,10 @@ export class PhotosSettingsModal {
 
   handleTransitionSelection(cell) {
     const value = parseInt(cell.dataset.value);
-    
-    // Remove selection from all cells
+
+    // Remove selection and focus from all cells
     document.querySelectorAll('#transition-screen .selectable').forEach(c => {
-      c.classList.remove('selected');
+      c.classList.remove('selected', 'focused');
       const checkmark = c.querySelector('.cell-checkmark');
       if (checkmark) {
         checkmark.style.visibility = 'hidden';
@@ -379,6 +379,14 @@ export class PhotosSettingsModal {
     const checkmark = cell.querySelector('.cell-checkmark');
     if (checkmark) {
       checkmark.style.visibility = 'visible';
+    }
+
+    // Update focus to match selection
+    const cells = Array.from(document.querySelectorAll('#transition-screen .selectable'));
+    const clickedIndex = cells.indexOf(cell);
+    if (clickedIndex !== -1) {
+      this.currentFocusIndex = clickedIndex;
+      this.updateFocusableElements();
     }
 
     document.getElementById('transition-value').textContent = `${value} seconds`;
