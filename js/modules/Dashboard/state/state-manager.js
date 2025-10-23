@@ -2,8 +2,8 @@
 // Dashboard state management with localStorage persistence
 // v1.0 - 10/16/25 - Initial implementation for Phase 2
 
-import { createLogger } from '../../utils/logger.js';
-import { STORAGE_KEYS } from '../../../config.js';
+import { createLogger } from '../../../utils/logger.js';
+import { STORAGE_KEYS } from '../../../../config.js';
 
 const logger = createLogger('DashboardState');
 

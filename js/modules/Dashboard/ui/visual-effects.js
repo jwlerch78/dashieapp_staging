@@ -2,7 +2,7 @@
 // Dashboard visual updates and CSS class manipulation
 // v1.0 - 10/16/25 - Extracted from dashboard-ui-renderer.js
 
-import { createLogger } from '../../utils/logger.js';
+import { createLogger } from '../../../utils/logger.js';
 import DashboardStateManager from '../state/state-manager.js';
 
 const logger = createLogger('DashboardVisualEffects');
