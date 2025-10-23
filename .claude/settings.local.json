@@ -10,7 +10,9 @@
       "Bash(find:*)",
       "Bash(tree:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git revert:*)",
+      "Bash(for file in js/modules/Dashboard/*.js)"
     ],
     "deny": [],
     "ask": []
