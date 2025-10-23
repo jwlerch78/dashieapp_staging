@@ -10,6 +10,7 @@ import DashboardInputHandler from './navigation/input-handler.js';
 import UIRenderer from './ui/ui-renderer.js';
 import DashboardTimers from './state/timer-manager.js';
 import NavigationManager from './navigation/navigation-manager.js';
+import PageManager from './navigation/page-manager.js';
 import FocusMenuRenderer from './components/focus-menu/renderer.js';
 import widgetMessenger from '../../core/widget-messenger.js';
 import { getWidgetById } from './config/widget-config.js';
@@ -53,6 +54,10 @@ class Dashboard {
       // Initialize state manager
       await DashboardStateManager.initialize();
       logger.debug('State manager initialized');
+
+      // Initialize page manager
+      PageManager.initialize();
+      logger.debug('Page manager initialized');
 
       // Initialize UI renderer
       await UIRenderer.initialize();
