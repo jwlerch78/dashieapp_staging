@@ -358,19 +358,6 @@ class WidgetMessenger {
 
     logger.debug(`Widget event from ${widgetId}`, { eventType, payload: messageData.payload });
 
-    // Handle widget-ready event (for widgets using legacy event format)
-    if (eventType === 'widget-ready') {
-      logger.info(`Widget ${widgetId} sent ready signal via event wrapper`);
-      // Transform to direct format and delegate to handleWidgetReady
-      this.handleWidgetReady(event, {
-        type: 'widget-ready',
-        widget: widgetId,
-        widgetId: widgetId,
-        ...messageData.payload?.data
-      });
-      return;
-    }
-
     // Handle enter-focus event (widget requesting to be focused)
     if (eventType === 'enter-focus') {
       logger.info(`Widget ${widgetId} requested focus via touch`);

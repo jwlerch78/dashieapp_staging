@@ -86,25 +86,15 @@ async function waitForWidgetsToLoad(widgetIds, timeout = 10000) {
       }
     };
 
-    // Listen for widget-ready messages (both direct and legacy event wrapper format)
+    // Listen for widget-ready messages
     handler = (event) => {
       const data = event.data;
 
-      // Check direct format: {type: 'widget-ready', widgetId: 'photos'}
+      // Check format: {type: 'widget-ready', widgetId: 'photos'}
       if (data?.type === 'widget-ready') {
         const widgetId = data.widgetId;
         if (widgetIds.includes(widgetId)) {
-          logger.debug('Widget loaded (direct format)', { widgetId });
-          loadedWidgets.add(widgetId);
-          checkAllLoaded();
-        }
-      }
-
-      // Check legacy event wrapper: {type: 'event', payload: {eventType: 'widget-ready'}}
-      if (data?.type === 'event' && data?.payload?.eventType === 'widget-ready') {
-        const widgetId = data.widgetId;
-        if (widgetIds.includes(widgetId)) {
-          logger.debug('Widget loaded (legacy event format)', { widgetId });
+          logger.debug('Widget loaded', { widgetId });
           loadedWidgets.add(widgetId);
           checkAllLoaded();
         }
