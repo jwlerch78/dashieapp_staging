@@ -61,6 +61,9 @@ export class CalendarWidget {
     // Calendar data will be loaded by widget-data-manager and sent via postMessage
     // No need to load data here - prevents duplicate loading
 
+    // Prevent iframe from stealing focus on clicks
+    this.setupFocusPrevention();
+
     logger.info('Calendar widget initialized');
   }
 
@@ -70,6 +73,27 @@ export class CalendarWidget {
     if (!calendarContainer) {
       logger.error('Calendar container not found');
     }
+  }
+
+  /**
+   * Prevent iframe from stealing keyboard focus from parent
+   * When user clicks inside iframe, blur it so parent keeps keyboard control
+   */
+  setupFocusPrevention() {
+    // After any click inside the widget, blur the window to return focus to parent
+    document.addEventListener('click', (e) => {
+      // Only blur if we're in an iframe (not standalone)
+      if (window.parent !== window) {
+        // Blur after a short delay to allow click handlers to complete
+        setTimeout(() => {
+          window.blur();
+          // Also tell parent to ensure it has focus
+          window.parent.focus();
+        }, 50);
+      }
+    }, true); // Use capture phase to catch all clicks
+
+    logger.debug('Focus prevention setup complete');
   }
 
   /**
