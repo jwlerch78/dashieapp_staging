@@ -349,6 +349,11 @@ class FocusMenuRenderer {
         itemId: itemId
       });
 
+      // Update menu highlight immediately for view items (not 'go-to-today')
+      if (itemId !== 'go-to-today') {
+        this.updateMenuHighlight(state.focusedWidget, itemId);
+      }
+
       logger.info('✓ Sent menu-item-selected via click', { itemId });
     });
   }

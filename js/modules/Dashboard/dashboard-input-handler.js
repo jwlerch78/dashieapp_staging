@@ -225,6 +225,11 @@ class DashboardInputHandler {
         itemId: selectedItem.id
       });
 
+      // Update menu highlight immediately (for view mode items)
+      if (selectedItem.type === 'view') {
+        FocusMenuRenderer.updateMenuHighlight(state.focusedWidget, selectedItem.id);
+      }
+
       logger.info('Menu item selected', { itemId: selectedItem.id });
       return true;
     }
