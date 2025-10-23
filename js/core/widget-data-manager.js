@@ -206,50 +206,52 @@ export class WidgetDataManager {
         logger.debug('Loading widget data', { widgetId });
 
         try {
-            switch (widgetId) {
-                case 'clock':
-                    await this.loadClockData();
-                    break;
+            // Determine widget type from ID (supports clock-1, clock-2, camera-1, etc.)
+            let widgetType = widgetId;
 
-                case 'main': // Calendar widget (id='main' in config)
-                case 'agenda': // Agenda widget
-                    const calendarData = await this.loadCalendarData();
+            // Extract base type from numbered IDs (e.g., 'clock-1' → 'clock')
+            if (widgetId.includes('-')) {
+                widgetType = widgetId.split('-')[0];
+            }
 
-                    // Send data to widgets (cache or fresh)
-                    // Only send if background refresh is NOT in progress
-                    // (if it is, the background refresh will send the fresh data)
-                    if (calendarData && !this._backgroundRefreshInProgress) {
-                        const payload = {
-                            dataType: 'calendar',
-                            calendars: calendarData.calendars || [],
-                            events: calendarData.events || [],
-                            lastUpdated: Date.now()
-                        };
+            // Handle widget types
+            if (widgetType === 'clock') {
+                await this.loadClockData(widgetId); // Pass the specific widget ID (e.g., 'clock-1')
+            } else if (widgetId === 'main' || widgetId === 'agenda') {
+                // Calendar widgets
+                const calendarData = await this.loadCalendarData();
 
-                        this.sendToWidget('main', 'data', payload);
-                        this.sendToWidget('agenda', 'data', payload);
+                // Send data to widgets (cache or fresh)
+                // Only send if background refresh is NOT in progress
+                // (if it is, the background refresh will send the fresh data)
+                if (calendarData && !this._backgroundRefreshInProgress) {
+                    const payload = {
+                        dataType: 'calendar',
+                        calendars: calendarData.calendars || [],
+                        events: calendarData.events || [],
+                        lastUpdated: Date.now()
+                    };
 
-                        logger.debug('Sent calendar data to widgets', {
-                            widgetId,
-                            calendars: payload.calendars.length,
-                            events: payload.events.length
-                        });
-                    } else if (this._backgroundRefreshInProgress) {
-                        logger.debug('Background refresh in progress, will send fresh data when ready', { widgetId });
-                    }
-                    break;
+                    this.sendToWidget('main', 'data', payload);
+                    this.sendToWidget('agenda', 'data', payload);
 
-                case 'photos':
-                    await this.loadPhotosData();
-                    break;
-
-                case 'header':
-                    await this.loadHeaderData();
-                    break;
-
-                default:
-                    logger.debug('No data loader for widget', { widgetId });
-                    break;
+                    logger.debug('Sent calendar data to widgets', {
+                        widgetId,
+                        calendars: payload.calendars.length,
+                        events: payload.events.length
+                    });
+                } else if (this._backgroundRefreshInProgress) {
+                    logger.debug('Background refresh in progress, will send fresh data when ready', { widgetId });
+                }
+            } else if (widgetType === 'photos') {
+                await this.loadPhotosData(widgetId); // Pass the specific widget ID (e.g., 'photos-1')
+            } else if (widgetType === 'header') {
+                await this.loadHeaderData();
+            } else if (widgetType === 'camera') {
+                // Future: load camera data
+                logger.debug('Camera widget detected (no data loader yet)', { widgetId });
+            } else {
+                logger.debug('No data loader for widget type', { widgetId, widgetType });
             }
 
         } catch (error) {
@@ -429,26 +431,30 @@ export class WidgetDataManager {
     /**
      * Load photos data and send to photos widget
      */
-    async loadPhotosData() {
+    /**
+     * Load photos data
+     * @param {string} widgetId - Widget identifier (e.g., 'photos', 'photos-1')
+     */
+    async loadPhotosData(widgetId = 'photos') {
         try {
             // Check if we're in bypass mode (no auth/database)
             const urlParams = new URLSearchParams(window.location.search);
             if (urlParams.has('bypass-auth')) {
                 logger.debug('Bypass mode active - skipping photos data load');
-                this.sendToWidget('photos', 'data', {
+                this.sendToWidget(widgetId, 'data', {
                     dataType: 'photos',
                     payload: { urls: [], folder: null }
                 });
                 return;
             }
 
-            logger.debug('Loading photos data');
+            logger.debug('Loading photos data', { widgetId });
 
             // Get photo data service
             const photoDataService = window.photoDataService;
             if (!photoDataService || !photoDataService.isReady()) {
                 logger.warn('PhotoService not available or not ready');
-                this.sendToWidget('photos', 'data', {
+                this.sendToWidget(widgetId, 'data', {
                     dataType: 'photos',
                     payload: { urls: [], folder: null }
                 });
@@ -458,10 +464,10 @@ export class WidgetDataManager {
             // Load photos from service
             const result = await photoDataService.loadPhotos(null, true); // folder=null, shuffle=true
 
-            logger.success('Photos data loaded', { count: result?.urls?.length || 0 });
+            logger.success('Photos data loaded', { widgetId, count: result?.urls?.length || 0 });
 
             // Send photos to widget
-            this.sendToWidget('photos', 'data', {
+            this.sendToWidget(widgetId, 'data', {
                 dataType: 'photos',
                 payload: {
                     urls: result?.urls || [],
@@ -471,11 +477,12 @@ export class WidgetDataManager {
 
         } catch (error) {
             logger.error('Failed to load photos data', {
+                widgetId,
                 error: error.message
             });
 
             // Send empty array on error
-            this.sendToWidget('photos', 'data', {
+            this.sendToWidget(widgetId, 'data', {
                 dataType: 'photos',
                 payload: { urls: [], folder: null }
             });
@@ -484,10 +491,11 @@ export class WidgetDataManager {
 
     /**
      * Load clock data (fetch and send weather data)
+     * @param {string} widgetId - Widget identifier (e.g., 'clock', 'clock-1', 'clock-2')
      */
-    async loadClockData() {
+    async loadClockData(widgetId = 'clock') {
         try {
-            logger.debug('Loading clock data (weather)');
+            logger.debug('Loading clock data (weather)', { widgetId });
 
             // Get zip code from settings
             const settingsStore = window.settingsStore;
@@ -508,24 +516,25 @@ export class WidgetDataManager {
             if (!weatherService || !weatherService.isReady()) {
                 logger.warn('WeatherService not available or not ready');
                 // Send location-update as fallback (clock widget can fetch weather itself)
-                this.sendToWidget('clock', 'location-update', {
+                this.sendToWidget(widgetId, 'location-update', {
                     zipCode: zipCode
                 });
                 return;
             }
 
             // Fetch weather data
-            logger.debug('Fetching weather for clock widget', { zipCode });
+            logger.debug('Fetching weather for clock widget', { widgetId, zipCode });
             const weatherData = await weatherService.getWeatherForZipCode(zipCode);
 
             logger.debug('Sending weather data to clock widget', {
+                widgetId,
                 zipCode,
                 temperature: weatherData.temperature,
                 weatherCode: weatherData.weatherCode
             });
 
             // Send weather data to clock widget
-            this.sendToWidget('clock', 'weather-data', {
+            this.sendToWidget(widgetId, 'weather-data', {
                 zipCode: zipCode,
                 temperature: weatherData.temperature,
                 weatherCode: weatherData.weatherCode,
@@ -534,12 +543,14 @@ export class WidgetDataManager {
             });
 
             logger.success('Clock weather data sent', {
+                widgetId,
                 zipCode,
                 temperature: weatherData.temperature
             });
 
         } catch (error) {
             logger.error('Failed to load clock data', {
+                widgetId,
                 error: error.message
             });
         }

@@ -13,6 +13,7 @@ import {
 } from '../navigation/event-handlers.js';
 import { getWidgetConfig, setCurrentPage } from '../config/widget-config.js';
 import DashboardStateManager from '../state/state-manager.js';
+import { getWidgetDataManager } from '../../../core/widget-data-manager.js';
 
 const logger = createLogger('DashboardUI');
 
@@ -313,13 +314,16 @@ class UIRenderer {
         }
       });
 
-      // Import and use WidgetDataManager to unregister
-      const { getWidgetDataManager } = await import('../../../core/widget-data-manager.js');
+      logger.info('🧹 Cleaning up old widgets before page switch', { widgetIds });
+
+      // Unregister old widgets from WidgetDataManager
       const widgetDataManager = getWidgetDataManager();
       widgetIds.forEach(widgetId => {
+        logger.debug('Unregistering widget', { widgetId });
         widgetDataManager.unregisterWidget(widgetId);
       });
-      logger.debug('Unregistered old widgets', { widgetIds });
+
+      logger.success('✅ All old widgets unregistered', { count: widgetIds.length });
 
       // Now remove DOM elements
       cells.forEach(cell => cell.remove());
@@ -337,6 +341,22 @@ class UIRenderer {
         const cell = DOMBuilder.createGridCell(widget);
         grid.appendChild(cell);
       });
+
+      // Register new widget iframes with WidgetDataManager
+      // This must happen AFTER iframes are added to DOM
+      widgets.forEach(widget => {
+        if (widget.path) { // Only register widgets with iframes
+          const iframe = document.getElementById(`widget-${widget.id}`);
+          if (iframe) {
+            logger.debug('Registering new widget iframe', { widgetId: widget.id });
+            widgetDataManager.registerWidget(widget.id, iframe);
+          } else {
+            logger.warn('Widget iframe not found for registration', { widgetId: widget.id });
+          }
+        }
+      });
+
+      logger.success('✅ All new widgets registered', { count: widgets.length });
 
       // Reattach grid event listeners
       GridEventHandler.attach(grid);

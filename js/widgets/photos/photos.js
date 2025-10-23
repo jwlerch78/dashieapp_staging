@@ -4,11 +4,15 @@
 
 import { createLogger } from '/js/utils/logger.js';
 import { detectCurrentTheme, applyThemeToWidget } from '/js/widgets/shared/widget-theme-detector.js';
+import { getWidgetId, getWidgetType } from '/js/widgets/shared/widget-id-helper.js';
 
 const logger = createLogger('PhotosWidget');
 
 class PhotosWidget {
   constructor() {
+    // Widget ID (determined from iframe)
+    this.widgetId = getWidgetId('photos');
+
     // Photo data
     this.photoUrls = [];
     this.currentPhotoIndex = 0;
@@ -44,7 +48,7 @@ class PhotosWidget {
     this.setupEmptyStateHandler();
     this.signalReady();
 
-    logger.debug('PhotosWidget initialized');
+    logger.debug('PhotosWidget initialized', { widgetId: this.widgetId });
   }
 
   /**
@@ -72,11 +76,11 @@ class PhotosWidget {
     if (window.parent !== window) {
       window.parent.postMessage({
         type: 'widget-ready',
-        widget: 'photos',
-        widgetId: 'photos',
+        widget: getWidgetType(this.widgetId), // Base type: 'photos'
+        widgetId: this.widgetId, // Full ID: 'photos', 'photos-1', 'photos-2', etc.
         hasMenu: this.focusMenu.enabled
       }, '*');
-      logger.debug('Ready signal sent to parent');
+      logger.debug('Ready signal sent to parent', { widgetId: this.widgetId });
     }
   }
 
@@ -87,6 +91,12 @@ class PhotosWidget {
     window.addEventListener('message', (event) => {
       const data = event.data;
       if (!data) return;
+
+      // Filter: Only process messages intended for this specific widget
+      // Messages include a widgetId field - ignore if it doesn't match ours
+      if (data.widgetId && data.widgetId !== this.widgetId) {
+        return; // Message is for a different widget instance
+      }
 
       logger.debug('Photos widget received message', {
         type: data.type,

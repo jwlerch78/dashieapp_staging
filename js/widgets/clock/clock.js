@@ -5,6 +5,7 @@
 import { createLogger } from '/js/utils/logger.js';
 import { geocodeZipCodeCached } from '/js/utils/geocoding-helper.js';
 import { detectCurrentTheme, applyThemeToWidget } from '/js/widgets/shared/widget-theme-detector.js';
+import { getWidgetId, getWidgetType } from '/js/widgets/shared/widget-id-helper.js';
 
 const DEFAULT_THEME = 'dark'; // Local constant instead of importing from theme.js
 
@@ -13,6 +14,7 @@ const logger = createLogger('ClockWidget');
 class ClockWidget {
   constructor() {
     this.currentTheme = null;
+    this.widgetId = null; // Will be set during initialization
 
     // Default coordinates (Belleair, FL) - will be updated from settings zip code
     this.latitude = 27.9186;
@@ -60,9 +62,19 @@ class ClockWidget {
   }
 
   setupEventListeners() {
+    // Determine this widget's ID from iframe
+    this.widgetId = getWidgetId('clock');
+    logger.debug('Clock widget ID determined', { widgetId: this.widgetId });
+
     // Listen for widget-messenger communications
     window.addEventListener('message', (event) => {
       if (!event.data) return;
+
+      // Filter: Only process messages intended for this specific widget
+      // Messages include a widgetId field - ignore if it doesn't match ours
+      if (event.data.widgetId && event.data.widgetId !== this.widgetId) {
+        return; // Message is for a different widget instance
+      }
 
       // Handle command messages (standard format)
       if (event.data.type === 'command') {
@@ -88,10 +100,11 @@ class ClockWidget {
       if (window.parent !== window) {
         window.parent.postMessage({
           type: 'widget-ready',
-          widget: 'clock',
-          widgetId: 'clock',
+          widget: getWidgetType(this.widgetId), // Base type: 'clock'
+          widgetId: this.widgetId, // Full ID: 'clock', 'clock-1', 'clock-2', etc.
           hasMenu: false
         }, '*');
+        logger.debug('Widget ready signal sent', { widgetId: this.widgetId });
       }
     });
   }
