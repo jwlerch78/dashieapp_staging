@@ -10,6 +10,8 @@ import DashboardInputHandler from './dashboard-input-handler.js';
 import UIRenderer from './dashboard-ui-renderer.js';
 import DashboardTimers from './dashboard-timers.js';
 import NavigationManager from './dashboard-navigation-manager.js';
+import FocusMenuRenderer from './components/focus-menu-renderer.js';
+import widgetMessenger from '../../core/widget-messenger.js';
 import { getWidgetById } from './dashboard-widget-config.js';
 
 const logger = createLogger('Dashboard');
@@ -82,10 +84,12 @@ class Dashboard {
    * @private
    */
   setupWidgetEventListeners() {
-    // Listen for widget messages (e.g., enter-focus-request from touch buttons)
+    // Listen for widget messages (e.g., enter-focus-request, return-to-menu)
     AppComms.subscribe(AppComms.events.WIDGET_MESSAGE, (data) => {
       if (data.type === 'enter-focus-request') {
         this.handleWidgetFocusRequest(data.widgetId);
+      } else if (data.type === 'return-to-menu') {
+        this.handleWidgetReturnToMenu();
       }
     });
   }
@@ -124,6 +128,36 @@ class Dashboard {
       widgetId,
       position: [widget.row, widget.col]
     });
+  }
+
+  /**
+   * Handle widget return-to-menu request
+   * Widget has decided to return control to the menu (at home position)
+   * @private
+   */
+  handleWidgetReturnToMenu() {
+    const state = DashboardStateManager.getState();
+
+    // Only process if focus menu is active and widget is in control
+    if (!state.focusMenuState.active || state.focusMenuState.inMenu) {
+      logger.debug('Ignoring return-to-menu - not in correct state', {
+        menuActive: state.focusMenuState.active,
+        inMenu: state.focusMenuState.inMenu
+      });
+      return;
+    }
+
+    logger.info('Widget requested return to menu (at home position)');
+
+    // Return to menu state
+    DashboardStateManager.setFocusMenuInWidget(true);
+    FocusMenuRenderer.undimFocusMenu();
+    UIRenderer.setWidgetActive(state.focusedWidget, false);
+
+    // Send exit-active to widget
+    widgetMessenger.sendCommandToWidget(state.focusedWidget, 'exit-active');
+
+    logger.info('Returned to menu from widget');
   }
 
   /**
