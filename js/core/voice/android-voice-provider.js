@@ -11,7 +11,7 @@
  */
 
 import { createLogger } from '../../utils/logger.js';
-import { AppComms } from '../app-comms.js';
+import AppComms from '../app-comms.js';
 
 const logger = createLogger('AndroidVoiceProvider');
 
@@ -36,7 +36,13 @@ export class AndroidVoiceProvider {
       // Setup event handler for Android voice events
       this._setupEventHandler();
 
-      logger.success('AndroidVoiceProvider initialized');
+      // Start wake word detection after a delay to allow native layer to initialize
+      // The Porcupine wake word detector needs time to load on Android
+      setTimeout(() => {
+        this.startWakeWordDetection();
+      }, 1000);
+
+      logger.success('AndroidVoiceProvider initialized - wake word detection will start shortly');
     } catch (error) {
       logger.error('Failed to initialize AndroidVoiceProvider:', error);
       throw error;

@@ -10,7 +10,7 @@
  */
 
 import { createLogger } from '../utils/logger.js';
-import { AppComms } from './app-comms.js';
+import AppComms from './app-comms.js';
 
 const logger = createLogger('VoiceCommandRouter');
 

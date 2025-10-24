@@ -4,26 +4,35 @@
 
 import { createLogger } from '../../utils/logger.js';
 import { initializeWidgetDataManager } from '../../core/widget-data-manager.js';
+import { getWidgetConfig } from '../../modules/Dashboard/config/widget-config.js';
 
 const logger = createLogger('WidgetInitializer');
 
 /**
  * Wait for widget iframes to be added to DOM
+ * @param {Array<string>} widgetIds - Widget IDs to wait for
  * @returns {Promise<void>}
  */
-async function waitForWidgetIframes() {
+async function waitForWidgetIframes(widgetIds = []) {
   const maxWait = 5000; // 5 seconds max
   const checkInterval = 100; // Check every 100ms
   const startTime = Date.now();
 
-  while (Date.now() - startTime < maxWait) {
-    const photosIframe = document.getElementById('widget-photos');
-    const calendarIframe = document.getElementById('widget-main');
-    const agendaIframe = document.getElementById('widget-agenda');
+  // If no widget IDs specified, wait for legacy widgets
+  if (widgetIds.length === 0) {
+    widgetIds = ['photos', 'main', 'agenda'];
+  }
 
-    if (photosIframe && calendarIframe && agendaIframe) {
+  while (Date.now() - startTime < maxWait) {
+    const foundAll = widgetIds.every(id => {
+      const iframe = document.getElementById(`widget-${id}`);
+      return !!iframe;
+    });
+
+    if (foundAll) {
       logger.verbose('🔍 DEBUG: Widget iframes found in DOM', {
-        elapsed: Date.now() - startTime
+        elapsed: Date.now() - startTime,
+        widgetIds
       });
       return;
     }
@@ -31,7 +40,7 @@ async function waitForWidgetIframes() {
     await new Promise(resolve => setTimeout(resolve, checkInterval));
   }
 
-  logger.warn('🔍 DEBUG: Timeout waiting for widget iframes');
+  logger.warn('🔍 DEBUG: Timeout waiting for widget iframes', { widgetIds });
 }
 
 /**
@@ -44,44 +53,43 @@ export async function initializeWidgets() {
     const widgetDataManager = initializeWidgetDataManager();
     window.widgetDataManager = widgetDataManager; // Expose for debugging
 
-    // Wait for widget iframes to be added to DOM
-    logger.verbose('🔍 DEBUG: Waiting for widget iframes to load...');
-    await waitForWidgetIframes();
+    // Get current widget configuration
+    const widgetConfig = getWidgetConfig();
+    const widgetIds = widgetConfig.map(w => w.id);
 
-    // Register widget iframes
-    // IMPORTANT: Widgets load AFTER Settings applies theme, so they get correct theme from localStorage
-    const clockIframe = document.getElementById('widget-clock');
-    const headerIframe = document.getElementById('widget-header');
-    const photosIframe = document.getElementById('widget-photos');
-    const calendarIframe = document.getElementById('widget-main');
-    const agendaIframe = document.getElementById('widget-agenda');
-
-    logger.verbose('🔍 DEBUG: Found widget iframes', {
-      clock: !!clockIframe,
-      header: !!headerIframe,
-      photos: !!photosIframe,
-      calendar: !!calendarIframe,
-      agenda: !!agendaIframe
+    logger.verbose('🔍 DEBUG: Widget config loaded', {
+      widgetIds,
+      count: widgetIds.length
     });
 
-    if (clockIframe) {
-      widgetDataManager.registerWidget('clock', clockIframe);
+    // Wait for widget iframes to be added to DOM
+    logger.verbose('🔍 DEBUG: Waiting for widget iframes to load...');
+    await waitForWidgetIframes(widgetIds);
+
+    // Automatically register all widget iframes from config
+    const registeredWidgets = [];
+    const missingWidgets = [];
+
+    for (const widgetId of widgetIds) {
+      const iframe = document.getElementById(`widget-${widgetId}`);
+
+      if (iframe) {
+        widgetDataManager.registerWidget(widgetId, iframe);
+        registeredWidgets.push(widgetId);
+      } else {
+        missingWidgets.push(widgetId);
+      }
     }
 
-    if (headerIframe) {
-      widgetDataManager.registerWidget('header', headerIframe);
-    }
+    logger.verbose('🔍 DEBUG: Widget registration complete', {
+      registered: registeredWidgets,
+      missing: missingWidgets,
+      registeredCount: registeredWidgets.length,
+      missingCount: missingWidgets.length
+    });
 
-    if (photosIframe) {
-      widgetDataManager.registerWidget('photos', photosIframe);
-    }
-
-    if (calendarIframe) {
-      widgetDataManager.registerWidget('main', calendarIframe);
-    }
-
-    if (agendaIframe) {
-      widgetDataManager.registerWidget('agenda', agendaIframe);
+    if (missingWidgets.length > 0) {
+      logger.warn('Some widgets from config were not found in DOM', { missingWidgets });
     }
 
     logger.verbose('Widgets initialized');

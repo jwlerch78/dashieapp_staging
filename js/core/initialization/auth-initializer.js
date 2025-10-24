@@ -452,18 +452,42 @@ export async function initializeAuth(onAuthComplete) {
     observer.observe(loginButton, { attributes: true, attributeFilter: ['disabled'] });
 
     // Setup Exit button handler
+    const exitApp = () => {
+      logger.info('Exiting application', {
+        hasDashieNative: typeof window.DashieNative !== 'undefined',
+        hasExitApp: window.DashieNative && typeof window.DashieNative.exitApp === 'function',
+        dashieNativeMethods: window.DashieNative ? Object.keys(window.DashieNative) : []
+      });
+
+      // Use native Android/Fire TV exit if available
+      if (window.DashieNative && typeof window.DashieNative.exitApp === 'function') {
+        logger.info('Calling DashieNative.exitApp()');
+        try {
+          window.DashieNative.exitApp();
+          logger.info('DashieNative.exitApp() called successfully');
+        } catch (error) {
+          logger.error('Error calling DashieNative.exitApp():', error);
+        }
+      } else if (window.close) {
+        logger.info('Attempting window.close()');
+        window.close();
+      } else {
+        // Fallback for environments where window.close doesn't work
+        logger.info('Fallback to about:blank');
+        window.location.href = 'about:blank';
+      }
+    };
+
     exitButton.addEventListener('click', (e) => {
       e.preventDefault();
-      logger.info('Exit button clicked');
-      window.close(); // Try to close window (works in some environments)
+      exitApp();
     });
 
     exitButton.addEventListener('keydown', (e) => {
       if (e.keyCode === 13 || e.keyCode === 23 || e.key === 'Enter') {
         e.preventDefault();
         e.stopPropagation();
-        logger.info('Exit button selected');
-        window.close();
+        exitApp();
       }
     });
 

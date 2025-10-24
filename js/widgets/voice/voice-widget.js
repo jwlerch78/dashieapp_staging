@@ -16,6 +16,10 @@ let promptText;
 let transcriptText;
 let statusText;
 
+// Audio context for beep sound
+let audioContext = null;
+let beepSound = null;
+
 /**
  * Initialize widget
  */
@@ -68,6 +72,19 @@ function setupEventListeners() {
   // Mic button click (Web only - Android uses wake word)
   if (!isAndroid) {
     micButton.addEventListener('click', handleMicClick);
+
+    // Initialize audio context on first click to bypass autoplay restrictions
+    micButton.addEventListener('click', () => {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        console.log('[VoiceWidget] AudioContext initialized on user click');
+      }
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+          console.log('[VoiceWidget] AudioContext resumed');
+        });
+      }
+    }, { once: false });
   } else {
     // On Android, mic button is just visual (wake word triggers listening)
     micButton.style.cursor = 'default';
@@ -87,7 +104,8 @@ function handleMicClick() {
     // Stop listening
     sendToParent('voice-action', { action: 'stop-listening' });
   } else {
-    // Start listening
+    // Start listening - just send request to parent
+    // UI update and beep will happen when parent confirms listening started
     sendToParent('voice-action', { action: 'start-listening' });
   }
 }
@@ -117,6 +135,7 @@ function handleVoiceEvent(event) {
 
   switch (event.eventType) {
     case 'VOICE_LISTENING_STARTED':
+      playBeep(); // Play beep when listening starts
       setState('listening');
       transcriptText.textContent = 'Listening...';
       break;
@@ -228,6 +247,56 @@ function sendToParent(type, data) {
     type,
     ...data
   }, '*');
+}
+
+/**
+ * Play beep sound when listening starts
+ */
+function playBeep() {
+  try {
+    // Create audio context if it doesn't exist
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+
+    // Resume audio context if suspended (required by some browsers)
+    if (audioContext.state === 'suspended') {
+      audioContext.resume();
+    }
+
+    // Create two-tone beep (like Android)
+    const currentTime = audioContext.currentTime;
+
+    // First tone (higher pitch)
+    const osc1 = audioContext.createOscillator();
+    const gain1 = audioContext.createGain();
+    osc1.connect(gain1);
+    gain1.connect(audioContext.destination);
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(800, currentTime); // 800 Hz
+    gain1.gain.setValueAtTime(0, currentTime);
+    gain1.gain.linearRampToValueAtTime(0.4, currentTime + 0.05);
+    gain1.gain.linearRampToValueAtTime(0, currentTime + 0.15);
+    osc1.start(currentTime);
+    osc1.stop(currentTime + 0.15);
+
+    // Second tone (lower pitch) - plays after first
+    const osc2 = audioContext.createOscillator();
+    const gain2 = audioContext.createGain();
+    osc2.connect(gain2);
+    gain2.connect(audioContext.destination);
+    osc2.type = 'sine';
+    osc2.frequency.setValueAtTime(600, currentTime + 0.15); // 600 Hz
+    gain2.gain.setValueAtTime(0, currentTime + 0.15);
+    gain2.gain.linearRampToValueAtTime(0.4, currentTime + 0.2);
+    gain2.gain.linearRampToValueAtTime(0, currentTime + 0.3);
+    osc2.start(currentTime + 0.15);
+    osc2.stop(currentTime + 0.3);
+
+    console.log('[VoiceWidget] Beep played (two-tone, 300ms)');
+  } catch (error) {
+    console.warn('[VoiceWidget] Failed to play beep:', error);
+  }
 }
 
 // Initialize when DOM is ready

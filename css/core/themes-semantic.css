@@ -1,0 +1,369 @@
+/* css/core/themes-semantic.css - Semantic Theme Definitions */
+/* v1.0 - Theme-specific values for semantic variables */
+/* ARCHITECTURE: Maps semantic tokens to actual colors per theme */
+/* USAGE: Import this AFTER variables-semantic.css */
+
+/* ============================================================================
+   DARK THEME - Default
+   ============================================================================ */
+
+body.theme-dark {
+  /* ===== INTERACTIVE COLORS ===== */
+  --color-interactive-primary: #00aaff;      /* Blue - primary actions */
+  --color-interactive-secondary: #ffaa00;    /* Orange - secondary actions */
+  --color-interactive-tertiary: #666;        /* Gray - subtle interactions */
+
+  /* ===== FOCUS & SELECTION ===== */
+  --color-focus-ring: #00aaff;               /* Blue focus indicator */
+  --color-selection-border: #a8b0b8;         /* Silver selection border */
+  --color-selection-fill: rgba(168, 176, 184, 0.2); /* Silver selection fill */
+  --color-navigation-highlight: #a8b0b8;     /* Silver navigation */
+
+  /* ===== TEMPORAL/CALENDAR ===== */
+  --color-time-current: #00aaff;             /* Blue current time line */
+  --color-calendar-today: #00aaff;           /* Blue today marker */
+  --color-event-primary: #00aaff;            /* Blue events */
+
+  /* ===== SURFACES ===== */
+  --surface-base: #222;                      /* Dark base */
+  --surface-raised: #333;                    /* Medium gray elevated */
+  --surface-overlay: #444;                   /* Light gray overlay */
+  --surface-interactive: rgba(255, 255, 255, 0.2); /* White tint */
+  --surface-button: #666;                    /* Gray button */
+  --surface-input: #333;                     /* Medium gray input */
+  --surface-modal-backdrop: rgba(0, 0, 0, 0.7); /* Black backdrop */
+  --surface-base-semi-transparent: rgba(34, 34, 34, 0.9);
+  --surface-menu-overlay: rgba(50, 50, 50, 0.9);
+  --surface-grid-gap: #333;                  /* Match base for seamless grid */
+
+  /* ===== TEXT ===== */
+  --text-emphasis-high: #fff;                /* White primary text */
+  --text-emphasis-medium: #ccc;              /* Light gray secondary */
+  --text-emphasis-low: #999;                 /* Medium gray muted */
+  --text-on-interactive: #fff;               /* White on colored backgrounds */
+
+  /* ===== BORDERS ===== */
+  --border-subtle: rgba(255, 255, 255, 0.1);
+  --border-medium: rgba(255, 255, 255, 0.2);
+  --border-strong: rgba(255, 255, 255, 0.3);
+
+  /* ===== EFFECTS ===== */
+  --effect-glow-selection: 0 0 20px rgba(168, 176, 184, 0.6), 0 0 45px rgba(168, 176, 184, 0.3);
+  --effect-glow-focus: 0 0 25px rgba(0, 170, 255, 0.9), 0 0 55px rgba(0, 170, 255, 0.5);
+
+  /* ===== ASSETS ===== */
+  --asset-sidebar-logo: url('/artwork/Dashie_Full_Logo_White_Transparent.png');
+  --asset-icon-filter: invert(100%);         /* White icons */
+}
+
+/* ============================================================================
+   LIGHT THEME
+   ============================================================================ */
+
+body.theme-light,
+body:not([class*="theme-"]) {
+  /* ===== INTERACTIVE COLORS ===== */
+  --color-interactive-primary: #2196f3;      /* Material blue - primary actions */
+  --color-interactive-secondary: #ff9800;    /* Material orange - secondary */
+  --color-interactive-tertiary: #90a4ae;     /* Blue-gray - subtle */
+
+  /* ===== FOCUS & SELECTION ===== */
+  --color-focus-ring: #2196f3;               /* Blue focus */
+  --color-selection-border: #6b7280;         /* Gray selection */
+  --color-selection-fill: rgba(33, 150, 243, 0.2); /* Blue selection fill */
+  --color-navigation-highlight: #6b7280;     /* Gray navigation */
+
+  /* ===== TEMPORAL/CALENDAR ===== */
+  --color-time-current: #00aaff;             /* Blue current time */
+  --color-calendar-today: #2196f3;           /* Blue today */
+  --color-event-primary: #2196f3;            /* Blue events */
+
+  /* ===== SURFACES ===== */
+  --surface-base: #FCFCFF;                   /* Off-white base */
+  --surface-raised: #FCFCFF;                 /* Same as base in light theme */
+  --surface-overlay: #eeeeee;                /* Light gray overlay */
+  --surface-interactive: rgba(33, 150, 243, 0.2); /* Blue tint */
+  --surface-button: #90a4ae;                 /* Blue-gray button */
+  --surface-input: #FFFFFF;                  /* White input */
+  --surface-modal-backdrop: rgba(0, 0, 0, 0.5); /* Black backdrop */
+  --surface-base-semi-transparent: rgba(227, 242, 253, 0.9);
+  --surface-menu-overlay: rgba(240, 240, 240, 0.9);
+  --surface-grid-gap: #9eb4fe;               /* Light blue gap */
+
+  /* ===== TEXT ===== */
+  --text-emphasis-high: #424242;             /* Dark gray primary */
+  --text-emphasis-medium: #616161;           /* Medium gray secondary */
+  --text-emphasis-low: #9e9e9e;              /* Light gray muted */
+  --text-on-interactive: #fff;               /* White on colored backgrounds */
+
+  /* ===== BORDERS ===== */
+  --border-subtle: rgba(0, 0, 0, 0.1);
+  --border-medium: rgba(0, 0, 0, 0.2);
+  --border-strong: rgba(0, 0, 0, 0.3);
+
+  /* ===== EFFECTS ===== */
+  --effect-glow-selection: 0 0 15px rgba(107, 114, 128, 0.5), 0 0 30px rgba(107, 114, 128, 0.25);
+  --effect-glow-focus: 0 0 20px rgba(33, 150, 243, 0.8), 0 0 40px rgba(33, 150, 243, 0.4);
+
+  /* ===== ASSETS ===== */
+  --asset-sidebar-logo: url('/artwork/Dashie_Full_Logo_Black_Transparent.png');
+  --asset-icon-filter: invert(20%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(0.3);
+}
+
+/* ============================================================================
+   HALLOWEEN DARK THEME - Spooky Edition
+   ============================================================================ */
+
+body.theme-halloween-dark {
+  /* ===== INTERACTIVE COLORS ===== */
+  /* Uses neon green and Halloween orange for a spooky feel */
+  --color-interactive-primary: #39FF14;      /* Neon green - primary actions */
+  --color-interactive-secondary: #FF6B1A;    /* Halloween orange - secondary */
+  --color-interactive-tertiary: #6B1FA0;     /* Deep purple - subtle */
+
+  /* ===== FOCUS & SELECTION ===== */
+  --color-focus-ring: #39FF14;               /* Neon green focus */
+  --color-selection-border: #FF6B1A;         /* Orange selection */
+  --color-selection-fill: rgba(255, 107, 26, 0.2); /* Orange fill */
+  --color-navigation-highlight: #FF6B1A;     /* Orange navigation */
+
+  /* ===== TEMPORAL/CALENDAR ===== */
+  --color-time-current: #FF6B1A;             /* Orange current time */
+  --color-calendar-today: #39FF14;           /* Neon green today */
+  --color-event-primary: #FF6B1A;            /* Orange events */
+
+  /* ===== SURFACES ===== */
+  --surface-base: #1A0A1F;                   /* Near-black with purple tint */
+  --surface-raised: #2D1F1A;                 /* Dark with orange tint */
+  --surface-overlay: #3D2F2A;                /* Lighter brown-purple */
+  --surface-interactive: rgba(255, 107, 26, 0.3); /* Orange tint */
+  --surface-button: #6B1FA0;                 /* Deep purple button */
+  --surface-input: #2D1F1A;                  /* Dark orange-brown */
+  --surface-modal-backdrop: rgba(26, 10, 31, 0.8); /* Purple-tinted backdrop */
+  --surface-base-semi-transparent: rgba(26, 10, 31, 0.9);
+  --surface-menu-overlay: rgba(45, 31, 26, 0.9);
+  --surface-grid-gap: #1A0A1F;               /* Match base for seamless look */
+
+  /* ===== TEXT ===== */
+  --text-emphasis-high: #fff;                /* White primary */
+  --text-emphasis-medium: #ccc;              /* Light gray secondary */
+  --text-emphasis-low: #999;                 /* Medium gray muted */
+  --text-on-interactive: #fff;               /* White on colored */
+
+  /* ===== BORDERS ===== */
+  --border-subtle: rgba(255, 107, 26, 0.1);  /* Orange-tinted */
+  --border-medium: rgba(255, 107, 26, 0.2);
+  --border-strong: rgba(255, 107, 26, 0.3);
+
+  /* ===== EFFECTS ===== */
+  /* Orange glow for spooky effect */
+  --effect-glow-selection: 0 0 20px rgba(255, 107, 26, 0.6), 0 0 45px rgba(255, 107, 26, 0.3);
+  --effect-glow-focus: 0 0 25px rgba(57, 255, 20, 0.9), 0 0 55px rgba(57, 255, 20, 0.5);
+
+  /* ===== ASSETS ===== */
+  --asset-sidebar-logo: url('/artwork/Dashie_Full_Logo_White_Transparent.png');
+  --asset-icon-filter: invert(100%);         /* White icons */
+}
+
+/* ============================================================================
+   HALLOWEEN LIGHT THEME - Festive Autumn
+   ============================================================================ */
+
+body.theme-halloween-light {
+  /* ===== INTERACTIVE COLORS ===== */
+  --color-interactive-primary: #ff9800;      /* Bright orange - primary */
+  --color-interactive-secondary: #228B22;    /* Forest green - secondary */
+  --color-interactive-tertiary: #90a4ae;     /* Gray - subtle */
+
+  /* ===== FOCUS & SELECTION ===== */
+  --color-focus-ring: #ff9800;               /* Orange focus */
+  --color-selection-border: #228B22;         /* Green selection */
+  --color-selection-fill: rgba(255, 152, 0, 0.2); /* Orange fill */
+  --color-navigation-highlight: #ff9800;     /* Orange navigation */
+
+  /* ===== TEMPORAL/CALENDAR ===== */
+  --color-time-current: #ff9800;             /* Orange current time */
+  --color-calendar-today: #ff9800;           /* Orange today */
+  --color-event-primary: #ff9800;            /* Orange events */
+
+  /* ===== SURFACES ===== */
+  --surface-base: #FCFCFF;                   /* Off-white base */
+  --surface-raised: #FCFCFF;                 /* Same as base */
+  --surface-overlay: #eeeeee;                /* Light gray */
+  --surface-interactive: #FFD4A3;            /* Soft orange tint */
+  --surface-button: #90a4ae;                 /* Gray button */
+  --surface-input: #FFFFFF;                  /* White input */
+  --surface-modal-backdrop: rgba(0, 0, 0, 0.5);
+  --surface-base-semi-transparent: rgba(227, 242, 253, 0.9);
+  --surface-menu-overlay: rgba(240, 240, 240, 0.9);
+  --surface-grid-gap: #ff9800;               /* Orange gap */
+
+  /* ===== TEXT ===== */
+  --text-emphasis-high: #424242;             /* Dark gray */
+  --text-emphasis-medium: #616161;           /* Medium gray */
+  --text-emphasis-low: #9e9e9e;              /* Light gray */
+  --text-on-interactive: #fff;               /* White on colored */
+
+  /* ===== BORDERS ===== */
+  --border-subtle: rgba(255, 152, 0, 0.1);   /* Orange-tinted */
+  --border-medium: rgba(255, 152, 0, 0.2);
+  --border-strong: rgba(255, 152, 0, 0.3);
+
+  /* ===== EFFECTS ===== */
+  --effect-glow-selection: 0 0 15px rgba(255, 152, 0, 0.5), 0 0 30px rgba(255, 152, 0, 0.25);
+  --effect-glow-focus: 0 0 20px rgba(34, 139, 34, 0.7), 0 0 40px rgba(34, 139, 34, 0.35);
+
+  /* ===== ASSETS ===== */
+  --asset-sidebar-logo: url('/artwork/Dashie_Full_Logo_Black_Transparent.png');
+  --asset-icon-filter: invert(20%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(0.3);
+}
+
+/* ============================================================================
+   THEME TRANSITION ANIMATIONS
+   ============================================================================ */
+
+/* Smooth transitions when switching themes */
+* {
+  transition: background-color var(--transition-medium),
+              color var(--transition-medium),
+              border-color var(--transition-medium),
+              box-shadow var(--transition-medium);
+}
+
+/* Prevent transition on page load */
+body.no-transitions * {
+  transition: none !important;
+}
+
+/* ============================================================================
+   COMPONENT-SPECIFIC OVERRIDES (Settings & Modals)
+   These components always use standard light/dark, never themed variants
+   ============================================================================ */
+
+/* Settings in ALL dark theme variants use same dark colors */
+body.theme-dark,
+body.theme-halloween-dark {
+  --settings-bg-container: #2A2A2A;
+  --settings-bg-screen: #222;
+  --settings-bg-nav: #2A2A2A;
+  --settings-bg-cell: #333;
+  --settings-bg-input: #2A2A2A;
+  --settings-bg-disabled: #1A1A1A;
+  --settings-border-color: rgba(255, 255, 255, 0.15);
+  --settings-text-label: #fff;
+  --settings-text-value: #999;
+  --settings-text-header: #888;
+  --settings-chevron-color: #555;
+  --settings-toggle-bg: #444;
+  --settings-toggle-knob: #fff;
+  --settings-scrollbar: rgba(255, 255, 255, 0.2);
+  --settings-scrollbar-hover: rgba(255, 255, 255, 0.3);
+}
+
+/* Settings in ALL light theme variants use same light colors */
+body.theme-light,
+body:not([class*="theme-"]),
+body.theme-halloween-light {
+  --settings-bg-container: #F2F2F7;
+  --settings-bg-screen: #F2F2F7;
+  --settings-bg-nav: #F5F5F7;
+  --settings-bg-cell: #FCFCFF;
+  --settings-bg-input: #FFFFFF;
+  --settings-bg-disabled: #F2F2F7;
+  --settings-border-color: rgba(60, 60, 67, 0.29);
+  --settings-text-label: #000000;
+  --settings-text-value: #8E8E93;
+  --settings-text-header: #6B7280;
+  --settings-chevron-color: #C7C7CC;
+  --settings-toggle-bg: #E5E5EA;
+  --settings-toggle-knob: #FFFFFF;
+  --settings-scrollbar: rgba(0, 0, 0, 0.2);
+  --settings-scrollbar-hover: rgba(0, 0, 0, 0.3);
+}
+
+/* Modals in ALL dark theme variants use same dark colors */
+body.theme-dark,
+body.theme-halloween-dark {
+  --modal-bg: #2a2a2a;
+  --modal-title-color: #ffffff;
+  --modal-text-color: #b0b0b0;
+  --modal-border-color: #404040;
+  --modal-button-bg: transparent;
+  --modal-button-color: #ffffff;
+  --modal-button-hover-bg: #3a3a3a;
+}
+
+/* Modals in ALL light theme variants use same light colors */
+body.theme-light,
+body:not([class*="theme-"]),
+body.theme-halloween-light {
+  --modal-bg: #ffffff;
+  --modal-title-color: #1a1a1a;
+  --modal-text-color: #666666;
+  --modal-border-color: #e0e0e0;
+  --modal-button-bg: transparent;
+  --modal-button-color: #1a1a1a;
+  --modal-button-hover-bg: #f5f5f5;
+}
+
+/* ============================================================================
+   USAGE GUIDE
+   ============================================================================
+
+   CREATING A NEW THEME:
+
+   1. Copy an existing theme block (e.g., body.theme-dark)
+   2. Change the class name (e.g., body.theme-my-custom-theme)
+   3. Override the semantic variables with your color values
+   4. Test in all components (dashboard, widgets, settings, modals)
+
+   REQUIRED VARIABLES FOR ALL THEMES:
+
+   Interactive:
+   - --color-interactive-primary
+   - --color-interactive-secondary
+   - --color-interactive-tertiary
+
+   Focus/Selection:
+   - --color-focus-ring
+   - --color-selection-border
+   - --color-selection-fill
+
+   Surfaces:
+   - --surface-base
+   - --surface-raised
+   - --surface-overlay
+   - --surface-interactive
+   - --surface-button
+   - --surface-grid-gap
+
+   Text:
+   - --text-emphasis-high
+   - --text-emphasis-medium
+   - --text-emphasis-low
+
+   Borders:
+   - --border-subtle
+   - --border-medium
+   - --border-strong
+
+   Effects:
+   - --effect-glow-selection
+   - --effect-glow-focus
+
+   Assets:
+   - --asset-sidebar-logo
+   - --asset-icon-filter
+
+   OPTIONAL VARIABLES:
+   - Temporal/calendar colors (can fallback to interactive colors)
+   - Additional surface variants
+   - Shadow effects
+
+   TIPS:
+   - Use semantic names that describe PURPOSE, not appearance
+   - Test theme in both light and dark settings modals
+   - Ensure text contrast meets accessibility standards (4.5:1 minimum)
+   - Test focus indicators are visible in all states
+
+   ============================================================================ */

@@ -80,11 +80,29 @@ export class WidgetDataManager {
 
         voiceEvents.forEach(eventType => {
             AppComms.on(eventType, (data) => {
+                logger.debug('Voice event received, checking if voice widget exists', {
+                    eventType,
+                    hasVoiceWidget: this.widgets.has('voice'),
+                    allWidgets: Array.from(this.widgets.keys())
+                });
+
                 if (this.widgets.has('voice')) {
-                    this.sendToWidget('voice', 'data', 'voice-event', {
-                        eventType,
-                        data
-                    });
+                    logger.debug('Sending voice event to widget', { eventType, data });
+
+                    // Send directly to iframe with proper structure
+                    const iframe = this.widgets.get('voice');
+                    if (iframe && iframe.contentWindow) {
+                        iframe.contentWindow.postMessage({
+                            type: 'data',
+                            action: 'voice-event',
+                            payload: {
+                                eventType,
+                                data
+                            }
+                        }, '*');
+                    }
+                } else {
+                    logger.warn('Voice widget not registered, cannot send event', { eventType });
                 }
             });
         });

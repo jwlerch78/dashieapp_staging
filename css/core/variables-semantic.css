@@ -1,0 +1,199 @@
+/* css/core/variables-semantic.css - Semantic Theme Variables */
+/* v1.0 - New semantic naming system for better theme maintainability */
+/* ARCHITECTURE: Uses functional/semantic names instead of visual names */
+/* USAGE: Import this BEFORE themes-semantic.css and existing variables.css */
+
+/* ============================================================================
+   SEMANTIC COLOR TOKENS - Tier 1
+   These are the variables developers should use in component styles.
+   Theme-specific values are defined in themes-semantic.css
+   ============================================================================ */
+
+:root {
+  /* ===== INTERACTIVE COLORS ===== */
+  /* Used for: buttons, links, active states, primary user interactions */
+
+  --color-interactive-primary: #00aaff;      /* Main interactive color (buttons, primary actions, active states) */
+  --color-interactive-secondary: #ffaa00;    /* Secondary actions, alternative highlights */
+  --color-interactive-tertiary: #666;        /* Tertiary/subtle interactive elements, disabled states */
+
+  /* ===== FOCUS & SELECTION STATES ===== */
+  /* Used for: keyboard navigation, focus indicators, selection highlights */
+
+  --color-focus-ring: #00aaff;               /* Keyboard focus indicator, active widget border */
+  --color-selection-border: #a8b0b8;         /* Grid navigation selection, menu highlights */
+  --color-selection-fill: rgba(168, 176, 184, 0.2); /* Selected item background fill */
+  --color-navigation-highlight: #a8b0b8;     /* Navigation menu/grid highlights */
+
+  /* ===== TEMPORAL/CALENDAR COLORS ===== */
+  /* Used for: time indicators, calendar highlights, date-specific UI */
+
+  --color-time-current: #ea4335;             /* Current time indicator line in calendar */
+  --color-calendar-today: #00aaff;           /* Today's date highlight */
+  --color-event-primary: #00aaff;            /* Primary event color */
+
+  /* ===== SURFACE COLORS (BACKGROUNDS) ===== */
+  /* Used for: backgrounds, containers, surfaces at different elevation levels */
+
+  --surface-base: #222;                      /* Base background (body, main areas) */
+  --surface-raised: #333;                    /* Elevated surfaces (cards, widgets) */
+  --surface-overlay: #444;                   /* Overlays, popovers, modals */
+  --surface-interactive: rgba(255, 255, 255, 0.2); /* Interactive surface tint/overlay */
+  --surface-button: #666;                    /* Button backgrounds */
+  --surface-input: #333;                     /* Input fields, form elements */
+  --surface-modal-backdrop: rgba(0, 0, 0, 0.7); /* Modal backdrop overlay */
+
+  /* Derived/specialized surfaces */
+  --surface-base-transparent: rgba(34, 34, 34, 0);    /* Transparent base */
+  --surface-base-semi-transparent: rgba(34, 34, 34, 0.9); /* Semi-transparent base */
+  --surface-menu-overlay: rgba(50, 50, 50, 0.9);      /* Menu overlay background */
+  --surface-selection-fill: rgba(168, 176, 184, 0.2); /* Selected item fill */
+  --surface-widget-iframe: var(--surface-raised);     /* Widget iframe backgrounds */
+  --surface-fallback-widget: var(--surface-overlay);  /* Fallback widget background */
+  --surface-grid-gap: #333;                           /* Dashboard grid gap color */
+
+  /* ===== TEXT HIERARCHY ===== */
+  /* Used for: all text content, labels, headings, body text */
+
+  --text-emphasis-high: #fff;                /* High-emphasis text (headings, labels, primary content) */
+  --text-emphasis-medium: #ccc;              /* Medium-emphasis text (body, descriptions, secondary labels) */
+  --text-emphasis-low: #999;                 /* Low-emphasis text (hints, timestamps, metadata) */
+  --text-on-interactive: #fff;               /* Text on interactive colored backgrounds */
+  --text-on-surface: #fff;                   /* Text on surface backgrounds (alias for high-emphasis) */
+
+  /* ===== BORDERS & DIVIDERS ===== */
+  /* Used for: borders, dividers, outlines, separators */
+
+  --border-subtle: rgba(255, 255, 255, 0.1); /* Subtle borders, light dividers */
+  --border-medium: rgba(255, 255, 255, 0.2); /* Standard borders */
+  --border-strong: rgba(255, 255, 255, 0.3); /* Emphasized borders */
+  --border-interactive: var(--color-interactive-primary); /* Borders on interactive elements */
+  --border-focus: var(--color-focus-ring);   /* Focus state borders */
+  --border-selection: var(--color-selection-border); /* Selection state borders */
+
+  /* ===== SEMANTIC STATE COLORS ===== */
+  /* Used for: error/success/warning states, notifications, alerts */
+
+  --color-error: #ff6b6b;                    /* Error states, destructive actions */
+  --color-success: #51cf66;                  /* Success states, confirmations */
+  --color-warning: #ffd43b;                  /* Warning states, alerts */
+  --color-info: #339af0;                     /* Informational states, tips */
+
+  /* ===== VISUAL EFFECTS ===== */
+  /* Used for: glows, shadows, gradients, and other visual enhancements */
+
+  /* Glow effects for enhanced focus mode */
+  --effect-glow-selection: 0 0 20px rgba(168, 176, 184, 0.6), 0 0 45px rgba(168, 176, 184, 0.3);
+  --effect-glow-focus: 0 0 25px rgba(0, 170, 255, 0.9), 0 0 55px rgba(0, 170, 255, 0.5);
+  --effect-glow-selection-legacy: 0 0 20px rgba(255, 170, 0, 0.8), 0 0 45px rgba(255, 170, 0, 0.4);
+
+  /* Border gradient effects */
+  --effect-border-gradient-selection: linear-gradient(to right, #a8b0b8 0%, rgba(168, 176, 184, 0.3) 50%, #a8b0b8 100%);
+  --effect-border-gradient-focus: linear-gradient(to right, #00aaff 0%, rgba(0, 170, 255, 0.3) 50%, #00aaff 100%);
+
+  /* Shadow effects */
+  --effect-shadow-subtle: 0 2px 4px rgba(0, 0, 0, 0.1);
+  --effect-shadow-medium: 0 4px 8px rgba(0, 0, 0, 0.15);
+  --effect-shadow-strong: 0 8px 16px rgba(0, 0, 0, 0.2);
+
+  /* ===== THEME ASSETS ===== */
+  /* Used for: logos, icons, images that change per theme */
+
+  --asset-sidebar-logo: url('/artwork/Dashie_Full_Logo_White_Transparent.png');
+  --asset-icon-filter: invert(100%);         /* Filter to apply to sidebar icons */
+}
+
+/* ============================================================================
+   USAGE DOCUMENTATION
+   ============================================================================
+
+   INTERACTIVE ELEMENTS:
+   - Buttons: Use --color-interactive-primary or --surface-button
+   - Links: Use --color-interactive-primary
+   - Hover states: Use --surface-interactive as overlay
+   - Active states: Use --color-focus-ring
+
+   FOCUS & SELECTION:
+   - Keyboard focus: Use --color-focus-ring with --effect-glow-focus
+   - Grid navigation: Use --color-selection-border with --effect-glow-selection
+   - Selected items: Use --surface-selection-fill
+
+   SURFACES:
+   - Main background: Use --surface-base
+   - Widget/card background: Use --surface-raised
+   - Modal/dropdown: Use --surface-overlay
+   - Button background: Use --surface-button
+   - Interactive overlay: Use --surface-interactive
+
+   TEXT:
+   - Headings/labels: Use --text-emphasis-high
+   - Body text: Use --text-emphasis-medium
+   - Hints/timestamps: Use --text-emphasis-low
+   - Text on buttons: Use --text-on-interactive
+
+   BORDERS:
+   - General borders: Use --border-medium
+   - Subtle dividers: Use --border-subtle
+   - Focus borders: Use --border-focus
+   - Selection borders: Use --border-selection
+
+   STATES:
+   - Errors: Use --color-error
+   - Success: Use --color-success
+   - Warnings: Use --color-warning
+   - Info: Use --color-info
+
+   EFFECTS:
+   - Selection glow: Use --effect-glow-selection
+   - Focus glow: Use --effect-glow-focus
+   - Shadows: Use --effect-shadow-* variants
+
+   ============================================================================ */
+
+/* ============================================================================
+   BACKWARD COMPATIBILITY LAYER
+   This section will be removed after migration is complete
+   ============================================================================ */
+
+/* Uncomment these when ready to enable backward compatibility */
+/*
+:root {
+  --accent-blue: var(--color-interactive-primary);
+  --accent-orange: var(--color-interactive-secondary);
+  --accent-silver: var(--color-selection-border);
+  --accent-current-time: var(--color-time-current);
+
+  --bg-primary: var(--surface-base);
+  --bg-secondary: var(--surface-raised);
+  --bg-tertiary: var(--surface-overlay);
+  --bg-active: var(--surface-interactive);
+  --bg-button: var(--surface-button);
+  --bg-modal-backdrop: var(--surface-modal-backdrop);
+  --bg-primary-transparent: var(--surface-base-transparent);
+  --bg-primary-semi-transparent: var(--surface-base-semi-transparent);
+  --bg-menu-overlay: var(--surface-menu-overlay);
+  --bg-selected-fill: var(--surface-selection-fill);
+  --bg-widget-iframe: var(--surface-widget-iframe);
+  --bg-fallback-widget: var(--surface-fallback-widget);
+
+  --text-primary: var(--text-emphasis-high);
+  --text-secondary: var(--text-emphasis-medium);
+  --text-muted: var(--text-emphasis-low);
+
+  --outline-selected: var(--color-selection-border);
+  --outline-focused: var(--color-focus-ring);
+  --outline-color-nav: var(--color-navigation-highlight);
+
+  --glow-selected: var(--effect-glow-selection);
+  --glow-focused: var(--effect-glow-focus);
+  --glow-selected-legacy: var(--effect-glow-selection-legacy);
+
+  --widget-border-gradient: var(--effect-border-gradient-selection);
+  --widget-border-gradient-active: var(--effect-border-gradient-focus);
+
+  --grid-gap-color: var(--surface-grid-gap);
+
+  --sidebar-logo-src: var(--asset-sidebar-logo);
+  --sidebar-icon-filter: var(--asset-icon-filter);
+}
+*/
