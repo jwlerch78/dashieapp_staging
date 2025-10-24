@@ -112,7 +112,10 @@ class VoiceCommandRouter {
     logger.info('Processing voice command:', transcript);
 
     // Determine if this is a simple command we can handle locally
-    if (this._isSimpleCommand(transcript)) {
+    const isSimple = this._isSimpleCommand(transcript);
+    logger.debug('Command classification:', { transcript, isSimple });
+
+    if (isSimple) {
       this._handleLocalCommand(transcript);
     } else {
       // Complex command - send to AI (future implementation)
@@ -196,7 +199,15 @@ class VoiceCommandRouter {
 
     if (!newTheme) {
       logger.warn('Theme command detected but no specific theme identified', { lower });
-      this._speakError('I heard theme, but I\'m not sure which theme you want');
+      const errorMessage = 'I heard theme, but I\'m not sure which theme you want';
+
+      this._sendAIResponse(errorMessage, {
+        command: 'theme_change',
+        success: false,
+        error: 'Theme not specified'
+      });
+
+      this._speakError(errorMessage);
       return;
     }
 
@@ -204,8 +215,9 @@ class VoiceCommandRouter {
     const currentTheme = window.themeApplier?.getCurrentTheme();
     if (currentTheme === newTheme) {
       logger.info('Theme already set to:', newTheme);
-      this._speakConfirmation(`Theme is already set to ${newTheme} mode`);
-      this._emitCommandExecuted('theme_change', `Theme already ${newTheme}`, { theme: newTheme });
+      const message = `Theme is already set to ${newTheme} mode`;
+      this._speakConfirmation(message);
+      this._emitCommandExecuted('theme_change', message, { theme: newTheme });
       return;
     }
 
@@ -223,16 +235,28 @@ class VoiceCommandRouter {
         throw new Error('No theme service available');
       }
 
-      // Emit success event
-      this._emitCommandExecuted('theme_change', `Theme changed to ${newTheme}`, { theme: newTheme });
+      // Create consistent response message
+      const message = `Theme changed to ${newTheme} mode`;
 
-      // Speak confirmation
-      this._speakConfirmation(`Theme changed to ${newTheme} mode`);
+      // Emit success event
+      this._emitCommandExecuted('theme_change', message, { theme: newTheme });
+
+      // Speak confirmation (same message)
+      this._speakConfirmation(message);
 
       logger.success('Theme changed successfully', { theme: newTheme });
     } catch (error) {
       logger.error('Failed to change theme:', error);
-      this._speakError('Sorry, I couldn\'t change the theme');
+      const errorMessage = 'Sorry, I couldn\'t change the theme';
+      this._speakError(errorMessage);
+
+      // Send error to AI widget too
+      this._sendAIResponse(errorMessage, {
+        command: 'theme_change',
+        success: false,
+        error: error.message
+      });
+
       AppComms.emit('VOICE_ERROR', { message: 'Failed to change theme' });
     }
   }
@@ -252,18 +276,17 @@ class VoiceCommandRouter {
     // const response = await ClaudeAPIService.processCommand(transcript);
     // this._executeAIAction(response);
 
-    // For now, send a response to the AI widget indicating we don't understand
-    this._sendAIResponse(
-      'I didn\'t understand that command. Currently, I only support simple commands like "dark mode" or "light mode". AI integration is coming soon!',
-      {
-        command: 'unknown',
-        success: false,
-        transcript
-      }
-    );
+    // Consistent error message for both voice and text
+    const errorMessage = 'I didn\'t understand that command';
 
-    // Speak error message
-    this._speakError('I didn\'t understand that command');
+    this._sendAIResponse(errorMessage, {
+      command: 'unknown',
+      success: false,
+      transcript
+    });
+
+    // Speak same message
+    this._speakError(errorMessage);
   }
 
   /**

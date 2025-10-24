@@ -150,14 +150,17 @@ function addMessage(messageData) {
   const messageEl = createMessageElement(message);
   messagesContainer.appendChild(messageEl);
 
-  // Auto-scroll to bottom
-  scrollToBottom();
-
   console.log('[AIResponseWidget] Message added', {
     messageId,
     sender,
-    totalMessages: messages.length
+    totalMessages: messages.length,
+    scrollHeight: messagesContainer.scrollHeight,
+    clientHeight: messagesContainer.clientHeight,
+    shouldScroll: messagesContainer.scrollHeight > messagesContainer.clientHeight
   });
+
+  // Auto-scroll to bottom
+  scrollToBottom();
 }
 
 /**
@@ -180,7 +183,29 @@ function createMessageElement(message) {
   // Create avatar
   const avatar = document.createElement('div');
   avatar.className = 'chat-message__avatar';
-  avatar.textContent = getAvatarEmoji(sender);
+
+  // Use images for user and AI avatars
+  if (sender === 'user') {
+    // Try to get user profile pic from session/settings
+    const userPhoto = getUserProfilePic();
+    if (userPhoto) {
+      const img = document.createElement('img');
+      img.src = userPhoto;
+      img.alt = 'User';
+      avatar.appendChild(img);
+    } else {
+      avatar.textContent = '👤';
+    }
+  } else if (sender === 'ai') {
+    // Use Dashie logo
+    const img = document.createElement('img');
+    img.src = '/artwork/Dashie_Logo_Orange_Transparent.png';
+    img.alt = 'Dashie';
+    avatar.appendChild(img);
+  } else {
+    // System messages - use emoji
+    avatar.textContent = getAvatarEmoji(sender);
+  }
 
   // Create bubble
   const bubble = document.createElement('div');
@@ -222,7 +247,36 @@ function createMessageElement(message) {
 }
 
 /**
- * Get avatar emoji for sender type
+ * Get user profile picture from session
+ * @returns {string|null} Profile picture URL or null
+ */
+function getUserProfilePic() {
+  try {
+    // Try to get from window (set by session manager)
+    if (window.parent && window.parent.sessionManager) {
+      const session = window.parent.sessionManager.getSession();
+      if (session && session.user && session.user.picture) {
+        return session.user.picture;
+      }
+    }
+
+    // Fallback: try to get from appStateManager
+    if (window.parent && window.parent.appStateManager) {
+      const state = window.parent.appStateManager.getState();
+      if (state && state.user && state.user.picture) {
+        return state.user.picture;
+      }
+    }
+
+    return null;
+  } catch (error) {
+    console.warn('[AIResponseWidget] Could not get user profile pic:', error);
+    return null;
+  }
+}
+
+/**
+ * Get avatar emoji for sender type (fallback)
  * @param {string} sender - Sender type
  * @returns {string}
  */
@@ -305,8 +359,14 @@ function handleClearClick() {
  * Scroll messages container to bottom
  */
 function scrollToBottom() {
+  // Use multiple attempts to ensure scroll happens
   requestAnimationFrame(() => {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Double-check after a short delay (for layout to settle)
+    setTimeout(() => {
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }, 50);
   });
 }
 

@@ -444,7 +444,13 @@ export const AVAILABLE_VOICES = {
  */
 export const VOICE_CONFIG = {
   // TTS Provider: 'elevenlabs' or 'openai'
-  provider: 'elevenlabs',
+  ttsProvider: 'elevenlabs',
+
+  // STT Provider: 'deepgram', 'whisper', or 'native'
+  // - 'deepgram': Deepgram Nova-3 (FASTEST - ~200ms, 96.7% accuracy, recommended)
+  // - 'whisper': OpenAI Whisper API (SLOW - ~6-7s, good accuracy)
+  // - 'native': Platform native (Web Speech API on PC, Android STT on Fire TV)
+  sttProvider: 'deepgram',
 
   // Default voice (change this to switch voices)
   defaultVoice: AVAILABLE_VOICES.BELLA,
@@ -460,11 +466,24 @@ export const VOICE_CONFIG = {
     }
   },
 
-  // OpenAI settings (fallback)
+  // Deepgram settings (STT)
+  deepgram: {
+    model: 'nova-3',            // Nova-3 (fastest, most accurate as of 2025)
+    language: 'en',             // Language code (en, es, fr, etc.)
+    smartFormat: true,          // Auto punctuation and formatting
+    punctuate: true             // Add punctuation
+  },
+
+  // OpenAI settings (TTS + STT)
   openai: {
-    model: 'tts-1',             // 'tts-1' (fast) or 'tts-1-hd' (quality)
+    // TTS settings
+    ttsModel: 'tts-1',          // 'tts-1' (fast) or 'tts-1-hd' (quality)
     voice: 'nova',              // alloy, echo, fable, onyx, nova, shimmer
-    speed: 1.0                  // 0.25 - 4.0
+    speed: 1.0,                 // 0.25 - 4.0
+
+    // STT settings (Whisper)
+    sttModel: 'whisper-1',      // Whisper model
+    language: 'en'              // Language code (en, es, fr, etc.)
   }
 };
 

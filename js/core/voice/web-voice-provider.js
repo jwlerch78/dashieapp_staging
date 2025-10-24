@@ -23,13 +23,21 @@ export class WebVoiceProvider {
     this.isCurrentlySpeaking = false;
     this.currentAudio = null;  // Track current TTS audio playback
 
+    // Audio recording for Whisper STT
+    this.mediaRecorder = null;
+    this.audioChunks = [];
+    this.audioStream = null;
+
     // Pre-build TTS endpoint URLs (cache for performance)
     this.openaiTtsUrl = `${SUPABASE_CONFIG.url}/functions/v1/openai-tts`;
     this.elevenlabsTtsUrl = `${SUPABASE_CONFIG.url}/functions/v1/elevenlabs-tts`;
 
     // Load voice settings from config
-    this.ttsProvider = VOICE_CONFIG.provider; // 'elevenlabs' or 'openai'
+    this.ttsProvider = VOICE_CONFIG.ttsProvider; // 'elevenlabs' or 'openai'
+    this.sttProvider = VOICE_CONFIG.sttProvider; // 'deepgram', 'whisper', or 'native'
     this.ttsUrl = this.ttsProvider === 'elevenlabs' ? this.elevenlabsTtsUrl : this.openaiTtsUrl;
+    this.whisperUrl = `${SUPABASE_CONFIG.url}/functions/v1/whisper-stt`;
+    this.deepgramUrl = `${SUPABASE_CONFIG.url}/functions/v1/deepgram-stt`;
 
     // Voice settings (from config.js - can be overridden by user settings later)
     this.voiceConfig = VOICE_CONFIG;
@@ -140,15 +148,21 @@ export class WebVoiceProvider {
   /**
    * Start listening for voice input
    */
-  startListening() {
+  async startListening() {
     if (this.isCurrentlyListening) {
       logger.warn('Already listening');
       return;
     }
 
     try {
-      logger.info('Starting speech recognition');
-      this.recognition.start();
+      // Use cloud STT (Deepgram/Whisper) or native Web Speech API based on config
+      if (this.sttProvider === 'deepgram' || this.sttProvider === 'whisper') {
+        logger.info(`Starting audio recording for ${this.sttProvider.toUpperCase()} STT`);
+        await this._startCloudRecording();
+      } else {
+        logger.info('Starting Web Speech API recognition');
+        this.recognition.start();
+      }
     } catch (error) {
       logger.error('Error starting recognition:', error);
       AppComms.emit('VOICE_ERROR', { message: 'Failed to start listening', error: error.message });
@@ -158,15 +172,20 @@ export class WebVoiceProvider {
   /**
    * Stop listening and return current transcript
    */
-  stopListening() {
+  async stopListening() {
     if (!this.isCurrentlyListening) {
       logger.warn('Not currently listening');
       return;
     }
 
     try {
-      logger.info('Stopping speech recognition');
-      this.recognition.stop();
+      if (this.sttProvider === 'deepgram' || this.sttProvider === 'whisper') {
+        logger.info(`Stopping audio recording and transcribing with ${this.sttProvider.toUpperCase()}`);
+        await this._stopCloudRecording();
+      } else {
+        logger.info('Stopping Web Speech API recognition');
+        this.recognition.stop();
+      }
     } catch (error) {
       logger.error('Error stopping recognition:', error);
     }
@@ -395,6 +414,265 @@ export class WebVoiceProvider {
       this.synthesis.speak(utterance);
     } catch (error) {
       logger.error('Error with Web Speech API fallback:', error);
+    }
+  }
+
+  /**
+   * Start recording audio for cloud STT (Deepgram or Whisper)
+   * @private
+   */
+  async _startCloudRecording() {
+    try {
+      // Request microphone access
+      this.audioStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,  // Mono
+          sampleRate: 16000 // 16kHz for good quality + smaller size
+        }
+      });
+
+      // Clear previous chunks
+      this.audioChunks = [];
+
+      // Try different MIME types that OpenAI supports
+      let mimeType = 'audio/webm;codecs=opus'; // Default
+      const supportedTypes = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/ogg;codecs=opus',
+        'audio/mp4',
+        'audio/wav'
+      ];
+
+      // Find first supported MIME type
+      for (const type of supportedTypes) {
+        if (MediaRecorder.isTypeSupported(type)) {
+          mimeType = type;
+          logger.info(`Using MIME type: ${type}`);
+          break;
+        }
+      }
+
+      // Create MediaRecorder
+      this.mediaRecorder = new MediaRecorder(this.audioStream, { mimeType });
+
+      // Store MIME type for later use
+      this.recordingMimeType = mimeType;
+
+      // Collect audio data
+      this.mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          this.audioChunks.push(event.data);
+        }
+      };
+
+      // Start recording
+      this.mediaRecorder.start();
+      this.isCurrentlyListening = true;
+
+      logger.info('Audio recording started');
+      AppComms.emit('VOICE_LISTENING_STARTED');
+
+    } catch (error) {
+      logger.error('Failed to start audio recording:', error);
+      this.isCurrentlyListening = false;
+      AppComms.emit('VOICE_ERROR', { message: 'Microphone access denied or not available' });
+      throw error;
+    }
+  }
+
+  /**
+   * Stop recording and transcribe with cloud STT (Deepgram or Whisper)
+   * @private
+   */
+  async _stopCloudRecording() {
+    if (!this.mediaRecorder || this.mediaRecorder.state === 'inactive') {
+      logger.warn('No active recording to stop');
+      return;
+    }
+
+    return new Promise((resolve, reject) => {
+      // Handle recording stopped
+      this.mediaRecorder.onstop = async () => {
+        try {
+          this.isCurrentlyListening = false;
+          AppComms.emit('VOICE_LISTENING_STOPPED');
+
+          // Create audio blob from chunks using the recorded MIME type
+          const audioBlob = new Blob(this.audioChunks, { type: this.recordingMimeType || 'audio/webm' });
+          logger.info(`Audio recorded: ${audioBlob.size} bytes, type: ${audioBlob.type}`);
+
+          // Stop and release microphone
+          if (this.audioStream) {
+            this.audioStream.getTracks().forEach(track => track.stop());
+            this.audioStream = null;
+          }
+
+          // Transcribe with cloud STT provider
+          const transcript = await this._transcribeWithCloudSTT(audioBlob);
+
+          if (transcript) {
+            logger.success(`Transcribed: "${transcript}"`);
+            AppComms.emit('VOICE_TRANSCRIPT_RECEIVED', transcript);
+          }
+
+          resolve();
+        } catch (error) {
+          logger.error('Error processing recording:', error);
+          AppComms.emit('VOICE_ERROR', { message: 'Transcription failed' });
+          reject(error);
+        }
+      };
+
+      // Stop recording
+      this.mediaRecorder.stop();
+    });
+  }
+
+  /**
+   * Convert audio blob to WAV format using Web Audio API
+   * WAV is universally supported by OpenAI Whisper
+   * @private
+   */
+  async _convertToWav(audioBlob) {
+    try {
+      logger.info('Converting audio to WAV format...');
+
+      // Create audio context
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+      // Read blob as array buffer
+      const arrayBuffer = await audioBlob.arrayBuffer();
+
+      // Decode audio data
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+      // Get audio data from first channel (mono)
+      const channelData = audioBuffer.getChannelData(0);
+      const sampleRate = audioBuffer.sampleRate;
+
+      logger.info(`Audio decoded: ${channelData.length} samples at ${sampleRate}Hz`);
+
+      // Create WAV file
+      const wavBuffer = this._encodeWAV(channelData, sampleRate);
+      const wavBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+
+      logger.info(`WAV created: ${wavBlob.size} bytes`);
+
+      // Close audio context
+      await audioContext.close();
+
+      return wavBlob;
+
+    } catch (error) {
+      logger.error('Failed to convert to WAV:', error);
+      // Return original blob as fallback
+      return audioBlob;
+    }
+  }
+
+  /**
+   * Encode audio data as WAV format
+   * @private
+   */
+  _encodeWAV(samples, sampleRate) {
+    const buffer = new ArrayBuffer(44 + samples.length * 2);
+    const view = new DataView(buffer);
+
+    // Write WAV header
+    const writeString = (offset, string) => {
+      for (let i = 0; i < string.length; i++) {
+        view.setUint8(offset + i, string.charCodeAt(i));
+      }
+    };
+
+    writeString(0, 'RIFF');
+    view.setUint32(4, 36 + samples.length * 2, true);
+    writeString(8, 'WAVE');
+    writeString(12, 'fmt ');
+    view.setUint32(16, 16, true);
+    view.setUint16(20, 1, true); // PCM format
+    view.setUint16(22, 1, true); // Mono
+    view.setUint32(24, sampleRate, true);
+    view.setUint32(28, sampleRate * 2, true);
+    view.setUint16(32, 2, true);
+    view.setUint16(34, 16, true); // 16-bit
+    writeString(36, 'data');
+    view.setUint32(40, samples.length * 2, true);
+
+    // Write audio samples as 16-bit PCM
+    const offset = 44;
+    for (let i = 0; i < samples.length; i++) {
+      const sample = Math.max(-1, Math.min(1, samples[i]));
+      view.setInt16(offset + i * 2, sample < 0 ? sample * 0x8000 : sample * 0x7FFF, true);
+    }
+
+    return buffer;
+  }
+
+  /**
+   * Send audio to cloud STT API for transcription (Deepgram or Whisper)
+   * @private
+   */
+  async _transcribeWithCloudSTT(audioBlob) {
+    const perfStart = performance.now();
+
+    try {
+      const providerName = this.sttProvider.toUpperCase();
+      logger.info(`Sending audio to ${providerName} API...`);
+
+      // Deepgram can handle WebM/WAV directly, Whisper needs WAV
+      let audioToSend = audioBlob;
+      if (this.sttProvider === 'whisper') {
+        // Convert to WAV for guaranteed OpenAI compatibility
+        const convertStart = performance.now();
+        audioToSend = await this._convertToWav(audioBlob);
+        const convertEnd = performance.now();
+        logger.info(`⏱️  Audio conversion took ${Math.round(convertEnd - convertStart)}ms`);
+      }
+
+      const formData = new FormData();
+      formData.append('audio', audioToSend, this.sttProvider === 'whisper' ? 'recording.wav' : 'recording.webm');
+      formData.append('language', this.voiceConfig.deepgram?.language || this.voiceConfig.openai?.language || 'en');
+
+      // Select API endpoint based on provider
+      const apiUrl = this.sttProvider === 'deepgram' ? this.deepgramUrl : this.whisperUrl;
+
+      // Call STT edge function
+      const fetchStart = performance.now();
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_CONFIG.anonKey,
+          'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+        },
+        body: formData
+      });
+
+      const fetchEnd = performance.now();
+      const apiTime = Math.round(fetchEnd - fetchStart);
+      logger.info(`⏱️  ${providerName} API took ${apiTime}ms`);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(`${providerName} API error: ${response.status} - ${error.error || 'Unknown'}`);
+      }
+
+      const result = await response.json();
+      const totalTime = performance.now() - perfStart;
+
+      // Log confidence if available (Deepgram provides this)
+      if (result.confidence) {
+        logger.info(`⏱️  Total transcription: ${Math.round(totalTime)}ms (confidence: ${(result.confidence * 100).toFixed(1)}%)`);
+      } else {
+        logger.info(`⏱️  Total transcription time: ${Math.round(totalTime)}ms`);
+      }
+
+      return result.transcript;
+
+    } catch (error) {
+      logger.error(`${this.sttProvider.toUpperCase()} transcription failed:`, error);
+      throw error;
     }
   }
 

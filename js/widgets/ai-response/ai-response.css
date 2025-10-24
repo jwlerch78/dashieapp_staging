@@ -9,13 +9,15 @@
   box-sizing: border-box;
 }
 
-body {
+html, body {
   font-family: var(--font-family-primary, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
   background: transparent;
   color: var(--text-primary);
   overflow: hidden;
   width: 100%;
   height: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 /* Main Widget Container */
@@ -27,18 +29,22 @@ body {
   padding: 20px;
   background: var(--widget-bg, var(--bg-primary));
   border-radius: var(--border-radius-lg, 12px);
+  overflow: hidden; /* Force child to respect height */
 }
 
 /* Messages Container (scrollable) */
 .ai-response__messages {
-  flex: 1;
+  flex: 1 1 auto;
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   padding-bottom: 12px;
+  padding-right: 8px;
   scroll-behavior: smooth;
+  min-height: 0; /* Allow flex shrinking */
+  max-height: 100%; /* Ensure it doesn't exceed parent */
 }
 
 /* Scrollbar Styling */
@@ -87,7 +93,7 @@ body {
 /* Chat Message */
 .chat-message {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   max-width: 85%;
   animation: messageSlideIn 0.3s ease-out;
 }
@@ -123,23 +129,32 @@ body {
 
 /* Avatar */
 .chat-message__avatar {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 18px;
+  font-size: 16px;
   flex-shrink: 0;
   background: var(--bg-tertiary, rgba(255, 255, 255, 0.1));
+  overflow: hidden;
+}
+
+.chat-message__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .chat-message--user .chat-message__avatar {
-  background: var(--accent-color, #4CAF50);
+  background: var(--bg-active, var(--bg-tertiary, rgba(255, 255, 255, 0.1)));
+  border: 2px solid var(--bg-active, var(--accent-color, #4CAF50));
 }
 
 .chat-message--ai .chat-message__avatar {
-  background: var(--bg-tertiary, rgba(255, 255, 255, 0.1));
+  background: transparent;
+  padding: 2px;
 }
 
 .chat-message--system .chat-message__avatar {
@@ -149,9 +164,9 @@ body {
 /* Message Bubble */
 .chat-message__bubble {
   flex: 1;
-  padding: 12px 16px;
+  padding: 8px 12px;
   border-radius: var(--border-radius-md, 8px);
-  background: var(--bg-secondary, rgba(255, 255, 255, 0.05));
+  background: var(--bg-active, var(--bg-secondary, rgba(255, 255, 255, 0.05)));
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
   word-wrap: break-word;
   overflow-wrap: break-word;
@@ -159,14 +174,14 @@ body {
 
 /* User message bubble */
 .chat-message--user .chat-message__bubble {
-  background: var(--accent-color, #4CAF50);
-  border-color: var(--accent-color, #4CAF50);
-  color: white;
+  background: var(--bg-active, var(--accent-color, #4CAF50));
+  border-color: var(--bg-active, var(--accent-color, #4CAF50));
+  color: var(--text-primary);
 }
 
 /* AI message bubble */
 .chat-message--ai .chat-message__bubble {
-  background: var(--bg-secondary, rgba(255, 255, 255, 0.05));
+  background: var(--bg-active, var(--bg-secondary, rgba(255, 255, 255, 0.05)));
   border-color: var(--border-color, rgba(255, 255, 255, 0.1));
 }
 
@@ -182,18 +197,18 @@ body {
 
 /* Message Content */
 .chat-message__content {
-  font-size: 14px;
-  line-height: 1.5;
+  font-size: 13px;
+  line-height: 1.4;
   margin: 0;
   white-space: pre-wrap;
 }
 
 /* Timestamp */
 .chat-message__timestamp {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--text-secondary);
   opacity: 0.7;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
 .chat-message--user .chat-message__timestamp {

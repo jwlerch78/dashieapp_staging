@@ -180,6 +180,16 @@ function handleVoiceEvent(event) {
       showError(event.data.message);
       break;
 
+    case 'VOICE_COMMAND_SENT_TO_AI':
+      // Command was sent to AI (unrecognized) - return to idle after brief delay
+      setTimeout(() => {
+        if (state === 'processing') {
+          setState('idle');
+          transcriptText.textContent = '';
+        }
+      }, 1500);
+      break;
+
     case 'VOICE_WAKE_WORD_DETECTED':
       // Android only - visual feedback when wake word detected
       setState('listening');
@@ -338,6 +348,14 @@ function handleSendClick() {
   setState('processing');
   transcriptText.textContent = message;
   textInput.value = ''; // Clear input
+
+  // Return to idle after a short delay (so user sees the message was sent)
+  setTimeout(() => {
+    if (state === 'processing') {
+      setState('idle');
+      transcriptText.textContent = '';
+    }
+  }, 1000);
 
   console.log('[VoiceWidget] Text message sent', { messageId, message });
 }

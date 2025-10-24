@@ -41,6 +41,9 @@ export class SettingsDisplayPage extends SettingsPageBase {
      */
     render() {
         const currentTheme = this.getCurrentTheme();
+        const parsed = parseThemeId(currentTheme) || { family: DEFAULT_THEME_FAMILY, mode: DEFAULT_THEME_MODE };
+        const isDarkMode = parsed.mode === 'dark';
+
         const sleepTime = this.getSleepTime();
         const wakeTime = this.getWakeTime();
         const dynamicGreeting = this.getDynamicGreeting();
@@ -63,6 +66,17 @@ export class SettingsDisplayPage extends SettingsPageBase {
                          tabindex="0">
                         <span class="settings-modal__menu-label">Manage Themes</span>
                         <span class="settings-modal__cell-chevron">›</span>
+                    </div>
+
+                    <!-- Light/Dark Mode Toggle -->
+                    <div class="settings-modal__menu-item settings-modal__menu-item--toggle"
+                         role="button"
+                         tabindex="0">
+                        <span class="settings-modal__menu-label">Dark Mode</span>
+                        <label class="settings-modal__toggle-switch">
+                            <input type="checkbox" ${isDarkMode ? 'checked' : ''} id="theme-mode-toggle" data-setting="interface.themeMode">
+                            <span class="settings-modal__toggle-slider"></span>
+                        </label>
                     </div>
                 </div>
 
@@ -149,17 +163,6 @@ export class SettingsDisplayPage extends SettingsPageBase {
                         <span class="settings-modal__menu-label">Theme</span>
                         <span class="settings-modal__cell-value" id="theme-family-display">${themeFamilyDisplay}</span>
                         <span class="settings-modal__cell-chevron">›</span>
-                    </div>
-
-                    <!-- Light/Dark Mode Toggle -->
-                    <div class="settings-modal__menu-item settings-modal__menu-item--toggle"
-                         role="button"
-                         tabindex="0">
-                        <span class="settings-modal__menu-label">Dark Mode</span>
-                        <label class="settings-modal__toggle-switch">
-                            <input type="checkbox" ${isDarkMode ? 'checked' : ''} id="theme-mode-toggle" data-setting="interface.themeMode">
-                            <span class="settings-modal__toggle-slider"></span>
-                        </label>
                     </div>
                 </div>
 

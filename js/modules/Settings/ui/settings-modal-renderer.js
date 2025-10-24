@@ -9,6 +9,7 @@ import { SettingsPhotosPage } from '../pages/settings-photos-page.js';
 import { SettingsSystemPage } from '../pages/settings-system-page.js';
 import { SettingsAccountPage } from '../pages/settings-account-page.js';
 import { SettingsDeveloperPage } from '../pages/settings-developer-page.js';
+import { SettingsVoicePage } from '../pages/settings-voice-page.js';
 
 const logger = createLogger('SettingsModalRenderer');
 
@@ -25,6 +26,7 @@ export class SettingsModalRenderer {
         this.pages = {
             family: new SettingsFamilyPage(),
             display: new SettingsDisplayPage(),
+            voice: new SettingsVoicePage(),
             calendar: new SettingsCalendarPage(),
             photos: new SettingsPhotosPage(),
             system: new SettingsSystemPage(),
@@ -36,6 +38,7 @@ export class SettingsModalRenderer {
         this.menuItems = [
             { id: 'family', icon: '👨‍👩‍👧‍👦', label: 'Family' },
             { id: 'display', icon: '🎨', label: 'Display' },
+            { id: 'voice', icon: '🎤', label: 'Voice' },
             { id: 'calendar', icon: '📅', label: 'Calendar' },
             { id: 'photos', icon: '📸', label: 'Photos' },
             { id: 'system', icon: '⚙️', label: 'System' },
@@ -157,6 +160,11 @@ export class SettingsModalRenderer {
                 html += this.buildDisplaySubScreens();
             }
 
+            // Add sub-screens for Voice page
+            if (pageId === 'voice') {
+                html += this.buildVoiceSubScreens();
+            }
+
             // Add sub-screens for Calendar page
             if (pageId === 'calendar') {
                 html += this.buildCalendarSubScreens();
@@ -224,6 +232,21 @@ export class SettingsModalRenderer {
             <!-- Wake Timer - Period Selection -->
             <div class="settings-modal__screen" data-screen="display-wake-time-period" data-title="Wake Timer" data-parent="display">
                 ${displayPage.renderWakeTimePeriodScreen()}
+            </div>
+        `;
+    }
+
+    /**
+     * Build Voice page sub-screens
+     * @returns {string} - HTML string
+     */
+    buildVoiceSubScreens() {
+        const voicePage = this.pages.voice;
+
+        return `
+            <!-- Voice Selection -->
+            <div class="settings-modal__screen" data-screen="voice-select" data-title="Select Voice" data-parent="voice">
+                ${voicePage.renderVoiceSelectionScreen()}
             </div>
         `;
     }
@@ -370,6 +393,23 @@ export class SettingsModalRenderer {
                     }
                 }
 
+                // Reset selection when navigating to Voice sub-screens
+                if (screenId.startsWith('voice-') && direction === 'forward') {
+                    // Find the checked/current item and start selection there
+                    const checkedItem = screen.querySelector('.settings-modal__menu-item--checked');
+                    if (checkedItem) {
+                        const allItems = Array.from(screen.querySelectorAll('.settings-modal__menu-item'));
+                        const checkedIndex = allItems.indexOf(checkedItem);
+                        if (checkedIndex !== -1) {
+                            this.stateManager.setSelectedIndex(checkedIndex);
+                        } else {
+                            this.stateManager.setSelectedIndex(0);
+                        }
+                    } else {
+                        this.stateManager.setSelectedIndex(0);
+                    }
+                }
+
                 // Handle Calendar sub-screens
                 if (screenId.startsWith('calendar-') && direction === 'forward') {
                     // Load calendar data when entering calendar-select
@@ -504,8 +544,8 @@ export class SettingsModalRenderer {
                 menuItems[selectedIndex].classList.add('settings-modal__menu-item--selected');
                 selectedElement = menuItems[selectedIndex];
             }
-        } else if (currentPage.startsWith('display-')) {
-            // Display sub-screens: query the active screen directly
+        } else if (currentPage.startsWith('display-') || currentPage.startsWith('voice-')) {
+            // Display and Voice sub-screens: query the active screen directly
             const activeScreen = this.modalElement.querySelector(`[data-screen="${currentPage}"].settings-modal__screen--active`);
             if (activeScreen) {
                 const menuItems = activeScreen.querySelectorAll('.settings-modal__menu-item');
@@ -629,7 +669,7 @@ export class SettingsModalRenderer {
 
         if (currentPage === 'main') {
             return Array.from(this.modalElement.querySelectorAll('[data-screen="main"] .settings-modal__menu-item'));
-        } else if (currentPage.startsWith('display-') || currentPage.startsWith('calendar-') || currentPage.startsWith('account-')) {
+        } else if (currentPage.startsWith('display-') || currentPage.startsWith('voice-') || currentPage.startsWith('calendar-') || currentPage.startsWith('account-')) {
             // Sub-screens: query the active screen directly
             const activeScreen = this.modalElement.querySelector(`[data-screen="${currentPage}"].settings-modal__screen--active`);
             if (activeScreen) {

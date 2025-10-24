@@ -1,17 +1,23 @@
 /**
- * AndroidVoiceProvider - DashieNative bridge implementation
+ * AndroidVoiceProvider - Android voice implementation with cloud TTS
  *
- * Wraps Android native voice functionality:
- * - Text-to-Speech (TTS)
- * - Speech Recognition
+ * Voice functionality:
+ * - Cloud TTS (ElevenLabs/OpenAI via Supabase Edge Functions)
+ * - Fallback to native Android TTS if cloud fails
+ * - Speech Recognition (Android native)
  * - Wake Word Detection (Porcupine)
  *
  * Events from Android are received via window.onDashieVoiceEvent()
  * and translated to AppComms events.
+ *
+ * TTS: Uses same cloud implementation as WebVoiceProvider for consistent
+ * voice quality across all platforms. Settings are loaded from config.js.
  */
 
 import { createLogger } from '../../utils/logger.js';
 import AppComms from '../app-comms.js';
+import { SUPABASE_CONFIG } from '../../data/auth/auth-config.js';
+import { VOICE_CONFIG } from '../../../config.js';
 
 const logger = createLogger('AndroidVoiceProvider');
 
@@ -21,6 +27,22 @@ export class AndroidVoiceProvider {
     this.isCurrentlySpeaking = false;
     this.wakeWordActive = false;
     this.originalVoiceEventHandler = null;
+    this.currentAudio = null; // Track current TTS audio playback
+
+    // Pre-build TTS endpoint URLs (same as WebVoiceProvider)
+    this.openaiTtsUrl = `${SUPABASE_CONFIG.url}/functions/v1/openai-tts`;
+    this.elevenlabsTtsUrl = `${SUPABASE_CONFIG.url}/functions/v1/elevenlabs-tts`;
+
+    // Load voice settings from config
+    this.ttsProvider = VOICE_CONFIG.provider;
+    this.ttsUrl = this.ttsProvider === 'elevenlabs' ? this.elevenlabsTtsUrl : this.openaiTtsUrl;
+
+    // Voice settings (from config.js - can be overridden by user settings later)
+    this.voiceConfig = VOICE_CONFIG;
+
+    // Client-side audio cache for instant playback of repeated phrases
+    this.audioCache = new Map();
+    this.maxCacheSize = 50;
   }
 
   /**
@@ -180,23 +202,187 @@ export class AndroidVoiceProvider {
   }
 
   /**
-   * Speak text using Android TTS
+   * Speak text using cloud TTS (ElevenLabs or OpenAI)
    * @param {string} text - Text to speak
    */
-  speak(text) {
+  async speak(text) {
+    const perfStart = performance.now();
+
     try {
-      logger.info('Speaking via Android TTS:', text);
+      logger.info(`Calling ${this.ttsProvider} TTS for:`, text);
+
+      // Check client-side cache first
+      const cacheKey = `${this.ttsProvider}_${text}`;
+      const cachedBlob = this.audioCache.get(cacheKey);
+
+      if (cachedBlob) {
+        logger.success('🎯 Client cache HIT - instant playback!');
+        await this._playAudio(cachedBlob, text);
+        return;
+      }
+
+      // Build request body based on provider (same as WebVoiceProvider)
+      let requestBody;
+      if (this.ttsProvider === 'elevenlabs') {
+        requestBody = {
+          text: text,
+          voice_id: this.voiceConfig.defaultVoice.id,
+          model_id: this.voiceConfig.elevenlabs.model
+        };
+      } else {
+        requestBody = {
+          text: text,
+          voice: this.voiceConfig.openai.voice,
+          speed: this.voiceConfig.openai.speed
+        };
+      }
+
+      // Call Supabase Edge Function
+      const fetchStart = performance.now();
+      const response = await fetch(this.ttsUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_CONFIG.anonKey,
+          'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      const fetchEnd = performance.now();
+      logger.info(`⏱️  API fetch took ${Math.round(fetchEnd - fetchStart)}ms`);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(`TTS API error: ${response.status} - ${error.error || 'Unknown'}`);
+      }
+
+      // Get MP3 audio blob
+      const blobStart = performance.now();
+      const audioBlob = await response.blob();
+      const blobEnd = performance.now();
+      logger.info(`⏱️  Blob creation took ${Math.round(blobEnd - blobStart)}ms`);
+
+      // Cache the blob for future use (common phrases only)
+      if (text.length < 100) {
+        if (this.audioCache.size >= this.maxCacheSize) {
+          const firstKey = this.audioCache.keys().next().value;
+          this.audioCache.delete(firstKey);
+        }
+        this.audioCache.set(cacheKey, audioBlob);
+        logger.info(`💾 Cached audio for: "${text.substring(0, 30)}..."`);
+      }
+
+      const totalTime = performance.now() - perfStart;
+      logger.info(`TTS ready to play in ${Math.round(totalTime)}ms`);
+
+      // Play the audio
+      await this._playAudio(audioBlob, text);
+
+    } catch (error) {
+      logger.error('Error speaking text:', error);
+      this.isCurrentlySpeaking = false;
+
+      // Fallback to native Android TTS if cloud fails
+      logger.warn('Falling back to native Android TTS');
+      this._speakWithNativeTTS(text);
+    }
+  }
+
+  /**
+   * Play audio from blob
+   * @private
+   */
+  async _playAudio(audioBlob, text) {
+    const audioUrl = URL.createObjectURL(audioBlob);
+
+    // Stop any currently playing audio
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      this.currentAudio = null;
+    }
+
+    // Play audio
+    const audio = new Audio(audioUrl);
+    this.currentAudio = audio;
+
+    audio.onplay = () => {
+      logger.info('TTS started:', text);
+      this.isCurrentlySpeaking = true;
+    };
+
+    audio.onended = () => {
+      logger.info('TTS ended');
+      this.isCurrentlySpeaking = false;
+      URL.revokeObjectURL(audioUrl);
+      this.currentAudio = null;
+    };
+
+    audio.onerror = (event) => {
+      logger.error('Audio playback error:', event);
+      this.isCurrentlySpeaking = false;
+      URL.revokeObjectURL(audioUrl);
+      this.currentAudio = null;
+    };
+
+    await audio.play();
+  }
+
+  /**
+   * Fallback TTS using native Android TTS
+   * @private
+   */
+  _speakWithNativeTTS(text) {
+    try {
+      if (typeof window.DashieNative === 'undefined') {
+        logger.error('DashieNative bridge not available for fallback TTS');
+        return;
+      }
+
+      logger.info('Speaking via native Android TTS:', text);
       window.DashieNative.speak(text);
       this.isCurrentlySpeaking = true;
 
-      // Note: Android doesn't send TTS completion events currently
-      // We'll assume speaking is done after a timeout
+      // Android doesn't send TTS completion events
       setTimeout(() => {
         this.isCurrentlySpeaking = false;
-      }, text.length * 100); // Rough estimate
+      }, text.length * 100);
     } catch (error) {
-      logger.error('Error speaking via Android:', error);
+      logger.error('Error with native Android TTS:', error);
     }
+  }
+
+  /**
+   * Set voice settings (for user preferences from settings UI)
+   * @param {Object} voiceSettings - Voice configuration object
+   */
+  setVoiceSettings(voiceSettings) {
+    if (voiceSettings.voice) {
+      this.voiceConfig.defaultVoice = voiceSettings.voice;
+      logger.info(`Voice changed to: ${voiceSettings.voice.name}`);
+    }
+
+    if (voiceSettings.provider) {
+      this.ttsProvider = voiceSettings.provider;
+      this.ttsUrl = this.ttsProvider === 'elevenlabs' ? this.elevenlabsTtsUrl : this.openaiTtsUrl;
+      logger.info(`TTS provider changed to: ${voiceSettings.provider}`);
+    }
+
+    // Clear cache when voice changes
+    this.audioCache.clear();
+  }
+
+  /**
+   * Get current voice settings
+   * @returns {Object} Current voice configuration
+   */
+  getVoiceSettings() {
+    return {
+      provider: this.ttsProvider,
+      voice: this.voiceConfig.defaultVoice,
+      elevenlabsSettings: this.voiceConfig.elevenlabs,
+      openaiSettings: this.voiceConfig.openai
+    };
   }
 
   /**
@@ -204,11 +390,24 @@ export class AndroidVoiceProvider {
    */
   stopSpeaking() {
     try {
-      logger.info('Stopping Android TTS');
-      window.DashieNative.stopSpeaking();
+      // Stop cloud TTS audio if playing
+      if (this.currentAudio) {
+        this.currentAudio.pause();
+        this.currentAudio = null;
+        this.isCurrentlySpeaking = false;
+        logger.info('Stopped cloud TTS playback');
+        return;
+      }
+
+      // Fallback: stop native Android TTS
+      if (window.DashieNative && window.DashieNative.stopSpeaking) {
+        logger.info('Stopping native Android TTS');
+        window.DashieNative.stopSpeaking();
+      }
+
       this.isCurrentlySpeaking = false;
     } catch (error) {
-      logger.error('Error stopping Android speech:', error);
+      logger.error('Error stopping speech:', error);
     }
   }
 

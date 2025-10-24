@@ -128,9 +128,15 @@ export class WidgetDataManager {
             if (this.widgets.has('ai-response')) {
                 logger.debug('Sending AI response to widget', { response });
 
+                // Use the same timestamp as the user message for consistency
+                const responseWithTimestamp = {
+                    ...response,
+                    timestamp: this._lastUserMessageTimestamp || response.timestamp
+                };
+
                 this.sendToWidget('ai-response', 'data', {
                     action: 'add-message',
-                    payload: response
+                    payload: responseWithTimestamp
                 });
             } else {
                 logger.warn('AI response widget not registered, cannot send response');
@@ -209,6 +215,9 @@ export class WidgetDataManager {
             logger.error('VoiceCommandRouter not available');
             return;
         }
+
+        // Store the original timestamp for the response
+        this._lastUserMessageTimestamp = timestamp;
 
         // Process the command through the router
         // The router will determine if it's a simple command or needs AI
