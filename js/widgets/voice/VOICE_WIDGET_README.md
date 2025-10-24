@@ -100,7 +100,7 @@ js/
 
 1. **User Action**
    - PC: Click microphone button
-   - Android: Say "Hey Dashie" (wake word)
+   - Android/Fire TV: Click microphone button OR say "Hey Dashie" (wake word)
 
 2. **Voice Recognition Starts**
    - VoiceService.startListening() called
@@ -271,14 +271,16 @@ _handleLocalCommand(transcript) {
 
 **Pros:**
 - Much better transcription accuracy
-- Wake word detection ("Hey Dashie")
-- Hands-free operation
+- Wake word detection ("Hey Dashie") - when working
+- Hands-free operation (via wake word)
+- Button also works as fallback/testing method
 - On-device processing (no cloud)
 - Optimized for Fire TV
 
 **Cons:**
 - Only works in Dashie Android app
 - Requires microphone permission
+- Wake word currently has issues (use button instead)
 
 **Best Use:** Production deployment
 
@@ -299,8 +301,15 @@ _handleLocalCommand(transcript) {
    - Confirmation message appears
    - TTS speaks "Theme changed to dark mode"
 
-### Android Testing
+### Android/Fire TV Testing
 
+**Option 1: Using Button (Recommended while wake word is broken)**
+1. Deploy to Fire TV or Android device
+2. Click the microphone button (or use Fire TV remote to select it)
+3. Speak a command (e.g., "dark mode")
+4. Verify same flow as PC
+
+**Option 2: Using Wake Word (when fixed)**
 1. Deploy to Fire TV or Android device
 2. Say "Hey Dashie"
 3. Speak a command

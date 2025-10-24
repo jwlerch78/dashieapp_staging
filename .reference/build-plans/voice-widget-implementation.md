@@ -965,7 +965,8 @@ export const VOICE_CONFIG = {
 ### Phase 1 Complete When:
 
 ✅ User can click mic button on PC and speak "dark mode" → theme changes
-✅ User can say "Hey Dashie" on Android, then "light mode" → theme changes
+✅ User can click mic button on Android/Fire TV and speak "light mode" → theme changes
+✅ User can say "Hey Dashie" on Android, then "light mode" → theme changes (when wake word is fixed)
 ✅ Widget shows live transcript as user speaks
 ✅ TTS says "Theme changed to [dark/light] mode" after successful change
 ✅ Widget shows appropriate state (idle, listening, confirmation) at all times

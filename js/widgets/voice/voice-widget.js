@@ -56,9 +56,11 @@ function detectPlatform() {
 
   // Update prompt text based on platform
   if (isAndroid) {
-    promptText.textContent = 'Say "Hey Dashie"';
+    // Android/Fire TV: Can use button OR wake word (when fixed)
+    promptText.textContent = 'Click or say "Hey Dashie"';
     widgetEl.classList.add('voice-widget--android');
   } else {
+    // PC: Button only
     promptText.textContent = 'Click to speak';
   }
 
@@ -69,11 +71,13 @@ function detectPlatform() {
  * Setup event listeners
  */
 function setupEventListeners() {
-  // Mic button click (Web only - Android uses wake word)
-  if (!isAndroid) {
-    micButton.addEventListener('click', handleMicClick);
+  // Mic button click - now works on BOTH platforms!
+  // PC: Uses Web Speech API via mic button
+  // Android/Fire TV: Can bypass broken wake word by using button
+  micButton.addEventListener('click', handleMicClick);
 
-    // Initialize audio context on first click to bypass autoplay restrictions
+  // Initialize audio context on first click (Web only - for beep sound)
+  if (!isAndroid) {
     micButton.addEventListener('click', () => {
       if (!audioContext) {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -85,9 +89,6 @@ function setupEventListeners() {
         });
       }
     }, { once: false });
-  } else {
-    // On Android, mic button is just visual (wake word triggers listening)
-    micButton.style.cursor = 'default';
   }
 
   // Listen for messages from parent window
@@ -95,10 +96,10 @@ function setupEventListeners() {
 }
 
 /**
- * Handle microphone button click (Web only)
+ * Handle microphone button click (works on both PC and Android/Fire TV)
  */
 function handleMicClick() {
-  console.log('[VoiceWidget] Mic button clicked');
+  console.log('[VoiceWidget] Mic button clicked', { platform: isAndroid ? 'Android' : 'Web' });
 
   if (state === 'listening') {
     // Stop listening
