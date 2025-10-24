@@ -13,7 +13,9 @@
       "Bash(git commit:*)",
       "Bash(git revert:*)",
       "Bash(for file in js/modules/Dashboard/*.js)",
-      "Bash(git mv:*)"
+      "Bash(git mv:*)",
+      "Bash(curl -i -X POST https://cwglbtosingboqepsmjk.supabase.co/functions/v1/openai-tts -H \"Content-Type: application/json\" -H \"apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN3Z2xidG9zaW5nYm9xZXBzbWprIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYxMTgxMTEsImV4cCI6MjA1MTY5NDExMX0.aFP_KJhBVv-LLs7gw48IzQTHAXkLGh_UOGNMZx-HJ8Q\" -d '{\"\"\"\"text\"\"\"\":\"\"\"\"Hello\"\"\"\",\"\"\"\"voice\"\"\"\":\"\"\"\"nova\"\"\"\",\"\"\"\"speed\"\"\"\":1.0}' --output /dev/null -w \"Time: %{time_total}s\\n\")",
+      "Bash(time curl -X POST https://cwglbtosingboqepsmjk.supabase.co/functions/v1/openai-tts )"
     ],
     "deny": [],
     "ask": []

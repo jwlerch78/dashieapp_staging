@@ -381,9 +381,96 @@ export const SUPABASE_CONFIG = {
     refreshJWT: 'refresh-jwt',
     storeTokens: 'store-tokens',
     loadSettings: 'load-settings',
-    saveSettings: 'save-settings'
+    saveSettings: 'save-settings',
+    openaiTTS: 'openai-tts',
+    elevenlabsTTS: 'elevenlabs-tts',
+    whisperSTT: 'whisper-stt'
   }
 };
+
+// =============================================================================
+// VOICE CONFIGURATION (TTS & STT)
+// =============================================================================
+
+/**
+ * Available ElevenLabs voices
+ * Each voice has a unique ID and characteristics
+ * Get more voices at: https://elevenlabs.io/app/voice-library
+ */
+export const AVAILABLE_VOICES = {
+  // Female voices
+  RACHEL: {
+    id: '21m00Tcm4TlvDq8ikWAM',
+    name: 'Rachel',
+    gender: 'female',
+    description: 'Calm, clear, professional',
+    language: 'en'
+  },
+  DOMI: {
+    id: 'AZnzlk1XvdvUeBnXmlld',
+    name: 'Domi',
+    gender: 'female',
+    description: 'Warm, friendly, conversational',
+    language: 'en'
+  },
+  BELLA: {
+    id: 'EXAVITQu4vr4xnSDxMaL',
+    name: 'Bella',
+    gender: 'female',
+    description: 'Young, energetic, friendly',
+    language: 'en'
+  },
+
+  // Male voices
+  ADAM: {
+    id: 'pNInz6obpgDQGcFmaJgB',
+    name: 'Adam',
+    gender: 'male',
+    description: 'Deep, confident, clear',
+    language: 'en'
+  },
+  ANTONI: {
+    id: 'ErXwobaYiN019PkySvjV',
+    name: 'Antoni',
+    gender: 'male',
+    description: 'Well-rounded, versatile',
+    language: 'en'
+  }
+};
+
+/**
+ * Voice configuration
+ * Change DEFAULT_VOICE to switch the voice used throughout the app
+ */
+export const VOICE_CONFIG = {
+  // TTS Provider: 'elevenlabs' or 'openai'
+  provider: 'elevenlabs',
+
+  // Default voice (change this to switch voices)
+  defaultVoice: AVAILABLE_VOICES.BELLA,
+
+  // ElevenLabs settings
+  elevenlabs: {
+    model: 'eleven_flash_v2_5', // 'eleven_flash_v2_5' (fast) or 'eleven_turbo_v2_5' (faster)
+    voiceSettings: {
+      stability: 0.5,           // 0-1: Lower = more expressive, Higher = more stable
+      similarityBoost: 0.75,    // 0-1: Voice consistency
+      style: 0.0,               // 0-1: Style exaggeration
+      useSpeakerBoost: true     // Enhanced clarity
+    }
+  },
+
+  // OpenAI settings (fallback)
+  openai: {
+    model: 'tts-1',             // 'tts-1' (fast) or 'tts-1-hd' (quality)
+    voice: 'nova',              // alloy, echo, fable, onyx, nova, shimmer
+    speed: 1.0                  // 0.25 - 4.0
+  }
+};
+
+// Quick access to default voice ID
+export const DEFAULT_VOICE_ID = VOICE_CONFIG.defaultVoice.id;
+export const DEFAULT_VOICE_NAME = VOICE_CONFIG.defaultVoice.name;
 
 // =============================================================================
 // GOOGLE API CONFIGURATION

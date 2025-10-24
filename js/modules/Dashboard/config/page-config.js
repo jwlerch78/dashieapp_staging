@@ -96,9 +96,13 @@ export const pageConfigs = {
 
   'page2': {
     id: 'page2',
-    label: 'Voice Assistant',
+    label: 'Voice & AI Chat',
     gridRows: 1,
-    gridCols: 1,
+    gridCols: 2,
+    layout: {
+      columns: '1fr 1fr',  // Two equal columns
+      rows: '1fr'          // Single row
+    },
     widgets: [
       {
         id: 'voice',
@@ -106,10 +110,22 @@ export const pageConfigs = {
         col: 1,
         rowSpan: 1,
         colSpan: 1,
-        label: 'Voice Assistant',
+        label: 'Voice Input',
         path: 'js/widgets/voice/voice-widget.html',
         noCenter: true,
-        focusScale: 1.0,
+        focusScale: 1.05,
+        selectable: true
+      },
+      {
+        id: 'ai-response',
+        row: 1,
+        col: 2,
+        rowSpan: 1,
+        colSpan: 1,
+        label: 'AI Response',
+        path: 'js/widgets/ai-response/ai-response.html',
+        noCenter: true,
+        focusScale: 1.05,
         selectable: true
       }
     ],

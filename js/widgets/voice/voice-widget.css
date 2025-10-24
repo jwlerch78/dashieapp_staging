@@ -36,10 +36,107 @@ body {
   position: relative;
   width: 80px;
   height: 80px;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Text Input Container */
+.voice-widget__input-container {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+/* Text Input Field */
+.voice-widget__text-input {
+  flex: 1;
+  padding: 12px 16px;
+  border: 2px solid var(--border-color, var(--text-secondary));
+  border-radius: var(--border-radius-md, 8px);
+  background: var(--widget-bg, var(--bg-secondary));
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.voice-widget__text-input::placeholder {
+  color: var(--text-secondary);
+  opacity: 0.6;
+}
+
+.voice-widget__text-input:focus {
+  border-color: var(--accent-color, #4CAF50);
+  background: var(--bg-tertiary, rgba(255, 255, 255, 0.05));
+}
+
+.voice-widget__text-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Send Button */
+.voice-widget__send-button {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 2px solid var(--border-color, var(--text-secondary));
+  border-radius: var(--border-radius-md, 8px);
+  background: var(--widget-bg, var(--bg-secondary));
+  color: var(--text-primary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.voice-widget__send-button:hover {
+  background: var(--bg-tertiary, rgba(255, 255, 255, 0.1));
+  border-color: var(--accent-color, #4CAF50);
+  transform: scale(1.05);
+}
+
+.voice-widget__send-button:active {
+  transform: scale(0.95);
+}
+
+.voice-widget__send-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.voice-widget__send-button:disabled:hover {
+  transform: none;
+  background: var(--widget-bg, var(--bg-secondary));
+  border-color: var(--border-color, var(--text-secondary));
+}
+
+/* Send Icon */
+.voice-widget__send-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--text-primary);
+}
+
+/* Typing state: Highlight input */
+.voice-widget--typing .voice-widget__text-input {
+  border-color: var(--accent-color, #4CAF50);
+  background: var(--bg-tertiary, rgba(255, 255, 255, 0.05));
+}
+
+/* Processing state: Disable inputs */
+.voice-widget--processing .voice-widget__text-input,
+.voice-widget--processing .voice-widget__send-button {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 /* Microphone Button */

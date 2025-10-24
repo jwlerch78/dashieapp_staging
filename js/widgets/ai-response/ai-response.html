@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Response Widget</title>
+
+  <!-- Theme CSS (required for all widgets) -->
+  <link rel="stylesheet" href="/css/core/variables.css">
+  <link rel="stylesheet" href="/css/core/themes.css">
+
+  <!-- Widget-specific CSS -->
+  <link rel="stylesheet" href="ai-response.css">
+</head>
+<body>
+  <div class="ai-response-widget" id="aiResponseWidget">
+
+    <!-- Chat Messages Container -->
+    <div class="ai-response__messages" id="messagesContainer">
+      <!-- Messages will be dynamically added here -->
+    </div>
+
+    <!-- Action Bar (bottom) -->
+    <div class="ai-response__actions">
+      <button class="ai-response__clear-btn" id="clearButton" aria-label="Clear chat">
+        <svg class="ai-response__clear-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M3 6H5H21M8 6V4C8 3.44772 8.44772 3 9 3H15C15.5523 3 16 3.44772 16 4V6M19 6V20C19 20.5523 18.5523 21 18 21H6C5.44772 21 5 20.5523 5 20V6H19Z"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Clear Chat
+      </button>
+    </div>
+
+  </div>
+
+  <!-- Widget JavaScript -->
+  <script type="module" src="ai-response.js"></script>
+</body>
+</html>

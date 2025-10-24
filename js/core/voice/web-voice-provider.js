@@ -10,6 +10,8 @@
 
 import { createLogger } from '../../utils/logger.js';
 import AppComms from '../app-comms.js';
+import { SUPABASE_CONFIG } from '../../data/auth/auth-config.js';
+import { VOICE_CONFIG } from '../../../config.js';
 
 const logger = createLogger('WebVoiceProvider');
 
@@ -19,6 +21,22 @@ export class WebVoiceProvider {
     this.synthesis = window.speechSynthesis;
     this.isCurrentlyListening = false;
     this.isCurrentlySpeaking = false;
+    this.currentAudio = null;  // Track current TTS audio playback
+
+    // Pre-build TTS endpoint URLs (cache for performance)
+    this.openaiTtsUrl = `${SUPABASE_CONFIG.url}/functions/v1/openai-tts`;
+    this.elevenlabsTtsUrl = `${SUPABASE_CONFIG.url}/functions/v1/elevenlabs-tts`;
+
+    // Load voice settings from config
+    this.ttsProvider = VOICE_CONFIG.provider; // 'elevenlabs' or 'openai'
+    this.ttsUrl = this.ttsProvider === 'elevenlabs' ? this.elevenlabsTtsUrl : this.openaiTtsUrl;
+
+    // Voice settings (from config.js - can be overridden by user settings later)
+    this.voiceConfig = VOICE_CONFIG;
+
+    // Client-side audio cache for instant playback of repeated phrases
+    this.audioCache = new Map();
+    this.maxCacheSize = 50; // Cache up to 50 audio blobs
   }
 
   /**
@@ -180,43 +198,203 @@ export class WebVoiceProvider {
   }
 
   /**
-   * Speak text using Text-to-Speech
+   * Set voice settings (for user preferences from settings UI)
+   * @param {Object} voiceSettings - Voice configuration object
+   * @param {Object} voiceSettings.voice - Voice object with id and name
+   * @param {string} voiceSettings.provider - 'elevenlabs' or 'openai'
+   */
+  setVoiceSettings(voiceSettings) {
+    if (voiceSettings.voice) {
+      this.voiceConfig.defaultVoice = voiceSettings.voice;
+      logger.info(`Voice changed to: ${voiceSettings.voice.name}`);
+    }
+
+    if (voiceSettings.provider) {
+      this.ttsProvider = voiceSettings.provider;
+      this.ttsUrl = this.ttsProvider === 'elevenlabs' ? this.elevenlabsTtsUrl : this.openaiTtsUrl;
+      logger.info(`TTS provider changed to: ${voiceSettings.provider}`);
+    }
+
+    // Clear cache when voice changes (different voice = different audio)
+    this.audioCache.clear();
+  }
+
+  /**
+   * Get current voice settings
+   * @returns {Object} Current voice configuration
+   */
+  getVoiceSettings() {
+    return {
+      provider: this.ttsProvider,
+      voice: this.voiceConfig.defaultVoice,
+      elevenlabsSettings: this.voiceConfig.elevenlabs,
+      openaiSettings: this.voiceConfig.openai
+    };
+  }
+
+  /**
+   * Speak text using ElevenLabs TTS via Supabase Edge Function
    * @param {string} text - Text to speak
    */
-  speak(text) {
+  async speak(text) {
+    const perfStart = performance.now();
+
+    try {
+      logger.info(`Calling ${this.ttsProvider} TTS for:`, text);
+
+      // Check client-side cache first
+      const cacheKey = `${this.ttsProvider}_${text}`;
+      const cachedBlob = this.audioCache.get(cacheKey);
+
+      if (cachedBlob) {
+        logger.success('🎯 Client cache HIT - instant playback!');
+        await this._playAudio(cachedBlob, text);
+        return;
+      }
+
+      // Build request body based on provider (using settings from config.js)
+      let requestBody;
+      if (this.ttsProvider === 'elevenlabs') {
+        requestBody = {
+          text: text,
+          voice_id: this.voiceConfig.defaultVoice.id,  // From config.js VOICE_CONFIG
+          model_id: this.voiceConfig.elevenlabs.model
+        };
+      } else {
+        // OpenAI format
+        requestBody = {
+          text: text,
+          voice: this.voiceConfig.openai.voice,
+          speed: this.voiceConfig.openai.speed
+        };
+      }
+
+      // Call Supabase Edge Function with anon key for authentication
+      const fetchStart = performance.now();
+      const response = await fetch(this.ttsUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_CONFIG.anonKey,
+          'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      const fetchEnd = performance.now();
+      logger.info(`⏱️  API fetch took ${Math.round(fetchEnd - fetchStart)}ms`);
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(`TTS API error: ${response.status} - ${error.error || 'Unknown'}`);
+      }
+
+      // Get MP3 audio blob
+      const blobStart = performance.now();
+      const audioBlob = await response.blob();
+      const blobEnd = performance.now();
+      logger.info(`⏱️  Blob creation took ${Math.round(blobEnd - blobStart)}ms`);
+
+      // Cache the blob for future use (common phrases only)
+      if (text.length < 100) {
+        // Evict oldest entry if cache is full
+        if (this.audioCache.size >= this.maxCacheSize) {
+          const firstKey = this.audioCache.keys().next().value;
+          this.audioCache.delete(firstKey);
+        }
+        this.audioCache.set(cacheKey, audioBlob);
+        logger.info(`💾 Cached audio for: "${text.substring(0, 30)}..."`);
+      }
+
+      const totalTime = performance.now() - perfStart;
+      logger.info(`TTS ready to play in ${Math.round(totalTime)}ms`);
+
+      // Play the audio
+      await this._playAudio(audioBlob, text);
+
+    } catch (error) {
+      logger.error('Error speaking text:', error);
+      this.isCurrentlySpeaking = false;
+
+      // Fallback to Web Speech API if cloud TTS fails
+      logger.warn('Falling back to Web Speech API');
+      this._speakWithWebAPI(text);
+    }
+  }
+
+  /**
+   * Play audio from blob
+   * @private
+   */
+  async _playAudio(audioBlob, text) {
+    const audioUrl = URL.createObjectURL(audioBlob);
+
+    // Stop any currently playing audio
+    if (this.currentAudio) {
+      this.currentAudio.pause();
+      this.currentAudio = null;
+    }
+
+    // Play audio
+    const audio = new Audio(audioUrl);
+    this.currentAudio = audio;
+
+    audio.onplay = () => {
+      logger.info('TTS started:', text);
+      this.isCurrentlySpeaking = true;
+    };
+
+    audio.onended = () => {
+      logger.info('TTS ended');
+      this.isCurrentlySpeaking = false;
+      URL.revokeObjectURL(audioUrl);
+      this.currentAudio = null;
+    };
+
+    audio.onerror = (event) => {
+      logger.error('Audio playback error:', event);
+      this.isCurrentlySpeaking = false;
+      URL.revokeObjectURL(audioUrl);
+      this.currentAudio = null;
+    };
+
+    await audio.play();
+  }
+
+  /**
+   * Fallback TTS using Web Speech API
+   * @private
+   */
+  _speakWithWebAPI(text) {
     if (!this.synthesis) {
       logger.error('Speech Synthesis not available');
       return;
     }
 
     try {
-      // Cancel any ongoing speech
       this.synthesis.cancel();
 
-      // Create utterance
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 1.0;
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
 
       utterance.onstart = () => {
-        logger.info('TTS started:', text);
         this.isCurrentlySpeaking = true;
       };
 
       utterance.onend = () => {
-        logger.info('TTS ended');
         this.isCurrentlySpeaking = false;
       };
 
       utterance.onerror = (event) => {
-        logger.error('TTS error:', event.error);
+        logger.error('Web TTS error:', event.error);
         this.isCurrentlySpeaking = false;
       };
 
       this.synthesis.speak(utterance);
     } catch (error) {
-      logger.error('Error speaking text:', error);
+      logger.error('Error with Web Speech API fallback:', error);
     }
   }
 

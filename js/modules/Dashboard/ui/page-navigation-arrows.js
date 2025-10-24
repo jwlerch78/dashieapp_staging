@@ -46,27 +46,10 @@ class PageNavigationArrows {
     this.nextButton = this.createArrowButton('down', '˅', 'Next Page');
     this.nextButton.addEventListener('click', () => this.handleNextPage());
 
-    // Insert arrows next to grid, not sidebar
-    // Find the content row and grid
-    const contentRow = contentWrapper.querySelector('.dashboard-content-row');
-    const grid = contentRow.querySelector('.dashboard-grid');
-
-    if (!grid) {
-      logger.error('Grid not found, cannot insert navigation arrows');
-      return;
-    }
-
-    // Create a wrapper for arrows + grid (column layout)
-    const gridColumnWrapper = document.createElement('div');
-    gridColumnWrapper.className = 'dashboard-grid-column-wrapper';
-
-    // Insert wrapper in place of grid
-    grid.parentNode.insertBefore(gridColumnWrapper, grid);
-
-    // Move grid into wrapper and add arrows
-    gridColumnWrapper.appendChild(this.prevButton);
-    gridColumnWrapper.appendChild(grid);
-    gridColumnWrapper.appendChild(this.nextButton);
+    // Insert arrows as absolutely positioned overlays on the dashboard
+    // They will overlay the sidebar on the left side
+    dashboardContainer.appendChild(this.prevButton);
+    dashboardContainer.appendChild(this.nextButton);
 
     // Update visibility based on available pages
     this.updateVisibility();

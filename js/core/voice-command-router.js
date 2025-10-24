@@ -252,7 +252,17 @@ class VoiceCommandRouter {
     // const response = await ClaudeAPIService.processCommand(transcript);
     // this._executeAIAction(response);
 
-    // For now, just speak an error message
+    // For now, send a response to the AI widget indicating we don't understand
+    this._sendAIResponse(
+      'I didn\'t understand that command. Currently, I only support simple commands like "dark mode" or "light mode". AI integration is coming soon!',
+      {
+        command: 'unknown',
+        success: false,
+        transcript
+      }
+    );
+
+    // Speak error message
     this._speakError('I didn\'t understand that command');
   }
 
@@ -268,6 +278,30 @@ class VoiceCommandRouter {
       command,
       result,
       ...extraData
+    });
+
+    // Send AI response to AI Response widget
+    this._sendAIResponse(result, {
+      command,
+      success: true,
+      ...extraData
+    });
+  }
+
+  /**
+   * Send AI response to AI Response widget
+   * @private
+   * @param {string} content - Response content
+   * @param {object} metadata - Response metadata
+   */
+  _sendAIResponse(content, metadata = {}) {
+    // Emit event for widget-data-manager to forward to AI widget
+    AppComms.emit('AI_RESPONSE_GENERATED', {
+      sender: 'ai',
+      content,
+      timestamp: Date.now(),
+      messageId: `ai_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      metadata
     });
   }
 

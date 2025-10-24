@@ -6,12 +6,14 @@
  */
 
 // Widget state
-let state = 'idle'; // idle, listening, transcribing, processing, confirmation, error
+let state = 'idle'; // idle, listening, typing, transcribing, processing, confirmation, error
 let isAndroid = false;
 
 // DOM elements
 let widgetEl;
 let micButton;
+let textInput;
+let sendButton;
 let promptText;
 let transcriptText;
 let statusText;
@@ -27,6 +29,8 @@ function initialize() {
   // Get DOM elements
   widgetEl = document.getElementById('voiceWidget');
   micButton = document.getElementById('micButton');
+  textInput = document.getElementById('textInput');
+  sendButton = document.getElementById('sendButton');
   promptText = document.getElementById('promptText');
   transcriptText = document.getElementById('transcriptText');
   statusText = document.getElementById('statusText');
@@ -75,6 +79,15 @@ function setupEventListeners() {
   // PC: Uses Web Speech API via mic button
   // Android/Fire TV: Can bypass broken wake word by using button
   micButton.addEventListener('click', handleMicClick);
+
+  // Text input events
+  textInput.addEventListener('input', handleTextInput);
+  textInput.addEventListener('focus', handleTextFocus);
+  textInput.addEventListener('blur', handleTextBlur);
+  textInput.addEventListener('keypress', handleTextKeypress);
+
+  // Send button click
+  sendButton.addEventListener('click', handleSendClick);
 
   // Initialize audio context on first click (Web only - for beep sound)
   if (!isAndroid) {
@@ -193,6 +206,7 @@ function setState(newState) {
   widgetEl.classList.remove(
     'voice-widget--idle',
     'voice-widget--listening',
+    'voice-widget--typing',
     'voice-widget--transcribing',
     'voice-widget--processing',
     'voice-widget--confirmation',
@@ -248,6 +262,91 @@ function sendToParent(type, data) {
     type,
     ...data
   }, '*');
+}
+
+/**
+ * Handle text input change
+ */
+function handleTextInput() {
+  // Update state to typing if there's content
+  if (textInput.value.trim() && state === 'idle') {
+    setState('typing');
+  } else if (!textInput.value.trim() && state === 'typing') {
+    setState('idle');
+  }
+}
+
+/**
+ * Handle text input focus
+ */
+function handleTextFocus() {
+  if (state === 'idle') {
+    setState('typing');
+  }
+}
+
+/**
+ * Handle text input blur
+ */
+function handleTextBlur() {
+  if (state === 'typing' && !textInput.value.trim()) {
+    setState('idle');
+  }
+}
+
+/**
+ * Handle keypress in text input (Enter key to send)
+ */
+function handleTextKeypress(event) {
+  if (event.key === 'Enter' && !event.shiftKey) {
+    event.preventDefault();
+    handleSendClick();
+  }
+}
+
+/**
+ * Handle send button click
+ */
+function handleSendClick() {
+  const message = textInput.value.trim();
+
+  if (!message) {
+    console.log('[VoiceWidget] Cannot send empty message');
+    return;
+  }
+
+  console.log('[VoiceWidget] Sending text message:', message);
+
+  // Generate message ID
+  const messageId = generateMessageId();
+
+  // Send user-message to parent
+  sendToParent('user-message', {
+    widgetId: 'voice',
+    payload: {
+      messageId,
+      source: 'text',
+      content: message,
+      timestamp: Date.now(),
+      metadata: {
+        platform: isAndroid ? 'android' : 'web'
+      }
+    }
+  });
+
+  // Update UI
+  setState('processing');
+  transcriptText.textContent = message;
+  textInput.value = ''; // Clear input
+
+  console.log('[VoiceWidget] Text message sent', { messageId, message });
+}
+
+/**
+ * Generate unique message ID
+ */
+function generateMessageId() {
+  return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
 /**
