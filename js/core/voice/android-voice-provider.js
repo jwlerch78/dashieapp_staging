@@ -130,6 +130,7 @@ export class AndroidVoiceProvider {
   _configureWakeWord() {
     try {
       // Configure wake word: autoRecord=false, duration=5 seconds
+      // Audio is compressed before sending, so file size is no longer an issue
       // This means Android will NOT auto-record, webapp controls when to record
       window.DashieNative.setWakeWordConfig(false, 5);
 
@@ -225,12 +226,22 @@ export class AndroidVoiceProvider {
         size: Math.round(base64Audio.length / 1024) + 'KB'
       });
 
-      // Convert base64 to blob
-      const audioBlob = this._base64ToBlob(base64Audio);
-      logger.debug('Audio blob created', { size: audioBlob.size + ' bytes' });
+      // Convert base64 to WAV blob
+      const wavBlob = this._base64ToBlob(base64Audio);
+      logger.info('WAV blob created', {
+        size: Math.round(wavBlob.size / 1024) + 'KB'
+      });
+
+      // Compress WAV to Opus/WebM for smaller upload size
+      const compressedBlob = await this._compressAudio(wavBlob);
+      logger.info('Audio compressed', {
+        originalSize: Math.round(wavBlob.size / 1024) + 'KB',
+        compressedSize: Math.round(compressedBlob.size / 1024) + 'KB',
+        reduction: Math.round((1 - compressedBlob.size / wavBlob.size) * 100) + '%'
+      });
 
       // Send to speech-to-text API (Deepgram)
-      await this._sendToSpeechAPI(audioBlob);
+      await this._sendToSpeechAPI(compressedBlob);
 
       // Restart wake word detection for next command
       setTimeout(() => {
@@ -244,18 +255,150 @@ export class AndroidVoiceProvider {
   }
 
   /**
-   * Convert base64 string to audio blob
+   * Convert base64 string to WAV audio blob
+   * Android sends raw PCM data, so we need to add WAV headers
    * @private
-   * @param {string} base64 - Base64 encoded audio data
-   * @returns {Blob} Audio blob
+   * @param {string} base64 - Base64 encoded PCM audio data
+   * @returns {Blob} WAV audio blob with proper headers
    */
   _base64ToBlob(base64) {
+    // Decode base64 to binary PCM data
     const binaryString = atob(base64);
-    const bytes = new Uint8Array(binaryString.length);
+    const pcmBytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
+      pcmBytes[i] = binaryString.charCodeAt(i);
     }
-    return new Blob([bytes], { type: 'audio/wav' });
+
+    // Add WAV headers to raw PCM data
+    const wavBlob = this._addWavHeaders(pcmBytes);
+
+    logger.info('Converted PCM to WAV', {
+      pcmSize: pcmBytes.length,
+      wavSize: wavBlob.size
+    });
+
+    return wavBlob;
+  }
+
+  /**
+   * Add WAV headers to raw PCM data
+   * Audio specs from Android: 16kHz, 16-bit, mono, little-endian
+   * @private
+   * @param {Uint8Array} pcmData - Raw PCM audio data
+   * @returns {Blob} WAV file blob
+   */
+  _addWavHeaders(pcmData) {
+    const sampleRate = 16000;  // 16kHz
+    const numChannels = 1;      // Mono
+    const bitsPerSample = 16;   // 16-bit
+    const byteRate = sampleRate * numChannels * (bitsPerSample / 8);
+    const blockAlign = numChannels * (bitsPerSample / 8);
+    const dataSize = pcmData.length;
+
+    // WAV file header (44 bytes)
+    const header = new ArrayBuffer(44);
+    const view = new DataView(header);
+
+    // "RIFF" chunk descriptor
+    view.setUint32(0, 0x52494646, false);  // "RIFF"
+    view.setUint32(4, 36 + dataSize, true); // File size - 8
+    view.setUint32(8, 0x57415645, false);   // "WAVE"
+
+    // "fmt " sub-chunk
+    view.setUint32(12, 0x666d7420, false);  // "fmt "
+    view.setUint32(16, 16, true);           // Subchunk1Size (16 for PCM)
+    view.setUint16(20, 1, true);            // AudioFormat (1 = PCM)
+    view.setUint16(22, numChannels, true);  // NumChannels
+    view.setUint32(24, sampleRate, true);   // SampleRate
+    view.setUint32(28, byteRate, true);     // ByteRate
+    view.setUint16(32, blockAlign, true);   // BlockAlign
+    view.setUint16(34, bitsPerSample, true); // BitsPerSample
+
+    // "data" sub-chunk
+    view.setUint32(36, 0x64617461, false);  // "data"
+    view.setUint32(40, dataSize, true);     // Subchunk2Size
+
+    // Combine header + PCM data
+    return new Blob([header, pcmData], { type: 'audio/wav' });
+  }
+
+  /**
+   * Compress WAV audio to Opus/WebM format for smaller upload size
+   * Uses MediaRecorder API to re-encode the audio
+   * @private
+   * @param {Blob} wavBlob - WAV audio blob to compress
+   * @returns {Promise<Blob>} Compressed audio blob
+   */
+  async _compressAudio(wavBlob) {
+    try {
+      // Create audio context and decode WAV
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      const arrayBuffer = await wavBlob.arrayBuffer();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+      // Create a MediaStreamDestination to capture re-encoded audio
+      const destination = audioContext.createMediaStreamDestination();
+      const source = audioContext.createBufferSource();
+      source.buffer = audioBuffer;
+      source.connect(destination);
+
+      // Determine best supported format (Opus is best, but fallback to WebM)
+      let mimeType = 'audio/webm;codecs=opus';
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        mimeType = 'audio/webm';
+      }
+      if (!MediaRecorder.isTypeSupported(mimeType)) {
+        // If WebM not supported, return original WAV
+        logger.warn('Compression not supported, using original WAV');
+        audioContext.close();
+        return wavBlob;
+      }
+
+      // Record the audio with MediaRecorder (this compresses it)
+      const mediaRecorder = new MediaRecorder(destination.stream, {
+        mimeType: mimeType,
+        audioBitsPerSecond: 24000 // 24kbps - good for speech
+      });
+
+      const chunks = [];
+
+      return new Promise((resolve, reject) => {
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            chunks.push(e.data);
+          }
+        };
+
+        mediaRecorder.onstop = () => {
+          const compressedBlob = new Blob(chunks, { type: mimeType });
+          audioContext.close();
+          resolve(compressedBlob);
+        };
+
+        mediaRecorder.onerror = (error) => {
+          logger.error('Compression error, using original WAV:', error);
+          audioContext.close();
+          resolve(wavBlob); // Fallback to original
+        };
+
+        // Start recording and playback
+        mediaRecorder.start();
+        source.start(0);
+
+        // Stop recording when playback ends
+        source.onended = () => {
+          setTimeout(() => {
+            if (mediaRecorder.state !== 'inactive') {
+              mediaRecorder.stop();
+            }
+          }, 100);
+        };
+      });
+
+    } catch (error) {
+      logger.error('Error compressing audio, using original:', error);
+      return wavBlob; // Fallback to original on error
+    }
   }
 
   /**
@@ -296,53 +439,100 @@ export class AndroidVoiceProvider {
    * @param {Blob} audioBlob - Audio data to transcribe
    */
   async _sendToSpeechAPI(audioBlob) {
-    try {
-      logger.info('Sending audio to Deepgram STT API', {
-        size: Math.round(audioBlob.size / 1024) + 'KB'
-      });
+    const maxRetries = 2;
+    let lastError = null;
 
-      // Get STT provider from config (defaults to Deepgram)
-      const sttProvider = this.voiceConfig.sttProvider || 'deepgram';
-      const sttEndpoint = sttProvider === 'deepgram' ? 'deepgram-stt' : 'whisper-stt';
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        logger.info(`Sending audio to Deepgram STT API (attempt ${attempt}/${maxRetries})`, {
+          size: Math.round(audioBlob.size / 1024) + 'KB'
+        });
 
-      // Build FormData with audio
-      const formData = new FormData();
-      formData.append('audio', audioBlob, 'recording.wav');
-      formData.append('language', 'en');
+        // Get STT provider from config (defaults to Deepgram)
+        const sttProvider = this.voiceConfig.sttProvider || 'deepgram';
+        const sttEndpoint = sttProvider === 'deepgram' ? 'deepgram-stt' : 'whisper-stt';
 
-      // Send to Supabase Edge Function
-      const response = await fetch(
-        `${SUPABASE_CONFIG.url}/functions/v1/${sttEndpoint}`,
-        {
-          method: 'POST',
-          headers: {
-            'apikey': SUPABASE_CONFIG.anonKey,
-            'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
-          },
-          body: formData
+        // Build FormData with audio
+        // Determine filename based on blob type
+        const filename = audioBlob.type.includes('webm') ? 'recording.webm' :
+                        audioBlob.type.includes('opus') ? 'recording.opus' :
+                        'recording.wav';
+
+        const formData = new FormData();
+        formData.append('audio', audioBlob, filename);
+        formData.append('language', 'en');
+
+        if (attempt === 1) {
+          logger.info('FormData prepared', {
+            blobSize: audioBlob.size,
+            blobType: audioBlob.type,
+            endpoint: `${SUPABASE_CONFIG.url}/functions/v1/${sttEndpoint}`
+          });
         }
-      );
 
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new Error(`STT API error: ${response.status} - ${error.error || 'Unknown'}`);
+        // Send to Supabase Edge Function with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+
+        try {
+          const response = await fetch(
+            `${SUPABASE_CONFIG.url}/functions/v1/${sttEndpoint}`,
+            {
+              method: 'POST',
+              headers: {
+                'apikey': SUPABASE_CONFIG.anonKey,
+                'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+              },
+              body: formData,
+              signal: controller.signal
+            }
+          );
+
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+            throw new Error(`STT API error: ${response.status} - ${error.error || 'Unknown'}`);
+          }
+
+          const result = await response.json();
+          logger.success('STT transcript received', {
+            transcript: result.transcript,
+            confidence: result.confidence,
+            processingTime: result.processing_time_ms + 'ms',
+            attempt: attempt
+          });
+
+          // Emit transcript as if it came from speechResult event
+          AppComms.emit('VOICE_TRANSCRIPT_RECEIVED', result.transcript);
+          return; // Success, exit retry loop
+
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          throw fetchError;
+        }
+
+      } catch (error) {
+        lastError = error;
+
+        // Don't retry on certain errors
+        if (error.message?.includes('401') || error.message?.includes('403')) {
+          logger.warn(`Authentication error on attempt ${attempt}, not retrying`);
+          break;
+        }
+
+        if (attempt < maxRetries) {
+          logger.warn(`Attempt ${attempt} failed, retrying in 1 second...`, { error: error.message });
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        } else {
+          logger.error('All retry attempts failed', error);
+        }
       }
-
-      const result = await response.json();
-      logger.success('STT transcript received', {
-        transcript: result.transcript,
-        confidence: result.confidence,
-        processingTime: result.processing_time_ms + 'ms'
-      });
-
-      // Emit transcript as if it came from speechResult event
-      AppComms.emit('VOICE_TRANSCRIPT_RECEIVED', result.transcript);
-
-    } catch (error) {
-      logger.error('Error sending to speech API:', error);
-      AppComms.emit('VOICE_ERROR', { message: 'Failed to transcribe audio' });
-      throw error;
     }
+
+    // All retries failed
+    AppComms.emit('VOICE_ERROR', { message: 'Failed to transcribe audio' });
+    throw lastError;
   }
 
   /**

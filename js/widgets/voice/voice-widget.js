@@ -17,10 +17,17 @@ let sendButton;
 let promptText;
 let transcriptText;
 let statusText;
+let progressBar;
+let progressCircle;
 
 // Audio context for beep sound
 let audioContext = null;
 let beepSound = null;
+
+// Progress tracking
+let progressInterval = null;
+let progressStartTime = null;
+const RECORDING_DURATION = 5000; // 5 seconds
 
 /**
  * Initialize widget
@@ -34,6 +41,8 @@ function initialize() {
   promptText = document.getElementById('promptText');
   transcriptText = document.getElementById('transcriptText');
   statusText = document.getElementById('statusText');
+  progressBar = document.getElementById('progressBar');
+  progressCircle = document.getElementById('progressCircle');
 
   // Detect platform
   detectPlatform();
@@ -152,18 +161,19 @@ function handleVoiceEvent(event) {
       playBeep(); // Play beep when listening starts
       setState('listening');
       transcriptText.textContent = 'Listening...';
+      startProgressAnimation();
       break;
 
     case 'VOICE_LISTENING_STOPPED':
+      stopProgressAnimation();
       if (state === 'listening') {
-        setState('idle');
-        transcriptText.textContent = '';
+        setState('processing');
+        transcriptText.textContent = 'Processing...';
       }
       break;
 
     case 'VOICE_PARTIAL_RESULT':
-      setState('transcribing');
-      transcriptText.textContent = event.data;
+      // Ignore partial results, use circular progress instead
       break;
 
     case 'VOICE_TRANSCRIPT_RECEIVED':
@@ -365,6 +375,55 @@ function handleSendClick() {
  */
 function generateMessageId() {
   return `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+/**
+ * Start circular progress animation (5-second countdown)
+ */
+function startProgressAnimation() {
+  // Reset progress
+  progressStartTime = Date.now();
+  const circumference = 2 * Math.PI * 45; // 2πr where r=45
+  progressBar.style.strokeDashoffset = circumference; // Start empty
+
+  // Clear any existing interval
+  if (progressInterval) {
+    clearInterval(progressInterval);
+  }
+
+  // Update progress every 50ms for smooth animation
+  progressInterval = setInterval(() => {
+    const elapsed = Date.now() - progressStartTime;
+    const progress = Math.min(elapsed / RECORDING_DURATION, 1); // 0 to 1
+
+    // Calculate stroke-dashoffset (starts at full circumference, goes to 0)
+    const offset = circumference * (1 - progress);
+    progressBar.style.strokeDashoffset = offset;
+
+    // Stop when complete
+    if (progress >= 1) {
+      clearInterval(progressInterval);
+      progressInterval = null;
+    }
+  }, 50);
+
+  console.log('[VoiceWidget] Progress animation started (5 seconds)');
+}
+
+/**
+ * Stop circular progress animation
+ */
+function stopProgressAnimation() {
+  if (progressInterval) {
+    clearInterval(progressInterval);
+    progressInterval = null;
+  }
+
+  // Reset progress bar
+  const circumference = 2 * Math.PI * 45;
+  progressBar.style.strokeDashoffset = circumference;
+
+  console.log('[VoiceWidget] Progress animation stopped');
 }
 
 /**

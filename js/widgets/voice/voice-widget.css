@@ -211,6 +211,41 @@ body {
   color: white;
 }
 
+/* Circular Progress Indicator (hidden by default) */
+.voice-widget__progress-circle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 76px;
+  height: 76px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+
+.voice-widget--listening .voice-widget__progress-circle {
+  opacity: 1;
+}
+
+.voice-widget__progress-bg {
+  fill: none;
+  stroke: var(--bg-tertiary, rgba(255, 255, 255, 0.1));
+  stroke-width: 4;
+}
+
+.voice-widget__progress-bar {
+  fill: none;
+  stroke: var(--accent-color, #4CAF50);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 283; /* 2 * PI * 45 */
+  stroke-dashoffset: 283;
+  transform: rotate(-90deg);
+  transform-origin: 50% 50%;
+  transition: stroke-dashoffset 0.1s linear;
+}
+
 /* Pulse Ring Animation */
 @keyframes pulse-ring {
   0% {

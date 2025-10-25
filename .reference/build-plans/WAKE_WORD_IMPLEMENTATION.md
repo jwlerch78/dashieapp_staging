@@ -55,14 +55,16 @@ Both wake word and button click now use the same cloud STT flow:
 2. Added `_configureWakeWord()` - Configures Android for webapp-controlled mode (`autoRecord: false`)
 3. Added `_handleWakeWordDetected()` - Plays beep and triggers recording
 4. Added `_handleAudioData()` - Processes received audio data
-5. Added `_base64ToBlob()` - Converts base64 audio to blob
-6. Added `_playBeep()` - Plays 800Hz beep using Web Audio API
-7. Added `_sendToSpeechAPI()` - Placeholder for future cloud STT integration
-8. Updated `_handleAndroidEvent()` - Calls `_handleWakeWordDetected()` on wake word
-9. Updated `startListening()` - Now uses cloud STT instead of native Android STT
-10. Updated `stopListening()` - Now calls `stopCloudSTTCapture()` instead of `stopListening()`
-11. Updated `cancelListening()` - Now calls `stopCloudSTTCapture()` instead of `cancelListening()`
-12. Updated `destroy()` - Cleans up audio data handler
+5. Added `_base64ToBlob()` - Converts base64 PCM to WAV blob with headers
+6. Added `_addWavHeaders()` - Adds WAV file headers to raw PCM data
+7. Added `_playBeep()` - Plays 800Hz beep using Web Audio API
+8. Added `_sendToSpeechAPI(audioBlob)` - Sends audio to Deepgram/Whisper STT API
+9. Updated `_handleAndroidEvent()` - Calls `_handleWakeWordDetected()` on wake word
+10. Updated `startListening()` - Now uses cloud STT instead of native Android STT
+11. Updated `stopListening()` - Now calls `stopCloudSTTCapture()` instead of `stopListening()`
+12. Updated `cancelListening()` - Now calls `stopCloudSTTCapture()` instead of `cancelListening()`
+13. Updated `destroy()` - Cleans up audio data handler
+14. Updated file header - Documents cloud STT integration
 
 **Key Configuration:**
 ```javascript
@@ -123,16 +125,82 @@ startListening() {
 
 ### 3. Audio Processing
 
-When audio is received:
+When audio is received from Android (raw PCM):
 ```javascript
 _handleAudioData(base64Audio) {
+  // Convert base64 PCM to WAV blob (adds WAV headers)
   const audioBlob = this._base64ToBlob(base64Audio);
-  await this._sendToSpeechAPI();  // Delegates to Android STT
+
+  // Send to Deepgram STT API
+  await this._sendToSpeechAPI(audioBlob);
 
   // Restart wake word detection
   setTimeout(() => {
     this.startWakeWordDetection();
   }, 500);
+}
+```
+
+### 3b. PCM to WAV Conversion
+
+Android sends **raw PCM data** (no headers), but Deepgram expects **WAV format**.
+We add WAV headers to make it valid:
+
+```javascript
+_base64ToBlob(base64) {
+  // Decode base64 to raw PCM bytes
+  const binaryString = atob(base64);
+  const pcmBytes = new Uint8Array(binaryString.length);
+  for (let i = 0; i < binaryString.length; i++) {
+    pcmBytes[i] = binaryString.charCodeAt(i);
+  }
+
+  // Add WAV headers (44 bytes) to PCM data
+  return this._addWavHeaders(pcmBytes);
+}
+
+_addWavHeaders(pcmData) {
+  // Audio specs: 16kHz, 16-bit, mono, little-endian
+  const sampleRate = 16000;
+  const numChannels = 1;
+  const bitsPerSample = 16;
+
+  // Create 44-byte WAV header
+  const header = new ArrayBuffer(44);
+  const view = new DataView(header);
+
+  // ... WAV header construction ...
+
+  // Combine header + PCM data = valid WAV file
+  return new Blob([header, pcmData], { type: 'audio/wav' });
+}
+```
+
+### 4. Cloud STT Integration (Deepgram)
+
+Sends audio to Supabase Edge Function:
+```javascript
+async _sendToSpeechAPI(audioBlob) {
+  const formData = new FormData();
+  formData.append('audio', audioBlob, 'recording.wav');
+  formData.append('language', 'en');
+
+  const response = await fetch(
+    `${SUPABASE_CONFIG.url}/functions/v1/deepgram-stt`,
+    {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_CONFIG.anonKey,
+        'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+      },
+      body: formData
+    }
+  );
+
+  const result = await response.json();
+
+  // Emit transcript to VoiceCommandRouter
+  AppComms.emit('VOICE_TRANSCRIPT_RECEIVED', result.transcript);
 }
 ```
 
@@ -190,13 +258,17 @@ _handleAudioData(base64Audio) {
 [AndroidVoiceProvider] Wake word detected - triggering webapp-controlled recording
 [AndroidVoiceProvider] Played wake word beep
 [AndroidVoiceProvider] Starting cloud STT capture (5 seconds)
-[AndroidVoiceProvider] Android voice event: listeningStarted
-[AndroidVoiceProvider] Android voice event: listeningEnded
-[AndroidVoiceProvider] Received audio data from Android { size: "80KB" }
-[AndroidVoiceProvider] Audio blob created { size: "81920 bytes" }
-[AndroidVoiceProvider] Sending audio to speech-to-text API
-[AndroidVoiceProvider] Audio processing delegated to Android native layer
-[AndroidVoiceProvider] Android voice event: speechResult "set dark mode"
+[VoiceWidget] Voice event: VOICE_LISTENING_STARTED
+[VoiceWidget] Beep played (two-tone, 300ms)
+[VoiceWidget] State changed to: listening
+[VoiceWidget] Voice event: VOICE_PARTIAL_RESULT Recording: 20%
+[VoiceWidget] Voice event: VOICE_PARTIAL_RESULT Recording: 40%
+[VoiceWidget] Voice event: VOICE_PARTIAL_RESULT Recording: 60%
+[VoiceWidget] Voice event: VOICE_PARTIAL_RESULT Recording: 80%
+[AndroidVoiceProvider] Received audio data from Android { size: "211KB" }
+[AndroidVoiceProvider] Audio blob created { size: "216064 bytes" }
+[AndroidVoiceProvider] Sending audio to Deepgram STT API { size: "211KB" }
+[AndroidVoiceProvider] STT transcript received { transcript: "set dark mode", confidence: 0.95, processingTime: "187ms" }
 [VoiceCommandRouter] Processing voice command: "set dark mode"
 [VoiceCommandRouter] Theme changed to: dark
 [AndroidVoiceProvider] Starting wake word detection
