@@ -4,6 +4,7 @@
 import { createLogger } from '../../../utils/logger.js';
 import { SettingsPageBase } from '../core/settings-page-base.js';
 import { AVAILABLE_VOICES, DEFAULT_VOICE_ID } from '../../../../config.js';
+import AppComms from '../../../core/app-comms.js';
 
 const logger = createLogger('SettingsVoicePage');
 
@@ -93,10 +94,10 @@ export class SettingsVoicePage extends SettingsPageBase {
                                  data-value="${voice.id}"
                                  role="button"
                                  tabindex="0">
-                                <div>
-                                    <div class="settings-modal__menu-label">${voice.name}</div>
-                                    <div class="settings-modal__menu-sublabel">${voice.description}</div>
-                                </div>
+                                <span class="settings-modal__menu-label">
+                                    ${voice.name}
+                                    <span class="settings-modal__menu-sublabel">(${voice.description})</span>
+                                </span>
                                 <span class="settings-modal__cell-checkmark">${voice.id === currentVoiceId ? '✓' : ''}</span>
                             </div>
                         `).join('')}
@@ -113,10 +114,10 @@ export class SettingsVoicePage extends SettingsPageBase {
                                  data-value="${voice.id}"
                                  role="button"
                                  tabindex="0">
-                                <div>
-                                    <div class="settings-modal__menu-label">${voice.name}</div>
-                                    <div class="settings-modal__menu-sublabel">${voice.description}</div>
-                                </div>
+                                <span class="settings-modal__menu-label">
+                                    ${voice.name}
+                                    <span class="settings-modal__menu-sublabel">(${voice.description})</span>
+                                </span>
                                 <span class="settings-modal__cell-checkmark">${voice.id === currentVoiceId ? '✓' : ''}</span>
                             </div>
                         `).join('')}
@@ -159,6 +160,13 @@ export class SettingsVoicePage extends SettingsPageBase {
         if (window.settingsStore) {
             window.settingsStore.set('interface.voiceEnabled', enabled);
             await window.settingsStore.save();
+
+            // Trigger settings changed event for voice system to pick up changes
+            AppComms.publish(AppComms.events.SETTINGS_CHANGED, {
+                interface: {
+                    voiceEnabled: enabled
+                }
+            });
         }
     }
 
@@ -172,6 +180,13 @@ export class SettingsVoicePage extends SettingsPageBase {
         if (window.settingsStore) {
             window.settingsStore.set('interface.voiceId', voiceId);
             await window.settingsStore.save();
+
+            // Trigger settings changed event for voice system to pick up changes
+            AppComms.publish(AppComms.events.SETTINGS_CHANGED, {
+                interface: {
+                    voiceId: voiceId
+                }
+            });
         }
 
         // Update display value

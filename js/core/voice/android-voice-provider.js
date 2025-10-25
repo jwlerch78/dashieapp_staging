@@ -1,17 +1,22 @@
 /**
- * AndroidVoiceProvider - Android voice implementation with cloud TTS
+ * AndroidVoiceProvider - Android voice implementation with cloud TTS & STT
  *
  * Voice functionality:
  * - Cloud TTS (ElevenLabs/OpenAI via Supabase Edge Functions)
  * - Fallback to native Android TTS if cloud fails
- * - Speech Recognition (Android native)
+ * - Cloud STT (Deepgram/Whisper via Supabase Edge Functions)
  * - Wake Word Detection (Porcupine)
  *
  * Events from Android are received via window.onDashieVoiceEvent()
  * and translated to AppComms events.
  *
  * TTS: Uses same cloud implementation as WebVoiceProvider for consistent
- * voice quality across all platforms. Settings are loaded from config.js.
+ * voice quality across all platforms.
+ *
+ * STT: Uses cloud STT (Deepgram or Whisper) instead of Android native STT
+ * because Google's native STT library is not supported on Fire TV.
+ *
+ * Settings are loaded from config.js (VOICE_CONFIG).
  */
 
 import { createLogger } from '../../utils/logger.js';
@@ -58,6 +63,13 @@ export class AndroidVoiceProvider {
       // Setup event handler for Android voice events
       this._setupEventHandler();
 
+      // Setup audio data callback for cloud STT
+      this._setupAudioDataHandler();
+
+      // Configure wake word for webapp-controlled mode (Option 2)
+      // This means webapp will play beep and trigger recording, not automatic
+      this._configureWakeWord();
+
       // Start wake word detection after a delay to allow native layer to initialize
       // The Porcupine wake word detector needs time to load on Android
       setTimeout(() => {
@@ -92,6 +104,43 @@ export class AndroidVoiceProvider {
   }
 
   /**
+   * Setup window.onDashieAudioData handler for cloud STT audio
+   */
+  _setupAudioDataHandler() {
+    // Save original handler if it exists
+    this.originalAudioDataHandler = window.onDashieAudioData;
+
+    // Set our audio data handler
+    window.onDashieAudioData = (base64Audio) => {
+      this._handleAudioData(base64Audio);
+
+      // Call original handler if it existed
+      if (this.originalAudioDataHandler) {
+        this.originalAudioDataHandler(base64Audio);
+      }
+    };
+
+    logger.info('Android audio data handler registered');
+  }
+
+  /**
+   * Configure wake word for webapp-controlled mode (Option 2)
+   * In this mode, webapp plays beep and triggers recording
+   */
+  _configureWakeWord() {
+    try {
+      // Configure wake word: autoRecord=false, duration=5 seconds
+      // This means Android will NOT auto-record, webapp controls when to record
+      window.DashieNative.setWakeWordConfig(false, 5);
+
+      const config = JSON.parse(window.DashieNative.getWakeWordConfig());
+      logger.success('Wake word configured for webapp-controlled mode', config);
+    } catch (error) {
+      logger.error('Failed to configure wake word:', error);
+    }
+  }
+
+  /**
    * Handle events from Android native layer
    */
   _handleAndroidEvent(event, data) {
@@ -122,8 +171,11 @@ export class AndroidVoiceProvider {
         break;
 
       case 'wakeWordDetected':
-        logger.info('Wake word detected');
+        logger.info('Wake word detected - triggering webapp-controlled recording');
         AppComms.emit('VOICE_WAKE_WORD_DETECTED');
+
+        // Webapp-controlled mode: Play beep, then trigger recording
+        this._handleWakeWordDetected();
         break;
 
       case 'wakeWordError':
@@ -142,7 +194,160 @@ export class AndroidVoiceProvider {
   }
 
   /**
+   * Handle wake word detection in webapp-controlled mode
+   * Plays beep, then triggers cloud STT recording
+   * @private
+   */
+  _handleWakeWordDetected() {
+    try {
+      // Play beep sound to acknowledge wake word
+      this._playBeep();
+
+      // Start cloud STT capture after short delay (allow beep to play)
+      setTimeout(() => {
+        logger.info('Starting cloud STT capture (5 seconds)');
+        window.DashieNative.startCloudSTTCapture(5);
+      }, 100);
+    } catch (error) {
+      logger.error('Error handling wake word detection:', error);
+    }
+  }
+
+  /**
+   * Handle audio data received from Android cloud STT
+   * Converts base64 to blob and sends to speech-to-text API
+   * @private
+   * @param {string} base64Audio - Base64 encoded PCM audio data
+   */
+  async _handleAudioData(base64Audio) {
+    try {
+      logger.info('Received audio data from Android', {
+        size: Math.round(base64Audio.length / 1024) + 'KB'
+      });
+
+      // Convert base64 to blob
+      const audioBlob = this._base64ToBlob(base64Audio);
+      logger.debug('Audio blob created', { size: audioBlob.size + ' bytes' });
+
+      // Send to speech-to-text API (Deepgram)
+      await this._sendToSpeechAPI(audioBlob);
+
+      // Restart wake word detection for next command
+      setTimeout(() => {
+        this.startWakeWordDetection();
+      }, 500);
+
+    } catch (error) {
+      logger.error('Error handling audio data:', error);
+      AppComms.emit('VOICE_ERROR', { message: 'Failed to process audio' });
+    }
+  }
+
+  /**
+   * Convert base64 string to audio blob
+   * @private
+   * @param {string} base64 - Base64 encoded audio data
+   * @returns {Blob} Audio blob
+   */
+  _base64ToBlob(base64) {
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+    return new Blob([bytes], { type: 'audio/wav' });
+  }
+
+  /**
+   * Play beep sound to acknowledge wake word detection
+   * @private
+   */
+  _playBeep() {
+    try {
+      // Create a simple beep using Web Audio API
+      // @ts-ignore - webkitAudioContext for older browsers
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      const audioContext = new AudioContextClass();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      // Configure beep: 800Hz tone for 150ms
+      oscillator.frequency.value = 800;
+      oscillator.type = 'sine';
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.15);
+
+      logger.debug('Played wake word beep');
+    } catch (error) {
+      logger.error('Error playing beep:', error);
+      // Non-critical error, continue anyway
+    }
+  }
+
+  /**
+   * Send audio blob to speech-to-text API (Deepgram)
+   * @private
+   * @param {Blob} audioBlob - Audio data to transcribe
+   */
+  async _sendToSpeechAPI(audioBlob) {
+    try {
+      logger.info('Sending audio to Deepgram STT API', {
+        size: Math.round(audioBlob.size / 1024) + 'KB'
+      });
+
+      // Get STT provider from config (defaults to Deepgram)
+      const sttProvider = this.voiceConfig.sttProvider || 'deepgram';
+      const sttEndpoint = sttProvider === 'deepgram' ? 'deepgram-stt' : 'whisper-stt';
+
+      // Build FormData with audio
+      const formData = new FormData();
+      formData.append('audio', audioBlob, 'recording.wav');
+      formData.append('language', 'en');
+
+      // Send to Supabase Edge Function
+      const response = await fetch(
+        `${SUPABASE_CONFIG.url}/functions/v1/${sttEndpoint}`,
+        {
+          method: 'POST',
+          headers: {
+            'apikey': SUPABASE_CONFIG.anonKey,
+            'Authorization': `Bearer ${SUPABASE_CONFIG.anonKey}`
+          },
+          body: formData
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(`STT API error: ${response.status} - ${error.error || 'Unknown'}`);
+      }
+
+      const result = await response.json();
+      logger.success('STT transcript received', {
+        transcript: result.transcript,
+        confidence: result.confidence,
+        processingTime: result.processing_time_ms + 'ms'
+      });
+
+      // Emit transcript as if it came from speechResult event
+      AppComms.emit('VOICE_TRANSCRIPT_RECEIVED', result.transcript);
+
+    } catch (error) {
+      logger.error('Error sending to speech API:', error);
+      AppComms.emit('VOICE_ERROR', { message: 'Failed to transcribe audio' });
+      throw error;
+    }
+  }
+
+  /**
    * Start listening for voice input
+   * Uses cloud STT capture (same as wake word flow)
    */
   startListening() {
     if (this.isCurrentlyListening) {
@@ -151,16 +356,31 @@ export class AndroidVoiceProvider {
     }
 
     try {
-      logger.info('Starting Android speech recognition');
-      window.DashieNative.startListening(); // With partial results
+      logger.info('Starting Android cloud STT capture (button click)');
+
+      // Use the same flow as wake word detection
+      // Play beep first
+      this._playBeep();
+
+      // Emit listening started event immediately (for UI feedback)
+      this.isCurrentlyListening = true;
+      AppComms.emit('VOICE_LISTENING_STARTED');
+
+      // Start cloud STT capture after brief delay (allow beep to play)
+      setTimeout(() => {
+        window.DashieNative.startCloudSTTCapture(5);
+      }, 100);
+
     } catch (error) {
       logger.error('Error starting Android listening:', error);
+      this.isCurrentlyListening = false;
       AppComms.emit('VOICE_ERROR', { message: 'Failed to start listening' });
     }
   }
 
   /**
    * Stop listening and return current transcript
+   * Cloud STT has fixed duration, so this stops early if needed
    */
   stopListening() {
     if (!this.isCurrentlyListening) {
@@ -169,8 +389,9 @@ export class AndroidVoiceProvider {
     }
 
     try {
-      logger.info('Stopping Android speech recognition');
-      window.DashieNative.stopListening();
+      logger.info('Stopping Android cloud STT capture');
+      window.DashieNative.stopCloudSTTCapture();
+      this.isCurrentlyListening = false;
     } catch (error) {
       logger.error('Error stopping Android listening:', error);
     }
@@ -178,6 +399,7 @@ export class AndroidVoiceProvider {
 
   /**
    * Cancel listening without returning result
+   * Cloud STT has fixed duration, so this stops early if needed
    */
   cancelListening() {
     if (!this.isCurrentlyListening) {
@@ -186,8 +408,8 @@ export class AndroidVoiceProvider {
     }
 
     try {
-      logger.info('Cancelling Android speech recognition');
-      window.DashieNative.cancelListening();
+      logger.info('Cancelling Android cloud STT capture');
+      window.DashieNative.stopCloudSTTCapture();
       this.isCurrentlyListening = false;
     } catch (error) {
       logger.error('Error cancelling Android listening:', error);
@@ -470,11 +692,17 @@ export class AndroidVoiceProvider {
       this.stopWakeWordDetection();
     }
 
-    // Restore original event handler
+    // Restore original event handlers
     if (this.originalVoiceEventHandler) {
       window.onDashieVoiceEvent = this.originalVoiceEventHandler;
     } else {
       window.onDashieVoiceEvent = null;
+    }
+
+    if (this.originalAudioDataHandler) {
+      window.onDashieAudioData = this.originalAudioDataHandler;
+    } else {
+      window.onDashieAudioData = null;
     }
 
     logger.info('AndroidVoiceProvider destroyed');

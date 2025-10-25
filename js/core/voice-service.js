@@ -51,11 +51,107 @@ class VoiceService {
       await this.provider.initialize();
       this.initialized = true;
 
+      // Load voice settings from settingsStore and apply to provider
+      this._loadAndApplyVoiceSettings();
+
+      // Subscribe to settings changes to update voice when settings change
+      this._subscribeToSettingsChanges();
+
       logger.success('VoiceService initialized successfully');
     } catch (error) {
       logger.error('Failed to initialize VoiceService:', error);
       throw error;
     }
+  }
+
+  /**
+   * Load voice settings from settingsStore and apply to provider
+   * @private
+   */
+  _loadAndApplyVoiceSettings() {
+    try {
+      if (!window.settingsStore) {
+        logger.warn('settingsStore not available, using default voice settings');
+        return;
+      }
+
+      // Get voice settings from store
+      const voiceEnabled = window.settingsStore.get('interface.voiceEnabled');
+      const voiceId = window.settingsStore.get('interface.voiceId');
+
+      logger.info('Loading voice settings', {
+        voiceEnabled: voiceEnabled !== false, // Default to true if not set
+        voiceId: voiceId || 'default'
+      });
+
+      // Apply settings to provider if they exist
+      if (voiceId) {
+        this._applyVoiceSettings({ voiceId, voiceEnabled });
+      }
+    } catch (error) {
+      logger.error('Failed to load voice settings:', error);
+    }
+  }
+
+  /**
+   * Apply voice settings to the provider
+   * @private
+   * @param {Object} settings - Voice settings
+   * @param {string} settings.voiceId - Voice ID from AVAILABLE_VOICES
+   * @param {boolean} settings.voiceEnabled - Whether voice is enabled
+   */
+  _applyVoiceSettings(settings) {
+    try {
+      if (!this.provider || typeof this.provider.setVoiceSettings !== 'function') {
+        logger.warn('Provider does not support setVoiceSettings');
+        return;
+      }
+
+      // Import AVAILABLE_VOICES from config to find the voice object
+      import('../../config.js').then(({ AVAILABLE_VOICES }) => {
+        const voice = Object.values(AVAILABLE_VOICES).find(v => v.id === settings.voiceId);
+
+        if (voice) {
+          this.provider.setVoiceSettings({
+            voice: voice,
+            enabled: settings.voiceEnabled !== false
+          });
+
+          logger.success('Voice settings applied', {
+            voiceName: voice.name,
+            voiceId: voice.id,
+            enabled: settings.voiceEnabled !== false
+          });
+        } else {
+          logger.warn('Voice not found in AVAILABLE_VOICES', { voiceId: settings.voiceId });
+        }
+      });
+    } catch (error) {
+      logger.error('Failed to apply voice settings:', error);
+    }
+  }
+
+  /**
+   * Subscribe to settings changes to update voice provider when settings change
+   * @private
+   */
+  _subscribeToSettingsChanges() {
+    AppComms.subscribe(AppComms.events.SETTINGS_CHANGED, (data) => {
+      // Check if voice settings changed
+      if (data?.interface?.voiceId || data?.interface?.voiceEnabled !== undefined) {
+        logger.info('Voice settings changed, updating provider', {
+          voiceId: data.interface?.voiceId,
+          voiceEnabled: data.interface?.voiceEnabled
+        });
+
+        this._applyVoiceSettings({
+          voiceId: data.interface?.voiceId || window.settingsStore?.get('interface.voiceId'),
+          voiceEnabled: data.interface?.voiceEnabled
+        });
+      }
+    });
+
+    logger.debug('Subscribed to settings changes for voice updates');
   }
 
   /**

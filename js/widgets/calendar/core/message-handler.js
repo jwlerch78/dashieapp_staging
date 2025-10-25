@@ -24,7 +24,17 @@ export class CalendarMessageHandler {
   handleMessage(event) {
     if (!event.data) return;
 
-    logger.debug('Calendar widget received message', { type: event.data.type, action: event.data.action, payload: event.data.payload });
+    // Log ALL messages (especially theme-related ones)
+    if (event.data.type === 'theme-change' || event.data.type === 'data' || event.data.type === 'widget-update') {
+      logger.info('📨 Calendar received message', {
+        type: event.data.type,
+        action: event.data.action,
+        hasTheme: !!(event.data.theme || event.data.payload?.theme),
+        theme: event.data.theme || event.data.payload?.theme
+      });
+    } else {
+      logger.debug('Calendar widget received message', { type: event.data.type, action: event.data.action });
+    }
 
     // Handle calendar data from widget-data-manager
     if (event.data.type === 'data' && event.data.payload?.dataType === 'calendar') {
@@ -69,7 +79,7 @@ export class CalendarMessageHandler {
     }
 
     // Handle data/theme updates
-    if (event.data.type === 'widget-update' || event.data.type === 'theme-change') {
+    if (event.data.type === 'data' || event.data.type === 'widget-update' || event.data.type === 'theme-change') {
       this.handleDataServiceMessage(event.data);
       return;
     }
@@ -84,10 +94,43 @@ export class CalendarMessageHandler {
    * Handle data service messages
    */
   handleDataServiceMessage(data) {
-    logger.debug('Calendar widget received message', { type: data.type, hasPayload: !!data.payload });
+    logger.info('📨 Calendar handleDataServiceMessage', {
+      type: data.type,
+      action: data.action,
+      hasPayload: !!data.payload,
+      hasTheme: !!data.payload?.theme,
+      theme: data.payload?.theme,
+      currentTheme: this.widget.settingsManager.currentTheme
+    });
 
     switch (data.type) {
+      case 'data':
+        // Handle new widget messenger format (type: 'data', action: 'state-update')
+        if (data.action === 'state-update') {
+          // Handle calendar data
+          if (data.payload?.calendar) {
+            this.widget.dataManager.handleCalendarData({
+              events: data.payload.calendar.events || [],
+              calendars: data.payload.calendar.calendars || [],
+              lastUpdated: data.payload.calendar.lastUpdated
+            });
+          }
+
+          // Handle theme changes
+          if (data.payload?.theme && data.payload.theme !== this.widget.settingsManager.currentTheme) {
+            logger.info('🎨 Applying theme from state-update', {
+              oldTheme: this.widget.settingsManager.currentTheme,
+              newTheme: data.payload.theme
+            });
+            this.widget.settingsManager.applyTheme(data.payload.theme);
+          } else if (data.payload?.theme) {
+            logger.debug('⏭️  Theme unchanged, skipping apply', { theme: data.payload.theme });
+          }
+        }
+        break;
+
       case 'widget-update':
+        // Legacy format support
         if (data.action === 'state-update' && data.payload?.calendar) {
           this.widget.dataManager.handleCalendarData({
             events: data.payload.calendar.events || [],
@@ -102,6 +145,11 @@ export class CalendarMessageHandler {
         break;
 
       case 'theme-change':
+        // Legacy format support (direct from ThemeApplier)
+        logger.info('🎨 Applying theme from theme-change message', {
+          oldTheme: this.widget.settingsManager.currentTheme,
+          newTheme: data.theme
+        });
         this.widget.settingsManager.applyTheme(data.theme);
         break;
     }

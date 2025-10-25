@@ -217,6 +217,13 @@
   flex: 1;
 }
 
+.settings-modal__menu-sublabel {
+  font-size: 15px;
+  color: var(--settings-text-value);
+  font-weight: 400;
+  margin-left: 6px;
+}
+
 .settings-modal__cell-value {
   font-size: 17px;
   color: var(--settings-text-value);

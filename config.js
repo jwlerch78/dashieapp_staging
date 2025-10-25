@@ -86,7 +86,9 @@ export function getDefaultSettings(userEmail = 'unknown@example.com') {
       reSleepDelay: DEFAULT_RESLEEP_DELAY,
       sleepTimerEnabled: DEFAULT_SLEEP_TIMER_ENABLED,
       theme: DEFAULT_THEME,
-      dynamicGreeting: DEFAULT_DYNAMIC_GREETING
+      dynamicGreeting: DEFAULT_DYNAMIC_GREETING,
+      voiceEnabled: true,                           // Voice/TTS enabled by default
+      voiceId: DEFAULT_VOICE_ID                     // Default voice (Bella)
     },
 
     // Account Settings
@@ -490,6 +492,35 @@ export const VOICE_CONFIG = {
 // Quick access to default voice ID
 export const DEFAULT_VOICE_ID = VOICE_CONFIG.defaultVoice.id;
 export const DEFAULT_VOICE_NAME = VOICE_CONFIG.defaultVoice.name;
+
+// =============================================================================
+// AI CONFIGURATION
+// =============================================================================
+
+/**
+ * Claude AI configuration for conversational assistant
+ */
+export const AI_CONFIG = {
+  // AI Provider: 'claude' (only Claude supported for now)
+  provider: 'claude',
+
+  // Claude settings
+  claude: {
+    model: 'claude-sonnet-4-5-20250929',  // Sonnet 4.5 (best balance of speed/quality)
+    maxTokens: 1024,                       // Max response length
+    temperature: 1.0,                      // Response creativity (0-1)
+
+    // System prompt - keep it simple for now, context enrichment comes later
+    systemPrompt: `Keep responses concise and conversational since they will be read aloud. Be helpful and friendly.`
+  },
+
+  // Conversation settings
+  conversation: {
+    maxHistoryMessages: 20,    // Keep last N messages in context
+    pruneThreshold: 30,        // Prune history when it exceeds this
+    keepRecentCount: 10        // Keep this many recent messages after pruning
+  }
+};
 
 // =============================================================================
 // GOOGLE API CONFIGURATION

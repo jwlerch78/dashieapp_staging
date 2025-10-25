@@ -11,6 +11,7 @@
 
 import { createLogger } from '../utils/logger.js';
 import AppComms from './app-comms.js';
+import { AIService } from '../data/services/ai-service.js';
 
 const logger = createLogger('VoiceCommandRouter');
 
@@ -266,27 +267,42 @@ class VoiceCommandRouter {
    * @private
    * @param {string} transcript - Voice command text
    */
-  _sendToAI(transcript) {
-    logger.info('Unrecognized command - would send to AI:', transcript);
+  async _sendToAI(transcript) {
+    logger.info('Sending to AI:', transcript);
 
     // Emit event for logging/debugging
     AppComms.emit('VOICE_COMMAND_SENT_TO_AI', { transcript });
 
-    // Future: Send to Claude API
-    // const response = await ClaudeAPIService.processCommand(transcript);
-    // this._executeAIAction(response);
+    try {
+      // Send to Claude API via AIService
+      const response = await AIService.chat(transcript);
 
-    // Consistent error message for both voice and text
-    const errorMessage = 'I didn\'t understand that command';
+      // Send AI response to widget
+      this._sendAIResponse(response, {
+        command: 'ai-chat',
+        success: true,
+        transcript
+      });
 
-    this._sendAIResponse(errorMessage, {
-      command: 'unknown',
-      success: false,
-      transcript
-    });
+      // Speak AI response
+      this._speakConfirmation(response);
 
-    // Speak same message
-    this._speakError(errorMessage);
+    } catch (error) {
+      logger.error('AI processing failed:', error);
+
+      // Fallback error message
+      const errorMessage = 'Sorry, I\'m having trouble connecting to my brain right now. Can you try again?';
+
+      this._sendAIResponse(errorMessage, {
+        command: 'ai-error',
+        success: false,
+        transcript,
+        error: error.message
+      });
+
+      // Speak error message
+      this._speakError(errorMessage);
+    }
   }
 
   /**

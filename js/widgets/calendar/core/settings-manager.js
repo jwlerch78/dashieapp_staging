@@ -93,8 +93,12 @@ export class CalendarSettingsManager {
    */
   detectAndApplyInitialTheme() {
     const initialTheme = detectCurrentTheme('light');
+    logger.info('🔍 Initial theme detected', {
+      theme: initialTheme,
+      parentDataTheme: window.parent?.document?.body?.getAttribute('data-theme'),
+      parentBodyClasses: window.parent?.document?.body?.className
+    });
     this.applyTheme(initialTheme);
-    logger.debug('Initial theme detected', { theme: initialTheme });
   }
 
   /**
@@ -102,11 +106,11 @@ export class CalendarSettingsManager {
    */
   applyTheme(theme) {
     if (theme === this.currentTheme) {
-      logger.debug('Theme already applied, skipping', { theme });
+      logger.info('⏭️  Theme already applied, skipping', { theme });
       return;
     }
 
-    logger.debug('Applying theme to Calendar widget', {
+    logger.info('🎨 Applying theme to Calendar widget', {
       from: this.currentTheme,
       to: theme
     });
@@ -114,7 +118,7 @@ export class CalendarSettingsManager {
     this.currentTheme = theme;
     this.applyThemeToElements(theme);
 
-    logger.debug('Theme applied successfully', { theme });
+    logger.success('✅ Theme applied successfully', { theme });
   }
 
   /**

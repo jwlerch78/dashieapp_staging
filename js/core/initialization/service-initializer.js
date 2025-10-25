@@ -10,6 +10,7 @@ import { initializeWeatherService } from '../../data/services/weather-service.js
 import settingsService from '../../data/services/settings-service.js';
 import heartbeatService from '../../data/services/heartbeat-service.js';
 import { PhotosSettingsManager } from '../../modules/Settings/photos/photos-settings-manager.js';
+import { AIService } from '../../data/services/ai-service.js';
 import { SUPABASE_CONFIG } from '../../data/auth/auth-config.js';
 
 const logger = createLogger('ServiceInitializer');
@@ -77,6 +78,11 @@ export async function initializeServices() {
     } else {
       logger.warn('PhotosSettingsManager not initialized - photo service not ready');
     }
+
+    // Initialize AIService for conversational AI
+    await AIService.initialize();
+    window.aiService = AIService; // Expose for console debugging
+    logger.verbose('AIService initialized');
 
     logger.verbose('Data services initialized');
 
